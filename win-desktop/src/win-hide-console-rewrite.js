@@ -78,36 +78,10 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
     }
   }
 
-  if (url.includes('@nanmicoder/dsh-agent-teams')) {
-    next = rewriteAgentTeamsMemberDefaults(next)
-  }
-
   if (url.includes('@earendil-works/pi-ai/dist/api/openai-completions.js')) {
     next = rewriteOpenCodeMissingFinishReason(next)
   }
 
-  return next
-}
-
-const TEAMS_CONFIG_NEEDLE = 'memberModel: z.string(),'
-const TEAMS_CONFIG_PATCH = 'memberModel: z.string(),\n    memberReasoningEffort: z.string(),'
-const TEAMS_RESOLVED_NEEDLE = 'memberModel: config.memberModel,'
-const TEAMS_RESOLVED_PATCH = 'memberModel: config.memberModel,\n        memberReasoningEffort: config.memberReasoningEffort,'
-const TEAMS_EFFORT_NEEDLE = 'reasoningEffort: args.reasoning_effort,'
-const TEAMS_EFFORT_PATCH = 'reasoningEffort: args.reasoning_effort ?? config.memberReasoningEffort,'
-
-/** Accept memberReasoningEffort from the desktop overlay and apply it when add_member omits effort. */
-export function rewriteAgentTeamsMemberDefaults(source) {
-  let next = source
-  if (next.includes(TEAMS_CONFIG_NEEDLE) && !next.includes('memberReasoningEffort: z.string()')) {
-    next = next.replace(TEAMS_CONFIG_NEEDLE, TEAMS_CONFIG_PATCH)
-  }
-  if (next.includes(TEAMS_RESOLVED_NEEDLE) && !next.includes('memberReasoningEffort: config.memberReasoningEffort')) {
-    next = next.replace(TEAMS_RESOLVED_NEEDLE, TEAMS_RESOLVED_PATCH)
-  }
-  if (next.includes(TEAMS_EFFORT_NEEDLE) && !next.includes(TEAMS_EFFORT_PATCH)) {
-    next = next.replace(TEAMS_EFFORT_NEEDLE, TEAMS_EFFORT_PATCH)
-  }
   return next
 }
 

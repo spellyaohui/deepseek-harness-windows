@@ -9,7 +9,6 @@ import {
   HIDDEN_CONSOLE_STARTF,
   injectWindowsHideArgs,
   rewriteDesktopConsoleSource,
-  rewriteAgentTeamsMemberDefaults,
   patchNodeChildProcess,
 } from '../src/win-hide-console-rewrite.js'
 import { buildDshArgs, resolveAgentTeamsPatch, resolveWinHideConsoleImport } from '../src/dsh-service.js'
@@ -30,15 +29,6 @@ function sandboxAclBundleSource() {
 const subprocessSource = readFileSync(require.resolve('@deepseek-ai/dsh-subprocess-local'), 'utf8')
 const sandboxAclSource = sandboxAclBundleSource()
 const sandboxLocalSource = readFileSync(require.resolve('@deepseek-ai/dsh-sandbox-local'), 'utf8')
-const agentTeamsIndex = readFileSync(
-  join(packageRoot('@nanmicoder/dsh-agent-teams'), 'lib', 'index.js'),
-  'utf8',
-)
-const agentTeamsTools = readFileSync(
-  join(packageRoot('@nanmicoder/dsh-agent-teams'), 'lib', 'tools.js'),
-  'utf8',
-)
-
 test('dsh web args preload the Windows console-hide guard', () => {
   const hook = resolveWinHideConsoleImport()
   const args = buildDshArgs('entry.js', { platform: 'win32' })
@@ -142,22 +132,15 @@ test('console-hide --import still lets Node spawn cmd with piped output', () => 
   assert.match(result.stdout, /hide-console-ok/)
 })
 
-test('desktop AgentTeams overlay pins member Flash + MAX', () => {
+test('desktop AgentTeams overlay leaves member selection to the local plugin', () => {
   const overlay = readFileSync(resolveAgentTeamsPatch(), 'utf8')
-  assert.match(overlay, /memberModel:\s*deepseek-v4-flash/)
-  assert.match(overlay, /memberReasoningEffort:\s*max/)
+  assert.match(overlay, /@nanmicoder\/dsh-agent-teams/)
+  assert.doesNotMatch(overlay, /memberModel|memberReasoningEffort/)
 })
 
-test('rewrite accepts AgentTeams memberReasoningEffort and applies it as the omitted-effort default', () => {
-  const indexUrl = 'file:///x/node_modules/@nanmicoder/dsh-agent-teams/lib/index.js'
-  const toolsUrl = 'file:///x/node_modules/@nanmicoder/dsh-agent-teams/lib/tools.js'
-  const rewrittenIndex = rewriteDesktopConsoleSource(agentTeamsIndex, indexUrl)
-  const rewrittenTools = rewriteDesktopConsoleSource(agentTeamsTools, toolsUrl)
-  assert.match(rewrittenIndex, /memberReasoningEffort: z\.string\(\),/)
-  assert.match(rewrittenIndex, /memberReasoningEffort: config\.memberReasoningEffort,/)
-  assert.match(rewrittenTools, /reasoningEffort: args\.reasoning_effort \?\? config\.memberReasoningEffort,/)
-  assert.equal(rewriteAgentTeamsMemberDefaults(rewrittenIndex), rewrittenIndex)
-  assert.equal(rewriteAgentTeamsMemberDefaults(rewrittenTools), rewrittenTools)
+test('console rewrite leaves AgentTeams source untouched', () => {
+  const rewriteSource = readFileSync(new URL('../src/win-hide-console-rewrite.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(rewriteSource, /rewriteAgentTeamsMemberDefaults/)
 })
 
 test('console-hide loader can evaluate official spawn modules', () => {

@@ -7,12 +7,20 @@ import { readFileSync as readText } from 'node:fs'
 const clientSource = readFileSync(new URL('../desktop-settings-plugin/lib/client.js', import.meta.url), 'utf8')
 const patchSource = readFileSync(new URL('../config/agent-teams.patch.yml', import.meta.url), 'utf8')
 const serviceSource = readText(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
+const preloadSource = readFileSync(new URL('../src/preload.cjs', import.meta.url), 'utf8')
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
 test('desktop settings client registers a native settings section', () => {
   assert.match(clientSource, /id: 'desktop'/)
   assert.match(clientSource, /name: 'settings\.section'/)
   assert.match(clientSource, /ctx\.slots\.inject\('settings\.section'/)
-  assert.match(clientSource, /window\.dshDesktop\.fetchModels|bridge\.fetchModels/)
+  assert.match(clientSource, /窗口行为/)
+  assert.doesNotMatch(clientSource, /子智能体模型|agentTeamsMemberModel|agentTeamsMemberReasoningEffort/)
+  assert.doesNotMatch(preloadSource, /fetchModels|refreshModels/)
+})
+
+test('wrapper installs the local AgentTeams package', () => {
+  assert.equal(packageJson.dependencies['@nanmicoder/dsh-agent-teams'], 'file:agent-teams-plugin')
 })
 
 test('desktop settings plugin is included in the DSH patch graph', () => {

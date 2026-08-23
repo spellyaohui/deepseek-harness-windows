@@ -1,7 +1,4 @@
-# Desktop overlay for AgentTeams: members default to V4 Flash + MAX.
-# The captain keeps the session picker (typically V4 Pro + MAX).
-# memberReasoningEffort is accepted after the --import rewrite adds it to
-# the plugin Config schema; without that rewrite the field would be dropped.
+# Desktop overlay: AgentTeams owns member model and reasoning configuration.
 - insert:
     - id: desktop-settings
       name: '@deepseek-ai/dsh-desktop-settings'
@@ -10,5 +7,3 @@
       config:
         stateDir: .agent-teams
         memberProvider: spawn
-        memberModel: deepseek-v4-flash
-        memberReasoningEffort: max
