@@ -23,38 +23,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectArchivedTeamsActivity, collectTeamsActivity } from "./snapshot.js";
+import { buildHostModelCatalog } from "./host-model-catalog.js";
 import { AGENT_TEAMS_MIGRATION_VERSION, createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, } from "./settings.js";
 import { delegationPolicyUsagePreamble, policyMarker, registerDelegationPolicyLifecycle, } from "./routing-policy.js";
-export async function buildHostModelCatalog(llm) {
-    const models = [];
-    const failures = [];
-    for (const provider of llm.listProviders()) {
-        try {
-            for (const model of await llm.listModels(provider.id)) {
-                const exact = await llm.resolveModelInfo(provider.id, model.id);
-                models.push({
-                    provider: provider.id,
-                    id: model.id,
-                    name: model.name,
-                    efforts: exact.reasoning?.efforts.map((effort) => ({
-                        id: String(effort.id),
-                        name: effort.name,
-                    })) ?? [],
-                    ...(exact.reasoning?.defaultEffort === undefined
-                        ? {}
-                        : { defaultEffort: String(exact.reasoning.defaultEffort) }),
-                });
-            }
-        }
-        catch (error) {
-            failures.push({
-                provider: provider.id,
-                message: error instanceof Error ? error.message : String(error),
-            });
-        }
-    }
-    return { models, failures };
-}
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
 /** Workspace registry service key candidates, newest first. */

@@ -7,7 +7,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import yaml from 'js-yaml'
 import { generateAgentTeamsPatch } from '../src/dsh-service.js'
-import { buildHostModelCatalog } from '../agent-teams-plugin/lib/index.js'
+import { buildHostModelCatalog } from '../agent-teams-plugin/lib/host-model-catalog.js'
 
 const wrapperRoot = fileURLToPath(new URL('..', import.meta.url))
 const pluginRoot = join(wrapperRoot, 'node_modules', '@nanmicoder', 'dsh-agent-teams')
