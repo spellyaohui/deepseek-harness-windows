@@ -2,6 +2,8 @@
 - insert:
     - id: desktop-settings
       name: '@deepseek-ai/dsh-desktop-settings'
+    - id: session-markdown-export
+      name: '@deepseek-ai/dsh-session-markdown-export'
     - id: agent-teams
       name: '@nanmicoder/dsh-agent-teams'
       config:
