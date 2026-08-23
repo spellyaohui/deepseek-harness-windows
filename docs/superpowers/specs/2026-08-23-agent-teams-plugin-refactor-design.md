@@ -56,7 +56,7 @@ The fork adds:
 - a Harness `settings` namespace owned by AgentTeams;
 - a Harness-styled `子智能体` settings tab in the plugin's existing browser half;
 - live member-default resolution at `agent_teams_add_member` execution time;
-- a durable per-session delegation-policy event;
+- a durable per-session delegation-policy marker in the official request header;
 - Agent-scoped hiding of native/indirect delegation tools in Team mode;
 - routing prompt text that makes AgentTeams the only delegation path in Team mode;
 - one-time migration from legacy desktop settings.
@@ -145,34 +145,31 @@ The tool schema continues to expose explicit per-member route fields for genuine
 
 ## 9. Durable delegation policy
 
-Add a required, log-only AgentTeams event:
+Harness `0.1.1-rc.2` has a closed runtime Session-event vocabulary and exposes no plugin event-registration API. AgentTeams 0.1.13 already omits unrecognized `agent-teams/*` events for this reason. A custom required event would therefore either be dropped or require a Harness-core patch, which conflicts with the plugin-only maintenance goal.
+
+Persist the policy through the official `request/header` event instead. AgentTeams owns a parseable line in its policy-aware system-prompt section:
 
 ```text
-agent-teams/routing-policy
-```
-
-Its payload stores a versioned policy id rather than a mutable boolean:
-
-```json
-{ "policy": "teams-v1" }
+AgentTeams delegation policy: teams-v1
 ```
 
 or:
 
-```json
-{ "policy": "native-v1" }
+```text
+AgentTeams delegation policy: native-v1
 ```
 
-Policy ids map to immutable behavior in the plugin. A future tool-list change creates `teams-v2` rather than silently changing old sessions.
+The Agent loop already stores the complete rendered system prompt and visible tool schemas in `request/header`, so this marker is automatically bound to the exact tool surface the model received. Policy ids map to immutable behavior in the plugin. A future tool-list change creates `teams-v2` rather than silently changing old sessions.
 
 Resolution rules:
 
-1. A session with a routing-policy event restores that exact policy.
-2. A fresh top-level session with no model-visible history snapshots the current global `delegationMode` before its first request.
-3. A new child session inherits its parent policy.
-4. A legacy session that already contains request/message history but no routing-policy event uses `native-v1` for compatibility.
+1. A session whose latest `request/header.system` contains an AgentTeams policy marker restores that exact policy.
+2. A fresh top-level session with no `request/header`, user message, or assistant message snapshots the current global `delegationMode` before its first request.
+3. A new child session inherits the policy resolved from its parent and writes its own marker on its first request.
+4. A legacy session that already contains request/message history but no policy marker uses `native-v1` for compatibility.
+5. If a fresh process stops before the first request header is written, no model-visible request occurred, so selecting the current default again is safe.
 
-The event is required rather than ignorable because losing it could reconstruct a session with a different tool set and system prompt.
+An unknown policy id or a malformed marker blocks resume before prompt assembly. Losing or ignoring a marker must never silently reconstruct a different tool set.
 
 ## 10. Native delegation suppression
 
@@ -279,7 +276,7 @@ Window close/tray behavior remains in the desktop settings plugin.
 - Invalid settings are rejected before persistence by the Harness schema.
 - A configured provider/model that is no longer available causes member creation to fail with a route-specific message; no partial member record or child Session is created.
 - An unsupported explicit effort names the provider/model and supported efforts.
-- Failure to restore a required routing policy blocks resume rather than silently exposing a different tool set.
+- Failure to parse or restore a persisted request-header routing policy blocks resume rather than silently exposing a different tool set.
 - Catalog failures affect only the settings UI; existing stored settings and running teams continue to work.
 - AgentTeams tool/runtime failures keep their existing error and durable task semantics.
 
@@ -309,9 +306,9 @@ Window close/tray behavior remains in the desktop settings plugin.
 
 ### Routing-policy tests
 
-- fresh Team session records `teams-v1` before first request;
-- fresh Native session records `native-v1`;
-- legacy history without an event uses Native compatibility;
+- fresh Team session writes `teams-v1` into its first `request/header.system`;
+- fresh Native session writes `native-v1` into its first `request/header.system`;
+- legacy history without a policy marker uses Native compatibility;
 - child sessions inherit parent policy;
 - Team sessions hide every currently visible native/indirect delegation tool;
 - optional absent tools do not make restriction installation fail;
@@ -333,7 +330,7 @@ Window close/tray behavior remains in the desktop settings plugin.
 2. Add settings namespace and pure selection-policy tests.
 3. Connect live settings to future member creation.
 4. Add the Harness-native settings tab and official catalog integration.
-5. Add durable routing-policy events and Team/Native prompt behavior.
+5. Add durable request-header routing-policy markers and Team/Native prompt behavior.
 6. Add Agent-scoped native/indirect delegation suppression.
 7. Migrate legacy desktop settings.
 8. Remove static patch generation and loader rewrite.
