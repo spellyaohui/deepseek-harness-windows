@@ -54,6 +54,19 @@ interface WebRouteHost {
   }): () => void
 }
 
+interface HostModelCatalogEntry {
+  provider: string
+  id: string
+  name: string
+  efforts: readonly { id: string; name: string }[]
+  defaultEffort?: string
+}
+
+interface HostModelCatalogFailure {
+  provider: string
+  message: string
+}
+
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'] as const
 /** Workspace registry service key candidates, newest first. */
@@ -186,6 +199,57 @@ export function apply(ctx: Context, config: Config): void {
     installAgentTeamsGestureBoundary(ctx)
   }
 
+  let modelCatalogRegistered = false
+  const registerModelCatalog = (): void => {
+    if (modelCatalogRegistered) return
+    const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1])) as WebRouteHost | undefined
+    if (webServer === undefined) return
+    modelCatalogRegistered = true
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-agent-teams/models',
+      handler: async (req, res) => {
+        const responseHeaders = {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+        }
+        if (req.method !== 'GET') {
+          res.writeHead(405, { ...responseHeaders, allow: 'GET' })
+          res.end(JSON.stringify({ models: [], failures: [] }))
+          return
+        }
+        const models: HostModelCatalogEntry[] = []
+        const failures: HostModelCatalogFailure[] = []
+        for (const provider of ctx.llm.listProviders()) {
+          try {
+            for (const model of await ctx.llm.listModels(provider.id)) {
+              const exact = await ctx.llm.resolveModelInfo(provider.id, model.id)
+              models.push({
+                provider: provider.id,
+                id: model.id,
+                name: model.name,
+                efforts: exact.reasoning?.efforts.map((effort) => ({
+                  id: String(effort.id),
+                  name: effort.name,
+                })) ?? [],
+                ...(exact.reasoning?.defaultEffort === undefined
+                  ? {}
+                  : { defaultEffort: String(exact.reasoning.defaultEffort) }),
+              })
+            }
+          } catch (error: unknown) {
+            failures.push({
+              provider: provider.id,
+              message: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
+        res.writeHead(200, responseHeaders)
+        res.end(JSON.stringify({ models, failures }))
+      },
+    }), 'agent-teams: model catalog route')
+  }
+
   // The activity panel data/artwork routes need the Web server and the
   // workspace registry, which headless profiles do not mount; under
   // concurrent activation they may also bind after this plugin. Register the
@@ -272,10 +336,13 @@ export function apply(ctx: Context, config: Config): void {
     }), 'agent-teams: artwork route')
   }
 
+  registerModelCatalog()
   registerWebSurface()
   ctx.on('internal/service', (name) => {
-    if (WEB_SERVER_KEYS.includes(name as (typeof WEB_SERVER_KEYS)[number])
-      || WORKSPACE_KEYS.includes(name as (typeof WORKSPACE_KEYS)[number])) {
+    if (WEB_SERVER_KEYS.includes(name as (typeof WEB_SERVER_KEYS)[number])) {
+      registerModelCatalog()
+      registerWebSurface()
+    } else if (WORKSPACE_KEYS.includes(name as (typeof WORKSPACE_KEYS)[number])) {
       registerWebSurface()
     }
   })

@@ -1,11 +1,15 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { ActivityPanel } from "./ActivityPanel.js";
+import { AgentTeamsSettingsSection } from "./AgentTeamsSettingsSection.js";
 import { AgentTeamsCard } from "./AgentTeamsCard.js";
 import { agentTeamsCardDefinition } from "./agent-teams-card-definition.js";
 import { AGENT_TEAMS_LOCALE_NAMESPACE, en, zh, } from "./locales.js";
 import { openAgentTeamMember } from "./session-navigation.js";
+import { createAgentTeamsSettingsWriter } from "./settings-write.js";
 /** Required services: conversation nodes, slots, sessions navigation, and locale. */
-export const inject = ['conversationEvents', 'slots', 'sessions', 'locale'];
+export const inject = [
+    'conversationEvents', 'slots', 'sessions', 'locale', 'settingsScope', 'connection',
+];
 /** The replayed user message is the canonical transcript entry. */
 function HiddenAgentTeamsCommand() {
     return null;
@@ -17,6 +21,23 @@ function HiddenAgentTeamsCommand() {
  */
 export function apply(ctx) {
     ctx.effect(() => ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en }), 'agent-teams: dictionaries');
+    const settings = ctx.settingsScope.bind({ namespace: 'agent-teams' });
+    const settingsDescribe = ctx.settingsScope.describe();
+    const connection = ctx.get('connection');
+    const writer = createAgentTeamsSettingsWriter({
+        api: connection.api,
+        scope: settings,
+        describe: settingsDescribe,
+    });
+    const t = ctx.locale.bind(AGENT_TEAMS_LOCALE_NAMESPACE);
+    ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: 'agent-teams',
+        order: 30,
+        locale: AGENT_TEAMS_LOCALE_NAMESPACE,
+        label: () => t('settings.title'),
+        inject: () => ({ settings, writer }),
+    }, AgentTeamsSettingsSection));
     const openMember = (parentId, childId) => {
         void openAgentTeamMember(ctx.sessions, parentId, childId).catch((error) => {
             console.warn(`agent-teams: failed to open member transcript ${childId}: ${String(error)}`);

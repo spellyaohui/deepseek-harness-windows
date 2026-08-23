@@ -149,11 +149,11 @@ check(
       === JSON.stringify(placeholders(agentTeamsEn[key]))),
 )
 check(
-  'client registers the official locale namespace on both visible slots',
+  'client registers the official locale namespace on all three visible slots',
   AGENT_TEAMS_LOCALE_NAMESPACE === 'agentTeams'
     && clientIndexSource.includes("'conversationEvents', 'slots', 'sessions', 'locale'")
     && clientIndexSource.includes('ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en })')
-    && clientIndexSource.match(/locale:\s*AGENT_TEAMS_LOCALE_NAMESPACE/gu)?.length === 2,
+    && clientIndexSource.match(/locale:\s*AGENT_TEAMS_LOCALE_NAMESPACE/gu)?.length === 3,
 )
 check(
   'slash command transcript hides the duplicate pre-message result row',

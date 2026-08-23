@@ -116,6 +116,59 @@ export function apply(ctx, config) {
         });
         installAgentTeamsGestureBoundary(ctx);
     }
+    let modelCatalogRegistered = false;
+    const registerModelCatalog = () => {
+        if (modelCatalogRegistered)
+            return;
+        const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1]));
+        if (webServer === undefined)
+            return;
+        modelCatalogRegistered = true;
+        ctx.effect(() => webServer.register({
+            kind: 'exact',
+            path: '/plugins/dsh-agent-teams/models',
+            handler: async (req, res) => {
+                const responseHeaders = {
+                    'content-type': 'application/json; charset=utf-8',
+                    'cache-control': 'no-store',
+                };
+                if (req.method !== 'GET') {
+                    res.writeHead(405, { ...responseHeaders, allow: 'GET' });
+                    res.end(JSON.stringify({ models: [], failures: [] }));
+                    return;
+                }
+                const models = [];
+                const failures = [];
+                for (const provider of ctx.llm.listProviders()) {
+                    try {
+                        for (const model of await ctx.llm.listModels(provider.id)) {
+                            const exact = await ctx.llm.resolveModelInfo(provider.id, model.id);
+                            models.push({
+                                provider: provider.id,
+                                id: model.id,
+                                name: model.name,
+                                efforts: exact.reasoning?.efforts.map((effort) => ({
+                                    id: String(effort.id),
+                                    name: effort.name,
+                                })) ?? [],
+                                ...(exact.reasoning?.defaultEffort === undefined
+                                    ? {}
+                                    : { defaultEffort: String(exact.reasoning.defaultEffort) }),
+                            });
+                        }
+                    }
+                    catch (error) {
+                        failures.push({
+                            provider: provider.id,
+                            message: error instanceof Error ? error.message : String(error),
+                        });
+                    }
+                }
+                res.writeHead(200, responseHeaders);
+                res.end(JSON.stringify({ models, failures }));
+            },
+        }), 'agent-teams: model catalog route');
+    };
     // The activity panel data/artwork routes need the Web server and the
     // workspace registry, which headless profiles do not mount; under
     // concurrent activation they may also bind after this plugin. Register the
@@ -203,10 +256,14 @@ export function apply(ctx, config) {
             },
         }), 'agent-teams: artwork route');
     };
+    registerModelCatalog();
     registerWebSurface();
     ctx.on('internal/service', (name) => {
-        if (WEB_SERVER_KEYS.includes(name)
-            || WORKSPACE_KEYS.includes(name)) {
+        if (WEB_SERVER_KEYS.includes(name)) {
+            registerModelCatalog();
+            registerWebSurface();
+        }
+        else if (WORKSPACE_KEYS.includes(name)) {
             registerWebSurface();
         }
     });

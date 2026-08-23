@@ -389,13 +389,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:src/client/AgentTeamsCard.module.css.mjs
-		const css$1 = ".C0pAHW_root{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:10px;flex-direction:column;gap:8px;width:100%;min-width:0;padding:10px 12px;display:flex}.C0pAHW_head{align-items:center;gap:8px;min-width:0;display:flex}.C0pAHW_leadAvatar{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0;flex:none;width:30px;height:30px}.C0pAHW_teamName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:0 auto;font-size:13px;font-weight:600;line-height:20px;overflow:hidden}.C0pAHW_memberCount{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;margin-left:auto;font-size:11px;line-height:16px}.C0pAHW_panelButton{border:1px solid var(--dsw-alias-line-strong);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;flex:none;padding:2px 8px;font-size:10.5px;font-weight:600;line-height:16px;transition:border-color .12s,color .12s}.C0pAHW_panelButton:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}.C0pAHW_panelButton:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.C0pAHW_members{flex-wrap:wrap;gap:6px;min-width:0;display:flex}.C0pAHW_member{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);max-width:160px;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:5px;padding:3px 8px 3px 3px;font-size:11px;font-weight:500;line-height:16px;transition:border-color .12s,background-color .12s;display:inline-flex}.C0pAHW_member:hover{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-fill-neutral)}.C0pAHW_member:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.C0pAHW_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d482e);background:0 0;border:0;border-radius:0;width:24px;height:24px}.C0pAHW_memberInitial{background:var(--dsw-alias-bg-fill-business);width:20px;height:20px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:10px;font-weight:600;line-height:20px;display:inline-flex}.C0pAHW_memberName{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}";
-		const tagId$1 = "@nanmicoder/dsh-agent-teams/AgentTeamsCard.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+		const css$2 = ".C0pAHW_root{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:10px;flex-direction:column;gap:8px;width:100%;min-width:0;padding:10px 12px;display:flex}.C0pAHW_head{align-items:center;gap:8px;min-width:0;display:flex}.C0pAHW_leadAvatar{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0;flex:none;width:30px;height:30px}.C0pAHW_teamName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:0 auto;font-size:13px;font-weight:600;line-height:20px;overflow:hidden}.C0pAHW_memberCount{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;margin-left:auto;font-size:11px;line-height:16px}.C0pAHW_panelButton{border:1px solid var(--dsw-alias-line-strong);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;flex:none;padding:2px 8px;font-size:10.5px;font-weight:600;line-height:16px;transition:border-color .12s,color .12s}.C0pAHW_panelButton:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}.C0pAHW_panelButton:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.C0pAHW_members{flex-wrap:wrap;gap:6px;min-width:0;display:flex}.C0pAHW_member{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);max-width:160px;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:5px;padding:3px 8px 3px 3px;font-size:11px;font-weight:500;line-height:16px;transition:border-color .12s,background-color .12s;display:inline-flex}.C0pAHW_member:hover{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-fill-neutral)}.C0pAHW_member:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.C0pAHW_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d482e);background:0 0;border:0;border-radius:0;width:24px;height:24px}.C0pAHW_memberInitial{background:var(--dsw-alias-bg-fill-business);width:20px;height:20px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:10px;font-weight:600;line-height:20px;display:inline-flex}.C0pAHW_memberName{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}";
+		const tagId$2 = "@nanmicoder/dsh-agent-teams/AgentTeamsCard.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@nanmicoder/dsh-agent-teams";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
 			document.head.appendChild(tag);
 		}
 		var AgentTeamsCard_module_css_default = {
@@ -674,13 +674,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:src/client/ActivityPanel.module.css.mjs
-		const css = "html{--agent-teams-panel-shift:420px}html[data-agent-teams-panel-open] [data-phase=active]{box-sizing:border-box;padding-right:var(--agent-teams-panel-shift)}.caqsjG_badge,.caqsjG_panel{--dsw-alias-line-normal:var(--dsw-static-neutral-bluish-150,#e7e9ee);--dsw-alias-line-strong:color-mix(in srgb, var(--dsw-static-neutral-bluish-200,#e1e5ee) 50%, var(--dsw-static-neutral-bluish-300,#cfd3d6));--dsw-alias-bg-module:var(--dsw-alias-bg-layer-1,#fff);--dsw-alias-bg-fill-neutral:var(--dsw-static-neutral-bluish-100,#eef0f4);--dsw-alias-bg-fill-business:var(--dsw-alias-state-business-primary,#4d6bfe);--dsw-alias-bg-fill-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-bg-fill-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-bg-fill-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-state-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-state-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-state-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-label-on-fill:var(--dsw-alias-label-primary-inverted,#fff)}.caqsjG_badge{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 92%, transparent);backdrop-filter:blur(16px);height:34px;box-shadow:0 8px 28px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:7px;padding:0 12px;font-size:12px;font-weight:600;line-height:20px;transition:border-color .15s,transform .12s;display:inline-flex;position:absolute;top:64px;right:18px}.caqsjG_badge:hover{border-color:var(--dsw-alias-line-strong);transform:translateY(-1px)}.caqsjG_badge:active{transform:translateY(0)scale(.98)}.caqsjG_badge:focus-visible,.caqsjG_iconButton:focus-visible,.caqsjG_memberRow:focus-visible,.caqsjG_membersToggle:focus-visible,.caqsjG_sectionToggleTitle:focus-visible,.caqsjG_dagNode:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}.caqsjG_badgeDot,.caqsjG_panelDot{background:var(--dsw-alias-label-tertiary);border-radius:50%;width:7px;height:7px}.caqsjG_badgeDot[data-busy=true],.caqsjG_panelDot[data-busy=true]{background:var(--dsw-alias-state-business-primary);animation:1.25s ease-in-out infinite caqsjG_agentTeamsPulse}.caqsjG_badgeCount,.caqsjG_memberCount,.caqsjG_teamStats,.caqsjG_stageLabel,.caqsjG_taskId{font-variant-numeric:tabular-nums}.caqsjG_panel{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-line-strong) 58%, transparent);background:color-mix(in srgb, var(--dsw-alias-bg-module) 95%, transparent);backdrop-filter:blur(20px)saturate(1.08);box-shadow:0 12px 32px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent), 0 32px 72px color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);will-change:transform;border-radius:16px;flex-direction:column;animation:.16s ease-out caqsjG_agentTeamsPanelIn;display:flex;position:absolute;top:0;left:0;overflow:hidden}.caqsjG_panel[data-dragging],.caqsjG_panel[data-resizing]{user-select:none;box-shadow:0 16px 38px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent), 0 36px 78px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent)}@keyframes caqsjG_agentTeamsPanelIn{0%{opacity:0}to{opacity:1}}@keyframes caqsjG_agentTeamsPulse{0%,to{opacity:.42}50%{opacity:1}}.caqsjG_panelHead{border-bottom:1px solid var(--dsw-alias-line-normal);cursor:grab;touch-action:none;flex:none;justify-content:space-between;align-items:center;min-height:44px;padding:0 14px 0 16px;display:flex}.caqsjG_panelHead:active,.caqsjG_panel[data-dragging] .caqsjG_panelHead{cursor:grabbing}.caqsjG_panel[data-compact] .caqsjG_panelHead{cursor:default;touch-action:auto}.caqsjG_panelTitle{color:var(--dsw-alias-label-primary);align-items:center;gap:8px;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.caqsjG_panelControls{flex:none;align-items:center;gap:2px;display:inline-flex}.caqsjG_iconButton{width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:7px;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,transform .12s;display:inline-flex}.caqsjG_iconButton:hover{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.caqsjG_iconButton:active{transform:scale(.94)}.caqsjG_iconButton[data-control=dock][data-mode=docked] svg{transform:scaleX(-1)}.caqsjG_resizeHandle{z-index:1;touch-action:none;position:absolute}.caqsjG_resizeHandle[data-resize-edge=left]{cursor:ew-resize;width:8px;top:44px;bottom:8px;left:0}.caqsjG_resizeHandle[data-resize-edge=bottom]{cursor:ns-resize;height:8px;bottom:0;left:12px;right:12px}.caqsjG_resizeHandle[data-resize-edge=corner]{cursor:nwse-resize;width:18px;height:18px;bottom:0;right:0}.caqsjG_resizeHandle[data-resize-edge=corner]:after{border-right:1px solid var(--dsw-alias-label-tertiary);border-bottom:1px solid var(--dsw-alias-label-tertiary);content:\"\";opacity:.52;width:7px;height:7px;position:absolute;bottom:4px;right:4px}.caqsjG_teams{overscroll-behavior:contain;scrollbar-color:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent) transparent;scrollbar-width:thin;flex-direction:column;min-height:0;display:flex;overflow-y:auto}.caqsjG_teams::-webkit-scrollbar{width:6px}.caqsjG_teams::-webkit-scrollbar-track{background:0 0}.caqsjG_teams::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent);background-clip:padding-box;border:2px solid #0000;border-radius:999px}.caqsjG_teams:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 44%, transparent);background-clip:padding-box}.caqsjG_team{border-bottom:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:12px;padding:12px 14px 16px;display:flex}.caqsjG_team:last-child{border-bottom:0}.caqsjG_teamHead{align-items:center;gap:10px;min-width:0;display:flex}.caqsjG_teamName{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;font-weight:600;line-height:18px;overflow:hidden}.caqsjG_teamStats{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;gap:8px;font-size:10.5px;line-height:16px;display:inline-flex}.caqsjG_sectionHead{justify-content:space-between;align-items:center;gap:8px;min-width:0;display:flex}.caqsjG_sectionTitle{color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.caqsjG_sectionHint{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.caqsjG_delegationSection{min-width:0}.caqsjG_captainNode{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));border-radius:10px;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:9px;min-height:56px;padding:6px 10px;display:grid}.caqsjG_captainAvatar,.caqsjG_memberAvatar{flex:none;justify-content:center;align-items:center;display:inline-flex;position:relative}.caqsjG_captainAvatar{width:46px;height:46px}.caqsjG_leadAvatar,.caqsjG_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0}.caqsjG_leadAvatar{width:44px;height:44px}.caqsjG_memberArt{width:40px;height:40px}.caqsjG_captainInfo,.caqsjG_memberInfo{flex-direction:column;min-width:0;display:flex}.caqsjG_captainInfo{gap:2px}.caqsjG_captainLine,.caqsjG_memberLine{align-items:center;gap:6px;min-width:0;display:flex}.caqsjG_captainName,.caqsjG_memberName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600;line-height:18px;overflow:hidden}.caqsjG_captainRole,.caqsjG_memberRole{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.caqsjG_captainSummary,.caqsjG_memberStatusLine{color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:15px;overflow:hidden}.caqsjG_captainState,.caqsjG_memberState{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;align-items:center;gap:5px;font-size:10px;font-weight:500;line-height:15px;display:inline-flex}.caqsjG_captainState[data-busy=true],.caqsjG_memberState[data-activity=working]{color:var(--dsw-alias-state-business-primary)}.caqsjG_workGlyph rect{opacity:.5}.caqsjG_workGlyph[data-active=true] rect{animation:1.1s ease-in-out infinite caqsjG_agentTeamsDot}@keyframes caqsjG_agentTeamsDot{0%,to{opacity:.25}50%{opacity:1}}.caqsjG_progressOverview{flex-direction:column;gap:7px;display:flex}.caqsjG_progressTitle{color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600;line-height:16px}.caqsjG_progressSegments{gap:3px;display:flex}.caqsjG_progressSegments>span,.caqsjG_progressEmpty{background:var(--dsw-alias-line-strong);border-radius:2px;flex:1;height:5px}.caqsjG_progressEmpty{width:100%;display:block}.caqsjG_progressSegments>span[data-state=running]{background:var(--dsw-alias-state-business-primary)}.caqsjG_progressSegments>span[data-state=blocked]{background:var(--dsw-alias-state-warning)}.caqsjG_progressSegments>span[data-state=completed]{background:var(--dsw-alias-state-success)}.caqsjG_progressSegments>span[data-state=failed]{background:var(--dsw-alias-state-danger)}.caqsjG_progressSegments>span[data-state=cancelled]{opacity:.55}.caqsjG_progressLegend{color:var(--dsw-alias-label-tertiary);gap:10px;font-size:9.5px;line-height:14px;display:flex}.caqsjG_progressLegend>span[data-state=running]{color:var(--dsw-alias-state-business-primary)}.caqsjG_progressLegend>span[data-state=blocked]{color:var(--dsw-alias-state-warning)}.caqsjG_progressLegend>span[data-state=completed]{color:var(--dsw-alias-state-success)}.caqsjG_progressSummary{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));min-width:0;color:var(--dsw-alias-label-secondary);border-radius:8px;align-items:center;gap:6px;padding:5px 8px;font-size:10px;font-weight:600;line-height:15px;display:flex}.caqsjG_progressSummary[data-state=warning]{background:color-mix(in srgb, var(--dsw-alias-state-warning) 8%, var(--dsw-alias-bg-module))}.caqsjG_progressSummary[data-state=completed]{background:color-mix(in srgb, var(--dsw-alias-state-success) 8%, var(--dsw-alias-bg-module))}.caqsjG_progressSummary>span:last-child{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.caqsjG_progressSummaryDot{background:var(--dsw-alias-state-business-primary);border-radius:50%;flex:none;width:5px;height:5px}.caqsjG_progressSummary[data-state=warning] .caqsjG_progressSummaryDot{background:var(--dsw-alias-state-warning)}.caqsjG_progressSummary[data-state=completed] .caqsjG_progressSummaryDot{background:var(--dsw-alias-state-success)}.caqsjG_membersToggle{background:var(--dsw-alias-bg-module-platform);width:100%;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border:0;border-radius:8px;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;font-size:10.5px;font-weight:600;line-height:15px;display:flex}.caqsjG_membersToggle:hover{background:var(--dsw-alias-bg-fill-neutral)}.caqsjG_membersToggle>span{align-items:center;gap:5px;display:inline-flex}.caqsjG_membersToggle>span:last-child{color:var(--dsw-alias-state-business-primary)}.caqsjG_chevron{flex:none;transition:transform .14s}.caqsjG_chevron[data-open=true]{transform:rotate(90deg)}.caqsjG_delegationTree{flex-direction:column;gap:2px;margin-left:18px;padding:9px 0 0 20px;display:flex;position:relative}.caqsjG_delegationTree:before{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));content:\"\";width:1px;position:absolute;top:0;bottom:22px;left:0}.caqsjG_memberBlock{flex-direction:column;min-width:0;padding:3px 0 7px;display:flex;position:relative}.caqsjG_memberBranch{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));width:20px;height:1px;display:block;position:absolute;top:27px;right:100%}.caqsjG_memberBranch:before{background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:5px;height:5px;position:absolute;top:-2px;right:-1px}.caqsjG_memberRow{box-sizing:border-box;width:100%;min-width:0;min-height:48px;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:8px;padding:4px 6px;transition:background-color .12s,transform .12s;display:grid}.caqsjG_memberRow:hover,.caqsjG_memberRow[data-activity=working]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.caqsjG_memberRow:active{transform:scale(.995)}.caqsjG_memberAvatar{width:42px;height:42px}.caqsjG_memberAvatar[data-unread=true]:after{box-sizing:border-box;border:1px solid var(--dsw-alias-bg-module);background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:6px;height:6px;animation:1.8s ease-in-out infinite caqsjG_agentTeamsUnreadPulse;position:absolute;top:0;right:-1px}@keyframes caqsjG_agentTeamsUnreadPulse{0%,to{opacity:.78;transform:scale(.92)}50%{opacity:1;transform:scale(1.16)}}.caqsjG_memberInitial{background:var(--dsw-alias-bg-fill-business);width:34px;height:34px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.caqsjG_stateArt{box-sizing:border-box;object-fit:contain;width:22px;height:22px;filter:drop-shadow(0 0 1px var(--dsw-alias-bg-module)) drop-shadow(0 1px 1px #122d483d);background:0 0;border:0;border-radius:0;position:absolute;bottom:-3px;right:-5px}.caqsjG_stateArt[data-activity=working]{animation:2.4s ease-in-out infinite caqsjG_agentTeamsFloat}.caqsjG_stateArt[data-activity=idle]{animation:4.2s ease-in-out infinite caqsjG_agentTeamsBreathe}.caqsjG_stateArt[data-activity=unknown]{animation:2.8s ease-in-out infinite caqsjG_agentTeamsThink}@keyframes caqsjG_agentTeamsFloat{0%,to{transform:translateY(0)rotate(-4deg)}50%{transform:translateY(-2px)rotate(4deg)}}@keyframes caqsjG_agentTeamsBreathe{0%,to{opacity:.82;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}@keyframes caqsjG_agentTeamsThink{0%,to{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}.caqsjG_memberState{margin-left:auto}.caqsjG_memberCount{color:var(--dsw-alias-label-tertiary);font-size:10.5px;line-height:16px}.caqsjG_assignmentLine{align-items:center;gap:7px;min-width:0;padding:0 6px 0 60px;display:flex}.caqsjG_assignmentLabel{color:var(--dsw-alias-label-tertiary);flex:none;font-size:9.5px;line-height:14px}.caqsjG_assignmentTasks{flex-wrap:wrap;flex:1;gap:4px;min-width:0;display:flex}.caqsjG_assignmentChip{background:var(--dsw-alias-bg-fill-neutral);min-height:16px;color:var(--dsw-alias-label-secondary);border-radius:4px;align-items:center;padding:0 5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;font-weight:600;line-height:14px;display:inline-flex}.caqsjG_assignmentChip[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=cancelled]{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}.caqsjG_unreadPill{color:var(--dsw-alias-state-business-primary);white-space:nowrap;flex:none;font-size:9.5px;font-weight:600;line-height:14px}.caqsjG_taskEmpty{color:var(--dsw-alias-label-tertiary);font-size:9.5px;line-height:14px}.caqsjG_dependencySection{border-top:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:7px;min-width:0;padding-top:10px;display:flex}.caqsjG_sectionToggleTitle{color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.caqsjG_dagViewport{scrollbar-width:thin;min-width:0;padding:2px 0 4px;overflow-x:auto}.caqsjG_dagCanvas{min-width:100%;position:relative}.caqsjG_dagCanvas[data-layout=parallel]{flex-wrap:wrap;gap:8px;display:flex}.caqsjG_dagCanvas[data-layout=parallel] .caqsjG_dagNode{flex:92px;min-width:92px;position:relative}.caqsjG_dagEdges{pointer-events:none;position:absolute;inset:0;overflow:visible}.caqsjG_dagEdges path{fill:none;stroke:var(--dsw-alias-line-strong);stroke-width:1px;transition:opacity .14s,stroke .14s,stroke-width .14s}.caqsjG_dagEdges path[data-active=true]{stroke:var(--dsw-alias-state-business-primary);stroke-width:1.6px}.caqsjG_dagEdges path[data-dimmed=true]{opacity:.24}.caqsjG_dagNode{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;border-radius:6px;flex-direction:column;justify-content:center;gap:1px;padding:0 6px;transition:border-color .14s,background-color .14s,opacity .14s;display:flex;position:absolute}.caqsjG_dagNode:hover,.caqsjG_dagNode[data-focused=true]{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.caqsjG_dagNode[data-dimmed=true]{opacity:.3}.caqsjG_dagNode[data-state=running][data-dimmed=true]{opacity:.58}.caqsjG_dagNode[data-state=completed]{border-color:color-mix(in srgb, var(--dsw-alias-state-success) 48%, var(--dsw-alias-line-normal))}.caqsjG_dagNode[data-state=blocked]{border-color:color-mix(in srgb, var(--dsw-alias-state-warning) 52%, var(--dsw-alias-line-normal))}.caqsjG_dagNode[data-state=failed]{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 56%, var(--dsw-alias-line-normal))}.caqsjG_dagNodeHead{color:var(--dsw-alias-label-primary);align-items:center;gap:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;font-weight:700;display:flex}.caqsjG_dagNodeDot{background:var(--dsw-alias-line-strong);border-radius:1.5px;flex:none;width:5px;height:5px}.caqsjG_dagNode[data-state=running] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-business-primary)}.caqsjG_dagNode[data-state=running] .caqsjG_dagNodeHead{padding-right:12px}.caqsjG_dagRunningState{width:9px;height:9px;color:var(--dsw-alias-state-business-primary);pointer-events:none;justify-content:center;align-items:center;display:inline-flex;position:absolute;top:4px;right:5px}.caqsjG_dagRunningState .caqsjG_workGlyph{width:9px;height:9px}.caqsjG_dagNode[data-state=blocked] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-warning)}.caqsjG_dagNode[data-state=completed] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-success)}.caqsjG_dagNode[data-state=failed] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-danger)}.caqsjG_dagNodeLabel{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:11px;overflow:hidden}.caqsjG_taskDetail{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:9px;flex-direction:column;gap:3px;min-width:0;padding:7px 9px;display:flex}.caqsjG_taskDetailHead{align-items:center;gap:6px;min-width:0;display:flex}.caqsjG_taskDetailId{color:var(--dsw-alias-state-business-primary);flex:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-weight:700}.caqsjG_taskDetailSubject{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:16px;overflow:hidden}.caqsjG_taskDetailBadge{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-secondary);border-radius:4px;flex:none;padding:0 5px;font-size:8.5px;font-weight:600;line-height:14px}.caqsjG_taskDetailBadge[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailBadge[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailBadge[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailBadge[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailLine,.caqsjG_taskDetailMeta{color:var(--dsw-alias-label-secondary);font-size:9.5px;line-height:14px}.caqsjG_taskDetailMeta{color:var(--dsw-alias-label-tertiary)}.caqsjG_emptyHint{color:var(--dsw-alias-label-tertiary);padding:10px 12px;font-size:11px;line-height:16px}.caqsjG_historicPill{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-tertiary);border-radius:4px;flex:none;margin-left:auto;padding:1px 7px;font-size:9.5px;font-weight:600;line-height:15px}.caqsjG_members{flex-direction:column;gap:3px;display:flex}.caqsjG_archiveLabel{color:var(--dsw-alias-label-tertiary);padding:5px 14px 0;font-size:9.5px;font-weight:600;line-height:14px;display:block}@media (prefers-reduced-motion:reduce){.caqsjG_panel,.caqsjG_badge,.caqsjG_badgeDot,.caqsjG_panelDot,.caqsjG_workGlyph rect,.caqsjG_stateArt,.caqsjG_memberAvatar[data-unread=true]:after{transition:none;animation:none}}@media (width<=960px){html[data-agent-teams-panel-open] [data-phase=active]{padding-right:0}}@media (width<=640px){.caqsjG_badge{top:56px;right:10px}.caqsjG_teamStats span[data-stat=messages]{display:none}.caqsjG_captainNode{grid-template-columns:48px minmax(0,1fr)}.caqsjG_captainState{display:none}.caqsjG_delegationTree{margin-left:12px;padding-left:15px}.caqsjG_memberBranch{width:15px}.caqsjG_assignmentLine{padding-left:53px}}";
-		const tagId = "@nanmicoder/dsh-agent-teams/ActivityPanel.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+		const css$1 = "html{--agent-teams-panel-shift:420px}html[data-agent-teams-panel-open] [data-phase=active]{box-sizing:border-box;padding-right:var(--agent-teams-panel-shift)}.caqsjG_badge,.caqsjG_panel{--dsw-alias-line-normal:var(--dsw-static-neutral-bluish-150,#e7e9ee);--dsw-alias-line-strong:color-mix(in srgb, var(--dsw-static-neutral-bluish-200,#e1e5ee) 50%, var(--dsw-static-neutral-bluish-300,#cfd3d6));--dsw-alias-bg-module:var(--dsw-alias-bg-layer-1,#fff);--dsw-alias-bg-fill-neutral:var(--dsw-static-neutral-bluish-100,#eef0f4);--dsw-alias-bg-fill-business:var(--dsw-alias-state-business-primary,#4d6bfe);--dsw-alias-bg-fill-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-bg-fill-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-bg-fill-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-state-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-state-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-state-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-label-on-fill:var(--dsw-alias-label-primary-inverted,#fff)}.caqsjG_badge{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 92%, transparent);backdrop-filter:blur(16px);height:34px;box-shadow:0 8px 28px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:7px;padding:0 12px;font-size:12px;font-weight:600;line-height:20px;transition:border-color .15s,transform .12s;display:inline-flex;position:absolute;top:64px;right:18px}.caqsjG_badge:hover{border-color:var(--dsw-alias-line-strong);transform:translateY(-1px)}.caqsjG_badge:active{transform:translateY(0)scale(.98)}.caqsjG_badge:focus-visible,.caqsjG_iconButton:focus-visible,.caqsjG_memberRow:focus-visible,.caqsjG_membersToggle:focus-visible,.caqsjG_sectionToggleTitle:focus-visible,.caqsjG_dagNode:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}.caqsjG_badgeDot,.caqsjG_panelDot{background:var(--dsw-alias-label-tertiary);border-radius:50%;width:7px;height:7px}.caqsjG_badgeDot[data-busy=true],.caqsjG_panelDot[data-busy=true]{background:var(--dsw-alias-state-business-primary);animation:1.25s ease-in-out infinite caqsjG_agentTeamsPulse}.caqsjG_badgeCount,.caqsjG_memberCount,.caqsjG_teamStats,.caqsjG_stageLabel,.caqsjG_taskId{font-variant-numeric:tabular-nums}.caqsjG_panel{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-line-strong) 58%, transparent);background:color-mix(in srgb, var(--dsw-alias-bg-module) 95%, transparent);backdrop-filter:blur(20px)saturate(1.08);box-shadow:0 12px 32px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent), 0 32px 72px color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);will-change:transform;border-radius:16px;flex-direction:column;animation:.16s ease-out caqsjG_agentTeamsPanelIn;display:flex;position:absolute;top:0;left:0;overflow:hidden}.caqsjG_panel[data-dragging],.caqsjG_panel[data-resizing]{user-select:none;box-shadow:0 16px 38px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent), 0 36px 78px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent)}@keyframes caqsjG_agentTeamsPanelIn{0%{opacity:0}to{opacity:1}}@keyframes caqsjG_agentTeamsPulse{0%,to{opacity:.42}50%{opacity:1}}.caqsjG_panelHead{border-bottom:1px solid var(--dsw-alias-line-normal);cursor:grab;touch-action:none;flex:none;justify-content:space-between;align-items:center;min-height:44px;padding:0 14px 0 16px;display:flex}.caqsjG_panelHead:active,.caqsjG_panel[data-dragging] .caqsjG_panelHead{cursor:grabbing}.caqsjG_panel[data-compact] .caqsjG_panelHead{cursor:default;touch-action:auto}.caqsjG_panelTitle{color:var(--dsw-alias-label-primary);align-items:center;gap:8px;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.caqsjG_panelControls{flex:none;align-items:center;gap:2px;display:inline-flex}.caqsjG_iconButton{width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:7px;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,transform .12s;display:inline-flex}.caqsjG_iconButton:hover{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.caqsjG_iconButton:active{transform:scale(.94)}.caqsjG_iconButton[data-control=dock][data-mode=docked] svg{transform:scaleX(-1)}.caqsjG_resizeHandle{z-index:1;touch-action:none;position:absolute}.caqsjG_resizeHandle[data-resize-edge=left]{cursor:ew-resize;width:8px;top:44px;bottom:8px;left:0}.caqsjG_resizeHandle[data-resize-edge=bottom]{cursor:ns-resize;height:8px;bottom:0;left:12px;right:12px}.caqsjG_resizeHandle[data-resize-edge=corner]{cursor:nwse-resize;width:18px;height:18px;bottom:0;right:0}.caqsjG_resizeHandle[data-resize-edge=corner]:after{border-right:1px solid var(--dsw-alias-label-tertiary);border-bottom:1px solid var(--dsw-alias-label-tertiary);content:\"\";opacity:.52;width:7px;height:7px;position:absolute;bottom:4px;right:4px}.caqsjG_teams{overscroll-behavior:contain;scrollbar-color:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent) transparent;scrollbar-width:thin;flex-direction:column;min-height:0;display:flex;overflow-y:auto}.caqsjG_teams::-webkit-scrollbar{width:6px}.caqsjG_teams::-webkit-scrollbar-track{background:0 0}.caqsjG_teams::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent);background-clip:padding-box;border:2px solid #0000;border-radius:999px}.caqsjG_teams:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 44%, transparent);background-clip:padding-box}.caqsjG_team{border-bottom:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:12px;padding:12px 14px 16px;display:flex}.caqsjG_team:last-child{border-bottom:0}.caqsjG_teamHead{align-items:center;gap:10px;min-width:0;display:flex}.caqsjG_teamName{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;font-weight:600;line-height:18px;overflow:hidden}.caqsjG_teamStats{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;gap:8px;font-size:10.5px;line-height:16px;display:inline-flex}.caqsjG_sectionHead{justify-content:space-between;align-items:center;gap:8px;min-width:0;display:flex}.caqsjG_sectionTitle{color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.caqsjG_sectionHint{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.caqsjG_delegationSection{min-width:0}.caqsjG_captainNode{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));border-radius:10px;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:9px;min-height:56px;padding:6px 10px;display:grid}.caqsjG_captainAvatar,.caqsjG_memberAvatar{flex:none;justify-content:center;align-items:center;display:inline-flex;position:relative}.caqsjG_captainAvatar{width:46px;height:46px}.caqsjG_leadAvatar,.caqsjG_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0}.caqsjG_leadAvatar{width:44px;height:44px}.caqsjG_memberArt{width:40px;height:40px}.caqsjG_captainInfo,.caqsjG_memberInfo{flex-direction:column;min-width:0;display:flex}.caqsjG_captainInfo{gap:2px}.caqsjG_captainLine,.caqsjG_memberLine{align-items:center;gap:6px;min-width:0;display:flex}.caqsjG_captainName,.caqsjG_memberName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600;line-height:18px;overflow:hidden}.caqsjG_captainRole,.caqsjG_memberRole{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.caqsjG_captainSummary,.caqsjG_memberStatusLine{color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:15px;overflow:hidden}.caqsjG_captainState,.caqsjG_memberState{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;align-items:center;gap:5px;font-size:10px;font-weight:500;line-height:15px;display:inline-flex}.caqsjG_captainState[data-busy=true],.caqsjG_memberState[data-activity=working]{color:var(--dsw-alias-state-business-primary)}.caqsjG_workGlyph rect{opacity:.5}.caqsjG_workGlyph[data-active=true] rect{animation:1.1s ease-in-out infinite caqsjG_agentTeamsDot}@keyframes caqsjG_agentTeamsDot{0%,to{opacity:.25}50%{opacity:1}}.caqsjG_progressOverview{flex-direction:column;gap:7px;display:flex}.caqsjG_progressTitle{color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600;line-height:16px}.caqsjG_progressSegments{gap:3px;display:flex}.caqsjG_progressSegments>span,.caqsjG_progressEmpty{background:var(--dsw-alias-line-strong);border-radius:2px;flex:1;height:5px}.caqsjG_progressEmpty{width:100%;display:block}.caqsjG_progressSegments>span[data-state=running]{background:var(--dsw-alias-state-business-primary)}.caqsjG_progressSegments>span[data-state=blocked]{background:var(--dsw-alias-state-warning)}.caqsjG_progressSegments>span[data-state=completed]{background:var(--dsw-alias-state-success)}.caqsjG_progressSegments>span[data-state=failed]{background:var(--dsw-alias-state-danger)}.caqsjG_progressSegments>span[data-state=cancelled]{opacity:.55}.caqsjG_progressLegend{color:var(--dsw-alias-label-tertiary);gap:10px;font-size:9.5px;line-height:14px;display:flex}.caqsjG_progressLegend>span[data-state=running]{color:var(--dsw-alias-state-business-primary)}.caqsjG_progressLegend>span[data-state=blocked]{color:var(--dsw-alias-state-warning)}.caqsjG_progressLegend>span[data-state=completed]{color:var(--dsw-alias-state-success)}.caqsjG_progressSummary{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));min-width:0;color:var(--dsw-alias-label-secondary);border-radius:8px;align-items:center;gap:6px;padding:5px 8px;font-size:10px;font-weight:600;line-height:15px;display:flex}.caqsjG_progressSummary[data-state=warning]{background:color-mix(in srgb, var(--dsw-alias-state-warning) 8%, var(--dsw-alias-bg-module))}.caqsjG_progressSummary[data-state=completed]{background:color-mix(in srgb, var(--dsw-alias-state-success) 8%, var(--dsw-alias-bg-module))}.caqsjG_progressSummary>span:last-child{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.caqsjG_progressSummaryDot{background:var(--dsw-alias-state-business-primary);border-radius:50%;flex:none;width:5px;height:5px}.caqsjG_progressSummary[data-state=warning] .caqsjG_progressSummaryDot{background:var(--dsw-alias-state-warning)}.caqsjG_progressSummary[data-state=completed] .caqsjG_progressSummaryDot{background:var(--dsw-alias-state-success)}.caqsjG_membersToggle{background:var(--dsw-alias-bg-module-platform);width:100%;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border:0;border-radius:8px;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;font-size:10.5px;font-weight:600;line-height:15px;display:flex}.caqsjG_membersToggle:hover{background:var(--dsw-alias-bg-fill-neutral)}.caqsjG_membersToggle>span{align-items:center;gap:5px;display:inline-flex}.caqsjG_membersToggle>span:last-child{color:var(--dsw-alias-state-business-primary)}.caqsjG_chevron{flex:none;transition:transform .14s}.caqsjG_chevron[data-open=true]{transform:rotate(90deg)}.caqsjG_delegationTree{flex-direction:column;gap:2px;margin-left:18px;padding:9px 0 0 20px;display:flex;position:relative}.caqsjG_delegationTree:before{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));content:\"\";width:1px;position:absolute;top:0;bottom:22px;left:0}.caqsjG_memberBlock{flex-direction:column;min-width:0;padding:3px 0 7px;display:flex;position:relative}.caqsjG_memberBranch{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));width:20px;height:1px;display:block;position:absolute;top:27px;right:100%}.caqsjG_memberBranch:before{background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:5px;height:5px;position:absolute;top:-2px;right:-1px}.caqsjG_memberRow{box-sizing:border-box;width:100%;min-width:0;min-height:48px;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:8px;padding:4px 6px;transition:background-color .12s,transform .12s;display:grid}.caqsjG_memberRow:hover,.caqsjG_memberRow[data-activity=working]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.caqsjG_memberRow:active{transform:scale(.995)}.caqsjG_memberAvatar{width:42px;height:42px}.caqsjG_memberAvatar[data-unread=true]:after{box-sizing:border-box;border:1px solid var(--dsw-alias-bg-module);background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:6px;height:6px;animation:1.8s ease-in-out infinite caqsjG_agentTeamsUnreadPulse;position:absolute;top:0;right:-1px}@keyframes caqsjG_agentTeamsUnreadPulse{0%,to{opacity:.78;transform:scale(.92)}50%{opacity:1;transform:scale(1.16)}}.caqsjG_memberInitial{background:var(--dsw-alias-bg-fill-business);width:34px;height:34px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.caqsjG_stateArt{box-sizing:border-box;object-fit:contain;width:22px;height:22px;filter:drop-shadow(0 0 1px var(--dsw-alias-bg-module)) drop-shadow(0 1px 1px #122d483d);background:0 0;border:0;border-radius:0;position:absolute;bottom:-3px;right:-5px}.caqsjG_stateArt[data-activity=working]{animation:2.4s ease-in-out infinite caqsjG_agentTeamsFloat}.caqsjG_stateArt[data-activity=idle]{animation:4.2s ease-in-out infinite caqsjG_agentTeamsBreathe}.caqsjG_stateArt[data-activity=unknown]{animation:2.8s ease-in-out infinite caqsjG_agentTeamsThink}@keyframes caqsjG_agentTeamsFloat{0%,to{transform:translateY(0)rotate(-4deg)}50%{transform:translateY(-2px)rotate(4deg)}}@keyframes caqsjG_agentTeamsBreathe{0%,to{opacity:.82;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}@keyframes caqsjG_agentTeamsThink{0%,to{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}.caqsjG_memberState{margin-left:auto}.caqsjG_memberCount{color:var(--dsw-alias-label-tertiary);font-size:10.5px;line-height:16px}.caqsjG_assignmentLine{align-items:center;gap:7px;min-width:0;padding:0 6px 0 60px;display:flex}.caqsjG_assignmentLabel{color:var(--dsw-alias-label-tertiary);flex:none;font-size:9.5px;line-height:14px}.caqsjG_assignmentTasks{flex-wrap:wrap;flex:1;gap:4px;min-width:0;display:flex}.caqsjG_assignmentChip{background:var(--dsw-alias-bg-fill-neutral);min-height:16px;color:var(--dsw-alias-label-secondary);border-radius:4px;align-items:center;padding:0 5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;font-weight:600;line-height:14px;display:inline-flex}.caqsjG_assignmentChip[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.caqsjG_assignmentChip[data-state=cancelled]{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}.caqsjG_unreadPill{color:var(--dsw-alias-state-business-primary);white-space:nowrap;flex:none;font-size:9.5px;font-weight:600;line-height:14px}.caqsjG_taskEmpty{color:var(--dsw-alias-label-tertiary);font-size:9.5px;line-height:14px}.caqsjG_dependencySection{border-top:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:7px;min-width:0;padding-top:10px;display:flex}.caqsjG_sectionToggleTitle{color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.caqsjG_dagViewport{scrollbar-width:thin;min-width:0;padding:2px 0 4px;overflow-x:auto}.caqsjG_dagCanvas{min-width:100%;position:relative}.caqsjG_dagCanvas[data-layout=parallel]{flex-wrap:wrap;gap:8px;display:flex}.caqsjG_dagCanvas[data-layout=parallel] .caqsjG_dagNode{flex:92px;min-width:92px;position:relative}.caqsjG_dagEdges{pointer-events:none;position:absolute;inset:0;overflow:visible}.caqsjG_dagEdges path{fill:none;stroke:var(--dsw-alias-line-strong);stroke-width:1px;transition:opacity .14s,stroke .14s,stroke-width .14s}.caqsjG_dagEdges path[data-active=true]{stroke:var(--dsw-alias-state-business-primary);stroke-width:1.6px}.caqsjG_dagEdges path[data-dimmed=true]{opacity:.24}.caqsjG_dagNode{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;border-radius:6px;flex-direction:column;justify-content:center;gap:1px;padding:0 6px;transition:border-color .14s,background-color .14s,opacity .14s;display:flex;position:absolute}.caqsjG_dagNode:hover,.caqsjG_dagNode[data-focused=true]{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.caqsjG_dagNode[data-dimmed=true]{opacity:.3}.caqsjG_dagNode[data-state=running][data-dimmed=true]{opacity:.58}.caqsjG_dagNode[data-state=completed]{border-color:color-mix(in srgb, var(--dsw-alias-state-success) 48%, var(--dsw-alias-line-normal))}.caqsjG_dagNode[data-state=blocked]{border-color:color-mix(in srgb, var(--dsw-alias-state-warning) 52%, var(--dsw-alias-line-normal))}.caqsjG_dagNode[data-state=failed]{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 56%, var(--dsw-alias-line-normal))}.caqsjG_dagNodeHead{color:var(--dsw-alias-label-primary);align-items:center;gap:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;font-weight:700;display:flex}.caqsjG_dagNodeDot{background:var(--dsw-alias-line-strong);border-radius:1.5px;flex:none;width:5px;height:5px}.caqsjG_dagNode[data-state=running] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-business-primary)}.caqsjG_dagNode[data-state=running] .caqsjG_dagNodeHead{padding-right:12px}.caqsjG_dagRunningState{width:9px;height:9px;color:var(--dsw-alias-state-business-primary);pointer-events:none;justify-content:center;align-items:center;display:inline-flex;position:absolute;top:4px;right:5px}.caqsjG_dagRunningState .caqsjG_workGlyph{width:9px;height:9px}.caqsjG_dagNode[data-state=blocked] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-warning)}.caqsjG_dagNode[data-state=completed] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-success)}.caqsjG_dagNode[data-state=failed] .caqsjG_dagNodeDot{background:var(--dsw-alias-state-danger)}.caqsjG_dagNodeLabel{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:11px;overflow:hidden}.caqsjG_taskDetail{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:9px;flex-direction:column;gap:3px;min-width:0;padding:7px 9px;display:flex}.caqsjG_taskDetailHead{align-items:center;gap:6px;min-width:0;display:flex}.caqsjG_taskDetailId{color:var(--dsw-alias-state-business-primary);flex:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-weight:700}.caqsjG_taskDetailSubject{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:16px;overflow:hidden}.caqsjG_taskDetailBadge{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-secondary);border-radius:4px;flex:none;padding:0 5px;font-size:8.5px;font-weight:600;line-height:14px}.caqsjG_taskDetailBadge[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailBadge[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailBadge[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailBadge[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.caqsjG_taskDetailLine,.caqsjG_taskDetailMeta{color:var(--dsw-alias-label-secondary);font-size:9.5px;line-height:14px}.caqsjG_taskDetailMeta{color:var(--dsw-alias-label-tertiary)}.caqsjG_emptyHint{color:var(--dsw-alias-label-tertiary);padding:10px 12px;font-size:11px;line-height:16px}.caqsjG_historicPill{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-tertiary);border-radius:4px;flex:none;margin-left:auto;padding:1px 7px;font-size:9.5px;font-weight:600;line-height:15px}.caqsjG_members{flex-direction:column;gap:3px;display:flex}.caqsjG_archiveLabel{color:var(--dsw-alias-label-tertiary);padding:5px 14px 0;font-size:9.5px;font-weight:600;line-height:14px;display:block}@media (prefers-reduced-motion:reduce){.caqsjG_panel,.caqsjG_badge,.caqsjG_badgeDot,.caqsjG_panelDot,.caqsjG_workGlyph rect,.caqsjG_stateArt,.caqsjG_memberAvatar[data-unread=true]:after{transition:none;animation:none}}@media (width<=960px){html[data-agent-teams-panel-open] [data-phase=active]{padding-right:0}}@media (width<=640px){.caqsjG_badge{top:56px;right:10px}.caqsjG_teamStats span[data-stat=messages]{display:none}.caqsjG_captainNode{grid-template-columns:48px minmax(0,1fr)}.caqsjG_captainState{display:none}.caqsjG_delegationTree{margin-left:12px;padding-left:15px}.caqsjG_memberBranch{width:15px}.caqsjG_assignmentLine{padding-left:53px}}";
+		const tagId$1 = "@nanmicoder/dsh-agent-teams/ActivityPanel.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
 			tag.dataset.plugin = "@nanmicoder/dsh-agent-teams";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
 		var ActivityPanel_module_css_default = {
@@ -1832,6 +1832,649 @@ window.__ModuleLoader__.load({
 			})] });
 		}
 		//#endregion
+		//#region lib/client/model-catalog.js
+		async function loadModelCatalog(fetcher = fetch, timeoutMs = 1e4) {
+			const abort = new AbortController();
+			const timer = setTimeout(() => abort.abort(), timeoutMs);
+			try {
+				const response = await fetcher("/plugins/dsh-agent-teams/models", { signal: abort.signal });
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				const body = await response.json();
+				const models = Array.isArray(body.models) ? body.models : [];
+				return models.length === 0 ? {
+					status: "empty",
+					models,
+					error: null
+				} : {
+					status: "ready",
+					models,
+					error: null
+				};
+			} catch (error) {
+				return {
+					status: "error",
+					models: [],
+					error: abort.signal.aborted ? `模型目录请求超过 ${timeoutMs}ms` : error instanceof Error ? error.message : String(error)
+				};
+			} finally {
+				clearTimeout(timer);
+			}
+		}
+		//#endregion
+		//#region lib/client/settings-write.js
+		const SETTINGS_NAMESPACE = "agent-teams";
+		var BoundedCallError = class extends Error {
+			constructor(label, timeoutMs) {
+				super(`${label} timed out after ${timeoutMs}ms`);
+				this.name = "BoundedCallError";
+			}
+		};
+		function errorMessage(error) {
+			return error instanceof Error ? error.message : String(error);
+		}
+		function bounded(promise, label, timeoutMs) {
+			return new Promise((resolve, reject) => {
+				let open = true;
+				const timer = setTimeout(() => {
+					if (!open) return;
+					open = false;
+					reject(new BoundedCallError(label, timeoutMs));
+				}, timeoutMs);
+				promise.then((value) => {
+					if (!open) return;
+					open = false;
+					clearTimeout(timer);
+					resolve(value);
+				}, (error) => {
+					if (!open) return;
+					open = false;
+					clearTimeout(timer);
+					reject(error);
+				});
+			});
+		}
+		function laterRevision(left, right) {
+			if (left === void 0) return right;
+			if (right === void 0) return left;
+			return Math.max(left, right);
+		}
+		var SerializedAgentTeamsSettingsWriter = class {
+			options;
+			tail = Promise.resolve();
+			revision;
+			uncertain = false;
+			generation = 0;
+			timeoutMs;
+			constructor(options) {
+				this.options = options;
+				this.revision = options.scope.getSnapshot().revision;
+				this.timeoutMs = options.timeoutMs ?? 1e4;
+			}
+			write(ops) {
+				const run = this.tail.then(() => this.perform([...ops]));
+				this.tail = run.then(() => void 0, () => void 0);
+				return run;
+			}
+			async perform(ops) {
+				if (this.uncertain) {
+					const recoveryError = await this.recover();
+					if (recoveryError !== null) return {
+						status: "error",
+						error: `settings recovery failed: ${recoveryError}`
+					};
+				}
+				this.revision = laterRevision(this.revision, this.options.scope.getSnapshot().revision);
+				if (this.revision === void 0) {
+					this.uncertain = true;
+					return {
+						status: "error",
+						error: "settings revision is not ready"
+					};
+				}
+				const expectedRevision = this.revision;
+				const generation = ++this.generation;
+				let response;
+				try {
+					response = await bounded(this.options.api.settings.mutate({
+						ns: SETTINGS_NAMESPACE,
+						ops: [...ops],
+						expectedRevision
+					}), "settings mutation", this.timeoutMs);
+				} catch (error) {
+					if (generation === this.generation) this.generation += 1;
+					return this.failAndRecover(errorMessage(error));
+				}
+				if (!response.result.ok) {
+					if (generation === this.generation) this.generation += 1;
+					return this.failAndRecover(response.result.error.message);
+				}
+				const next = response.result.value;
+				if (generation !== this.generation || next.ns !== SETTINGS_NAMESPACE || next.revision < expectedRevision) return this.failAndRecover("settings mutation returned a stale or mismatched view");
+				this.revision = next.revision;
+				this.uncertain = false;
+				this.options.describe.acceptView(next);
+				return {
+					status: "ready",
+					error: null
+				};
+			}
+			async failAndRecover(writeError) {
+				this.uncertain = true;
+				const recoveryError = await this.recover();
+				return {
+					status: "error",
+					error: recoveryError === null ? writeError : `${writeError}; recovery failed: ${recoveryError}`
+				};
+			}
+			async recover() {
+				++this.generation;
+				let response;
+				try {
+					response = await bounded(this.options.api.settings.describe({}), "settings recovery", this.timeoutMs);
+				} catch (error) {
+					return errorMessage(error);
+				}
+				if (!response.result.ok) return response.result.error.message;
+				const recovered = response.result.value.namespaces.find((entry) => entry.ns === SETTINGS_NAMESPACE);
+				if (recovered === void 0) return "agent-teams namespace is unavailable";
+				const heldRevision = laterRevision(this.revision, this.options.scope.getSnapshot().revision);
+				if (heldRevision === void 0 || recovered.revision >= heldRevision) {
+					this.options.describe.acceptView(recovered);
+					this.revision = recovered.revision;
+				} else this.revision = heldRevision;
+				this.uncertain = false;
+				return null;
+			}
+		};
+		function createAgentTeamsSettingsWriter(options) {
+			return new SerializedAgentTeamsSettingsWriter(options);
+		}
+		function set(field, value) {
+			return {
+				op: "set",
+				path: [field],
+				value
+			};
+		}
+		function compareIds(left, right) {
+			return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+		}
+		function supportsEffort$1(model, effort) {
+			return effort !== "" && model?.efforts.some((candidate) => candidate.id === effort) === true;
+		}
+		function explicitReset(settings, model) {
+			return settings.memberReasoningMode === "explicit" && !supportsEffort$1(model, settings.memberReasoningEffort) ? [set("memberReasoningEffort", ""), set("memberReasoningMode", "target-default")] : [];
+		}
+		function planDelegationModeChange(mode) {
+			return {
+				ok: true,
+				ops: [set("delegationMode", mode)]
+			};
+		}
+		function planProviderChange(settings, provider, catalog) {
+			if (provider === "") return {
+				ok: true,
+				ops: [
+					...settings.memberReasoningMode === "explicit" ? [set("memberReasoningEffort", ""), set("memberReasoningMode", "target-default")] : [],
+					set("memberModel", ""),
+					set("memberLlmProvider", "")
+				]
+			};
+			const models = catalog.filter((candidate) => candidate.provider === provider).sort(compareIds);
+			const model = models.find((candidate) => candidate.id === settings.memberModel) ?? models[0];
+			if (model === void 0) return {
+				ok: false,
+				error: "no-models"
+			};
+			return {
+				ok: true,
+				ops: [
+					...explicitReset(settings, model),
+					set("memberModel", model.id),
+					set("memberLlmProvider", provider)
+				]
+			};
+		}
+		function planModelChange(settings, provider, modelId, catalog) {
+			const model = catalog.find((candidate) => candidate.provider === provider && candidate.id === modelId);
+			if (model === void 0) return {
+				ok: false,
+				error: "model-unavailable"
+			};
+			return {
+				ok: true,
+				ops: [
+					...explicitReset(settings, model),
+					set("memberModel", model.id),
+					set("memberLlmProvider", provider)
+				]
+			};
+		}
+		function planReasoningModeChange(settings, mode, model) {
+			if (mode === "explicit") {
+				if (model === void 0 || model.efforts.length === 0) return {
+					ok: false,
+					error: "no-efforts"
+				};
+				const effort = model.efforts.find((candidate) => candidate.id === settings.memberReasoningEffort) ?? model.efforts.find((candidate) => candidate.id === model.defaultEffort) ?? [...model.efforts].sort(compareIds)[0];
+				if (effort === void 0) return {
+					ok: false,
+					error: "no-efforts"
+				};
+				return {
+					ok: true,
+					ops: [set("memberReasoningEffort", effort.id), set("memberReasoningMode", "explicit")]
+				};
+			}
+			return {
+				ok: true,
+				ops: [set("memberReasoningEffort", ""), set("memberReasoningMode", mode)]
+			};
+		}
+		function planReasoningEffortChange(effort, model) {
+			if (!supportsEffort$1(model, effort)) return {
+				ok: false,
+				error: "unsupported-effort"
+			};
+			return {
+				ok: true,
+				ops: [set("memberReasoningEffort", effort), set("memberReasoningMode", "explicit")]
+			};
+		}
+		async function runAgentTeamsSettingsAction(writer, ops, publish) {
+			const retryOps = [...ops];
+			publish({
+				status: "busy",
+				ops: retryOps,
+				error: null
+			});
+			let result;
+			try {
+				result = await writer.write(ops);
+			} catch (error) {
+				result = {
+					status: "error",
+					error: errorMessage(error)
+				};
+			} finally {
+				if (result === void 0) result = {
+					status: "error",
+					error: "settings write did not settle"
+				};
+				publish(result.status === "ready" ? {
+					status: "idle",
+					ops: null,
+					error: null
+				} : {
+					status: "error",
+					ops: retryOps,
+					error: result.error
+				});
+			}
+			return result;
+		}
+		//#endregion
+		//#region \0dsh-css:src/client/AgentTeamsSettingsSection.module.css.mjs
+		const css = ".py7QqW_root{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;padding:4px 0 24px;display:flex}.py7QqW_header,.py7QqW_section{flex-direction:column;display:flex}.py7QqW_header{gap:4px}.py7QqW_pageTitle,.py7QqW_sectionTitle,.py7QqW_intro,.py7QqW_help,.py7QqW_settingsStatus,.py7QqW_catalogStatus{margin:0}.py7QqW_pageTitle{font-size:20px;font-weight:500;line-height:28px}.py7QqW_intro,.py7QqW_help{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.py7QqW_settingsStatus,.py7QqW_catalogStatus{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.py7QqW_section{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:12px;gap:10px;padding:16px}.py7QqW_sectionTitle{font-size:16px;font-weight:500;line-height:24px}.py7QqW_choices{border:0;gap:8px;margin:0;padding:0;display:grid}.py7QqW_choice{border:1px solid var(--dsw-alias-border-l2);cursor:pointer;border-radius:8px;align-items:flex-start;gap:10px;padding:10px 12px;display:flex}.py7QqW_choice:hover{background:var(--dsw-alias-interactive-bg-hover)}.py7QqW_choice:focus-within{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.py7QqW_choice input{accent-color:var(--dsw-alias-brand-primary);flex:none;margin:4px 0 0}.py7QqW_choice span,.py7QqW_field{flex-direction:column;display:flex}.py7QqW_choice span{gap:2px}.py7QqW_choice strong,.py7QqW_field>span{font-size:14px;font-weight:500;line-height:22px}.py7QqW_choice small{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.py7QqW_choices:disabled .py7QqW_choice,.py7QqW_choiceDisabled,.py7QqW_field select:disabled{cursor:default;opacity:.5}.py7QqW_choiceDisabled:hover{background:0 0}.py7QqW_fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;display:grid}.py7QqW_field{color:var(--dsw-alias-label-secondary);gap:6px}.py7QqW_field select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.py7QqW_field select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.py7QqW_catalogError,.py7QqW_writeError{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:10px;font-size:12px;line-height:18px;display:flex}.py7QqW_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;border:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}@media (width<=560px){.py7QqW_fields{grid-template-columns:1fr}.py7QqW_section{padding:14px}}";
+		const tagId = "@nanmicoder/dsh-agent-teams/AgentTeamsSettingsSection.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@nanmicoder/dsh-agent-teams";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var AgentTeamsSettingsSection_module_css_default = {
+			"catalogError": "py7QqW_catalogError",
+			"catalogStatus": "py7QqW_catalogStatus",
+			"choice": "py7QqW_choice",
+			"choiceDisabled": "py7QqW_choiceDisabled",
+			"choices": "py7QqW_choices",
+			"field": "py7QqW_field",
+			"fields": "py7QqW_fields",
+			"header": "py7QqW_header",
+			"help": "py7QqW_help",
+			"intro": "py7QqW_intro",
+			"pageTitle": "py7QqW_pageTitle",
+			"root": "py7QqW_root",
+			"section": "py7QqW_section",
+			"sectionTitle": "py7QqW_sectionTitle",
+			"settingsStatus": "py7QqW_settingsStatus",
+			"visuallyHidden": "py7QqW_visuallyHidden",
+			"writeError": "py7QqW_writeError"
+		};
+		//#endregion
+		//#region lib/client/AgentTeamsSettingsSection.js
+		const SETTINGS_PLAN_ERROR_KEY = {
+			"model-unavailable": "settings.write.modelUnavailable",
+			"no-efforts": "settings.write.noEfforts",
+			"no-models": "settings.write.noModels",
+			"unsupported-effort": "settings.write.unsupportedEffort"
+		};
+		const DEFAULT_SETTINGS = {
+			delegationMode: "teams",
+			memberLlmProvider: "",
+			memberModel: "",
+			memberReasoningMode: "target-default",
+			memberReasoningEffort: "",
+			migrationVersion: 0
+		};
+		function supportsEffort(model, effort) {
+			return effort === "" || model?.efforts.some((candidate) => candidate.id === effort) === true;
+		}
+		function AgentTeamsSettingsSection({ settings, writer, t }) {
+			const subscribe = (0, react.useCallback)((listener) => settings.subscribe(listener), [settings]);
+			const getSnapshot = (0, react.useCallback)(() => settings.getSnapshot(), [settings]);
+			const snapshot = (0, react.useSyncExternalStore)(subscribe, getSnapshot, getSnapshot);
+			const value = snapshot.value ?? DEFAULT_SETTINGS;
+			const [catalogAttempt, setCatalogAttempt] = (0, react.useState)(0);
+			const [catalog, setCatalog] = (0, react.useState)({
+				status: "loading",
+				models: [],
+				error: null
+			});
+			const [writeView, setWriteView] = (0, react.useState)({
+				status: "idle",
+				ops: null,
+				error: null
+			});
+			(0, react.useEffect)(() => {
+				let active = true;
+				setCatalog({
+					status: "loading",
+					models: [],
+					error: null
+				});
+				loadModelCatalog().then((next) => {
+					if (active) setCatalog(next);
+				});
+				return () => {
+					active = false;
+				};
+			}, [catalogAttempt]);
+			const providers = (0, react.useMemo)(() => [...new Set(catalog.models.map((model) => model.provider))], [catalog.models]);
+			const providerModels = (0, react.useMemo)(() => catalog.models.filter((model) => model.provider === value.memberLlmProvider), [catalog.models, value.memberLlmProvider]);
+			const selectedModel = catalog.models.find((model) => model.provider === value.memberLlmProvider && model.id === value.memberModel);
+			const writable = snapshot.status === "ready" && snapshot.writable;
+			const controlsDisabled = !writable || writeView.status === "busy";
+			const catalogReady = catalog.status === "ready";
+			const runWrite = (0, react.useCallback)(async (ops) => {
+				await runAgentTeamsSettingsAction(writer, ops, setWriteView);
+			}, [writer]);
+			const planErrorCopy = (0, react.useCallback)((error) => {
+				return t(SETTINGS_PLAN_ERROR_KEY[error]);
+			}, [t]);
+			const runPlan = (0, react.useCallback)(async (plan) => {
+				if (!plan.ok) {
+					setWriteView({
+						status: "error",
+						ops: null,
+						error: planErrorCopy(plan.error)
+					});
+					return;
+				}
+				await runWrite(plan.ops);
+			}, [planErrorCopy, runWrite]);
+			const setDelegationMode = async (mode) => {
+				await runPlan(planDelegationModeChange(mode));
+			};
+			const setProvider = async (provider) => {
+				await runPlan(planProviderChange(value, provider, catalog.models));
+			};
+			const setModel = async (modelId) => {
+				await runPlan(planModelChange(value, value.memberLlmProvider, modelId, catalog.models));
+			};
+			const setReasoningMode = async (mode) => {
+				if (mode === value.memberReasoningMode) return;
+				await runPlan(planReasoningModeChange(value, mode, selectedModel));
+			};
+			const setReasoningEffort = async (effort) => {
+				await runPlan(planReasoningEffortChange(effort, selectedModel));
+			};
+			const statusCopy = snapshot.status === "loading" ? t("settings.state.loading") : snapshot.status === "unavailable" ? t("settings.state.unavailable") : !snapshot.writable ? t("settings.state.readOnly") : null;
+			const visibleWriteError = writeView.status === "error" && writeView.error === "settings revision is not ready" ? t("settings.write.noRevision") : writeView.status === "error" ? writeView.error : null;
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: AgentTeamsSettingsSection_module_css_default.root,
+				"aria-busy": snapshot.status === "loading" || catalog.status === "loading" || writeView.status === "busy",
+				children: [
+					(0, react_jsx_runtime.jsxs)("header", {
+						className: AgentTeamsSettingsSection_module_css_default.header,
+						children: [
+							(0, react_jsx_runtime.jsx)("h2", {
+								className: AgentTeamsSettingsSection_module_css_default.pageTitle,
+								children: t("settings.title")
+							}),
+							(0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.intro,
+								children: t("settings.intro")
+							}),
+							statusCopy !== null && (0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.settingsStatus,
+								role: "status",
+								"aria-live": "polite",
+								children: statusCopy
+							}),
+							writeView.status === "busy" && (0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.settingsStatus,
+								role: "status",
+								"aria-live": "polite",
+								children: t("settings.write.saving")
+							}),
+							writeView.status === "error" && (0, react_jsx_runtime.jsxs)("div", {
+								className: AgentTeamsSettingsSection_module_css_default.writeError,
+								role: "alert",
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.write.error", { message: visibleWriteError ?? writeView.error }) }), writeView.ops !== null && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									type: "button",
+									variant: "outline",
+									size: "sm",
+									disabled: !writable,
+									onClick: async () => {
+										if (writeView.ops !== null) await runWrite(writeView.ops);
+									},
+									children: t("settings.write.retry")
+								})]
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("section", {
+						className: AgentTeamsSettingsSection_module_css_default.section,
+						"aria-labelledby": "agent-teams-delegation-title",
+						children: [
+							(0, react_jsx_runtime.jsx)("h3", {
+								id: "agent-teams-delegation-title",
+								className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
+								children: t("settings.delegation.title")
+							}),
+							(0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.help,
+								children: t("settings.delegation.help")
+							}),
+							(0, react_jsx_runtime.jsxs)("fieldset", {
+								className: AgentTeamsSettingsSection_module_css_default.choices,
+								disabled: controlsDisabled,
+								children: [(0, react_jsx_runtime.jsx)("legend", {
+									className: AgentTeamsSettingsSection_module_css_default.visuallyHidden,
+									children: t("settings.delegation.title")
+								}), ["teams", "native"].map((mode) => (0, react_jsx_runtime.jsxs)("label", {
+									className: AgentTeamsSettingsSection_module_css_default.choice,
+									children: [(0, react_jsx_runtime.jsx)("input", {
+										type: "radio",
+										name: "agent-teams-delegation-mode",
+										value: mode,
+										checked: value.delegationMode === mode,
+										onChange: async () => {
+											await setDelegationMode(mode);
+										}
+									}), (0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("strong", { children: t(`settings.delegation.${mode}.label`) }), (0, react_jsx_runtime.jsx)("small", { children: t(`settings.delegation.${mode}.description`) })] })]
+								}, mode))]
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("section", {
+						className: AgentTeamsSettingsSection_module_css_default.section,
+						"aria-labelledby": "agent-teams-model-title",
+						children: [
+							(0, react_jsx_runtime.jsx)("h3", {
+								id: "agent-teams-model-title",
+								className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
+								children: t("settings.model.title")
+							}),
+							(0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.help,
+								children: t("settings.model.help")
+							}),
+							catalog.status === "loading" && (0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.catalogStatus,
+								role: "status",
+								"aria-live": "polite",
+								children: t("settings.catalog.loading")
+							}),
+							catalog.status === "empty" && (0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.catalogStatus,
+								role: "status",
+								children: t("settings.catalog.empty")
+							}),
+							catalog.status === "error" && (0, react_jsx_runtime.jsxs)("div", {
+								className: AgentTeamsSettingsSection_module_css_default.catalogError,
+								role: "alert",
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.catalog.error", { message: catalog.error }) }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									type: "button",
+									variant: "outline",
+									size: "sm",
+									onClick: () => setCatalogAttempt((attempt) => attempt + 1),
+									children: t("settings.catalog.retry")
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("div", {
+								className: AgentTeamsSettingsSection_module_css_default.fields,
+								children: [(0, react_jsx_runtime.jsxs)("label", {
+									className: AgentTeamsSettingsSection_module_css_default.field,
+									htmlFor: "agent-teams-member-provider",
+									children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.model.provider") }), (0, react_jsx_runtime.jsxs)("select", {
+										id: "agent-teams-member-provider",
+										value: value.memberLlmProvider,
+										disabled: controlsDisabled || !catalogReady,
+										onChange: async (event) => {
+											await setProvider(event.currentTarget.value);
+										},
+										children: [
+											(0, react_jsx_runtime.jsx)("option", {
+												value: "",
+												children: t("settings.model.followCaptain")
+											}),
+											value.memberLlmProvider !== "" && !providers.includes(value.memberLlmProvider) && (0, react_jsx_runtime.jsx)("option", {
+												value: value.memberLlmProvider,
+												children: t("settings.model.unavailable", { value: value.memberLlmProvider })
+											}),
+											providers.map((provider) => (0, react_jsx_runtime.jsx)("option", {
+												value: provider,
+												children: provider
+											}, provider))
+										]
+									})]
+								}), (0, react_jsx_runtime.jsxs)("label", {
+									className: AgentTeamsSettingsSection_module_css_default.field,
+									htmlFor: "agent-teams-member-model",
+									children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.model.model") }), (0, react_jsx_runtime.jsxs)("select", {
+										id: "agent-teams-member-model",
+										value: value.memberModel,
+										disabled: controlsDisabled || !catalogReady || value.memberLlmProvider === "",
+										onChange: async (event) => {
+											await setModel(event.currentTarget.value);
+										},
+										children: [
+											value.memberLlmProvider === "" && (0, react_jsx_runtime.jsx)("option", {
+												value: "",
+												children: t("settings.model.followCaptain")
+											}),
+											value.memberModel !== "" && !providerModels.some((model) => model.id === value.memberModel) && (0, react_jsx_runtime.jsx)("option", {
+												value: value.memberModel,
+												children: t("settings.model.unavailable", { value: value.memberModel })
+											}),
+											providerModels.map((model) => (0, react_jsx_runtime.jsx)("option", {
+												value: model.id,
+												children: model.name || model.id
+											}, model.id))
+										]
+									})]
+								})]
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("section", {
+						className: AgentTeamsSettingsSection_module_css_default.section,
+						"aria-labelledby": "agent-teams-reasoning-title",
+						children: [
+							(0, react_jsx_runtime.jsx)("h3", {
+								id: "agent-teams-reasoning-title",
+								className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
+								children: t("settings.reasoning.title")
+							}),
+							(0, react_jsx_runtime.jsxs)("fieldset", {
+								className: AgentTeamsSettingsSection_module_css_default.choices,
+								disabled: controlsDisabled,
+								children: [(0, react_jsx_runtime.jsx)("legend", {
+									className: AgentTeamsSettingsSection_module_css_default.visuallyHidden,
+									children: t("settings.reasoning.title")
+								}), [
+									"target-default",
+									"route-aware",
+									"explicit"
+								].map((mode) => (0, react_jsx_runtime.jsxs)("label", {
+									className: `${AgentTeamsSettingsSection_module_css_default.choice} ${mode === "explicit" && (selectedModel?.efforts.length ?? 0) === 0 ? AgentTeamsSettingsSection_module_css_default.choiceDisabled : ""}`,
+									children: [(0, react_jsx_runtime.jsx)("input", {
+										type: "radio",
+										name: "agent-teams-reasoning-mode",
+										value: mode,
+										checked: value.memberReasoningMode === mode,
+										disabled: mode === "explicit" && (selectedModel?.efforts.length ?? 0) === 0,
+										onChange: async () => {
+											await setReasoningMode(mode);
+										}
+									}), (0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("strong", { children: t(`settings.reasoning.${mode}.label`) }), (0, react_jsx_runtime.jsx)("small", { children: t(`settings.reasoning.${mode}.description`) })] })]
+								}, mode))]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								htmlFor: "agent-teams-member-effort",
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.reasoning.effort") }), (0, react_jsx_runtime.jsx)("select", {
+									id: "agent-teams-member-effort",
+									value: value.memberReasoningEffort,
+									disabled: controlsDisabled || value.memberReasoningMode !== "explicit" || (selectedModel?.efforts.length ?? 0) === 0,
+									onChange: async (event) => {
+										await setReasoningEffort(event.currentTarget.value);
+									},
+									children: selectedModel?.efforts.length ? (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [!supportsEffort(selectedModel, value.memberReasoningEffort) && (0, react_jsx_runtime.jsx)("option", {
+										value: value.memberReasoningEffort,
+										disabled: true,
+										children: t("settings.reasoning.unsupportedEffort", { effort: value.memberReasoningEffort })
+									}), selectedModel.efforts.map((effort) => (0, react_jsx_runtime.jsx)("option", {
+										value: effort.id,
+										children: effort.name
+									}, effort.id))] }) : (0, react_jsx_runtime.jsx)("option", {
+										value: "",
+										children: t("settings.reasoning.noEfforts")
+									})
+								})]
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("section", {
+						className: AgentTeamsSettingsSection_module_css_default.section,
+						"aria-labelledby": "agent-teams-scope-title",
+						children: [(0, react_jsx_runtime.jsx)("h3", {
+							id: "agent-teams-scope-title",
+							className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
+							children: t("settings.scope.title")
+						}), (0, react_jsx_runtime.jsx)("p", {
+							className: AgentTeamsSettingsSection_module_css_default.help,
+							children: t("settings.scope.description")
+						})]
+					})
+				]
+			});
+		}
+		//#endregion
 		//#region lib/client/agent-teams-card-definition.js
 		/**
 		* AgentTeams conversation card: a lightweight in-conversation summary shown
@@ -1998,7 +2641,48 @@ window.__ModuleLoader__.load({
 			"members.empty": "暂无成员，等待队长组建团队",
 			"assignment.label": "队长派发",
 			"assignment.empty": "暂无任务",
-			"archive.label": "已结束 · 历史归档"
+			"archive.label": "已结束 · 历史归档",
+			"settings.title": "子智能体",
+			"settings.intro": "设置团队委派方式以及以后创建的成员使用的模型路由。",
+			"settings.state.loading": "正在加载子智能体设置…",
+			"settings.state.unavailable": "当前客户端无法访问子智能体设置。",
+			"settings.state.readOnly": "当前连接为只读；可以查看但不能更改设置。",
+			"settings.write.saving": "正在保存设置…",
+			"settings.write.error": "设置保存失败：{message}",
+			"settings.write.retry": "重试保存",
+			"settings.write.noRevision": "设置修订版本尚未就绪",
+			"settings.write.noModels": "所选 Provider 当前没有可用模型",
+			"settings.write.modelUnavailable": "所选模型当前不可用",
+			"settings.write.noEfforts": "所选模型没有可用的推理强度",
+			"settings.write.unsupportedEffort": "所选推理强度不受当前模型支持",
+			"settings.delegation.title": "委派模式",
+			"settings.delegation.help": "更改会对新会话生效，不会改变已打开会话的委派方式。",
+			"settings.delegation.teams.label": "Team 模式",
+			"settings.delegation.teams.description": "使用 AgentTeams 组建持久成员并协调任务。",
+			"settings.delegation.native.label": "Native 兼容模式",
+			"settings.delegation.native.description": "使用 Harness 原生子智能体委派。",
+			"settings.model.title": "成员模型",
+			"settings.model.help": "选择以后创建的成员所使用的 provider 和模型。",
+			"settings.model.provider": "Provider",
+			"settings.model.model": "模型",
+			"settings.model.followCaptain": "跟随队长",
+			"settings.model.unavailable": "{value}（当前不可用）",
+			"settings.catalog.loading": "正在加载模型目录…",
+			"settings.catalog.empty": "暂无可用模型。可以保持“跟随队长”。",
+			"settings.catalog.error": "模型目录加载失败：{message}",
+			"settings.catalog.retry": "重试",
+			"settings.reasoning.title": "成员推理强度",
+			"settings.reasoning.target-default.label": "目标模型默认值",
+			"settings.reasoning.target-default.description": "不指定强度，由目标模型使用其默认值。",
+			"settings.reasoning.route-aware.label": "路由感知继承",
+			"settings.reasoning.route-aware.description": "与队长路由相同时继承队长强度；路由改变时使用目标默认值。",
+			"settings.reasoning.explicit.label": "明确指定",
+			"settings.reasoning.explicit.description": "为选定模型指定它支持的推理强度。",
+			"settings.reasoning.effort": "推理强度",
+			"settings.reasoning.noEfforts": "选定模型未提供可选强度",
+			"settings.reasoning.unsupportedEffort": "{effort}（当前模型不支持）",
+			"settings.scope.title": "生效范围",
+			"settings.scope.description": "现有成员保留创建时的模型路由和推理强度；以后创建的成员使用这里的当前值。"
 		};
 		/** English dictionary, checked complete against the Chinese source key set. */
 		const en = {
@@ -2079,7 +2763,48 @@ window.__ModuleLoader__.load({
 			"members.empty": "No members yet; waiting for the captain to assemble the team",
 			"assignment.label": "Captain assigned",
 			"assignment.empty": "No tasks",
-			"archive.label": "Ended · Archived history"
+			"archive.label": "Ended · Archived history",
+			"settings.title": "Subagents",
+			"settings.intro": "Configure team delegation and the model route used by members created in the future.",
+			"settings.state.loading": "Loading subagent settings…",
+			"settings.state.unavailable": "Subagent settings are unavailable in this client.",
+			"settings.state.readOnly": "This connection is read-only. You can view these settings but cannot change them.",
+			"settings.write.saving": "Saving settings…",
+			"settings.write.error": "Could not save settings: {message}",
+			"settings.write.retry": "Retry save",
+			"settings.write.noRevision": "The settings revision is not ready yet",
+			"settings.write.noModels": "The selected provider has no available models",
+			"settings.write.modelUnavailable": "The selected model is unavailable",
+			"settings.write.noEfforts": "The selected model has no available reasoning efforts",
+			"settings.write.unsupportedEffort": "The selected reasoning effort is not supported by this model",
+			"settings.delegation.title": "Delegation mode",
+			"settings.delegation.help": "Changes apply to new sessions and do not alter delegation in sessions that are already open.",
+			"settings.delegation.teams.label": "Team mode",
+			"settings.delegation.teams.description": "Use AgentTeams to assemble durable members and coordinate their tasks.",
+			"settings.delegation.native.label": "Native compatibility mode",
+			"settings.delegation.native.description": "Use Harness native subagent delegation.",
+			"settings.model.title": "Member model",
+			"settings.model.help": "Choose the provider and model used by members created in the future.",
+			"settings.model.provider": "Provider",
+			"settings.model.model": "Model",
+			"settings.model.followCaptain": "Follow captain",
+			"settings.model.unavailable": "{value} (currently unavailable)",
+			"settings.catalog.loading": "Loading the model catalog…",
+			"settings.catalog.empty": "No models are available. You can keep Follow captain selected.",
+			"settings.catalog.error": "Could not load the model catalog: {message}",
+			"settings.catalog.retry": "Retry",
+			"settings.reasoning.title": "Member reasoning effort",
+			"settings.reasoning.target-default.label": "Target model default",
+			"settings.reasoning.target-default.description": "Omit an effort and let the target model use its default.",
+			"settings.reasoning.route-aware.label": "Route-aware inheritance",
+			"settings.reasoning.route-aware.description": "Inherit the captain effort on the same route; use the target default when the route changes.",
+			"settings.reasoning.explicit.label": "Explicit effort",
+			"settings.reasoning.explicit.description": "Choose an effort supported by the selected model.",
+			"settings.reasoning.effort": "Reasoning effort",
+			"settings.reasoning.noEfforts": "The selected model exposes no selectable efforts",
+			"settings.reasoning.unsupportedEffort": "{effort} (not supported by the current model)",
+			"settings.scope.title": "Effective scope",
+			"settings.scope.description": "Existing members retain the model route and reasoning effort captured at creation; future members use the current values here."
 		};
 		//#endregion
 		//#region lib/client/session-navigation.js
@@ -2113,7 +2838,9 @@ window.__ModuleLoader__.load({
 			"conversationEvents",
 			"slots",
 			"sessions",
-			"locale"
+			"locale",
+			"settingsScope",
+			"connection"
 		];
 		/** The replayed user message is the canonical transcript entry. */
 		function HiddenAgentTeamsCommand() {
@@ -2129,6 +2856,25 @@ window.__ModuleLoader__.load({
 				zh,
 				en
 			}), "agent-teams: dictionaries");
+			const settings = ctx.settingsScope.bind({ namespace: "agent-teams" });
+			const settingsDescribe = ctx.settingsScope.describe();
+			const writer = createAgentTeamsSettingsWriter({
+				api: ctx.get("connection").api,
+				scope: settings,
+				describe: settingsDescribe
+			});
+			const t = ctx.locale.bind(AGENT_TEAMS_LOCALE_NAMESPACE);
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "agent-teams",
+				order: 30,
+				locale: AGENT_TEAMS_LOCALE_NAMESPACE,
+				label: () => t("settings.title"),
+				inject: () => ({
+					settings,
+					writer
+				})
+			}, AgentTeamsSettingsSection));
 			const openMember = (parentId, childId) => {
 				openAgentTeamMember(ctx.sessions, parentId, childId).catch((error) => {
 					console.warn(`agent-teams: failed to open member transcript ${childId}: ${String(error)}`);

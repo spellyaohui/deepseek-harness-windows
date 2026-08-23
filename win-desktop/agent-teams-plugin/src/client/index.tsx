@@ -1,7 +1,9 @@
 /** Browser plugin for the AgentTeams activity floater and conversation card. */
 
 import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the official browser locale service into ClientContext.
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Module-loading import: the card registers into the conversation chat-node
@@ -11,22 +13,27 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 // ctx.slots.inject below owns the runtime wait for the declaration.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { ActivityPanel } from './ActivityPanel.tsx'
+import { AgentTeamsSettingsSection } from './AgentTeamsSettingsSection.tsx'
 import { AgentTeamsCard, type AgentTeamsCardInjected } from './AgentTeamsCard.tsx'
 import { agentTeamsCardDefinition } from './agent-teams-card-definition.ts'
 import {
   AGENT_TEAMS_LOCALE_NAMESPACE, en, zh, type AgentTeamsLocaleKey,
 } from './locales.ts'
 import { openAgentTeamMember } from './session-navigation.ts'
+import { createAgentTeamsSettingsWriter } from './settings-write.ts'
+import type { AgentTeamsSettings } from '../settings.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** AgentTeams conversation card and activity monitor copy. */
+    /** AgentTeams conversation card, activity monitor, and settings copy. */
     agentTeams: AgentTeamsLocaleKey
   }
 }
 
 /** Required services: conversation nodes, slots, sessions navigation, and locale. */
-export const inject = ['conversationEvents', 'slots', 'sessions', 'locale']
+export const inject = [
+  'conversationEvents', 'slots', 'sessions', 'locale', 'settingsScope', 'connection',
+]
 
 /** The replayed user message is the canonical transcript entry. */
 function HiddenAgentTeamsCommand(): null {
@@ -43,6 +50,23 @@ export function apply(ctx: ClientContext): void {
     () => ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en }),
     'agent-teams: dictionaries',
   )
+  const settings = ctx.settingsScope.bind<AgentTeamsSettings>({ namespace: 'agent-teams' })
+  const settingsDescribe = ctx.settingsScope.describe()
+  const connection = ctx.get('connection') as ConnectionHandle
+  const writer = createAgentTeamsSettingsWriter({
+    api: connection.api,
+    scope: settings,
+    describe: settingsDescribe,
+  })
+  const t = ctx.locale.bind(AGENT_TEAMS_LOCALE_NAMESPACE)
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'agent-teams',
+    order: 30,
+    locale: AGENT_TEAMS_LOCALE_NAMESPACE,
+    label: () => t('settings.title'),
+    inject: () => ({ settings, writer }),
+  }, AgentTeamsSettingsSection))
   const openMember = (parentId: SessionId, childId: SessionId): void => {
     void openAgentTeamMember(ctx.sessions, parentId, childId).catch((error: unknown) => {
       console.warn(`agent-teams: failed to open member transcript ${childId}: ${String(error)}`)
