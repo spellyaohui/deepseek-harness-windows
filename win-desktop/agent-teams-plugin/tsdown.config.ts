@@ -13,7 +13,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { basename, dirname, resolve as resolvePath, sep } from 'node:path'
+import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { transform } from 'lightningcss'
 import { defineConfig, type UserConfig } from 'tsdown'
@@ -43,6 +43,8 @@ const GENERATED_REMOTE = /^@deepseek-ai\/dsh-[a-z0-9]+(?:-[a-z0-9]+)*\/remote$/
 /** Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline. */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
+const PACKAGE_ROOT = resolvePath(fileURLToPath(new URL('.', import.meta.url)))
+const CSS_VIRTUAL_FILES = new Map<string, string>()
 
 /**
  * Module id this bundle registers under via `__ModuleLoader__.load`. The host
@@ -89,12 +91,19 @@ const config: UserConfig = {
     name: 'dsh-css-modules-inline',
     resolveId(source: string, importer: string | undefined) {
       if (!source.endsWith('.module.css')) return null
-      const abs = importer !== undefined ? sourceAssetPath(source, importer) : source
-      return CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
+      const fileId = importer !== undefined
+        ? sourceAssetPath(source, importer)
+        : resolvePath(PACKAGE_ROOT, source)
+      const virtualId = cssVirtualId(fileId)
+      CSS_VIRTUAL_FILES.set(virtualId, fileId)
+      return virtualId
     },
     async load(virtualId: string) {
       if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
-      const fileId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+      const fileId = CSS_VIRTUAL_FILES.get(virtualId)
+      if (fileId === undefined) {
+        throw new Error(`dsh-css-modules-inline: unresolved virtual CSS module "${virtualId}"`)
+      }
       this.addWatchFile(fileId)
       const source = readFileSync(fileId)
       const { code, exports: cssExports } = transform({
@@ -144,6 +153,20 @@ function sourceAssetPath(source: string, importer: string): string {
     if (existsSync(srcPath)) return srcPath
   }
   return source
+}
+
+/** Map a resolved CSS source to a deterministic, package-relative virtual id. */
+function cssVirtualId(fileId: string): string {
+  const relativeId = relative(PACKAGE_ROOT, fileId)
+  if (
+    relativeId === ''
+    || relativeId === '..'
+    || relativeId.startsWith(`..${sep}`)
+    || isAbsolute(relativeId)
+  ) {
+    throw new Error(`dsh-css-modules-inline: CSS path escapes the package root: "${fileId}"`)
+  }
+  return `${CSS_VIRTUAL_PREFIX}${relativeId.split(sep).join('/')}${CSS_VIRTUAL_SUFFIX}`
 }
 
 export default config

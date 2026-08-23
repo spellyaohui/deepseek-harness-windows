@@ -21,6 +21,7 @@
 - Agent-scoped suppression of native delegation tools in Team mode.
 - One-time migration from legacy Electron settings.
 - Desktop integration and regression verification.
+- Path-stable virtual CSS module ids with generated-artifact verification.
 
 ## Upgrade rule
 
