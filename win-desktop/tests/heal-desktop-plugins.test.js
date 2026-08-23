@@ -17,7 +17,11 @@ import {
   resolveWinHideConsoleImport,
 } from '../src/dsh-service.js'
 
-const PLUGINS = ['@nanmicoder/dsh-auto-mode', '@nanmicoder/dsh-agent-teams']
+const PLUGINS = [
+  '@nanmicoder/dsh-auto-mode',
+  '@nanmicoder/dsh-agent-teams',
+  '@deepseek-ai/dsh-session-markdown-export',
+]
 
 function makeHome() {
   const home = mkdtempSync(join(tmpdir(), 'dsh-desktop-heal-'))

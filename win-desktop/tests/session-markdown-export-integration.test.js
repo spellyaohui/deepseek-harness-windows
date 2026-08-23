@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import yaml from 'js-yaml'
+import { generateAgentTeamsPatch } from '../src/dsh-service.js'
 
 const wrapperRoot = fileURLToPath(new URL('..', import.meta.url))
 const packageJson = JSON.parse(readFileSync(join(wrapperRoot, 'package.json'), 'utf8'))
@@ -27,7 +28,13 @@ test('wrapper mounts the packed Markdown export plugin in the desktop Web profil
     packageJson.dependencies['@deepseek-ai/dsh-session-markdown-export'],
     'file:session-markdown-export-plugin',
   )
-  assert.ok(patchEntries.some((entry) => entry.name === '@deepseek-ai/dsh-session-markdown-export'))
+  assert.deepEqual(
+    patchEntries.find((entry) => entry.id === 'session-markdown-export'),
+    {
+      id: 'session-markdown-export',
+      name: '@deepseek-ai/dsh-session-markdown-export',
+    },
+  )
 
   assert.equal(existsSync(markdownPluginRoot), true)
   assert.equal(existsSync(join(markdownPluginRoot, 'node_modules')), false)
@@ -43,4 +50,43 @@ test('wrapper mounts the packed Markdown export plugin in the desktop Web profil
   assert.match(clientBundle, /session-markdown-export/)
   assert.match(hostBundle, /\/api\/session\.export-markdown/)
   assert.match(rawExportClient, /\/api\/session\.export/)
+})
+
+test('runtime-generated desktop patch retains AgentTeams migration settings before Markdown export', () => {
+  let generatedPatch
+  generateAgentTeamsPatch({
+    getSettings: () => ({
+      agentTeamsMemberProvider: 'openai-compatible',
+      agentTeamsMemberModel: 'example-model',
+      agentTeamsMemberReasoningEffort: 'high',
+    }),
+    getUserDataPath: () => 'unused',
+    makeDir: () => {},
+    writeFile: (_path, content) => { generatedPatch = content },
+  })
+
+  const entries = yaml.load(generatedPatch).flatMap((patch) => patch.insert ?? [])
+  assert.deepEqual(entries, [
+    {
+      id: 'desktop-settings',
+      name: '@deepseek-ai/dsh-desktop-settings',
+    },
+    {
+      id: 'agent-teams',
+      name: '@nanmicoder/dsh-agent-teams',
+      config: {
+        stateDir: '.agent-teams',
+        memberProvider: 'spawn',
+        legacyDesktopSettings: {
+          provider: 'openai-compatible',
+          model: 'example-model',
+          reasoningEffort: 'high',
+        },
+      },
+    },
+    {
+      id: 'session-markdown-export',
+      name: '@deepseek-ai/dsh-session-markdown-export',
+    },
+  ])
 })
