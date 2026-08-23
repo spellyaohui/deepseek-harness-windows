@@ -178,8 +178,9 @@ export async function confirmAgentTeamsMigration(serviceUrl, {
     })
     if (status === undefined) return false
     if (status?.complete === true) return true
-    if (remaining === 0) return false
-    await sleep(Math.min(pollMs, remaining))
+    const remainingAfterResponse = deadline - now()
+    if (remainingAfterResponse <= 0) return false
+    await sleep(Math.min(pollMs, remainingAfterResponse))
   }
   return false
 }

@@ -84,6 +84,27 @@ test('AgentTeams migration confirmation retries incomplete status and accepts a 
   assert.equal(complete, true)
 })
 
+test('AgentTeams migration confirmation sleeps only through the deadline after a late false response', async () => {
+  let now = 0
+  const sleeps = []
+  const complete = await confirmAgentTeamsMigration('http://127.0.0.1:11000', {
+    fetcher: async () => {
+      now = 4_999
+      return { ok: true, json: async () => ({ migrationVersion: 0, complete: false }) }
+    },
+    now: () => now,
+    sleep: async (milliseconds) => {
+      sleeps.push(milliseconds)
+      now += milliseconds
+    },
+    setTimeoutFn: () => 1,
+    clearTimeoutFn: () => {},
+  })
+  assert.equal(complete, false)
+  assert.deepEqual(sleeps, [1])
+  assert.equal(now, 5_000)
+})
+
 test('AgentTeams migration confirmation preserves legacy settings after a failed handshake', async () => {
   const complete = await confirmAgentTeamsMigration('http://127.0.0.1:11000', {
     fetcher: async () => { throw new Error('unreachable') },
