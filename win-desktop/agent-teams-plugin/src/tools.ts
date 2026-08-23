@@ -50,6 +50,7 @@ import {
 } from './members.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
 import { installTeamScheduler } from './scheduler.ts'
+import type { AgentTeamsSettingsRuntime } from './settings.ts'
 
 /** Resolved plugin config consumed by the tools. */
 export interface ToolsConfig {
@@ -57,8 +58,8 @@ export interface ToolsConfig {
   stateDir: string
   /** Member subagent provider name. */
   memberProvider: string
-  /** Optional member model override. */
-  memberModel?: string
+  /** Live AgentTeams settings runtime. */
+  settings: AgentTeamsSettingsRuntime
   /** Member delegation depth cap. */
   memberMaxDepth?: number
   /** Team size cap (members). */
@@ -339,8 +340,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): void
         const selection = await resolveMemberLlmSelection(ctx, captain, {
           provider: args.provider,
           model: args.model,
-          defaultModel: config.memberModel,
           reasoningEffort: args.reasoning_effort,
+          defaults: config.settings.get(),
         }, exec.signal)
         const member: TeamMember = {
           id: '',

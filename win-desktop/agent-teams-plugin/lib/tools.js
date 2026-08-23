@@ -270,8 +270,8 @@ export function registerAgentTeamsTools(ctx, config) {
                 const selection = await resolveMemberLlmSelection(ctx, captain, {
                     provider: args.provider,
                     model: args.model,
-                    defaultModel: config.memberModel,
                     reasoningEffort: args.reasoning_effort,
+                    defaults: config.settings.get(),
                 }, exec.signal);
                 const member = {
                     id: '',

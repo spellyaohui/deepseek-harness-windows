@@ -865,7 +865,15 @@ const selectionContext = {
     },
   },
 }
-const inheritedSelection = await resolveMemberLlmSelection(selectionContext, captain, {})
+const routeAwareSettings = {
+  delegationMode: 'teams',
+  memberLlmProvider: '',
+  memberModel: '',
+  memberReasoningMode: 'route-aware',
+  memberReasoningEffort: '',
+  migrationVersion: 1,
+}
+const inheritedSelection = await resolveMemberLlmSelection(selectionContext, captain, { defaults: routeAwareSettings })
 check(
   'ordinary member snapshots the captain current route and effort',
   inheritedSelection.provider === 'captain-provider'
@@ -875,6 +883,7 @@ check(
 const overriddenSelection = await resolveMemberLlmSelection(selectionContext, captain, {
   provider: 'other-provider',
   model: 'other-model',
+  defaults: routeAwareSettings,
 })
 check(
   'cross-provider route uses the target model default instead of captain effort',
@@ -884,7 +893,7 @@ check(
     && resolvedCalls.at(-1)?.reasoningEffort === undefined,
 )
 const defaultedSelection = await resolveMemberLlmSelection(selectionContext, captain, {
-  defaultModel: 'configured-member-model',
+  defaults: { ...routeAwareSettings, memberModel: 'configured-member-model' },
 })
 check(
   'plugin memberModel route uses that target model default effort',
@@ -897,6 +906,7 @@ const explicitEffortSelection = await resolveMemberLlmSelection(selectionContext
   provider: 'other-provider',
   model: 'other-model',
   reasoningEffort: 'high',
+  defaults: routeAwareSettings,
 })
 check(
   'explicit member effort overrides cross-provider target default',
@@ -905,6 +915,7 @@ check(
 )
 const forcedDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, {
   reasoningEffort: 'default',
+  defaults: routeAwareSettings,
 })
 check(
   'default sentinel opts out of same-route captain effort inheritance',
@@ -915,14 +926,14 @@ check(
 )
 let providerWithoutModelRejected = false
 try {
-  await resolveMemberLlmSelection(selectionContext, captain, { provider: 'other-provider' })
+  await resolveMemberLlmSelection(selectionContext, captain, { provider: 'other-provider', defaults: routeAwareSettings })
 } catch {
   providerWithoutModelRejected = true
 }
 check('explicit provider without model is rejected', providerWithoutModelRejected)
 let emptyEffortRejected = false
 try {
-  await resolveMemberLlmSelection(selectionContext, captain, { reasoningEffort: '  ' })
+  await resolveMemberLlmSelection(selectionContext, captain, { reasoningEffort: '  ', defaults: routeAwareSettings })
 } catch {
   emptyEffortRejected = true
 }

@@ -264,11 +264,10 @@ assert.deepEqual(await resolveMemberLlmSelection({
   },
   options: {},
 }, {
-  defaultModel: settingsExports.normalizeMemberModelOverride(defaultConfig.memberModel),
+  defaults: settingsExports.DEFAULT_AGENT_TEAMS_SETTINGS,
 }), {
   provider: 'captain-provider',
   model: 'captain-model',
-  reasoningEffort: 'captain-effort',
 })
 
 const ordinaryHarness = createSettingsHarness()

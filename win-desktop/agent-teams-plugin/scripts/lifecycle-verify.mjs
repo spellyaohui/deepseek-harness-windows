@@ -149,6 +149,17 @@ const ctx = {
 registerAgentTeamsTools(ctx, {
   stateDir: '.agent-teams',
   memberProvider: 'spawn',
+  settings: {
+    get: () => ({
+      delegationMode: 'teams',
+      memberLlmProvider: '',
+      memberModel: '',
+      memberReasoningMode: 'target-default',
+      memberReasoningEffort: '',
+      migrationVersion: 1,
+    }),
+    migrationStatus: () => ({ migrationVersion: 1, complete: true }),
+  },
   memberMaxDepth: 1,
   maxMembers: 8,
 })

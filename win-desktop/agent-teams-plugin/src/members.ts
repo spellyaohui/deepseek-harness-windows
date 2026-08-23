@@ -19,6 +19,8 @@ import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { join } from 'node:path'
+import { selectMemberCandidate } from './selection-policy.ts'
+import type { AgentTeamsSettings } from './settings.ts'
 import { readRetiredMemberIds, readTeamSync } from './state.ts'
 import type { TeamMember, TeamState } from './types.ts'
 
@@ -64,12 +66,12 @@ export interface MemberLlmSelection {
 export interface MemberLlmSelectionRequest {
   /** Explicit LLM provider route; requires an explicit model. */
   provider?: string
-  /** Explicit model id; otherwise the plugin default or captain model is used. */
+  /** Explicit model id; otherwise current AgentTeams settings or captain model is used. */
   model?: string
-  /** Plugin-level member model default. */
-  defaultModel?: string
   /** Explicit reasoning effort; "default" selects the target model's default effort. */
   reasoningEffort?: string
+  /** Current AgentTeams settings, read immediately before member selection. */
+  defaults: AgentTeamsSettings
 }
 
 /** Process-local bridge between spawn admission and synchronous child setup. */
@@ -127,53 +129,22 @@ export async function resolveMemberLlmSelection(
   request: MemberLlmSelectionRequest,
   signal?: AbortSignal,
 ): Promise<MemberLlmSelection> {
-  const explicitProvider = request.provider?.trim()
-  const explicitModel = request.model?.trim()
-  const defaultModel = request.defaultModel?.trim()
-  const explicitEffort = request.reasoningEffort?.trim()
-  if (request.provider !== undefined && explicitProvider === '') {
-    throw new Error('member LLM provider must not be empty')
-  }
-  if (request.model !== undefined && explicitModel === '') {
-    throw new Error('member model must not be empty')
-  }
-  if (request.defaultModel !== undefined && defaultModel === '') {
-    throw new Error('configured memberModel must not be empty')
-  }
-  if (request.reasoningEffort !== undefined && explicitEffort === '') {
-    throw new Error('member reasoning effort must not be empty')
-  }
-  if (explicitProvider !== undefined && explicitModel === undefined) {
-    throw new Error('an explicit member LLM provider requires an explicit member model')
-  }
-
   const current = captain.session.requestHeader()?.config
-  const currentProvider = current?.provider ?? captain.options.provider
-  const currentModel = current?.model ?? captain.options.model
-  const provider = explicitProvider ?? currentProvider
-  const model = explicitModel ?? defaultModel ?? currentModel
+  const provider = current?.provider ?? captain.options.provider
+  const model = current?.model ?? captain.options.model
   if (provider === undefined || model === undefined) {
     throw new Error('cannot resolve the member LLM route from the current captain session')
   }
-
-  // Effort ids belong to one exact provider/model capability. Preserve the
-  // captain's effort only on the same route; a changed route must resolve its
-  // own default. Explicit effort still wins, while "default" forces that
-  // target-default behavior even when the route did not change.
-  const sameRoute = provider === currentProvider && model === currentModel
-  const reasoningEffort = explicitEffort === undefined
-    ? sameRoute
-      ? current?.reasoningEffort
-      : undefined
-    : explicitEffort === 'default'
-      ? undefined
-      : ReasoningEffortId(explicitEffort)
-  const resolved = await ctx.llm.resolveCallConfig({
+  const captainSelection = {
     provider,
     model,
-    ...reasoningEffort === undefined
-      ? {}
-      : { reasoningEffort },
+    ...(current?.reasoningEffort === undefined ? {} : { reasoningEffort: String(current.reasoningEffort) }),
+  }
+  const candidate = selectMemberCandidate({ captain: captainSelection, settings: request.defaults, explicit: request })
+  const resolved = await ctx.llm.resolveCallConfig({
+    provider: candidate.provider,
+    model: candidate.model,
+    ...(candidate.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(candidate.reasoningEffort) }),
   }, signal)
   return {
     provider: resolved.provider,

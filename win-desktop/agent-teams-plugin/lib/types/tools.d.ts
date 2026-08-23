@@ -10,14 +10,15 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
+import type { AgentTeamsSettingsRuntime } from './settings.ts';
 /** Resolved plugin config consumed by the tools. */
 export interface ToolsConfig {
     /** State directory name under the captain's workspace. */
     stateDir: string;
     /** Member subagent provider name. */
     memberProvider: string;
-    /** Optional member model override. */
-    memberModel?: string;
+    /** Live AgentTeams settings runtime. */
+    settings: AgentTeamsSettingsRuntime;
     /** Member delegation depth cap. */
     memberMaxDepth?: number;
     /** Team size cap (members). */

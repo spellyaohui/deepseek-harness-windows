@@ -37,7 +37,6 @@ import {
   type LegacyDesktopAgentTeamsSettings,
   type MemberReasoningMode,
   normalizeLegacyDesktopAgentTeamsSettings,
-  normalizeMemberModelOverride,
 } from './settings.ts'
 
 /**
@@ -139,7 +138,7 @@ export function apply(ctx: Context, config: Config): void {
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',
     memberProvider: config.memberProvider ?? 'spawn',
-    memberModel: normalizeMemberModelOverride(config.memberModel),
+    settings,
     memberMaxDepth: config.memberMaxDepth ?? 1,
     maxMembers: config.maxMembers ?? 8,
   }

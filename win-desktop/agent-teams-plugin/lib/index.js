@@ -23,7 +23,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectArchivedTeamsActivity, collectTeamsActivity } from "./snapshot.js";
-import { createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, normalizeMemberModelOverride, } from "./settings.js";
+import { createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, } from "./settings.js";
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
 /** Workspace registry service key candidates, newest first. */
@@ -73,7 +73,7 @@ export function apply(ctx, config) {
     const resolved = {
         stateDir: config.stateDir ?? '.agent-teams',
         memberProvider: config.memberProvider ?? 'spawn',
-        memberModel: normalizeMemberModelOverride(config.memberModel),
+        settings,
         memberMaxDepth: config.memberMaxDepth ?? 1,
         maxMembers: config.maxMembers ?? 8,
     };

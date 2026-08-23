@@ -13,6 +13,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import { type Agent } from '@deepseek-ai/dsh-agent';
+import type { AgentTeamsSettings } from './settings.ts';
 import type { TeamMember, TeamState } from './types.ts';
 /** Runtime knobs for member spawning, resolved from plugin config. */
 export interface MemberRuntimeConfig {
@@ -34,12 +35,12 @@ export interface MemberLlmSelection {
 export interface MemberLlmSelectionRequest {
     /** Explicit LLM provider route; requires an explicit model. */
     provider?: string;
-    /** Explicit model id; otherwise the plugin default or captain model is used. */
+    /** Explicit model id; otherwise current AgentTeams settings or captain model is used. */
     model?: string;
-    /** Plugin-level member model default. */
-    defaultModel?: string;
     /** Explicit reasoning effort; "default" selects the target model's default effort. */
     reasoningEffort?: string;
+    /** Current AgentTeams settings, read immediately before member selection. */
+    defaults: AgentTeamsSettings;
 }
 /** Process-local bridge between spawn admission and synchronous child setup. */
 export interface MemberSelectionRuntime {
