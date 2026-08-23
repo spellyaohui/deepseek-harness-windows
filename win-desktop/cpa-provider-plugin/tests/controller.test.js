@@ -53,13 +53,15 @@ test('saves the redacted profile before the Token', async () => {
     },
   }
   const controller = createCpaController(api)
+  const stages = []
   const result = await controller.save({
     baseURL: 'https://proxy.example.invalid',
     token: 'test-token',
     models: [{ id: 'model-a', selected: true }],
-  }, 7)
+  }, 7, stage => { stages.push(stage) })
 
   assert.deepEqual(calls.map(call => call.kind), ['settings', 'credential'])
+  assert.deepEqual(stages, ['profile', 'credential'])
   assert.equal(JSON.stringify(calls[0].payload).includes('test-token'), false)
   assert.deepEqual(calls[1].payload, { ref: 'CPA_API_KEY', value: 'test-token' })
   assert.deepEqual(result, { ok: true })

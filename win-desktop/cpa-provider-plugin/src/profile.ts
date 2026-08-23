@@ -2,6 +2,23 @@ import { normalizeCpaBaseURL } from './address.ts'
 import { reasoningEffortsForModel } from './reasoning.ts'
 import type { CpaDraft, CpaModelCandidate, CpaModelProfile, CpaProviderProfile } from './types.ts'
 
+/** Merge a fresh listing with configured rows the endpoint temporarily omitted. */
+export function mergeCpaCandidates(
+  configured: readonly CpaModelCandidate[],
+  discovered: readonly CpaModelCandidate[],
+): CpaModelCandidate[] {
+  const merged = new Map<string, CpaModelCandidate>()
+  for (const candidate of discovered) {
+    const id = candidate.id.trim()
+    if (id !== '' && !merged.has(id)) merged.set(id, { ...candidate, id })
+  }
+  for (const candidate of configured) {
+    const id = candidate.id.trim()
+    if (id !== '' && !merged.has(id)) merged.set(id, { ...candidate, id })
+  }
+  return [...merged.values()]
+}
+
 /** Convert selected discovery candidates to the exact pi-ai model profile. */
 export function buildCpaModels(candidates: readonly CpaModelCandidate[]): CpaModelProfile[] {
   const seen = new Set<string>()

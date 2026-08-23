@@ -80,8 +80,13 @@ export function createCpaController(api: CpaApi, options: CpaControllerOptions =
       return models
     },
 
-    async save(draft: CpaDraft, expectedRevision: number): Promise<CpaSaveResult> {
+    async save(
+      draft: CpaDraft,
+      expectedRevision: number,
+      onStage: (stage: 'profile' | 'credential') => void = () => {},
+    ): Promise<CpaSaveResult> {
       if (!profileCommitted) {
+        onStage('profile')
         try {
           const response = await api.settings.mutate({
             ns: SETTINGS_NAMESPACE,
@@ -99,6 +104,7 @@ export function createCpaController(api: CpaApi, options: CpaControllerOptions =
 
       const value = draft.token.trim()
       if (value !== '') {
+        onStage('credential')
         try {
           const response = await api.credentials.set({ ref: CREDENTIAL_REF, value })
           if (!response.result.ok) {

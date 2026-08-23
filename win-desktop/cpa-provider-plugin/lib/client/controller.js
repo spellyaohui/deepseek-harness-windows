@@ -59,8 +59,9 @@ export function createCpaController(api, options = {}) {
                 throw new Error('CPA returned no usable models');
             return models;
         },
-        async save(draft, expectedRevision) {
+        async save(draft, expectedRevision, onStage = () => { }) {
             if (!profileCommitted) {
+                onStage('profile');
                 try {
                     const response = await api.settings.mutate({
                         ns: SETTINGS_NAMESPACE,
@@ -78,6 +79,7 @@ export function createCpaController(api, options = {}) {
             }
             const value = draft.token.trim();
             if (value !== '') {
+                onStage('credential');
                 try {
                     const response = await api.credentials.set({ ref: CREDENTIAL_REF, value });
                     if (!response.result.ok) {

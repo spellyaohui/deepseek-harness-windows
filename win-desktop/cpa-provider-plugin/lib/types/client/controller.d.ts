@@ -16,6 +16,6 @@ export interface CpaControllerOptions {
 /** Create one card-scoped controller. A credential retry retains profile commit state. */
 export declare function createCpaController(api: CpaApi, options?: CpaControllerOptions): {
     discover(draft: Pick<CpaDraft, "baseURL" | "token">): Promise<CpaModelCandidate[]>;
-    save(draft: CpaDraft, expectedRevision: number): Promise<CpaSaveResult>;
+    save(draft: CpaDraft, expectedRevision: number, onStage?: (stage: "profile" | "credential") => void): Promise<CpaSaveResult>;
 };
 export {};

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildCpaModels, buildCpaProfile } from '../lib/profile.js'
+import { buildCpaModels, buildCpaProfile, mergeCpaCandidates } from '../lib/profile.js'
 
 test('builds deduplicated CPA models with exact per-model reasoning metadata', () => {
   const models = buildCpaModels([
@@ -21,6 +21,16 @@ test('builds deduplicated CPA models with exact per-model reasoning metadata', (
 
 test('requires at least one selected model', () => {
   assert.throws(() => buildCpaModels([{ id: 'unused', selected: false }]), /at least one model/i)
+})
+
+test('preserves configured models omitted by a later discovery', () => {
+  assert.deepEqual(mergeCpaCandidates(
+    [{ id: 'configured-only', name: 'Configured', selected: true }],
+    [{ id: 'new-model', name: 'New', selected: true }],
+  ), [
+    { id: 'new-model', name: 'New', selected: true },
+    { id: 'configured-only', name: 'Configured', selected: true },
+  ])
 })
 
 test('assembles the stable CPA llm-pi-ai route', () => {
