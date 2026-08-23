@@ -72,7 +72,9 @@ function foldBlocks(content: unknown, assistant: boolean): ExportBlock[] {
 
 function foldMessage(event: { type: string; seq: number; time: number; data: unknown }): ExportMessage | undefined {
   const data = asRecord(event.data)
-  const message = asRecord(data?.message)
+  const message = event.type === 'user/message'
+    ? asRecord(data?.message) ?? data
+    : asRecord(data?.message)
   if (!message) return undefined
 
   if (event.type === 'assistant/message') {

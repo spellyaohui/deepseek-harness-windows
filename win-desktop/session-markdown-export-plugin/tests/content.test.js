@@ -161,3 +161,41 @@ test('foldSessionContent folds request, todo, tool, path, and turn state without
   assert.equal(serialized.includes('old file body'), false)
   assert.equal(serialized.includes('new file body'), false)
 })
+
+test('foldSessionContent retains current direct-shape user and plugin messages', () => {
+  const events = [
+    {
+      seq: 20,
+      time: 1020,
+      type: 'user/message',
+      data: message('user', { kind: 'user' }, [{ type: 'text', text: 'Direct prompt.' }]),
+    },
+    {
+      seq: 21,
+      time: 1021,
+      type: 'user/message',
+      data: message(
+        'user',
+        { kind: 'plugin', plugin: 'workspace-notes', form: 'instructions' },
+        [{ type: 'text', text: 'Historical workspace context.' }],
+      ),
+    },
+  ]
+  const session = { id: 'session-current-shape', version: 0, createdAt: 1000 }
+  const folded = foldSessionContent({
+    log: { session, events },
+    surface: { session, capturedThroughSeq: 21, events },
+    title: 'Current-shape fixture',
+  })
+
+  assert.deepEqual(
+    folded.transcript.map((entry) => [entry.seq, entry.role, entry.source, entry.form]),
+    [
+      [20, 'user', undefined, undefined],
+      [21, 'context', 'workspace-notes', 'instructions'],
+    ],
+  )
+  assert.deepEqual(folded.currentSurface.map((entry) => entry.seq), [20, 21])
+  assert.equal(folded.latestHumanRequest?.seq, 20)
+  assert.equal(folded.latestHumanRequest?.blocks[0]?.text, 'Direct prompt.')
+})
