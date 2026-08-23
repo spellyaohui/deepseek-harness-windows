@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Tray, Menu, dialog, nativeImage, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
-import { confirmAgentTeamsMigration, startDshService } from './dsh-service.js'
+import { applyConfirmedAgentTeamsMigration, startDshService } from './dsh-service.js'
 import { createWindowOptions, resolveAppIcon } from './window-options.js'
 import { loadDesktopSettings, getDesktopSettings, removeLegacyAgentTeamsSettings } from './desktop-settings.js'
 import { installSettingsIpc } from './settings-window.js'
@@ -194,9 +194,7 @@ async function launch() {
 
   try {
     serviceUrl = await service.ready
-    if (await confirmAgentTeamsMigration(serviceUrl)) {
-      removeLegacyAgentTeamsSettings()
-    }
+    await applyConfirmedAgentTeamsMigration(serviceUrl, { remove: removeLegacyAgentTeamsSettings })
     if (mainWindow && !mainWindow.isDestroyed()) {
       await mainWindow.loadURL(serviceUrl)
     }

@@ -97,8 +97,11 @@ export function setDesktopSettings(patch) {
  * durably migrated them. The desktop document itself, close behavior, and
  * unknown future settings remain untouched.
  */
-export function removeLegacyAgentTeamsSettings() {
-  const next = { ...loadDesktopSettings() }
+export function removeLegacyAgentTeamsSettings({
+  load = loadDesktopSettings,
+  flush = flushSettings,
+} = {}) {
+  const next = { ...load() }
   for (const key of LEGACY_AGENT_TEAMS_KEYS) delete next[key]
-  flushSettings(next)
+  flush(next)
 }

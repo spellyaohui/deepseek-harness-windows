@@ -31,8 +31,17 @@ export function resolveAutoModePatch() {
  * AgentTeams preferences are owned by the Harness settings scope.
  * @returns {string} absolute path to the generated patch file.
  */
-export function generateAgentTeamsPatch() {
-  const settings = getDesktopSettings()
+function yamlScalar(value) {
+  return JSON.stringify(String(value))
+}
+
+export function generateAgentTeamsPatch({
+  getSettings = getDesktopSettings,
+  getUserDataPath = () => app.getPath('userData'),
+  makeDir = mkdirSync,
+  writeFile = writeFileSync,
+} = {}) {
+  const settings = getSettings()
   const memberModel = typeof settings.agentTeamsMemberModel === 'string'
     ? settings.agentTeamsMemberModel.trim()
     : ''
@@ -56,19 +65,19 @@ export function generateAgentTeamsPatch() {
   ]
   if (memberProvider !== '' || memberModel !== '' || memberReasoningEffort !== '') {
     lines.push('        legacyDesktopSettings:')
-    if (memberProvider !== '') lines.push(`          provider: ${memberProvider}`)
-    if (memberModel !== '') lines.push(`          model: ${memberModel}`)
-    if (memberReasoningEffort !== '') lines.push(`          reasoningEffort: ${memberReasoningEffort}`)
+    if (memberProvider !== '') lines.push(`          provider: ${yamlScalar(memberProvider)}`)
+    if (memberModel !== '') lines.push(`          model: ${yamlScalar(memberModel)}`)
+    if (memberReasoningEffort !== '') lines.push(`          reasoningEffort: ${yamlScalar(memberReasoningEffort)}`)
   }
 
   const content = lines.join('\n') + '\n'
-  const outPath = join(app.getPath('userData'), 'agent-teams.patch.yml')
+  const outPath = join(getUserDataPath(), 'agent-teams.patch.yml')
   try {
-    mkdirSync(dirname(outPath), { recursive: true })
+    makeDir(dirname(outPath), { recursive: true })
   } catch {
     // userData always exists.
   }
-  writeFileSync(outPath, content, 'utf8')
+  writeFile(outPath, content, 'utf8')
   return outPath
 }
 
@@ -105,6 +114,35 @@ export function extractReadyUrl(output) {
   return READY_PATTERN.exec(output)?.[1]
 }
 
+function fetchMigrationStatusWithin(fetcher, statusUrl, timeoutMs, {
+  setTimeoutFn,
+  clearTimeoutFn,
+}) {
+  const controller = new AbortController()
+  return new Promise((resolve) => {
+    let settled = false
+    let timeoutId
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      if (timeoutId !== undefined) clearTimeoutFn(timeoutId)
+      resolve(value)
+    }
+    timeoutId = setTimeoutFn(() => {
+      controller.abort()
+      finish(undefined)
+    }, timeoutMs)
+    try {
+      Promise.resolve(fetcher(statusUrl, { signal: controller.signal })).then(
+        (response) => finish(response),
+        () => finish(undefined),
+      )
+    } catch {
+      finish(undefined)
+    }
+  })
+}
+
 /**
  * Wait for the host to confirm that it durably recorded the one-time desktop
  * migration. Any unavailable or incomplete response leaves the legacy values
@@ -116,23 +154,44 @@ export async function confirmAgentTeamsMigration(serviceUrl, {
   pollMs = 250,
   now = () => Date.now(),
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
 } = {}) {
   const statusUrl = new URL('/plugins/dsh-agent-teams/migration-status', serviceUrl).toString()
   const deadline = now() + timeoutMs
   while (now() <= deadline) {
+    const remaining = deadline - now()
+    if (remaining <= 0) return false
+    const response = await fetchMigrationStatusWithin(fetcher, statusUrl, remaining, {
+      setTimeoutFn,
+      clearTimeoutFn,
+    })
+    if (response === undefined || !response.ok) return false
     try {
-      const response = await fetcher(statusUrl)
-      if (!response.ok) return false
       const status = await response.json()
       if (status?.complete === true) return true
     } catch {
       return false
     }
-    const remaining = deadline - now()
-    if (remaining <= 0) return false
+    if (remaining === 0) return false
     await sleep(Math.min(pollMs, remaining))
   }
   return false
+}
+
+/** Keep startup running unless the migration handshake explicitly confirms. */
+export async function applyConfirmedAgentTeamsMigration(serviceUrl, {
+  confirm = confirmAgentTeamsMigration,
+  remove,
+} = {}) {
+  let complete
+  try {
+    complete = await confirm(serviceUrl)
+  } catch {
+    // The next launch retries migration; boot must not be blocked.
+    return
+  }
+  if (complete) remove?.()
 }
 
 export function buildDshArgs(entry, {

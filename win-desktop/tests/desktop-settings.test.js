@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { removeLegacyAgentTeamsSettings } from '../src/desktop-settings.js'
 
 /**
  * Test the desktop-settings logic without Electron. The module's only
@@ -38,13 +39,6 @@ function flush(settings) {
 
 function get() { return { ...load() } }
 function set(patch) { const next = { ...load(), ...patch }; flush(next); return { ...next } }
-function removeLegacyAgentTeamsSettings() {
-  const next = { ...load() }
-  for (const key of LEGACY_AGENT_TEAMS_KEYS) delete next[key]
-  flush(next)
-  return { ...next }
-}
-
 describe('desktop-settings logic', () => {
   it('returns defaults when no file exists', () => {
     const s = get()
@@ -78,25 +72,25 @@ describe('desktop-settings logic', () => {
   })
 
   it('removes only the migrated AgentTeams keys', () => {
-    set({
+    const cached = {
       closeBehavior: 'tray',
       agentTeamsMemberProvider: 'legacy-provider',
       agentTeamsMemberModel: 'legacy-model',
       agentTeamsMemberReasoningEffort: 'max',
       futureDesktopSetting: 'preserve-me',
+    }
+    let flushed
+
+    removeLegacyAgentTeamsSettings({
+      load: () => cached,
+      flush: (next) => { flushed = next },
     })
 
-    const s = removeLegacyAgentTeamsSettings()
-
-    assert.equal(s.closeBehavior, 'tray')
-    assert.equal(s.futureDesktopSetting, 'preserve-me')
-    for (const key of LEGACY_AGENT_TEAMS_KEYS) assert.equal(s[key], undefined)
-    assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')), s)
-  })
-
-  it('implements the removal helper in the desktop settings module', () => {
-    const source = readFileSync(new URL('../src/desktop-settings.js', import.meta.url), 'utf8')
-    assert.match(source, /export function removeLegacyAgentTeamsSettings\(\)/)
+    assert.notEqual(flushed, cached)
+    assert.equal(flushed.closeBehavior, 'tray')
+    assert.equal(flushed.futureDesktopSetting, 'preserve-me')
+    for (const key of LEGACY_AGENT_TEAMS_KEYS) assert.equal(flushed[key], undefined)
+    assert.equal(cached.agentTeamsMemberModel, 'legacy-model')
   })
 })
 
