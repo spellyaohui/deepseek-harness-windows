@@ -52,14 +52,31 @@ export function normalizeAgentTeamsSettings(input: Partial<AgentTeamsSettings>):
   }
 }
 
+export function normalizeLegacyDesktopAgentTeamsSettings(
+  input: LegacyDesktopAgentTeamsSettings | undefined,
+): LegacyDesktopAgentTeamsSettings | undefined {
+  if (input === undefined) return undefined
+  const provider = input.provider?.trim() ?? ''
+  const model = input.model?.trim() ?? ''
+  const reasoningEffort = input.reasoningEffort?.trim() ?? ''
+  if (provider === '' && model === '' && reasoningEffort === '') return undefined
+  return { provider, model, reasoningEffort }
+}
+
+export function normalizeMemberModelOverride(value: string | undefined): string | undefined {
+  const normalized = value?.trim()
+  return normalized === '' ? undefined : normalized
+}
+
 export function validateAgentTeamsSettings(value: AgentTeamsSettings): void {
-  if (value.memberLlmProvider !== '' && value.memberModel === '') {
+  const normalized = normalizeAgentTeamsSettings(value)
+  if (normalized.memberLlmProvider !== '' && normalized.memberModel === '') {
     throw new Error('memberLlmProvider requires memberModel')
   }
-  if (value.memberReasoningMode === 'explicit' && value.memberReasoningEffort === '') {
+  if (normalized.memberReasoningMode === 'explicit' && normalized.memberReasoningEffort === '') {
     throw new Error('explicit memberReasoningMode requires memberReasoningEffort')
   }
-  if (value.memberReasoningMode !== 'explicit' && value.memberReasoningEffort !== '') {
+  if (normalized.memberReasoningMode !== 'explicit' && normalized.memberReasoningEffort !== '') {
     throw new Error('memberReasoningEffort is valid only in explicit mode')
   }
 }
@@ -74,18 +91,34 @@ export function createAgentTeamsSettingsRuntime(
   base: Partial<AgentTeamsSettings>,
   legacy: LegacyDesktopAgentTeamsSettings | undefined,
 ): AgentTeamsSettingsRuntime {
-  let current = normalizeAgentTeamsSettings(base)
+  const baseSettings = normalizeAgentTeamsSettings(base)
+  let current = baseSettings
+  let attachment = 0
+  let migrationAttempted = false
   ctx.inject(['settings'], (settingsCtx) => {
+    const currentAttachment = ++attachment
     const scope: SettingsScope<AgentTeamsSettings> = settingsCtx.settings.register(
       AGENT_TEAMS_SETTINGS_NAMESPACE,
       AgentTeamsSettingsSchema,
-      { base: current, applies: 'live', validate: validateAgentTeamsSettings },
+      { base: baseSettings, applies: 'live', validate: validateAgentTeamsSettings },
     )
     current = normalizeAgentTeamsSettings(scope.get())
-    ctx.effect(() => scope?.watch((next) => {
-      current = normalizeAgentTeamsSettings(next)
-    }) ?? (() => undefined), 'agent-teams: settings watch')
-    if (legacy !== undefined && current.migrationVersion < AGENT_TEAMS_MIGRATION_VERSION) {
+    settingsCtx.effect(() => {
+      const unwatch = scope.watch((next) => {
+        if (currentAttachment === attachment) {
+          current = normalizeAgentTeamsSettings(next)
+        }
+      })
+      return () => {
+        unwatch()
+        if (currentAttachment === attachment) {
+          attachment += 1
+          current = baseSettings
+        }
+      }
+    }, 'agent-teams: settings watch')
+    if (!migrationAttempted && legacy !== undefined && current.migrationVersion < AGENT_TEAMS_MIGRATION_VERSION) {
+      migrationAttempted = true
       const effort = legacy.reasoningEffort?.trim() ?? ''
       void scope.update({
         memberLlmProvider: legacy.provider?.trim() ?? '',
@@ -94,7 +127,9 @@ export function createAgentTeamsSettingsRuntime(
         memberReasoningEffort: effort,
         migrationVersion: AGENT_TEAMS_MIGRATION_VERSION,
       }).then(() => {
-        current = normalizeAgentTeamsSettings(scope.get())
+        if (currentAttachment === attachment) {
+          current = normalizeAgentTeamsSettings(scope.get())
+        }
       }).catch((error: unknown) => {
         ctx.logger.warn(`agent-teams: legacy settings migration failed: ${String(error)}`)
       })

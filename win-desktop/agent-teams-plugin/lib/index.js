@@ -23,6 +23,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectArchivedTeamsActivity, collectTeamsActivity } from "./snapshot.js";
+import { createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, normalizeMemberModelOverride, } from "./settings.js";
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
 /** Workspace registry service key candidates, newest first. */
@@ -30,9 +31,18 @@ const WORKSPACE_KEYS = ['workspaceRegistry', 'workspace'];
 export const name = 'agent-teams';
 export const inject = ['tools', 'llm', 'subagents', 'systemPrompt', 'agents'];
 export const Config = z.object({
+    delegationMode: z.union(['teams', 'native']).default('teams'),
+    memberLlmProvider: z.string().default(''),
     stateDir: z.string().default('.agent-teams'),
     memberProvider: z.string().default('spawn'),
-    memberModel: z.string(),
+    memberModel: z.string().default(''),
+    memberReasoningMode: z.union(['target-default', 'route-aware', 'explicit']).default('target-default'),
+    memberReasoningEffort: z.string().default(''),
+    legacyDesktopSettings: z.object({
+        provider: z.string(),
+        model: z.string(),
+        reasoningEffort: z.string(),
+    }),
     memberMaxDepth: z.natural().default(1),
     maxMembers: z.natural().min(1).default(8),
     promptSectionOrder: z.natural().default(117),
@@ -52,10 +62,18 @@ function usageSectionText(toolNames) {
 Tools: ${toolNames}`;
 }
 export function apply(ctx, config) {
+    const settings = createAgentTeamsSettingsRuntime(ctx, {
+        delegationMode: config.delegationMode ?? 'teams',
+        memberLlmProvider: config.memberLlmProvider ?? '',
+        memberModel: config.memberModel ?? '',
+        memberReasoningMode: config.memberReasoningMode ?? 'target-default',
+        memberReasoningEffort: config.memberReasoningEffort ?? '',
+        migrationVersion: 0,
+    }, normalizeLegacyDesktopAgentTeamsSettings(config.legacyDesktopSettings));
     const resolved = {
         stateDir: config.stateDir ?? '.agent-teams',
         memberProvider: config.memberProvider ?? 'spawn',
-        memberModel: config.memberModel,
+        memberModel: normalizeMemberModelOverride(config.memberModel),
         memberMaxDepth: config.memberMaxDepth ?? 1,
         maxMembers: config.maxMembers ?? 8,
     };

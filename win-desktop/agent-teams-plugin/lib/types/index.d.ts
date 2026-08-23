@@ -18,10 +18,13 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
+import { type DelegationMode, type LegacyDesktopAgentTeamsSettings, type MemberReasoningMode } from './settings.ts';
 export declare const name = "agent-teams";
 export declare const inject: string[];
 /** Plugin configuration. */
 export interface Config {
+    delegationMode?: DelegationMode;
+    memberLlmProvider?: string;
     /**
      * State directory name under the captain's workspace; team state lives at
      * `<workspace>/<stateDir>/<teamId>/` (default `.agent-teams`).
@@ -31,6 +34,9 @@ export interface Config {
     memberProvider?: string;
     /** Optional model override applied to every member. */
     memberModel?: string;
+    memberReasoningMode?: MemberReasoningMode;
+    memberReasoningEffort?: string;
+    legacyDesktopSettings?: LegacyDesktopAgentTeamsSettings;
     /** Member delegation depth cap (default `1`; `0` forbids delegation entirely). */
     memberMaxDepth?: number;
     /** Team size cap in members (default `8`). */

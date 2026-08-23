@@ -36,6 +36,8 @@ import {
   type DelegationMode,
   type LegacyDesktopAgentTeamsSettings,
   type MemberReasoningMode,
+  normalizeLegacyDesktopAgentTeamsSettings,
+  normalizeMemberModelOverride,
 } from './settings.ts'
 
 /**
@@ -132,12 +134,12 @@ export function apply(ctx: Context, config: Config): void {
     memberReasoningMode: config.memberReasoningMode ?? 'target-default',
     memberReasoningEffort: config.memberReasoningEffort ?? '',
     migrationVersion: 0,
-  }, config.legacyDesktopSettings)
+  }, normalizeLegacyDesktopAgentTeamsSettings(config.legacyDesktopSettings))
 
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',
     memberProvider: config.memberProvider ?? 'spawn',
-    memberModel: config.memberModel,
+    memberModel: normalizeMemberModelOverride(config.memberModel),
     memberMaxDepth: config.memberMaxDepth ?? 1,
     maxMembers: config.maxMembers ?? 8,
   }
