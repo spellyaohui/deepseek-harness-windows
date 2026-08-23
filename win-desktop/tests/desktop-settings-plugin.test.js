@@ -43,3 +43,11 @@ test('runtime-generated patch also includes the desktop settings plugin', () => 
   assert.match(serviceSource, /id: desktop-settings/)
   assert.match(serviceSource, /@deepseek-ai\/dsh-desktop-settings/)
 })
+
+test('desktop settings are only served through the Harness modal bridge and tab', () => {
+  assert.equal(existsSync(new URL('../src/settings.html', import.meta.url)), false)
+  assert.equal(existsSync(new URL('../src/settings-preload.cjs', import.meta.url)), false)
+  const settingsWindowSource = readText(new URL('../src/settings-window.js', import.meta.url), 'utf8')
+  assert.match(settingsWindowSource, /installSettingsIpc/)
+  assert.match(clientSource, /label: \(\) => '桌面'/)
+})
