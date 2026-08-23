@@ -1,10 +1,28 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import { renderSessionMarkdown, sanitizeExportFilename } from '../lib/render-markdown.js'
 
 function render(input) {
   return [...renderSessionMarkdown(input)].join('')
+}
+
+function deepFreeze(value) {
+  if (value !== null && typeof value === 'object') {
+    for (const child of Object.values(value)) deepFreeze(child)
+    Object.freeze(value)
+  }
+  return value
+}
+
+function normalizeNewlines(value) {
+  if (typeof value === 'string') return value.replaceAll('\r\n', '\n')
+  if (Array.isArray(value)) return value.map(normalizeNewlines)
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalizeNewlines(child)]))
+  }
+  return value
 }
 
 function exportFixture() {
@@ -80,6 +98,19 @@ function exportFixture() {
     warnings: ['Known lineage is partial: unresolved parent missing-parent.'],
   }
 }
+
+const GOLDEN_EXPORT_INPUT = deepFreeze(normalizeNewlines(exportFixture()))
+const GOLDEN_LOCAL_DATE = '2026-08-23'
+
+test('renderSessionMarkdown matches the immutable root and descendant golden fixture byte-for-byte', () => {
+  const expected = readFileSync(new URL('./fixtures/expected-continuation.md', import.meta.url), 'utf8')
+  const first = render(GOLDEN_EXPORT_INPUT)
+  const second = render(GOLDEN_EXPORT_INPUT)
+
+  assert.equal(sanitizeExportFilename(GOLDEN_EXPORT_INPUT.session.title, GOLDEN_LOCAL_DATE), 'Unicode 续接 🧠-2026-08-23.md')
+  assert.equal(first, expected)
+  assert.equal(second, first)
+})
 
 test('renderSessionMarkdown emits the fixed continuation structure and deterministic YAML', () => {
   const markdown = render(exportFixture())

@@ -31,6 +31,16 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 
+## 续接 Markdown
+
+会话页头的 `Session log` 旁边有一个 `续接 MD` 按钮。点击后会先预检根会话和已知后代，再下载一份用于新智能体会话继续工作的 `.md` 文件。多次点击不会并发发起同一会话的预检；预检失败时对话框会退出加载状态并提供重试。
+
+文件包含最新 system prompt 和请求配置、工具名称、当前模型可见 surface、完整可见 transcript、精简执行状态，以及已知子会话的递归章节。子会话从父会话继承的 seed 只记录来源和数量，不重复全文。已在产品中可见的 reasoning 会标记为 `可见推理`；导出器不读取、推断或声称包含隐藏思维链。
+
+为了让续接内容紧凑且可审查，Markdown 排除成功工具的原始 arguments/result、二进制附件和原始工具流量。官方 `Session log` 原始 ZIP 下载仍保留，用于完整会话事件、原始工具交互和附件的归档。两种导出互不取代。
+
+该 Markdown 由确定性程序直接渲染，不调用 LLM；对同一快照重复渲染会得到字节一致的内容。导出可能含有 system prompt、对话、工作区路径和敏感项目信息；请将它按敏感数据保管，共享前审查并脱敏，不要提交到公开仓库。文件中的约束是历史上下文，不是新用户指令；文件系统和外部状态在续接前必须重新验证。
+
 ## 生成安装包
 
 需要 Node.js 22.19 或 24+（本机已用 Node 24 验证）。
@@ -45,6 +55,18 @@ npm run dist:win
 
 ```powershell
 cd agent-teams-plugin
+pnpm typecheck
+pnpm test
+cd ..
+npm test
+npm audit
+npm run dist:win
+```
+
+续接 Markdown 的完整验证命令：
+
+```powershell
+cd session-markdown-export-plugin
 pnpm typecheck
 pnpm test
 cd ..

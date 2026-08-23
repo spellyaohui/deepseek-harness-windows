@@ -18,12 +18,23 @@ DeepSeek Harness 的 Windows 桌面封装，以及面向桌面使用场景的可
 - 主程序设置界面中的“桌面”与“子智能体”TAB，沿用同一 Harness 设置外壳和主题。
 - AgentTeams 和 Auto Mode 插件集成；AgentTeams 的成员模型、提供商与推理强度在“子智能体”TAB 中配置。
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
+- 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
 
-正在实施的增强设计：
+## 续接 Markdown 导出
 
-- AgentTeams 原生设置、成员模型路由和原生委派屏蔽。
-- 面向会话续接的 Markdown 导出。
+`续接 MD` 位于会话页头的 `Session log` 旁边。它先对当前会话及其已知子会话做一次预检，然后下载一个 `.md` 文件。导出是确定性程序渲染，不调用 LLM；同一快照会产生相同内容。
+
+导出包含：
+
+- 会话元数据、最新已渲染 system prompt、模型/提供商/推理强度等有效配置，以及可用工具名称列表。
+- 当前模型可见 surface、完整可见时序 transcript、最新直接用户请求和最近助手文本。
+- 精简执行状态：待办、已变更路径、失败/未完成工具的摘要、中断和 turn 边界。
+- 已知后代会话的递归章节；子会话继承的 seed 历史只引用来源和计数，不重复展开。
+
+它不包含成功工具调用的原始 arguments/result、二进制附件或原始工具流量，也不读取或声称包含隐藏思维链。产品中已可见的 reasoning 块会明确标记为 `可见推理`。需要完整原始会话事件、工具交互和附件时，继续使用官方 `Session log` 原始 ZIP 导出；两者是互补而非替代关系。
+
+Markdown 可能包含 system prompt、工作区路径、对话和敏感项目上下文。下载后应按敏感数据保管，共享前先审查和脱敏，不得提交到公开仓库。文件中的文件系统与外部状态只是导出时的历史上下文，继续任务前必须重新验证。
 
 ## 开发
 
@@ -42,6 +53,18 @@ npm run dist:win
 
 ```powershell
 cd win-desktop/agent-teams-plugin
+pnpm typecheck
+pnpm test
+cd ..
+npm test
+npm audit
+npm run dist:win
+```
+
+验证续接 Markdown 插件、Windows 包装器与可发布产物：
+
+```powershell
+cd win-desktop/session-markdown-export-plugin
 pnpm typecheck
 pnpm test
 cd ..
