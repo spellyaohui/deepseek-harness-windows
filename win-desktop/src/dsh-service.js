@@ -134,7 +134,17 @@ function fetchMigrationStatusWithin(fetcher, statusUrl, timeoutMs, {
     }, timeoutMs)
     try {
       Promise.resolve(fetcher(statusUrl, { signal: controller.signal })).then(
-        (response) => finish(response),
+        async (response) => {
+          if (!response?.ok) {
+            finish(undefined)
+            return
+          }
+          try {
+            finish(await response.json())
+          } catch {
+            finish(undefined)
+          }
+        },
         () => finish(undefined),
       )
     } catch {
@@ -162,17 +172,12 @@ export async function confirmAgentTeamsMigration(serviceUrl, {
   while (now() <= deadline) {
     const remaining = deadline - now()
     if (remaining <= 0) return false
-    const response = await fetchMigrationStatusWithin(fetcher, statusUrl, remaining, {
+    const status = await fetchMigrationStatusWithin(fetcher, statusUrl, remaining, {
       setTimeoutFn,
       clearTimeoutFn,
     })
-    if (response === undefined || !response.ok) return false
-    try {
-      const status = await response.json()
-      if (status?.complete === true) return true
-    } catch {
-      return false
-    }
+    if (status === undefined) return false
+    if (status?.complete === true) return true
     if (remaining === 0) return false
     await sleep(Math.min(pollMs, remaining))
   }
@@ -191,7 +196,7 @@ export async function applyConfirmedAgentTeamsMigration(serviceUrl, {
     // The next launch retries migration; boot must not be blocked.
     return
   }
-  if (complete) remove?.()
+  if (complete === true) remove?.()
 }
 
 export function buildDshArgs(entry, {

@@ -114,6 +114,34 @@ test('AgentTeams migration confirmation times out a stalled fetch within the rem
   assert.equal(signal?.aborted, true)
 })
 
+test('AgentTeams migration confirmation times out a stalled response body within the remaining deadline', async () => {
+  let timeout
+  let jsonStarted = false
+  const confirmation = confirmAgentTeamsMigration('http://127.0.0.1:11000', {
+    timeoutMs: 10,
+    fetcher: async () => ({
+      ok: true,
+      json: async () => {
+        jsonStarted = true
+        return new Promise(() => {})
+      },
+    }),
+    setTimeoutFn: (callback) => {
+      timeout = callback
+      return 1
+    },
+    clearTimeoutFn: () => {},
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(jsonStarted, true)
+  timeout()
+  const result = await Promise.race([
+    confirmation,
+    new Promise((resolve) => setTimeout(() => resolve('timed out in test'), 50)),
+  ])
+  assert.equal(result, false)
+})
+
 test('only a confirmed AgentTeams migration removes legacy desktop settings', async () => {
   let removals = 0
   await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
@@ -122,6 +150,10 @@ test('only a confirmed AgentTeams migration removes legacy desktop settings', as
   })
   await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
     confirm: async () => false,
+    remove: () => { removals += 1 },
+  })
+  await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
+    confirm: async () => 'true',
     remove: () => { removals += 1 },
   })
   await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
