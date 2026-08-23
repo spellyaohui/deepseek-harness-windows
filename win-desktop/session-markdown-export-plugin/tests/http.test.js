@@ -217,18 +217,34 @@ test('invalid, repeated, and unknown query parameters fail closed before queryin
   }
 })
 
-test('absent includeDescendants is false and explicit false does not trace lineage', async () => {
-  for (const suffix of ['', '&includeDescendants=false']) {
-    const fixture = queryFixture()
-    const { res } = await request(
-      handlerFor(fixture.query),
-      'GET',
-      `${SESSION_MARKDOWN_EXPORT_PATH}?sessionId=root${suffix}`,
-    )
-    assert.equal(res.statusCode, 200)
-    assert.equal(fixture.calls.some((call) => call.startsWith('trace:')), false)
-    assert.match(res.body(), /include_descendants: false/u)
-  }
+test('absent includeDescendants defaults to true and includes traced descendants', async () => {
+  const child = header('child', { parentSession: 'root', delegationDepth: 1 })
+  const fixture = queryFixture({ children: [child] })
+
+  const { res } = await request(
+    handlerFor(fixture.query),
+    'GET',
+    `${SESSION_MARKDOWN_EXPORT_PATH}?sessionId=root`,
+  )
+
+  assert.equal(res.statusCode, 200)
+  assert.equal(fixture.calls.includes('trace:root'), true)
+  assert.match(res.body(), /include_descendants: true/u)
+  assert.match(res.body(), /### Delegated session · `Child 1`/u)
+})
+
+test('explicit includeDescendants=false does not trace lineage', async () => {
+  const fixture = queryFixture()
+
+  const { res } = await request(
+    handlerFor(fixture.query),
+    'GET',
+    `${SESSION_MARKDOWN_EXPORT_PATH}?sessionId=root&includeDescendants=false`,
+  )
+
+  assert.equal(res.statusCode, 200)
+  assert.equal(fixture.calls.some((call) => call.startsWith('trace:')), false)
+  assert.match(res.body(), /include_descendants: false/u)
 })
 
 test('methods other than HEAD and GET return 405 with the exact Allow header', async () => {

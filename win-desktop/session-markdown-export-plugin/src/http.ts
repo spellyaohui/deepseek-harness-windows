@@ -81,7 +81,7 @@ function parseRequest(req: IncomingMessage): ParsedExportRequest | undefined {
 
   return {
     sessionId: SessionId(sessionIds[0]!),
-    includeDescendants: descendantValue === 'true',
+    includeDescendants: descendantValue === undefined ? true : descendantValue === 'true',
   }
 }
 
