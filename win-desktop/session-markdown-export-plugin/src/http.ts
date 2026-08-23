@@ -171,12 +171,23 @@ function mapError(error: unknown, sessionId: SessionId): ErrorResponse {
   return { status: 500, body: errorBody('EXPORT_FAILED', 'Session export failed') }
 }
 
-function metadata(header: SessionHeader, title: string, includeDescendants: boolean, exportedAt: Date) {
+function metadata(
+  header: SessionHeader,
+  title: string,
+  includeDescendants: boolean,
+  exportedAt: Date,
+  seedLength: number,
+) {
   return {
     sessionId: header.id,
     title,
     ...(header.cwd === undefined ? {} : { cwd: header.cwd }),
     ...(header.agentPreset === undefined ? {} : { agentPreset: header.agentPreset }),
+    ...(header.parentSession === undefined ? {} : { parentId: header.parentSession }),
+    ...(header.delegationDepth === undefined ? {} : { depth: header.delegationDepth }),
+    ...(header.parentSession === undefined || seedLength <= 0
+      ? {}
+      : { inheritedFrom: header.parentSession, inheritedEventCount: seedLength }),
     createdAt: new Date(header.createdAt).toISOString(),
     exportedAt: exportedAt.toISOString(),
     includeDescendants,
@@ -207,7 +218,13 @@ function renderInput(
   descendants: readonly SessionMarkdownDescendant[],
 ): RenderSessionMarkdownInput {
   return {
-    session: metadata(prepared.root.session, prepared.root.title, includeDescendants, exportedAt),
+    session: metadata(
+      prepared.root.session,
+      prepared.root.title,
+      includeDescendants,
+      exportedAt,
+      prepared.root.seedLength,
+    ),
     content: prepared.root.content,
     descendants,
     warnings: prepared.warnings.map((warning) => warning.message),

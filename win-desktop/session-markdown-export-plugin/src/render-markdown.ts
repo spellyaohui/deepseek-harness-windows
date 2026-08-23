@@ -17,6 +17,8 @@ export interface SessionMarkdownMetadata {
   includeDescendants: boolean
   parentId?: string
   depth?: number
+  inheritedFrom?: string
+  inheritedEventCount?: number
 }
 
 export interface SessionMarkdownDescendant {
@@ -56,6 +58,11 @@ function tableValue(value: string | number | undefined): string {
   return value === undefined ? '—' : historicalInline(value)
 }
 
+function timestamp(value: number): string {
+  const date = new Date(value)
+  return Number.isNaN(date.valueOf()) ? String(value) : `${date.toISOString()} (${value})`
+}
+
 function messageHeading(message: ExportMessage): string {
   if (message.role === 'user') return '### User'
   if (message.role === 'assistant') return '### Assistant'
@@ -91,7 +98,7 @@ function renderMessages(messages: readonly ExportMessage[]): string {
     const blocks = message.blocks.length === 0
       ? '- No durable content blocks.\n'
       : message.blocks.map(renderBlock).join('')
-    return `${messageHeading(message)}\n\n- Sequence: ${message.seq}; timestamp: ${message.time}${source}${form}${interrupted}.\n\n${blocks}\n`
+    return `${messageHeading(message)}\n\n- Sequence: ${message.seq}; timestamp: ${timestamp(message.time)}${source}${form}${interrupted}.\n\n${blocks}\n`
   }).join('')
 }
 
@@ -120,7 +127,7 @@ function renderContinuationState(session: SessionMarkdownMetadata, content: Fold
 
   const latestRequest = content.latestHumanRequest === undefined
     ? '- Latest direct user message: none recorded.\n'
-    : `- Latest direct user message [${content.latestHumanRequest.seq} @ ${content.latestHumanRequest.time}]:\n\n${content.latestHumanRequest.blocks.map(renderBlock).join('')}\n`
+    : `- Latest direct user message [${content.latestHumanRequest.seq} @ ${timestamp(content.latestHumanRequest.time)}]:\n\n${content.latestHumanRequest.blocks.map(renderBlock).join('')}\n`
   const latestAssistant = content.latestAssistantText === undefined
     ? '- Most recent assistant text: none recorded.\n'
     : `- Most recent assistant text:\n\n${fenced('markdown', content.latestAssistantText)}\n`
@@ -151,22 +158,22 @@ function renderEffectiveConstraints(content: FoldedSessionContent): string {
 function renderExecutionState(content: FoldedSessionContent): string {
   const lines: string[] = []
   for (const failure of content.toolFailures) {
-    lines.push(`- Failure [${failure.seq} @ ${failure.time}]: tool ${historicalInline(failure.tool)}, code ${historicalInline(failure.code)}, message ${historicalInline(failure.message)}.`)
+    lines.push(`- Failure [${failure.seq} @ ${timestamp(failure.time)}]: tool ${historicalInline(failure.tool)}, code ${historicalInline(failure.code)}, message ${historicalInline(failure.message)}.`)
   }
   for (const call of content.unfinishedCalls) {
-    lines.push(`- Unfinished call [${call.seq} @ ${call.time}]: id ${historicalInline(call.callId)}, tool ${historicalInline(call.tool)}.`)
+    lines.push(`- Unfinished call [${call.seq} @ ${timestamp(call.time)}]: id ${historicalInline(call.callId)}, tool ${historicalInline(call.tool)}.`)
   }
   for (const path of content.changedFiles) lines.push(`- Changed path: ${historicalInline(path)}.`)
   for (const todo of content.latestTodos) lines.push(`- Todo [${historicalInline(todo.status)}]: ${historicalInline(todo.content)}.`)
   for (const message of content.transcript) {
     if (message.role === 'assistant' && message.interrupted === true) {
-      lines.push(`- Interrupted assistant message [${message.seq} @ ${message.time}].`)
+      lines.push(`- Interrupted assistant message [${message.seq} @ ${timestamp(message.time)}].`)
     }
   }
   for (const end of content.turnEnds) {
-    lines.push(`- Turn ${end.turn} ended [${end.seq} @ ${end.time}] with reason ${historicalInline(end.reason)}.`)
+    lines.push(`- Turn ${end.turn} ended [${end.seq} @ ${timestamp(end.time)}] with reason ${historicalInline(end.reason)}.`)
   }
-  if (content.openTurn !== undefined) lines.push(`- Open turn: ${content.openTurn.turn} [${content.openTurn.seq} @ ${content.openTurn.time}].`)
+  if (content.openTurn !== undefined) lines.push(`- Open turn: ${content.openTurn.turn} [${content.openTurn.seq} @ ${timestamp(content.openTurn.time)}].`)
   return `${lines.length === 0 ? '- None.' : lines.join('\n')}\n\n`
 }
 
@@ -175,8 +182,13 @@ function renderRequestHistory(history: readonly ExportRequestConfiguration[]): s
   return history.map((config) => {
     const tools = config.tools.length === 0 ? 'none' : config.tools.map(historicalInline).join(', ')
     const system = config.system === undefined ? 'absent' : 'present'
-    return `### Request header [${config.seq} @ ${config.time}]\n\n- Reason: ${historicalInline(config.reason)}; rendered system prompt: ${system}.\n\n${configTable(config)}\nTools: ${tools}.\n\n`
+    return `### Request header [${config.seq} @ ${timestamp(config.time)}]\n\n- Reason: ${historicalInline(config.reason)}; rendered system prompt: ${system}.\n\n${configTable(config)}\nTools: ${tools}.\n\n`
   }).join('')
+}
+
+function renderRootSeedHistory(session: SessionMarkdownMetadata): string {
+  if (session.inheritedFrom === undefined || session.inheritedEventCount === undefined) return ''
+  return `> Inherited seed history: ${session.inheritedEventCount} events from ${historicalInline(session.inheritedFrom)}. Sequences below ${session.inheritedEventCount} are inherited history; sequences at or above ${session.inheritedEventCount} belong to this session log.\n\n`
 }
 
 function renderDescendant(descendant: SessionMarkdownDescendant): string {
@@ -212,7 +224,7 @@ export function* renderSessionMarkdown(input: RenderSessionMarkdownInput): Itera
   yield `## Continuation state\n\n${renderContinuationState(session, content)}`
   yield `## Effective agent constraints\n\n${renderEffectiveConstraints(content)}`
   yield `## Current model-visible surface\n\n${renderMessages(content.currentSurface)}`
-  yield `## Full visible chronological transcript\n\n${renderMessages(content.transcript)}`
+  yield `## Full visible chronological transcript\n\n${renderRootSeedHistory(session)}${renderMessages(content.transcript)}`
   yield `## Execution state\n\n${renderExecutionState(content)}`
   yield `## Request configuration history\n\n${renderRequestHistory(content.requestHistory)}`
   yield `## Delegated sessions\n\n${input.descendants === undefined || input.descendants.length === 0 ? '- None.\n\n' : input.descendants.map(renderDescendant).join('')}`

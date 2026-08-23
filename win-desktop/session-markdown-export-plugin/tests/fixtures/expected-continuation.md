@@ -24,7 +24,7 @@ include_descendants: true
 
 - Latest todo [`in_progress`]: `Continue export`.
 
-- Latest direct user message [2 @ 1002]:
+- Latest direct user message [2 @ 1970-01-01T00:00:01.002Z (1002)]:
 
 `````markdown
 user <b>HTML</b>
@@ -65,7 +65,7 @@ Tools: `read_file`, `write_file`.
 
 ### User
 
-- Sequence: 2; timestamp: 1002.
+- Sequence: 2; timestamp: 1970-01-01T00:00:01.002Z (1002).
 
 `````markdown
 user <b>HTML</b>
@@ -76,7 +76,7 @@ user <b>HTML</b>
 
 ### Context · `workspace-notes`
 
-- Sequence: 3; timestamp: 1003; source `workspace-notes`; form `instructions`.
+- Sequence: 3; timestamp: 1970-01-01T00:00:01.003Z (1003); source `workspace-notes`; form `instructions`.
 
 ```markdown
 plugin <script>alert(1)</script>
@@ -84,7 +84,7 @@ plugin <script>alert(1)</script>
 
 ### Assistant
 
-- Sequence: 4; timestamp: 1004; interrupted.
+- Sequence: 4; timestamp: 1970-01-01T00:00:01.004Z (1004); interrupted.
 
 ```markdown
 assistant text
@@ -104,7 +104,7 @@ visible <em>reasoning</em>
 
 ### User
 
-- Sequence: 1; timestamp: 1001.
+- Sequence: 1; timestamp: 1970-01-01T00:00:01.001Z (1001).
 
 ```markdown
 first user text
@@ -112,7 +112,7 @@ first user text
 
 ### Assistant
 
-- Sequence: 4; timestamp: 1004; interrupted.
+- Sequence: 4; timestamp: 1970-01-01T00:00:01.004Z (1004); interrupted.
 
 ```markdown
 assistant text
@@ -130,17 +130,17 @@ visible <em>reasoning</em>
 
 ## Execution state
 
-- Failure [7 @ 1007]: tool `write_file`, code `EACCES`, message `Permission denied`.
-- Unfinished call [8 @ 1008]: id `call-1`, tool `shell_exec`.
+- Failure [7 @ 1970-01-01T00:00:01.007Z (1007)]: tool `write_file`, code `EACCES`, message `Permission denied`.
+- Unfinished call [8 @ 1970-01-01T00:00:01.008Z (1008)]: id `call-1`, tool `shell_exec`.
 - Changed path: `src/changed.ts`.
 - Todo [`in_progress`]: `Continue export`.
-- Interrupted assistant message [4 @ 1004].
-- Turn 1 ended [9 @ 1009] with reason `max-tokens`.
-- Open turn: 2 [10 @ 1010].
+- Interrupted assistant message [4 @ 1970-01-01T00:00:01.004Z (1004)].
+- Turn 1 ended [9 @ 1970-01-01T00:00:01.009Z (1009)] with reason `max-tokens`.
+- Open turn: 2 [10 @ 1970-01-01T00:00:01.010Z (1010)].
 
 ## Request configuration history
 
-### Request header [1 @ 1001]
+### Request header [1 @ 1970-01-01T00:00:01.001Z (1001)]
 
 - Reason: `initial`; rendered system prompt: absent.
 
@@ -154,7 +154,7 @@ visible <em>reasoning</em>
 
 Tools: `read_file`.
 
-### Request header [5 @ 1005]
+### Request header [5 @ 1970-01-01T00:00:01.005Z (1005)]
 
 - Reason: `change`; rendered system prompt: absent.
 

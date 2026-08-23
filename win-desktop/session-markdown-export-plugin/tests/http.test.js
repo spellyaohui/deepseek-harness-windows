@@ -48,8 +48,8 @@ function lineageNode(session, descendants = []) {
   return { session: { header: session, live: true, persisted: true }, descendants }
 }
 
-function queryFixture({ children = [], hooks = {} } = {}) {
-  const root = header('root', { cwd: 'D:/workspace', agentPreset: 'default' })
+function queryFixture({ children = [], hooks = {}, rootOverrides = {} } = {}) {
+  const root = header('root', { cwd: 'D:/workspace', agentPreset: 'default', ...rootOverrides })
   const states = new Map([
     ['root', state(root, 'Unicode 续接 🧠', '你好 from root')],
     ...children.map((child, index) => [
@@ -231,6 +231,28 @@ test('absent includeDescendants defaults to true and includes traced descendants
   assert.equal(fixture.calls.includes('trace:root'), true)
   assert.match(res.body(), /include_descendants: true/u)
   assert.match(res.body(), /### Delegated session · `Child 1`/u)
+})
+
+test('GET exposes root lineage and seed boundary metadata', async () => {
+  const fixture = queryFixture({
+    rootOverrides: {
+      parentSession: 'parent-root',
+      delegationDepth: 1,
+      seedLength: 3,
+    },
+  })
+
+  const { res } = await request(
+    handlerFor(fixture.query),
+    'GET',
+    `${SESSION_MARKDOWN_EXPORT_PATH}?sessionId=root&includeDescendants=false`,
+  )
+
+  assert.equal(res.statusCode, 200)
+  assert.match(res.body(), /Parent session: `parent-root`\./u)
+  assert.match(res.body(), /Delegation depth: 1\./u)
+  assert.match(res.body(), /Inherited seed history: 3 events from `parent-root`\./u)
+  assert.match(res.body(), /Sequences below 3 are inherited history; sequences at or above 3 belong to this session log\./u)
 })
 
 test('explicit includeDescendants=false does not trace lineage', async () => {

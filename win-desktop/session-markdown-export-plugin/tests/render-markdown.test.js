@@ -139,6 +139,23 @@ test('renderSessionMarkdown emits the fixed continuation structure and determini
   assert.match(markdown, /filesystem and external state must be reverified before mutation/i)
 })
 
+test('renderSessionMarkdown explains inherited root history and formats readable timestamps', () => {
+  const input = exportFixture()
+  input.session.parentId = 'parent-session'
+  input.session.depth = 1
+  input.session.inheritedFrom = 'parent-session'
+  input.session.inheritedEventCount = 3
+
+  const markdown = render(input)
+
+  assert.match(markdown, /Parent session: `parent-session`\./u)
+  assert.match(markdown, /Delegation depth: 1\./u)
+  assert.match(markdown, /Inherited seed history: 3 events from `parent-session`\./u)
+  assert.match(markdown, /Sequences below 3 are inherited history; sequences at or above 3 belong to this session log\./u)
+  assert.match(markdown, /Sequence: 1; timestamp: 1970-01-01T00:00:01\.001Z \(1001\)\./u)
+  assert.match(markdown, /Latest direct user message \[2 @ 1970-01-01T00:00:01\.002Z \(1002\)\]/u)
+})
+
 test('renderSessionMarkdown preserves ordered historical payloads inside dynamic fences', () => {
   const markdown = render(exportFixture())
 
@@ -157,13 +174,13 @@ test('renderSessionMarkdown preserves ordered historical payloads inside dynamic
 test('renderSessionMarkdown writes compact execution, request, and delegated-session facts only', () => {
   const markdown = render(exportFixture())
 
-  assert.match(markdown, /Failure \[7 @ 1007\]: tool `write_file`, code `EACCES`, message `Permission denied`\./u)
-  assert.match(markdown, /Unfinished call \[8 @ 1008\]: id `call-1`, tool `shell_exec`\./u)
+  assert.match(markdown, /Failure \[7 @ 1970-01-01T00:00:01\.007Z \(1007\)\]: tool `write_file`, code `EACCES`, message `Permission denied`\./u)
+  assert.match(markdown, /Unfinished call \[8 @ 1970-01-01T00:00:01\.008Z \(1008\)\]: id `call-1`, tool `shell_exec`\./u)
   assert.match(markdown, /Changed path: `src\/changed\.ts`\./u)
   assert.match(markdown, /Todo \[`in_progress`\]: `Continue export`\./u)
-  assert.match(markdown, /Interrupted assistant message \[4 @ 1004\]\./u)
-  assert.match(markdown, /Turn 1 ended \[9 @ 1009\] with reason `max-tokens`\./u)
-  assert.match(markdown, /Open turn: 2 \[10 @ 1010\]\./u)
+  assert.match(markdown, /Interrupted assistant message \[4 @ 1970-01-01T00:00:01\.004Z \(1004\)\]\./u)
+  assert.match(markdown, /Turn 1 ended \[9 @ 1970-01-01T00:00:01\.009Z \(1009\)\] with reason `max-tokens`\./u)
+  assert.match(markdown, /Open turn: 2 \[10 @ 1970-01-01T00:00:01\.010Z \(1010\)\]\./u)
   assert.match(markdown, /\| provider \| `provider-a` \|/u)
   assert.match(markdown, /Tools: `read_file`, `write_file`/u)
   assert.match(markdown, /### Delegated session · `Child`/u)
