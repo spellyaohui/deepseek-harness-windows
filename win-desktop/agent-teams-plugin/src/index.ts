@@ -31,6 +31,12 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { collectArchivedTeamsActivity, collectTeamsActivity } from './snapshot.ts'
+import {
+  createAgentTeamsSettingsRuntime,
+  type DelegationMode,
+  type LegacyDesktopAgentTeamsSettings,
+  type MemberReasoningMode,
+} from './settings.ts'
 
 /**
  * Structural slice of the web server service, compatible with both the
@@ -57,6 +63,8 @@ export const inject = ['tools', 'llm', 'subagents', 'systemPrompt', 'agents']
 
 /** Plugin configuration. */
 export interface Config {
+  delegationMode?: DelegationMode
+  memberLlmProvider?: string
   /**
    * State directory name under the captain's workspace; team state lives at
    * `<workspace>/<stateDir>/<teamId>/` (default `.agent-teams`).
@@ -66,6 +74,9 @@ export interface Config {
   memberProvider?: string
   /** Optional model override applied to every member. */
   memberModel?: string
+  memberReasoningMode?: MemberReasoningMode
+  memberReasoningEffort?: string
+  legacyDesktopSettings?: LegacyDesktopAgentTeamsSettings
   /** Member delegation depth cap (default `1`; `0` forbids delegation entirely). */
   memberMaxDepth?: number
   /** Team size cap in members (default `8`). */
@@ -81,9 +92,18 @@ export interface Config {
 }
 
 export const Config: z<Config> = z.object({
+  delegationMode: z.union(['teams', 'native']).default('teams'),
+  memberLlmProvider: z.string().default(''),
   stateDir: z.string().default('.agent-teams'),
   memberProvider: z.string().default('spawn'),
-  memberModel: z.string(),
+  memberModel: z.string().default(''),
+  memberReasoningMode: z.union(['target-default', 'route-aware', 'explicit']).default('target-default'),
+  memberReasoningEffort: z.string().default(''),
+  legacyDesktopSettings: z.object({
+    provider: z.string(),
+    model: z.string(),
+    reasoningEffort: z.string(),
+  }),
   memberMaxDepth: z.natural().default(1),
   maxMembers: z.natural().min(1).default(8),
   promptSectionOrder: z.natural().default(117),
@@ -105,6 +125,15 @@ Tools: ${toolNames}`
 }
 
 export function apply(ctx: Context, config: Config): void {
+  const settings = createAgentTeamsSettingsRuntime(ctx, {
+    delegationMode: config.delegationMode ?? 'teams',
+    memberLlmProvider: config.memberLlmProvider ?? '',
+    memberModel: config.memberModel ?? '',
+    memberReasoningMode: config.memberReasoningMode ?? 'target-default',
+    memberReasoningEffort: config.memberReasoningEffort ?? '',
+    migrationVersion: 0,
+  }, config.legacyDesktopSettings)
+
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',
     memberProvider: config.memberProvider ?? 'spawn',
