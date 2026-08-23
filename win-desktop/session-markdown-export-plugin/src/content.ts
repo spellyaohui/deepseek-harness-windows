@@ -7,6 +7,7 @@ import type {
   ExportRequestConfiguration,
   ExportTodo,
   ExportToolFailure,
+  ExportTurnEnd,
   ExportUnfinishedCall,
   FoldedSessionContent,
   FoldSessionContentInput,
@@ -161,6 +162,7 @@ export function foldSessionContent(input: FoldSessionContentInput): FoldedSessio
   const pendingCalls = new Map<string, ExportUnfinishedCall>()
   const changedFiles = new Set<string>()
   const openTurns = new Map<number, ExportOpenTurn>()
+  const turnEnds: ExportTurnEnd[] = []
   let latestHumanRequest: ExportMessage | undefined
   let latestAssistantText: string | undefined
 
@@ -227,7 +229,15 @@ export function foldSessionContent(input: FoldSessionContentInput): FoldedSessio
       continue
     }
 
-    if (event.type === 'turn/end') openTurns.delete(event.data.turn)
+    if (event.type === 'turn/end') {
+      turnEnds.push({
+        turn: event.data.turn,
+        seq: event.seq,
+        time: event.time,
+        reason: event.data.reason.kind,
+      })
+      openTurns.delete(event.data.turn)
+    }
   }
 
   const currentSurface = input.surface.events.flatMap((event) => {
@@ -248,6 +258,7 @@ export function foldSessionContent(input: FoldSessionContentInput): FoldedSessio
     changedFiles: [...changedFiles],
     ...(latestHumanRequest === undefined ? {} : { latestHumanRequest }),
     ...(latestAssistantText === undefined ? {} : { latestAssistantText }),
+    turnEnds,
     ...(openTurn === undefined ? {} : { openTurn }),
   }
 }

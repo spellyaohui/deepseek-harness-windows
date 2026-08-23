@@ -152,6 +152,7 @@ test('foldSessionContent folds request, todo, tool, path, and turn state without
   assert.deepEqual(folded.toolFailures, [{ seq: 9, time: 1009, tool: 'write_file', code: 'EACCES', message: 'Permission denied by the target directory.' }])
   assert.deepEqual(folded.unfinishedCalls, [{ seq: 16, time: 1016, callId: 'call-unfinished', tool: 'shell_exec' }])
   assert.deepEqual(folded.changedFiles, ['src/changed.ts'])
+  assert.deepEqual(folded.turnEnds, [{ turn: 1, seq: 14, time: 1014, reason: 'max-tokens' }])
   assert.deepEqual(folded.openTurn, { turn: 2, seq: 15, time: 1015 })
   assert.equal(serialized.includes('tool arguments must not leak'), false)
   assert.equal(serialized.includes('failed arguments must not leak'), false)

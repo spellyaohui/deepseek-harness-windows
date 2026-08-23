@@ -55,6 +55,13 @@ export interface ExportOpenTurn {
   time: number
 }
 
+export interface ExportTurnEnd {
+  turn: number
+  seq: number
+  time: number
+  reason: string
+}
+
 export interface FoldSessionContentInput {
   log: SessionLogSnapshot
   surface: SessionSurfaceSnapshot
@@ -73,5 +80,6 @@ export interface FoldedSessionContent {
   changedFiles: string[]
   latestHumanRequest?: ExportMessage
   latestAssistantText?: string
+  turnEnds: ExportTurnEnd[]
   openTurn?: ExportOpenTurn
 }
