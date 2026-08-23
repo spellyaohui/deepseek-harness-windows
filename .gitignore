@@ -1,0 +1,55 @@
+# Dependencies
+**/node_modules/
+
+# Build and test output
+**/dist/
+**/out/
+**/coverage/
+**/.cache/
+**/test-results/
+**/playwright-report/
+**/*.asar
+**/*.blockmap
+*.exe
+*.msi
+*.msix
+*.appx
+
+# Runtime state and exported sessions
+/.agent-teams/
+/.dsh/
+/.deepseek-harness/
+**/desktop-settings.json
+**/*.session-export.md
+**/session-exports/
+
+# Local upstream/reference checkout (not part of this wrapper repository)
+/upstream/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+**/.npmrc
+**/*.pem
+**/*.key
+**/*.pfx
+**/*.p12
+**/id_rsa
+**/id_ed25519
+
+# Logs, crash dumps, and temporary files
+**/*.log
+**/*.pid
+**/*.dmp
+**/*.tmp
+**/*.temp
+**/*~
+**/.DS_Store
+**/Thumbs.db
+
+# Local editor and agent configuration
+/.cursor/
+/.vscode/
+/.idea/
+/.codex/
