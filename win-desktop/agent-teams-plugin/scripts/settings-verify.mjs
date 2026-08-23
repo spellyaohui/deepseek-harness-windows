@@ -234,6 +234,10 @@ assert.deepEqual(retryHarness.warnings, [
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 assert.match(packageJson.scripts.verify, /node scripts\/settings-verify\.mjs/)
+const hostArtifact = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')
+assert.match(hostArtifact, /Provider, model, and reasoning defaults come from AgentTeams settings: target-default uses the selected target model's default effort; route-aware inherits the captain's effort only on the exact same provider\/model route; explicit uses the configured effort\./)
+assert.match(hostArtifact, /An explicit per-member provider\/model or reasoning_effort overrides settings; reasoning_effort="default" selects the target default\./)
+assert.doesNotMatch(hostArtifact, /snapshots your current reasoning effort/)
 
 const settingsExports = await import('../lib/settings.js')
 const { resolveMemberLlmSelection } = await import('../lib/members.js')
