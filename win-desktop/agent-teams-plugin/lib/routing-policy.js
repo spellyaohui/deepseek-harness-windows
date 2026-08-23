@@ -13,19 +13,25 @@ export function delegationPolicyUsagePreamble(policy) {
         : 'When the user asks to run something with AgentTeams (e.g. "use AgentTeams to do X"), or an activation message from the /agent-teams slash command arrives, you are the captain of a multi-agent team.';
 }
 export function persistedPolicy(events) {
-    for (let index = events.length - 1; index >= 0; index -= 1) {
-        const event = events[index];
+    let persisted;
+    for (const event of events) {
         if (event?.type !== 'request/header')
             continue;
         const system = event.data.header.system;
-        if (system === undefined || !system.includes(POLICY_PREFIX))
+        if (system === undefined)
             continue;
-        const match = /^AgentTeams delegation policy: (teams-v1|native-v1)$/mu.exec(system);
-        if (match?.[1] === 'teams-v1' || match?.[1] === 'native-v1')
-            return match[1];
-        throw new Error('agent-teams: request header contains an unknown delegation policy marker');
+        for (const line of system.split(/\r\n?|\n/u)) {
+            const match = /^AgentTeams delegation policy: (\S+)$/u.exec(line);
+            if (match?.[1] === undefined)
+                continue;
+            if (match[1] === 'teams-v1' || match[1] === 'native-v1') {
+                persisted = match[1];
+                continue;
+            }
+            throw new Error('agent-teams: request header contains an unknown delegation policy marker');
+        }
     }
-    return undefined;
+    return persisted;
 }
 export function hasEstablishedHistory(events) {
     return events.some((event) => event.type === 'request/header'

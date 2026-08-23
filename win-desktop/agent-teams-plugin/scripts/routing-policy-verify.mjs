@@ -1,6 +1,7 @@
 import {
   delegationPolicyUsagePreamble,
   NATIVE_DELEGATION_TOOLS,
+  POLICY_PREFIX,
   persistedPolicy,
   policyMarker,
   resolveDelegationPolicy,
@@ -39,6 +40,12 @@ check('latest valid request-header marker wins', persistedPolicy([
   header(policyMarker('native-v1')),
   header(`other prompt\n${policyMarker('teams-v1')}\ntrailer`),
 ]) === 'teams-v1')
+check('last standalone marker line wins within one request header', persistedPolicy([
+  header(`${policyMarker('native-v1')}\nusage\n${policyMarker('teams-v1')}`),
+]) === 'teams-v1')
+check('incidental prose mentioning the policy prefix is ignored', persistedPolicy([
+  header(`Diagnostic prose mentions ${POLICY_PREFIX} without declaring a policy.`),
+]) === undefined)
 
 let unknownMarkerRejected = false
 try {
