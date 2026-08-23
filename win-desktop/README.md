@@ -1,6 +1,6 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.3`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.4`。
 
 ## 它做了什么
 
@@ -18,6 +18,7 @@ npx @deepseek-ai/dsh web
 4. 等到日志出现 `dsh web: http://127.0.0.1:<port>` 后加载官方 Web UI
 5. 预装 [`@nanmicoder/dsh-auto-mode`](https://github.com/NanmiCoder/dsh-auto-mode)，Web UI 的权限菜单里会出现 **Auto**
 6. 预装本地维护的 [`@nanmicoder/dsh-agent-teams`](agent-teams-plugin/)，可用自然语言拉起多 Agent 团队，右上角会出现活动面板
+7. 预装本地 `CPA / CLIProxyAPI` Provider 插件，在 Harness 的“模型”设置中配置，并由主会话和 AgentTeams 共用
 
 ## 子智能体设置与委派路由
 
@@ -30,6 +31,18 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.13`、`v0.1.13`、提交 `912aae5225d3d85fa841a1b0c8a5c77021876c25`，桌面 fork 版本是 `0.1.13-desktop.1`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
+
+## CPA / CLIProxyAPI 模型
+
+1. 打开“设置 → 模型”。
+2. 找到 `CPA / CLIProxyAPI` 卡片。
+3. 输入 API 地址和 Token，点击获取模型。
+4. 选择需要启用的模型并应用。
+5. 主会话直接选择 Provider `cpa`；子智能体则在“设置 → 子智能体”中选择同一个 Provider 和模型。
+
+API 地址会自动规范到 `/v1`，调用协议固定为 `openai-responses`。Token 只写入 Harness 凭据存储 `CPA_API_KEY`，不会写入普通设置、桌面 patch 或仓库文件；编辑已有配置时留空 Token 会保留已配置的凭据。
+
+CPA 完整 R 协议线级别为 `none / minimal / low / medium / high / xhigh / max`。Harness 的选择项 `off` 在线上会映射为 `none`，其余英文档位保持同名。GPT-5.6 不提供 `minimal`，因此显示 `off / low / medium / high / xhigh / max`；其他模型默认显示完整七档。
 
 ## 续接 Markdown
 
@@ -47,7 +60,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 
 ```powershell
 cd win-desktop
-npm ci
+npm ci --legacy-peer-deps --install-links=true
 npm run dist:win
 ```
 
@@ -79,8 +92,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.3-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.3-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.4-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.4-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

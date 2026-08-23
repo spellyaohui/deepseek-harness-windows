@@ -16,10 +16,19 @@ DeepSeek Harness 的 Windows 桌面封装，以及面向桌面使用场景的可
 - 使用随机 loopback 端口，避免固定端口冲突。
 - Windows 子进程隐藏控制台窗口。
 - 主程序设置界面中的“桌面”与“子智能体”TAB，沿用同一 Harness 设置外壳和主题。
+- “模型”设置中的 `CPA / CLIProxyAPI` 插件：填写 API 地址和 Token，从 `/v1/models` 获取模型，并供主会话与 AgentTeams 共用。
 - AgentTeams 和 Auto Mode 插件集成；AgentTeams 的成员模型、提供商与推理强度在“子智能体”TAB 中配置。
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+
+## CPA / CLIProxyAPI
+
+打开“设置 → 模型”，在 `CPA / CLIProxyAPI` 卡片中填写 API 地址和 Token，获取模型后选择需要启用的模型并应用。地址会规范到 `/v1`，模型固定通过 `openai-responses` 调用；Token 写入 Harness 凭据存储，不进入普通设置文件。
+
+保存后，主会话可以选择 Provider `cpa`；“设置 → 子智能体”中的 AgentTeams 也会从同一个 Harness 模型目录读取 CPA 模型，不维护第二份模型清单。
+
+CPA R 协议线级别为 `none / minimal / low / medium / high / xhigh / max`。Harness 中的 `off` 会发送为 `none`；GPT-5.6 模型不提供 `minimal`，因此可选项为 `off / low / medium / high / xhigh / max`。
 
 ## 续接 Markdown 导出
 
@@ -42,7 +51,7 @@ Markdown 可能包含 system prompt、工作区路径、对话和敏感项目上
 
 ```powershell
 cd win-desktop
-npm ci
+npm ci --legacy-peer-deps --install-links=true
 npm test
 npm run dist:win
 ```
