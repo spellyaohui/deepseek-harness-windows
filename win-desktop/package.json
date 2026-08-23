@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-windows",
-  "version": "0.1.1-rc.5",
+  "version": "0.1.1-rc.6",
   "description": "Windows 桌面包装器：启动官方 DeepSeek Harness Web UI",
   "type": "module",
   "main": "src/main.js",
@@ -26,6 +26,7 @@
     "@deepseek-ai/dsh-desktop-settings": "file:desktop-settings-plugin",
     "@deepseek-ai/dsh-fs": "0.1.1-rc.2",
     "@deepseek-ai/dsh-host-directory-picker-browse": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
     "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
     "@deepseek-ai/dsh-output-retention": "0.1.1-rc.2",
     "@deepseek-ai/dsh-sandbox": "0.1.1-rc.2",
@@ -40,7 +41,8 @@
     "@deepseek-ai/dsh-timeout": "0.1.1-rc.2",
     "@deepseek-ai/dsh-workflow": "0.1.1-rc.2",
     "@nanmicoder/dsh-agent-teams": "file:agent-teams-plugin",
-    "@nanmicoder/dsh-auto-mode": "0.1.5"
+    "@nanmicoder/dsh-auto-mode": "0.1.5",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "electron": "43.4.0",

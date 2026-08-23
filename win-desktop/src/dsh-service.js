@@ -6,7 +6,6 @@ import * as electron from 'electron'
 import { healProfilesModuleFallback } from '@deepseek-ai/dsh-app-boot'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { getDesktopSettings } from './desktop-settings.js'
-import { syncOpencodeCatalog } from './model-fetcher.js'
 
 const { app } = electron
 
@@ -251,21 +250,6 @@ export function startDshService({
   healDesktopPluginFallback({
     home: resolveDshHome(undefined, environment),
   })
-
-  // Start syncing the pi-ai model catalog in the background. This function
-  // must remain synchronous because callers need the service handle
-  // immediately; the catalog module already falls back safely on errors.
-  void syncOpencodeCatalog()
-    .then((result) => {
-      if (result.error !== undefined) {
-        console.warn(`[dsh-service] OpenCode model sync skipped: ${result.error}`)
-      } else if (result.added > 0) {
-        console.log(`[dsh-service] OpenCode catalog synced: +${result.added} new model(s)`)
-      }
-    })
-    .catch((error) => {
-      console.warn(`[dsh-service] OpenCode model sync failed: ${String(error)}`)
-    })
 
   // Generate the AgentTeams patch from desktop settings before launching.
   const agentTeamsPatch = generateAgentTeamsPatch()

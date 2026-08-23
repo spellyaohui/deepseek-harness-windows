@@ -4,6 +4,7 @@ import { applyConfirmedAgentTeamsMigration, startDshService } from './dsh-servic
 import { createWindowOptions, resolveAppIcon } from './window-options.js'
 import { loadDesktopSettings, getDesktopSettings, removeLegacyAgentTeamsSettings } from './desktop-settings.js'
 import { installSettingsIpc } from './settings-window.js'
+import { prepareOpencodeCatalog } from './model-fetcher.js'
 
 const APP_NAME = 'DeepSeek Harness'
 const connectingPage = fileURLToPath(new URL('./connecting.html', import.meta.url))
@@ -182,6 +183,17 @@ function createWindow() {
 
 async function launch() {
   createWindow()
+
+  const catalog = await prepareOpencodeCatalog()
+  if (catalog.hydrationError !== undefined) {
+    console.warn(`[main] persisted OpenCode catalog hydration skipped: ${catalog.hydrationError}`)
+  }
+  if (catalog.error !== undefined) {
+    console.warn(`[main] OpenCode model sync skipped: ${catalog.error}`)
+  } else if (catalog.added > 0) {
+    console.log(`[main] OpenCode catalog prepared: +${catalog.added} model(s)`)
+  }
+  if (quitting) return
 
   service = startDshService({
     electronExecutable: process.execPath,

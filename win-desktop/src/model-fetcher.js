@@ -12,7 +12,10 @@
  * its model dropdown without hardcoding any IDs.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { parse } from 'yaml'
 
 /** Default OpenCode Go API base URL (matches the pi-ai catalog entry). */
 export const DEFAULT_OPENCODE_BASE_URL = 'https://opencode.ai/zen/go/v1'
@@ -37,6 +40,11 @@ function resolveCatalogPath(providerName) {
     fileURLToPath(new URL(`../node_modules/@earendil-works/pi-ai/dist/providers/data/${providerName}.json`, import.meta.url)),
   ]
   return candidates.find((p) => existsSync(p))
+}
+
+/** Resolve the Harness settings document without importing the service runtime. */
+function resolveSettingsPath() {
+  return join(resolveDshHome(), 'settings.yaml')
 }
 
 /**
@@ -111,6 +119,75 @@ function createDefaultModel(id, providerName, baseUrl) {
   }
 }
 
+function positiveInteger(value) {
+  return Number.isSafeInteger(value) && value > 0 ? value : undefined
+}
+
+function recordOf(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value
+    : undefined
+}
+
+/**
+ * Restore model metadata persisted by the Models page before the LLM runtime
+ * imports pi-ai's JSON catalog. Desktop upgrades replace package files while
+ * leaving settings.yaml intact, so a dynamically discovered model must be
+ * reintroduced locally even when the live endpoint is temporarily offline.
+ */
+export function hydrateOpencodeCatalogFromSettings({
+  catalogPath = resolveCatalogPath('opencode-go'),
+  settingsPath = resolveSettingsPath(),
+} = {}) {
+  if (catalogPath === undefined || !existsSync(catalogPath)) {
+    return { models: [], added: 0, error: 'catalog file not found' }
+  }
+  if (!existsSync(settingsPath)) {
+    return { models: readCatalogModels(catalogPath), added: 0, error: undefined }
+  }
+
+  try {
+    const document = recordOf(parse(readFileSync(settingsPath, 'utf8')))
+    const piAi = recordOf(document?.['llm-pi-ai'])
+    const providers = recordOf(piAi?.['providers'])
+    const opencode = recordOf(providers?.['opencode-go'])
+    const persisted = Array.isArray(opencode?.['models']) ? opencode.models : []
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+    const existingIds = new Set()
+    for (const apiModels of Object.values(catalog)) {
+      if (typeof apiModels !== 'object' || apiModels === null) continue
+      for (const id of Object.keys(apiModels)) existingIds.add(id)
+    }
+
+    let added = 0
+    for (const value of persisted) {
+      const row = recordOf(value)
+      const id = typeof row?.id === 'string' ? row.id.trim() : ''
+      if (id === '' || existingIds.has(id)) continue
+      const model = createDefaultModel(id, 'opencode-go', DEFAULT_OPENCODE_BASE_URL)
+      const name = typeof row.name === 'string' && row.name.trim() !== '' ? row.name.trim() : id
+      const contextWindow = positiveInteger(row.contextWindow)
+      const maxTokens = positiveInteger(row.maxTokens)
+      model.name = name
+      if (contextWindow !== undefined) model.contextWindow = contextWindow
+      if (maxTokens !== undefined) model.maxTokens = maxTokens
+      if (catalog[model.api] === undefined) catalog[model.api] = {}
+      catalog[model.api][id] = model
+      existingIds.add(id)
+      added++
+    }
+
+    if (added > 0) writeFileSync(catalogPath, JSON.stringify(catalog), 'utf8')
+    return { models: readCatalogModels(catalogPath), added, error: undefined }
+  } catch (error) {
+    return {
+      models: readCatalogModels(catalogPath),
+      added: 0,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
 /**
  * Synchronously read all models from the catalog file (all APIs merged).
  * @param catalogPath - absolute path to the provider JSON.
@@ -150,7 +227,7 @@ export async function syncOpencodeCatalog(
   baseUrl = DEFAULT_OPENCODE_BASE_URL,
   options = {},
 ) {
-  const catalogPath = resolveCatalogPath('opencode-go')
+  const catalogPath = options.catalogPath ?? resolveCatalogPath('opencode-go')
   if (catalogPath === undefined) {
     return { models: [], added: 0, error: 'catalog file not found' }
   }
@@ -189,6 +266,25 @@ export async function syncOpencodeCatalog(
   }
 
   return { models: readCatalogModels(catalogPath), added, error: undefined }
+}
+
+/**
+ * Complete every on-disk catalog repair before the Harness child imports
+ * pi-ai. This ordering is what keeps persisted and newly discovered OpenCode
+ * models active in the same launch rather than requiring a second restart.
+ */
+export async function prepareOpencodeCatalog(options = {}) {
+  const hydrated = hydrateOpencodeCatalogFromSettings(options)
+  const synced = await syncOpencodeCatalog(
+    options.baseUrl ?? DEFAULT_OPENCODE_BASE_URL,
+    options,
+  )
+  return {
+    models: synced.models.length > 0 ? synced.models : hydrated.models,
+    added: hydrated.added + synced.added,
+    error: synced.error,
+    hydrationError: hydrated.error,
+  }
 }
 
 /**
