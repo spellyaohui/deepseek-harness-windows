@@ -1024,15 +1024,15 @@ function fakeChildContext({ label, parentSessionId, cwd, agentProvider, agentMod
   }
 }
 
-async function routedConfig(child) {
+async function routedConfig(child, fallback = {
+  provider: 'unselected-provider',
+  model: 'unselected-model',
+  reasoningEffort: 'low',
+}) {
   const assemble = child.listeners.get('system-prompt/assemble')
   const request = child.listeners.get('agent/request')
   await assemble({}, {}, async () => ({ variables: {} }))
-  return request({}, async () => ({
-    provider: 'unselected-provider',
-    model: 'unselected-model',
-    reasoningEffort: 'low',
-  }))
+  return request({}, async () => fallback)
 }
 
 let setupMemberSelection
@@ -1070,6 +1070,11 @@ disposeFresh()
 const restoreWorkspace = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-selection-'))
 try {
   const restoreStateRoot = join(restoreWorkspace, '.agent-teams')
+  const alphaSnapshot = {
+    provider: 'provider-a',
+    model: 'model-a',
+    reasoningEffort: 'effort-a',
+  }
   await createTeamDir(restoreStateRoot, {
     name: 'Restore Team',
     id: 'restore-team',
@@ -1077,30 +1082,36 @@ try {
     createdAt: Date.now(),
     members: [{
       id: 'cold-member',
-      name: 'reviewer',
-      provider: 'cold-provider',
-      model: 'cold-model',
-      reasoningEffort: 'high',
+      name: 'alpha',
+      ...alphaSnapshot,
       joinedAt: Date.now(),
       status: 'idle',
     }],
     tasks: [],
     taskSeq: 0,
   })
+  const updatedSettingsFallback = {
+    provider: 'provider-b',
+    model: 'model-b',
+    reasoningEffort: 'effort-b',
+  }
   const coldChild = fakeChildContext({
-    label: 'agent-teams:restore-team:reviewer',
+    label: 'agent-teams:restore-team:alpha',
     parentSessionId: 'captain-session',
     cwd: restoreWorkspace,
-    agentProvider: 'cold-provider',
-    agentModel: 'cold-model',
+    agentProvider: alphaSnapshot.provider,
+    agentModel: alphaSnapshot.model,
   })
   const disposeCold = setupMemberSelection(coldChild.context)
-  const coldRoute = await routedConfig(coldChild)
+  const coldRoute = await routedConfig(coldChild, updatedSettingsFallback)
   check(
-    'cold-resumed child restores provider, model, and reasoning from team.json',
-    coldRoute.provider === 'cold-provider'
-      && coldRoute.model === 'cold-model'
-      && coldRoute.reasoningEffort === 'high',
+    'cold-resumed alpha keeps its persisted route instead of updated settings',
+    coldRoute.provider === alphaSnapshot.provider
+      && coldRoute.model === alphaSnapshot.model
+      && coldRoute.reasoningEffort === alphaSnapshot.reasoningEffort
+      && coldRoute.provider !== updatedSettingsFallback.provider
+      && coldRoute.model !== updatedSettingsFallback.model
+      && coldRoute.reasoningEffort !== updatedSettingsFallback.reasoningEffort,
   )
   disposeCold()
 } finally {

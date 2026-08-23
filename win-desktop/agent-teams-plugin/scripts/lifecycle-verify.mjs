@@ -30,8 +30,8 @@ let memberDefaults = {
   delegationMode: 'teams',
   memberLlmProvider: 'provider-a',
   memberModel: 'model-a',
-  memberReasoningMode: 'target-default',
-  memberReasoningEffort: '',
+  memberReasoningMode: 'explicit',
+  memberReasoningEffort: 'effort-a',
   migrationVersion: 1,
 }
 
@@ -233,14 +233,24 @@ check('latest user gesture wins in a batch',
 try {
   await call('agent_teams_create', { name: 'Lifecycle', description: 'adversarial DAG' })
   const addedAlpha = await call('agent_teams_add_member', { name: 'alpha', role: 'slow implementer' })
-  memberDefaults = { ...memberDefaults, memberLlmProvider: 'provider-b', memberModel: 'model-b' }
+  memberDefaults = {
+    ...memberDefaults,
+    memberLlmProvider: 'provider-b',
+    memberModel: 'model-b',
+    memberReasoningEffort: 'effort-b',
+  }
   const addedBeta = await call('agent_teams_add_member', { name: 'beta', role: 'researcher' })
+  const persistedAlpha = (await state()).members.find(member => member.name === 'alpha')
   check('future members read the newest settings without mutating existing snapshots',
     addedAlpha.provider === 'provider-a'
       && addedAlpha.model === 'model-a'
+      && addedAlpha.reasoning_effort === 'effort-a'
       && addedBeta.provider === 'provider-b'
       && addedBeta.model === 'model-b'
-      && (await state()).members.find(member => member.name === 'alpha')?.model === 'model-a')
+      && addedBeta.reasoning_effort === 'effort-b'
+      && persistedAlpha?.provider === 'provider-a'
+      && persistedAlpha.model === 'model-a'
+      && persistedAlpha.reasoningEffort === 'effort-a')
   const addedGamma = await call('agent_teams_add_member', { name: 'gamma', role: 'reviewer' })
   const alpha = liveAgents.get(addedAlpha.member_id)
   const beta = liveAgents.get(addedBeta.member_id)
