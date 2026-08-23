@@ -267,11 +267,12 @@ export function registerAgentTeamsTools(ctx, config) {
                 if (fresh.members.filter((candidate) => candidate.status !== 'removed').length >= config.maxMembers) {
                     throw new Error(`team "${fresh.name}" is at its member cap (${config.maxMembers})`);
                 }
+                const defaults = config.settings.get();
                 const selection = await resolveMemberLlmSelection(ctx, captain, {
                     provider: args.provider,
                     model: args.model,
                     reasoningEffort: args.reasoning_effort,
-                    defaults: config.settings.get(),
+                    defaults,
                 }, exec.signal);
                 const member = {
                     id: '',

@@ -17,12 +17,12 @@ export interface ToolsConfig {
     stateDir: string;
     /** Member subagent provider name. */
     memberProvider: string;
-    /** Live AgentTeams settings runtime. */
-    settings: AgentTeamsSettingsRuntime;
     /** Member delegation depth cap. */
     memberMaxDepth?: number;
     /** Team size cap (members). */
     maxMembers: number;
+    /** Live AgentTeams settings runtime. */
+    settings: AgentTeamsSettingsRuntime;
 }
 /**
  * Deliver a durable member report at the captain's nearest model boundary.

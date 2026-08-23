@@ -73,9 +73,9 @@ export function apply(ctx, config) {
     const resolved = {
         stateDir: config.stateDir ?? '.agent-teams',
         memberProvider: config.memberProvider ?? 'spawn',
-        settings,
         memberMaxDepth: config.memberMaxDepth ?? 1,
         maxMembers: config.maxMembers ?? 8,
+        settings,
     };
     // Provider registration is a sibling plugin's effect (`subagent-spawn` /
     // `subagent-fork` rows), which can land after this mount under the Loader's

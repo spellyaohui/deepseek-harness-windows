@@ -58,12 +58,12 @@ export interface ToolsConfig {
   stateDir: string
   /** Member subagent provider name. */
   memberProvider: string
-  /** Live AgentTeams settings runtime. */
-  settings: AgentTeamsSettingsRuntime
   /** Member delegation depth cap. */
   memberMaxDepth?: number
   /** Team size cap (members). */
   maxMembers: number
+  /** Live AgentTeams settings runtime. */
+  settings: AgentTeamsSettingsRuntime
 }
 
 /** The caller agent, or a loud failure for non-agent callers. */
@@ -337,11 +337,12 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): void
         if (fresh.members.filter((candidate) => candidate.status !== 'removed').length >= config.maxMembers) {
           throw new Error(`team "${fresh.name}" is at its member cap (${config.maxMembers})`)
         }
+        const defaults = config.settings.get()
         const selection = await resolveMemberLlmSelection(ctx, captain, {
           provider: args.provider,
           model: args.model,
           reasoningEffort: args.reasoning_effort,
-          defaults: config.settings.get(),
+          defaults,
         }, exec.signal)
         const member: TeamMember = {
           id: '',

@@ -26,6 +26,14 @@ const failNextDelivery = new Set()
 const failures = []
 let childSeq = 0
 let messageSeq = 0
+let memberDefaults = {
+  delegationMode: 'teams',
+  memberLlmProvider: 'provider-a',
+  memberModel: 'model-a',
+  memberReasoningMode: 'target-default',
+  memberReasoningEffort: '',
+  migrationVersion: 1,
+}
 
 function check(label, condition, detail = '') {
   const status = condition ? 'PASS' : 'FAIL'
@@ -150,14 +158,7 @@ registerAgentTeamsTools(ctx, {
   stateDir: '.agent-teams',
   memberProvider: 'spawn',
   settings: {
-    get: () => ({
-      delegationMode: 'teams',
-      memberLlmProvider: '',
-      memberModel: '',
-      memberReasoningMode: 'target-default',
-      memberReasoningEffort: '',
-      migrationVersion: 1,
-    }),
+    get: () => memberDefaults,
     migrationStatus: () => ({ migrationVersion: 1, complete: true }),
   },
   memberMaxDepth: 1,
@@ -232,7 +233,14 @@ check('latest user gesture wins in a batch',
 try {
   await call('agent_teams_create', { name: 'Lifecycle', description: 'adversarial DAG' })
   const addedAlpha = await call('agent_teams_add_member', { name: 'alpha', role: 'slow implementer' })
+  memberDefaults = { ...memberDefaults, memberLlmProvider: 'provider-b', memberModel: 'model-b' }
   const addedBeta = await call('agent_teams_add_member', { name: 'beta', role: 'researcher' })
+  check('future members read the newest settings without mutating existing snapshots',
+    addedAlpha.provider === 'provider-a'
+      && addedAlpha.model === 'model-a'
+      && addedBeta.provider === 'provider-b'
+      && addedBeta.model === 'model-b'
+      && (await state()).members.find(member => member.name === 'alpha')?.model === 'model-a')
   const addedGamma = await call('agent_teams_add_member', { name: 'gamma', role: 'reviewer' })
   const alpha = liveAgents.get(addedAlpha.member_id)
   const beta = liveAgents.get(addedBeta.member_id)
