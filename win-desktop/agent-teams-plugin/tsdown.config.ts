@@ -12,7 +12,7 @@
  *   instance or require a specifier the frozen module table cannot answer.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, realpathSync, readFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { transform } from 'lightningcss'
@@ -43,7 +43,7 @@ const GENERATED_REMOTE = /^@deepseek-ai\/dsh-[a-z0-9]+(?:-[a-z0-9]+)*\/remote$/
 /** Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline. */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
-const PACKAGE_ROOT = resolvePath(fileURLToPath(new URL('.', import.meta.url)))
+const PACKAGE_ROOT = realpathSync(resolvePath(fileURLToPath(new URL('.', import.meta.url))))
 const CSS_VIRTUAL_FILES = new Map<string, string>()
 
 /**
@@ -91,10 +91,17 @@ const config: UserConfig = {
     name: 'dsh-css-modules-inline',
     resolveId(source: string, importer: string | undefined) {
       if (!source.endsWith('.module.css')) return null
-      const fileId = importer !== undefined
+      const resolvedFile = importer !== undefined
         ? sourceAssetPath(source, importer)
         : resolvePath(PACKAGE_ROOT, source)
+      const fileId = canonicalCssFilePath(resolvedFile)
       const virtualId = cssVirtualId(fileId)
+      const existingFileId = CSS_VIRTUAL_FILES.get(virtualId)
+      if (existingFileId !== undefined && existingFileId !== fileId) {
+        throw new Error(
+          `dsh-css-modules-inline: virtual CSS id collision for "${virtualId}": "${existingFileId}" and "${fileId}"`,
+        )
+      }
       CSS_VIRTUAL_FILES.set(virtualId, fileId)
       return virtualId
     },
@@ -155,17 +162,24 @@ function sourceAssetPath(source: string, importer: string): string {
   return source
 }
 
-/** Map a resolved CSS source to a deterministic, package-relative virtual id. */
-function cssVirtualId(fileId: string): string {
-  const relativeId = relative(PACKAGE_ROOT, fileId)
+/** Resolve symlinks before both package-boundary enforcement and id generation. */
+function canonicalCssFilePath(fileId: string): string {
+  const canonicalFileId = realpathSync(fileId)
+  const relativeId = relative(PACKAGE_ROOT, canonicalFileId)
   if (
     relativeId === ''
     || relativeId === '..'
     || relativeId.startsWith(`..${sep}`)
     || isAbsolute(relativeId)
   ) {
-    throw new Error(`dsh-css-modules-inline: CSS path escapes the package root: "${fileId}"`)
+    throw new Error(`dsh-css-modules-inline: CSS path escapes the package root: "${canonicalFileId}"`)
   }
+  return canonicalFileId
+}
+
+/** Map a canonical CSS source to a deterministic, package-relative virtual id. */
+function cssVirtualId(canonicalFileId: string): string {
+  const relativeId = relative(PACKAGE_ROOT, canonicalFileId)
   return `${CSS_VIRTUAL_PREFIX}${relativeId.split(sep).join('/')}${CSS_VIRTUAL_SUFFIX}`
 }
 
