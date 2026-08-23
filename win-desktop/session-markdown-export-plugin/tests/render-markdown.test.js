@@ -85,14 +85,14 @@ test('renderSessionMarkdown emits the fixed continuation structure and determini
   const markdown = render(exportFixture())
   const headings = [...markdown.matchAll(/^#{1,3} .+$/gmu)].map((match) => match[0])
 
-  assert.equal(markdown.startsWith('---\ndsh_continuation_export: 1\nsession_id: "root-session"\ntitle: "Unicode \u7eed\u63a5 \ud83e\udde0"\ncwd: "D:/workspace/project"\nagent_preset: "default"\ncreated_at: "2026-08-23T00:00:00.000Z"\nexported_at: "2026-08-23T01:02:03.000Z"\ninclude_descendants: true\n---\n\n# Unicode \u7eed\u63a5 \ud83e\udde0\n\n'), true)
+  assert.equal(markdown.startsWith('---\ndsh_continuation_export: 1\nsession_id: "root-session"\ntitle: "Unicode \u7eed\u63a5 \ud83e\udde0"\ncwd: "D:/workspace/project"\nagent_preset: "default"\ncreated_at: "2026-08-23T00:00:00.000Z"\nexported_at: "2026-08-23T01:02:03.000Z"\ninclude_descendants: true\n---\n\n# `Unicode \u7eed\u63a5 \ud83e\udde0`\n\n'), true)
   assert.deepEqual(headings.slice(0, 11), [
-    '# Unicode \u7eed\u63a5 \ud83e\udde0',
+    '# `Unicode \u7eed\u63a5 \ud83e\udde0`',
     '## Continuation state',
     '## Effective agent constraints',
     '## Current model-visible surface',
     '### User',
-    '### Context \u00b7 workspace-notes',
+    '### Context \u00b7 `workspace-notes`',
     '### Assistant',
     '## Full visible chronological transcript',
     '### User',
@@ -117,27 +117,27 @@ test('renderSessionMarkdown preserves ordered historical payloads inside dynamic
   assert.match(markdown, /<details><summary>\u53ef\u89c1\u63a8\u7406<\/summary>\n\n`````text\nvisible <em>reasoning<\/em>\r\n````\n`````\n\n<\/details>/u)
   assert.ok(markdown.indexOf('assistant text') < markdown.indexOf('\u53ef\u89c1\u63a8\u7406'))
   assert.ok(markdown.indexOf('\u53ef\u89c1\u63a8\u7406') < markdown.indexOf('Attachment omitted'))
-  assert.ok(markdown.indexOf('Attachment omitted') < markdown.indexOf('Omitted unknown block type: "future-block"'))
-  assert.match(markdown, /Attachment omitted: media type "image\/png"; digest "sha256:abc"; binary bytes remain in the raw Session ZIP\./u)
-  assert.match(markdown, /Omitted unknown block type: "future-block"\./u)
+  assert.ok(markdown.indexOf('Attachment omitted') < markdown.indexOf('Omitted unknown block type: `future-block`'))
+  assert.match(markdown, /Attachment omitted: media type `image\/png`; digest `sha256:abc`; binary bytes remain in the raw Session ZIP\./u)
+  assert.match(markdown, /Omitted unknown block type: `future-block`\./u)
   assert.equal(markdown.includes('hidden reasoning'), false)
 })
 
 test('renderSessionMarkdown writes compact execution, request, and delegated-session facts only', () => {
   const markdown = render(exportFixture())
 
-  assert.match(markdown, /Failure \[7 @ 1007\]: tool "write_file", code "EACCES", message "Permission denied"\./u)
-  assert.match(markdown, /Unfinished call \[8 @ 1008\]: id "call-1", tool "shell_exec"\./u)
-  assert.match(markdown, /Changed path: "src\/changed\.ts"\./u)
-  assert.match(markdown, /Todo \[in_progress\]: "Continue export"\./u)
+  assert.match(markdown, /Failure \[7 @ 1007\]: tool `write_file`, code `EACCES`, message `Permission denied`\./u)
+  assert.match(markdown, /Unfinished call \[8 @ 1008\]: id `call-1`, tool `shell_exec`\./u)
+  assert.match(markdown, /Changed path: `src\/changed\.ts`\./u)
+  assert.match(markdown, /Todo \[`in_progress`\]: `Continue export`\./u)
   assert.match(markdown, /Interrupted assistant message \[4 @ 1004\]\./u)
-  assert.match(markdown, /Turn 1 ended \[9 @ 1009\] with reason "max-tokens"\./u)
+  assert.match(markdown, /Turn 1 ended \[9 @ 1009\] with reason `max-tokens`\./u)
   assert.match(markdown, /Open turn: 2 \[10 @ 1010\]\./u)
-  assert.match(markdown, /\| provider \| "provider-a" \|/u)
-  assert.match(markdown, /Tools: "read_file", "write_file"/u)
-  assert.match(markdown, /### Delegated session · Child/u)
-  assert.match(markdown, /Parent: "root-session"; depth: 1; session: "child-session"\./u)
-  assert.match(markdown, /Inherited seed history: 3 events from "root-session"; not duplicated here\./u)
+  assert.match(markdown, /\| provider \| `provider-a` \|/u)
+  assert.match(markdown, /Tools: `read_file`, `write_file`/u)
+  assert.match(markdown, /### Delegated session · `Child`/u)
+  assert.match(markdown, /Parent: `root-session`; depth: 1; session: `child-session`\./u)
+  assert.match(markdown, /Inherited seed history: 3 events from `root-session`; not duplicated here\./u)
   assert.match(markdown, /Known lineage is partial: unresolved parent missing-parent\./u)
 })
 
@@ -147,6 +147,7 @@ test('sanitizeExportFilename produces Windows and header-safe filenames', () => 
   assert.equal(sanitizeExportFilename('title.   ', '2026-08-23'), 'title-2026-08-23.md')
   assert.equal(sanitizeExportFilename('hello\r\nworld', '2026-08-23'), 'hello  world-2026-08-23.md')
   assert.equal(sanitizeExportFilename('   ', '2026-08-23'), 'dsh-session-2026-08-23.md')
+  assert.equal(sanitizeExportFilename('report', '2026-02-30'), 'report-undated.md')
 })
 
 test('renderSessionMarkdown protects hostile metadata and nests delegated headings by depth', () => {
@@ -167,7 +168,31 @@ test('renderSessionMarkdown protects hostile metadata and nests delegated headin
   const markdown = render(input)
 
   assert.equal(markdown.includes('\n## injected <script>'), false)
-  assert.equal(markdown.includes('<script>'), false)
-  assert.match(markdown, /^### Delegated session · Child$/mu)
-  assert.match(markdown, /^#### Delegated session · Child\\n### injected &lt;script&gt;$/mu)
+  assert.match(markdown, /^# `Root\\n## injected <script>alert\(1\)<\/script>`$/mu)
+  assert.match(markdown, /^### Context · `plugin\\n### injected <script>`$/mu)
+  assert.match(markdown, /^### Delegated session · `Child`$/mu)
+  assert.match(markdown, /^#### Delegated session · `Child\\n### injected <script>`$/mu)
+  assert.match(markdown, /- `warning\\n## injected <script>`\./u)
+})
+
+test('renderSessionMarkdown protects historical inline fields from links, images, pipes, and backticks', () => {
+  const input = exportFixture()
+  const failureMessage = 'failure [follow](https://example.test) ![pixel](https://example.test/pixel) | `\r\nnext'
+  const warning = 'warning [follow](https://example.test) ![pixel](https://example.test/pixel) | `\r\nnext'
+  input.content.toolFailures = [{ seq: 1, time: 1, tool: 'tool', code: 'CODE', message: failureMessage }]
+  input.warnings = [warning]
+
+  const markdown = render(input)
+  const safePayload = 'failure [follow](https://example.test) ![pixel](https://example.test/pixel) \\| `\\nnext'
+  const safeWarning = 'warning [follow](https://example.test) ![pixel](https://example.test/pixel) \\| `\\nnext'
+
+  assert.ok(markdown.includes(`message \`\`${safePayload}\`\``))
+  assert.ok(markdown.includes(`- \`\`${safeWarning}\`\`.`))
+})
+
+test('sanitizeExportFilename rejects malformed local dates before building a header-safe filename', () => {
+  const filename = sanitizeExportFilename('report', '2026-08-23\r\nContent-Disposition: attachment/evil')
+
+  assert.equal(filename, 'report-undated.md')
+  assert.equal(/[\\/\u0000-\u001f\u007f]/u.test(filename), false)
 })

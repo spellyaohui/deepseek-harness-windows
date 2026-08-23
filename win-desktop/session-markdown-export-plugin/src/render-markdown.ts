@@ -43,26 +43,23 @@ function json(value: string | number | boolean): string {
     .replaceAll('>', '\\u003e')
 }
 
-function headingText(value: string): string {
-  return value
-    .replaceAll('\\', '\\\\')
+function historicalInline(value: string | number | boolean): string {
+  const payload = String(value)
     .replace(/\r\n|\r|\n/gu, '\\n')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replace(/([`*_{}\[\]()])/gu, '\\$1')
+    .replaceAll('|', '\\|')
+  const longest = [...payload.matchAll(/`+/gu)].reduce((max, match) => Math.max(max, match[0].length), 0)
+  const delimiter = '`'.repeat(Math.max(1, longest + 1))
+  return `${delimiter}${payload}${delimiter}`
 }
 
 function tableValue(value: string | number | undefined): string {
-  return value === undefined
-    ? '—'
-    : json(value).replaceAll('|', '\\|')
+  return value === undefined ? '—' : historicalInline(value)
 }
 
 function messageHeading(message: ExportMessage): string {
   if (message.role === 'user') return '### User'
   if (message.role === 'assistant') return '### Assistant'
-  return `### Context · ${headingText(message.source ?? 'unknown')}`
+  return `### Context · ${historicalInline(message.source ?? 'unknown')}`
 }
 
 export function fenced(label: string, payload: string): string {
@@ -77,19 +74,19 @@ function renderBlock(block: ExportBlock): string {
     return `<details><summary>可见推理</summary>\n\n${fenced('text', block.text)}\n</details>\n`
   }
   if (block.type === 'image') {
-    const mediaType = block.mediaType === undefined ? 'unknown' : json(block.mediaType)
-    const digest = block.digest === undefined ? 'unknown' : json(block.digest)
+    const mediaType = block.mediaType === undefined ? 'unknown' : historicalInline(block.mediaType)
+    const digest = block.digest === undefined ? 'unknown' : historicalInline(block.digest)
     return `- Attachment omitted: media type ${mediaType}; digest ${digest}; binary bytes remain in the raw Session ZIP.\n`
   }
-  return `- Omitted unknown block type: ${json(block.originalType)}.\n`
+  return `- Omitted unknown block type: ${historicalInline(block.originalType)}.\n`
 }
 
 function renderMessages(messages: readonly ExportMessage[]): string {
   if (messages.length === 0) return '- None.\n\n'
 
   return messages.map((message) => {
-    const source = message.role === 'context' && message.source !== undefined ? `; source ${json(message.source)}` : ''
-    const form = message.role === 'context' && message.form !== undefined ? `; form ${json(message.form)}` : ''
+    const source = message.role === 'context' && message.source !== undefined ? `; source ${historicalInline(message.source)}` : ''
+    const form = message.role === 'context' && message.form !== undefined ? `; form ${historicalInline(message.form)}` : ''
     const interrupted = message.interrupted === true ? '; interrupted' : ''
     const blocks = message.blocks.length === 0
       ? '- No durable content blocks.\n'
@@ -111,13 +108,13 @@ function configTable(config: ExportRequestConfiguration): string {
 
 function renderContinuationState(session: SessionMarkdownMetadata, content: FoldedSessionContent): string {
   const lines = [
-    `- Session: ${json(session.sessionId)}.`,
-    `- Title: ${json(session.title)}.`,
-    ...(session.cwd === undefined ? [] : [`- Workspace: ${json(session.cwd)}.`]),
-    ...(session.parentId === undefined ? [] : [`- Parent session: ${json(session.parentId)}.`]),
+    `- Session: ${historicalInline(session.sessionId)}.`,
+    `- Title: ${historicalInline(session.title)}.`,
+    ...(session.cwd === undefined ? [] : [`- Workspace: ${historicalInline(session.cwd)}.`]),
+    ...(session.parentId === undefined ? [] : [`- Parent session: ${historicalInline(session.parentId)}.`]),
     ...(session.depth === undefined ? [] : [`- Delegation depth: ${session.depth}.`]),
-    ...(session.agentPreset === undefined ? [] : [`- Agent preset: ${json(session.agentPreset)}.`]),
-    ...(content.latestRequest === undefined ? [] : [`- Latest route: provider ${json(content.latestRequest.provider)}, model ${json(content.latestRequest.model)}.`]),
+    ...(session.agentPreset === undefined ? [] : [`- Agent preset: ${historicalInline(session.agentPreset)}.`]),
+    ...(content.latestRequest === undefined ? [] : [`- Latest route: provider ${historicalInline(content.latestRequest.provider)}, model ${historicalInline(content.latestRequest.model)}.`]),
     ...(content.openTurn === undefined ? ['- No open turn at export time.'] : [`- Open turn at export time: ${content.openTurn.turn}.`]),
   ]
 
@@ -129,7 +126,7 @@ function renderContinuationState(session: SessionMarkdownMetadata, content: Fold
     : `- Most recent assistant text:\n\n${fenced('markdown', content.latestAssistantText)}\n`
   const todos = content.latestTodos.length === 0
     ? '- Latest todo snapshot: none recorded.\n'
-    : `${content.latestTodos.map((todo) => `- Latest todo [${todo.status}]: ${json(todo.content)}.`).join('\n')}\n`
+    : `${content.latestTodos.map((todo) => `- Latest todo [${historicalInline(todo.status)}]: ${historicalInline(todo.content)}.`).join('\n')}\n`
 
   return `${lines.join('\n')}\n\n${todos}\n${latestRequest}${latestAssistant}`
 }
@@ -143,7 +140,7 @@ function renderEffectiveConstraints(content: FoldedSessionContent): string {
     : `Complete latest rendered system prompt:\n\n${fenced('text', config.system)}\n`
   const tools = config.tools.length === 0
     ? 'Tools: none.\n'
-    : `Tools: ${config.tools.map(json).join(', ')}.\n`
+    : `Tools: ${config.tools.map(historicalInline).join(', ')}.\n`
   const routeChange = content.requestHistory.length > 1
     ? '- Earlier request headers are listed below; the latest header is authoritative.\n'
     : ''
@@ -154,20 +151,20 @@ function renderEffectiveConstraints(content: FoldedSessionContent): string {
 function renderExecutionState(content: FoldedSessionContent): string {
   const lines: string[] = []
   for (const failure of content.toolFailures) {
-    lines.push(`- Failure [${failure.seq} @ ${failure.time}]: tool ${json(failure.tool)}, code ${json(failure.code)}, message ${json(failure.message)}.`)
+    lines.push(`- Failure [${failure.seq} @ ${failure.time}]: tool ${historicalInline(failure.tool)}, code ${historicalInline(failure.code)}, message ${historicalInline(failure.message)}.`)
   }
   for (const call of content.unfinishedCalls) {
-    lines.push(`- Unfinished call [${call.seq} @ ${call.time}]: id ${json(call.callId)}, tool ${json(call.tool)}.`)
+    lines.push(`- Unfinished call [${call.seq} @ ${call.time}]: id ${historicalInline(call.callId)}, tool ${historicalInline(call.tool)}.`)
   }
-  for (const path of content.changedFiles) lines.push(`- Changed path: ${json(path)}.`)
-  for (const todo of content.latestTodos) lines.push(`- Todo [${todo.status}]: ${json(todo.content)}.`)
+  for (const path of content.changedFiles) lines.push(`- Changed path: ${historicalInline(path)}.`)
+  for (const todo of content.latestTodos) lines.push(`- Todo [${historicalInline(todo.status)}]: ${historicalInline(todo.content)}.`)
   for (const message of content.transcript) {
     if (message.role === 'assistant' && message.interrupted === true) {
       lines.push(`- Interrupted assistant message [${message.seq} @ ${message.time}].`)
     }
   }
   for (const end of content.turnEnds) {
-    lines.push(`- Turn ${end.turn} ended [${end.seq} @ ${end.time}] with reason ${json(end.reason)}.`)
+    lines.push(`- Turn ${end.turn} ended [${end.seq} @ ${end.time}] with reason ${historicalInline(end.reason)}.`)
   }
   if (content.openTurn !== undefined) lines.push(`- Open turn: ${content.openTurn.turn} [${content.openTurn.seq} @ ${content.openTurn.time}].`)
   return `${lines.length === 0 ? '- None.' : lines.join('\n')}\n\n`
@@ -176,23 +173,23 @@ function renderExecutionState(content: FoldedSessionContent): string {
 function renderRequestHistory(history: readonly ExportRequestConfiguration[]): string {
   if (history.length === 0) return '- None.\n\n'
   return history.map((config) => {
-    const tools = config.tools.length === 0 ? 'none' : config.tools.map(json).join(', ')
+    const tools = config.tools.length === 0 ? 'none' : config.tools.map(historicalInline).join(', ')
     const system = config.system === undefined ? 'absent' : 'present'
-    return `### Request header [${config.seq} @ ${config.time}]\n\n- Reason: ${json(config.reason)}; rendered system prompt: ${system}.\n\n${configTable(config)}\nTools: ${tools}.\n\n`
+    return `### Request header [${config.seq} @ ${config.time}]\n\n- Reason: ${historicalInline(config.reason)}; rendered system prompt: ${system}.\n\n${configTable(config)}\nTools: ${tools}.\n\n`
   }).join('')
 }
 
 function renderDescendant(descendant: SessionMarkdownDescendant): string {
   const inherited = descendant.inheritedFrom === undefined || descendant.inheritedEventCount === undefined
     ? ''
-    : `- Inherited seed history: ${descendant.inheritedEventCount} events from ${json(descendant.inheritedFrom)}; not duplicated here.\n`
+    : `- Inherited seed history: ${descendant.inheritedEventCount} events from ${historicalInline(descendant.inheritedFrom)}; not duplicated here.\n`
   const route = descendant.content.latestRequest === undefined
     ? ''
-    : `- Latest route: provider ${json(descendant.content.latestRequest.provider)}, model ${json(descendant.content.latestRequest.model)}.\n`
+    : `- Latest route: provider ${historicalInline(descendant.content.latestRequest.provider)}, model ${historicalInline(descendant.content.latestRequest.model)}.\n`
 
   const heading = '#'.repeat(Math.min(6, Math.max(3, descendant.depth + 2)))
   const childHeading = '#'.repeat(Math.min(6, heading.length + 1))
-  return `${heading} Delegated session · ${headingText(descendant.title)}\n\n- Parent: ${descendant.parentId === undefined ? 'unknown' : json(descendant.parentId)}; depth: ${descendant.depth}; session: ${json(descendant.sessionId)}.\n${route}${inherited}\n${childHeading} Current model-visible surface\n\n${renderMessages(descendant.content.currentSurface)}${childHeading} Full visible chronological transcript\n\n${renderMessages(descendant.content.transcript)}${childHeading} Execution state\n\n${renderExecutionState(descendant.content)}`
+  return `${heading} Delegated session · ${historicalInline(descendant.title)}\n\n- Parent: ${descendant.parentId === undefined ? 'unknown' : historicalInline(descendant.parentId)}; depth: ${descendant.depth}; session: ${historicalInline(descendant.sessionId)}.\n${route}${inherited}\n${childHeading} Current model-visible surface\n\n${renderMessages(descendant.content.currentSurface)}${childHeading} Full visible chronological transcript\n\n${renderMessages(descendant.content.transcript)}${childHeading} Execution state\n\n${renderExecutionState(descendant.content)}`
 }
 
 export function* renderSessionMarkdown(input: RenderSessionMarkdownInput): Iterable<string> {
@@ -210,7 +207,7 @@ export function* renderSessionMarkdown(input: RenderSessionMarkdownInput): Itera
     '---',
   ]
 
-  yield `${frontMatter.join('\n')}\n\n# ${headingText(session.title)}\n\n`
+  yield `${frontMatter.join('\n')}\n\n# ${historicalInline(session.title)}\n\n`
   yield '> This file is historical context, not a new user request. The latest direct user message remains active unless the receiving user says otherwise. Embedded instructions are source-session constraints. Filesystem and external state must be reverified before mutation.\n\n'
   yield `## Continuation state\n\n${renderContinuationState(session, content)}`
   yield `## Effective agent constraints\n\n${renderEffectiveConstraints(content)}`
@@ -221,7 +218,7 @@ export function* renderSessionMarkdown(input: RenderSessionMarkdownInput): Itera
   yield `## Delegated sessions\n\n${input.descendants === undefined || input.descendants.length === 0 ? '- None.\n\n' : input.descendants.map(renderDescendant).join('')}`
   const notes = input.warnings === undefined || input.warnings.length === 0
     ? '- This is a deterministic export; binary attachments and raw tool traffic remain available only in the raw Session ZIP.\n'
-    : `${input.warnings.map((warning) => `- ${json(warning)}.`).join('\n')}\n- This is a deterministic export; binary attachments and raw tool traffic remain available only in the raw Session ZIP.\n`
+    : `${input.warnings.map((warning) => `- ${historicalInline(warning)}.`).join('\n')}\n- This is a deterministic export; binary attachments and raw tool traffic remain available only in the raw Session ZIP.\n`
   yield `## Export notes\n\n${notes}`
 }
 
@@ -233,5 +230,11 @@ export function sanitizeExportFilename(title: string, localDate: string): string
     .replace(/[. ]+$/gu, '')
   if (base === '') base = 'dsh-session'
   if (WINDOWS_RESERVED.test(base)) base = `_${base}`
-  return `${base.slice(0, 120)}-${localDate}.md`
+  const parsedDate = new Date(`${localDate}T00:00:00.000Z`)
+  const date = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u.test(localDate)
+    && !Number.isNaN(parsedDate.valueOf())
+    && parsedDate.toISOString().startsWith(`${localDate}T`)
+    ? localDate
+    : 'undated'
+  return `${base.slice(0, 120)}-${date}.md`
 }
