@@ -57,6 +57,8 @@ export function generateAgentTeamsPatch({
     '- insert:',
     '    - id: desktop-settings',
     "      name: '@deepseek-ai/dsh-desktop-settings'",
+    '    - id: cpa-provider',
+    "      name: '@deepseek-ai/dsh-cpa-provider'",
     '    - id: agent-teams',
     "      name: '@nanmicoder/dsh-agent-teams'",
     '      config:',
