@@ -201,5 +201,9 @@ existing informational recommendation to prefer ESM.
 
 ## Commit
 
-- Final commit: `PENDING`.
+- Implementation and generated artifacts:
+  `08882ad85e4701c7bda3e8dbe72936848b640671`.
 - Message: `feat: add AgentTeams settings tab and model catalog`.
+- This SHA was written back in a report-only follow-up commit so the
+  implementation commit remains atomic and the report does not claim a
+  self-referential hash.
