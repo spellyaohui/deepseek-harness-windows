@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import yaml from 'js-yaml'
@@ -9,6 +9,9 @@ const patchSource = readFileSync(new URL('../config/agent-teams.patch.yml', impo
 const serviceSource = readText(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
 const preloadSource = readFileSync(new URL('../src/preload.cjs', import.meta.url), 'utf8')
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const npmrcUrl = new URL('../.npmrc', import.meta.url)
+const npmrcSource = existsSync(npmrcUrl) ? readFileSync(npmrcUrl, 'utf8') : ''
+const packageLock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
 
 test('desktop settings client registers a native settings section', () => {
   assert.match(clientSource, /id: 'desktop'/)
@@ -21,6 +24,13 @@ test('desktop settings client registers a native settings section', () => {
 
 test('wrapper installs the local AgentTeams package', () => {
   assert.equal(packageJson.dependencies['@nanmicoder/dsh-agent-teams'], 'file:agent-teams-plugin')
+})
+
+test('wrapper packs the local AgentTeams package instead of linking its dev dependencies', () => {
+  assert.equal(npmrcSource.trim(), 'install-links=true')
+  const installed = packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']
+  assert.notEqual(installed.link, true)
+  assert.equal(installed.version, '0.1.13-desktop.1')
 })
 
 test('desktop settings plugin is included in the DSH patch graph', () => {
