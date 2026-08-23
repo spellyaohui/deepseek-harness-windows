@@ -142,6 +142,44 @@ secondWrite.resolve(success(view(44)))
 assert.deepEqual(await serialTwo, { status: 'ready', error: null })
 assert.deepEqual(acceptedSerialViews.map((entry) => entry.revision), [43, 44])
 
+let advancedScopeRevision = 42
+const staleSuccessAccepted = []
+const staleSuccessCalls = []
+const staleSuccessWriter = createAgentTeamsSettingsWriter({
+  api: {
+    settings: {
+      mutate: async (request) => {
+        staleSuccessCalls.push({ kind: 'mutate', request })
+        advancedScopeRevision = 44
+        return success(view(43))
+      },
+      describe: async (request) => {
+        staleSuccessCalls.push({ kind: 'describe', request })
+        return success({ writable: true, hasDocument: true, namespaces: [view(44)] })
+      },
+    },
+  },
+  scope: { getSnapshot: () => ({ revision: advancedScopeRevision }) },
+  describe: { acceptView: (next) => staleSuccessAccepted.push(next) },
+  timeoutMs: 20,
+})
+const staleSuccess = await Promise.race([
+  staleSuccessWriter.write(orderedOps),
+  new Promise((_resolve, reject) => {
+    setTimeout(() => reject(new Error('stale success did not leave busy state')), 150)
+  }),
+])
+assert.deepEqual(staleSuccess, {
+  status: 'error',
+  error: 'settings mutation returned a stale or mismatched view',
+})
+assert.deepEqual(staleSuccessCalls.map((entry) => entry.kind), ['mutate', 'describe'])
+assert.deepEqual(
+  staleSuccessAccepted.map((entry) => entry.revision),
+  [44],
+  'a response behind the live scope revision must not be accepted before authoritative recovery',
+)
+
 for (const scenario of [
   {
     name: 'non-ok',

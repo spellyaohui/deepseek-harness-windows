@@ -89,9 +89,10 @@ class SerializedAgentTeamsSettingsWriter {
             return this.failAndRecover(response.result.error.message);
         }
         const next = response.result.value;
+        const knownRevision = laterRevision(expectedRevision, laterRevision(this.revision, this.options.scope.getSnapshot().revision)) ?? expectedRevision;
         if (generation !== this.generation
             || next.ns !== SETTINGS_NAMESPACE
-            || next.revision < expectedRevision) {
+            || next.revision < knownRevision) {
             return this.failAndRecover('settings mutation returned a stale or mismatched view');
         }
         this.revision = next.revision;

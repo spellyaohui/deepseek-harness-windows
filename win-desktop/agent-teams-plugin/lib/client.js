@@ -1949,7 +1949,8 @@ window.__ModuleLoader__.load({
 					return this.failAndRecover(response.result.error.message);
 				}
 				const next = response.result.value;
-				if (generation !== this.generation || next.ns !== SETTINGS_NAMESPACE || next.revision < expectedRevision) return this.failAndRecover("settings mutation returned a stale or mismatched view");
+				const knownRevision = laterRevision(expectedRevision, laterRevision(this.revision, this.options.scope.getSnapshot().revision)) ?? expectedRevision;
+				if (generation !== this.generation || next.ns !== SETTINGS_NAMESPACE || next.revision < knownRevision) return this.failAndRecover("settings mutation returned a stale or mismatched view");
 				this.revision = next.revision;
 				this.uncertain = false;
 				this.options.describe.acceptView(next);
