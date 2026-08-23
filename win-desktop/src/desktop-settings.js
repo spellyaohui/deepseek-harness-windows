@@ -1,7 +1,8 @@
 /**
  * Desktop settings store: a small JSON file in the Electron userData
  * directory. Holds desktop-only preferences that the web UI does not own:
- * close-to-tray behavior and AgentTeams member model configuration.
+ * close-to-tray behavior. Legacy AgentTeams preferences are read only for the
+ * first-launch migration and are removed after the host confirms it.
  *
  * The store is synchronous on read (cached in memory) and async on write
  * (flushed to disk). The main process notifies the renderer through IPC
@@ -17,14 +18,13 @@ const { app } = electron
 const DEFAULT_SETTINGS = {
   /** "tray" hides to tray on close; "quit" exits the app. */
   closeBehavior: 'quit',
-  /** AgentTeams member LLM provider route (e.g. "spawn" stays, but the LLM
-   *  provider/model below is what members actually call). */
-  agentTeamsMemberProvider: '',
-  /** AgentTeams member model id (e.g. "deepseek-v4-flash"). */
-  agentTeamsMemberModel: 'deepseek-v4-flash',
-  /** AgentTeams member reasoning effort id, or empty for the model default. */
-  agentTeamsMemberReasoningEffort: 'max',
 }
+
+const LEGACY_AGENT_TEAMS_KEYS = [
+  'agentTeamsMemberProvider',
+  'agentTeamsMemberModel',
+  'agentTeamsMemberReasoningEffort',
+]
 
 /** @type {Record<string, unknown> | null} */
 let cache = null
@@ -90,4 +90,15 @@ export function setDesktopSettings(patch) {
   const next = { ...current, ...patch }
   flushSettings(next)
   return { ...next }
+}
+
+/**
+ * Remove only the Electron-era AgentTeams preferences after the host has
+ * durably migrated them. The desktop document itself, close behavior, and
+ * unknown future settings remain untouched.
+ */
+export function removeLegacyAgentTeamsSettings() {
+  const next = { ...loadDesktopSettings() }
+  for (const key of LEGACY_AGENT_TEAMS_KEYS) delete next[key]
+  flushSettings(next)
 }

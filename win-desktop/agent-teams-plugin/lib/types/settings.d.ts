@@ -21,6 +21,12 @@ export declare const DEFAULT_AGENT_TEAMS_SETTINGS: AgentTeamsSettings;
 export declare const AgentTeamsSettingsSchema: z<AgentTeamsSettings>;
 export declare function normalizeAgentTeamsSettings(input: Partial<AgentTeamsSettings>): AgentTeamsSettings;
 export declare function normalizeLegacyDesktopAgentTeamsSettings(input: LegacyDesktopAgentTeamsSettings | undefined): LegacyDesktopAgentTeamsSettings | undefined;
+/**
+ * Turn the first-launch desktop envelope into one live settings update. Once
+ * the live scope has recorded this migration (or a later one), it is never
+ * applied again.
+ */
+export declare function createLegacyDesktopSettingsMigration(legacy: LegacyDesktopAgentTeamsSettings | undefined, migrationVersion: number): Partial<AgentTeamsSettings> | undefined;
 export declare function normalizeMemberModelOverride(value: string | undefined): string | undefined;
 export declare function validateAgentTeamsSettings(value: AgentTeamsSettings): void;
 export interface AgentTeamsSettingsRuntime {

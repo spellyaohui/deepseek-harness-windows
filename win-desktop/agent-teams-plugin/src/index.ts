@@ -32,6 +32,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { collectArchivedTeamsActivity, collectTeamsActivity } from './snapshot.ts'
 import {
+  AGENT_TEAMS_MIGRATION_VERSION,
   createAgentTeamsSettingsRuntime,
   type DelegationMode,
   type LegacyDesktopAgentTeamsSettings,
@@ -210,6 +211,35 @@ export function apply(ctx: Context, config: Config): void {
     installAgentTeamsGestureBoundary(ctx)
   }
 
+  let migrationStatusRegistered = false
+  const registerMigrationStatus = (): void => {
+    if (migrationStatusRegistered) return
+    const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1])) as WebRouteHost | undefined
+    if (webServer === undefined) return
+    migrationStatusRegistered = true
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-agent-teams/migration-status',
+      handler: (req, res) => {
+        const responseHeaders = {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+        }
+        if (req.method !== 'GET') {
+          res.writeHead(405, { ...responseHeaders, allow: 'GET' })
+          res.end(JSON.stringify({ migrationVersion: 0, complete: false }))
+          return
+        }
+        const status = settings.migrationStatus()
+        const complete = status.migrationVersion >= AGENT_TEAMS_MIGRATION_VERSION
+        res.writeHead(200, responseHeaders)
+        res.end(JSON.stringify(complete
+          ? { migrationVersion: AGENT_TEAMS_MIGRATION_VERSION, complete: true }
+          : { migrationVersion: 0, complete: false }))
+      },
+    }), 'agent-teams: migration status route')
+  }
+
   let modelCatalogRegistered = false
   const registerModelCatalog = (): void => {
     if (modelCatalogRegistered) return
@@ -347,10 +377,12 @@ export function apply(ctx: Context, config: Config): void {
     }), 'agent-teams: artwork route')
   }
 
+  registerMigrationStatus()
   registerModelCatalog()
   registerWebSurface()
   ctx.on('internal/service', (name) => {
     if (WEB_SERVER_KEYS.includes(name as (typeof WEB_SERVER_KEYS)[number])) {
+      registerMigrationStatus()
       registerModelCatalog()
       registerWebSurface()
     } else if (WORKSPACE_KEYS.includes(name as (typeof WORKSPACE_KEYS)[number])) {

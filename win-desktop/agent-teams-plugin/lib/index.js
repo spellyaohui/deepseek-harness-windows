@@ -23,7 +23,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectArchivedTeamsActivity, collectTeamsActivity } from "./snapshot.js";
-import { createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, } from "./settings.js";
+import { AGENT_TEAMS_MIGRATION_VERSION, createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, } from "./settings.js";
 import { delegationPolicyUsagePreamble, policyMarker, registerDelegationPolicyLifecycle, } from "./routing-policy.js";
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
@@ -121,6 +121,36 @@ export function apply(ctx, config) {
         });
         installAgentTeamsGestureBoundary(ctx);
     }
+    let migrationStatusRegistered = false;
+    const registerMigrationStatus = () => {
+        if (migrationStatusRegistered)
+            return;
+        const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1]));
+        if (webServer === undefined)
+            return;
+        migrationStatusRegistered = true;
+        ctx.effect(() => webServer.register({
+            kind: 'exact',
+            path: '/plugins/dsh-agent-teams/migration-status',
+            handler: (req, res) => {
+                const responseHeaders = {
+                    'content-type': 'application/json; charset=utf-8',
+                    'cache-control': 'no-store',
+                };
+                if (req.method !== 'GET') {
+                    res.writeHead(405, { ...responseHeaders, allow: 'GET' });
+                    res.end(JSON.stringify({ migrationVersion: 0, complete: false }));
+                    return;
+                }
+                const status = settings.migrationStatus();
+                const complete = status.migrationVersion >= AGENT_TEAMS_MIGRATION_VERSION;
+                res.writeHead(200, responseHeaders);
+                res.end(JSON.stringify(complete
+                    ? { migrationVersion: AGENT_TEAMS_MIGRATION_VERSION, complete: true }
+                    : { migrationVersion: 0, complete: false }));
+            },
+        }), 'agent-teams: migration status route');
+    };
     let modelCatalogRegistered = false;
     const registerModelCatalog = () => {
         if (modelCatalogRegistered)
@@ -261,10 +291,12 @@ export function apply(ctx, config) {
             },
         }), 'agent-teams: artwork route');
     };
+    registerMigrationStatus();
     registerModelCatalog();
     registerWebSurface();
     ctx.on('internal/service', (name) => {
         if (WEB_SERVER_KEYS.includes(name)) {
+            registerMigrationStatus();
             registerModelCatalog();
             registerWebSurface();
         }

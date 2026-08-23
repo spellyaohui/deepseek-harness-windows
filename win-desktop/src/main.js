@@ -1,8 +1,8 @@
 import { app, BrowserWindow, Tray, Menu, dialog, nativeImage, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
-import { startDshService } from './dsh-service.js'
+import { confirmAgentTeamsMigration, startDshService } from './dsh-service.js'
 import { createWindowOptions, resolveAppIcon } from './window-options.js'
-import { loadDesktopSettings, getDesktopSettings } from './desktop-settings.js'
+import { loadDesktopSettings, getDesktopSettings, removeLegacyAgentTeamsSettings } from './desktop-settings.js'
 import { installSettingsIpc } from './settings-window.js'
 
 const APP_NAME = 'DeepSeek Harness'
@@ -194,6 +194,9 @@ async function launch() {
 
   try {
     serviceUrl = await service.ready
+    if (await confirmAgentTeamsMigration(serviceUrl)) {
+      removeLegacyAgentTeamsSettings()
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       await mainWindow.loadURL(serviceUrl)
     }

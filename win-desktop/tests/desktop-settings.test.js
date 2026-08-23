@@ -15,10 +15,13 @@ const settingsPath = join(TMP, 'desktop-settings.json')
 
 const DEFAULT_SETTINGS = {
   closeBehavior: 'quit',
-  agentTeamsMemberProvider: '',
-  agentTeamsMemberModel: 'deepseek-v4-flash',
-  agentTeamsMemberReasoningEffort: 'max',
 }
+
+const LEGACY_AGENT_TEAMS_KEYS = [
+  'agentTeamsMemberProvider',
+  'agentTeamsMemberModel',
+  'agentTeamsMemberReasoningEffort',
+]
 
 function load() {
   try {
@@ -35,13 +38,19 @@ function flush(settings) {
 
 function get() { return { ...load() } }
 function set(patch) { const next = { ...load(), ...patch }; flush(next); return { ...next } }
+function removeLegacyAgentTeamsSettings() {
+  const next = { ...load() }
+  for (const key of LEGACY_AGENT_TEAMS_KEYS) delete next[key]
+  flush(next)
+  return { ...next }
+}
 
 describe('desktop-settings logic', () => {
   it('returns defaults when no file exists', () => {
     const s = get()
     assert.equal(s.closeBehavior, 'quit')
-    assert.equal(s.agentTeamsMemberModel, 'deepseek-v4-flash')
-    assert.equal(s.agentTeamsMemberReasoningEffort, 'max')
+    assert.equal(s.agentTeamsMemberModel, undefined)
+    assert.equal(s.agentTeamsMemberReasoningEffort, undefined)
   })
 
   it('persists and reads back updates', () => {
@@ -49,7 +58,7 @@ describe('desktop-settings logic', () => {
     const s = get()
     assert.equal(s.closeBehavior, 'tray')
     assert.equal(s.agentTeamsMemberModel, 'opencode/glm-4.6')
-    assert.equal(s.agentTeamsMemberReasoningEffort, 'max')
+    assert.equal(s.agentTeamsMemberReasoningEffort, undefined)
   })
 
   it('merges partial updates without losing other fields', () => {
@@ -65,7 +74,29 @@ describe('desktop-settings logic', () => {
     writeFileSync(settingsPath, '{ broken json', 'utf8')
     const s = load()
     assert.equal(s.closeBehavior, 'quit')
-    assert.equal(s.agentTeamsMemberModel, 'deepseek-v4-flash')
+    assert.equal(s.agentTeamsMemberModel, undefined)
+  })
+
+  it('removes only the migrated AgentTeams keys', () => {
+    set({
+      closeBehavior: 'tray',
+      agentTeamsMemberProvider: 'legacy-provider',
+      agentTeamsMemberModel: 'legacy-model',
+      agentTeamsMemberReasoningEffort: 'max',
+      futureDesktopSetting: 'preserve-me',
+    })
+
+    const s = removeLegacyAgentTeamsSettings()
+
+    assert.equal(s.closeBehavior, 'tray')
+    assert.equal(s.futureDesktopSetting, 'preserve-me')
+    for (const key of LEGACY_AGENT_TEAMS_KEYS) assert.equal(s[key], undefined)
+    assert.deepEqual(JSON.parse(readFileSync(settingsPath, 'utf8')), s)
+  })
+
+  it('implements the removal helper in the desktop settings module', () => {
+    const source = readFileSync(new URL('../src/desktop-settings.js', import.meta.url), 'utf8')
+    assert.match(source, /export function removeLegacyAgentTeamsSettings\(\)/)
   })
 })
 

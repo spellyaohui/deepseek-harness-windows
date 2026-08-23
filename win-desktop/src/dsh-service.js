@@ -27,12 +27,8 @@ export function resolveAutoModePatch() {
 
 /**
  * Dynamically generate the AgentTeams patch YAML from the current desktop
- * settings. The user configures the member model / reasoning effort through
- * the desktop settings window; this function writes the patch file into the
- * userData directory and returns its path so the dsh process picks it up.
- *
- * When the member model is empty the patch omits memberModel, so members
- * follow the captain's current model (the plugin default).
+ * settings. These values are a first-launch migration envelope only; live
+ * AgentTeams preferences are owned by the Harness settings scope.
  * @returns {string} absolute path to the generated patch file.
  */
 export function generateAgentTeamsPatch() {
@@ -58,11 +54,11 @@ export function generateAgentTeamsPatch() {
     '        stateDir: .agent-teams',
     '        memberProvider: spawn',
   ]
-  if (memberModel !== '') {
-    lines.push(`        memberModel: ${memberModel}`)
-  }
-  if (memberReasoningEffort !== '') {
-    lines.push(`        memberReasoningEffort: ${memberReasoningEffort}`)
+  if (memberProvider !== '' || memberModel !== '' || memberReasoningEffort !== '') {
+    lines.push('        legacyDesktopSettings:')
+    if (memberProvider !== '') lines.push(`          provider: ${memberProvider}`)
+    if (memberModel !== '') lines.push(`          model: ${memberModel}`)
+    if (memberReasoningEffort !== '') lines.push(`          reasoningEffort: ${memberReasoningEffort}`)
   }
 
   const content = lines.join('\n') + '\n'
@@ -107,6 +103,36 @@ export function healDesktopPluginFallback({
 
 export function extractReadyUrl(output) {
   return READY_PATTERN.exec(output)?.[1]
+}
+
+/**
+ * Wait for the host to confirm that it durably recorded the one-time desktop
+ * migration. Any unavailable or incomplete response leaves the legacy values
+ * intact for a later launch.
+ */
+export async function confirmAgentTeamsMigration(serviceUrl, {
+  fetcher = globalThis.fetch,
+  timeoutMs = 5_000,
+  pollMs = 250,
+  now = () => Date.now(),
+  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+} = {}) {
+  const statusUrl = new URL('/plugins/dsh-agent-teams/migration-status', serviceUrl).toString()
+  const deadline = now() + timeoutMs
+  while (now() <= deadline) {
+    try {
+      const response = await fetcher(statusUrl)
+      if (!response.ok) return false
+      const status = await response.json()
+      if (status?.complete === true) return true
+    } catch {
+      return false
+    }
+    const remaining = deadline - now()
+    if (remaining <= 0) return false
+    await sleep(Math.min(pollMs, remaining))
+  }
+  return false
 }
 
 export function buildDshArgs(entry, {

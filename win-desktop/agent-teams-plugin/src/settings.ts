@@ -56,11 +56,33 @@ export function normalizeLegacyDesktopAgentTeamsSettings(
   input: LegacyDesktopAgentTeamsSettings | undefined,
 ): LegacyDesktopAgentTeamsSettings | undefined {
   if (input === undefined) return undefined
-  const provider = input.provider?.trim() ?? ''
-  const model = input.model?.trim() ?? ''
-  const reasoningEffort = input.reasoningEffort?.trim() ?? ''
+  const provider = typeof input.provider === 'string' ? input.provider.trim() : ''
+  const model = typeof input.model === 'string' ? input.model.trim() : ''
+  const reasoningEffort = typeof input.reasoningEffort === 'string' ? input.reasoningEffort.trim() : ''
   if (provider === '' && model === '' && reasoningEffort === '') return undefined
   return { provider, model, reasoningEffort }
+}
+
+/**
+ * Turn the first-launch desktop envelope into one live settings update. Once
+ * the live scope has recorded this migration (or a later one), it is never
+ * applied again.
+ */
+export function createLegacyDesktopSettingsMigration(
+  legacy: LegacyDesktopAgentTeamsSettings | undefined,
+  migrationVersion: number,
+): Partial<AgentTeamsSettings> | undefined {
+  if (legacy === undefined || migrationVersion >= AGENT_TEAMS_MIGRATION_VERSION) return undefined
+  const provider = typeof legacy.provider === 'string' ? legacy.provider.trim() : ''
+  const model = typeof legacy.model === 'string' ? legacy.model.trim() : ''
+  const reasoningEffort = typeof legacy.reasoningEffort === 'string' ? legacy.reasoningEffort.trim() : ''
+  return {
+    memberLlmProvider: provider,
+    memberModel: model,
+    memberReasoningMode: reasoningEffort === '' ? 'target-default' : 'explicit',
+    memberReasoningEffort: reasoningEffort,
+    migrationVersion: AGENT_TEAMS_MIGRATION_VERSION,
+  }
 }
 
 export function normalizeMemberModelOverride(value: string | undefined): string | undefined {
@@ -117,16 +139,10 @@ export function createAgentTeamsSettingsRuntime(
         }
       }
     }, 'agent-teams: settings watch')
-    if (!migrationAttempted && legacy !== undefined && current.migrationVersion < AGENT_TEAMS_MIGRATION_VERSION) {
+    const migration = createLegacyDesktopSettingsMigration(legacy, current.migrationVersion)
+    if (!migrationAttempted && migration !== undefined) {
       migrationAttempted = true
-      const effort = legacy.reasoningEffort?.trim() ?? ''
-      void scope.update({
-        memberLlmProvider: legacy.provider?.trim() ?? '',
-        memberModel: legacy.model?.trim() ?? '',
-        memberReasoningMode: effort === '' ? 'target-default' : 'explicit',
-        memberReasoningEffort: effort,
-        migrationVersion: AGENT_TEAMS_MIGRATION_VERSION,
-      }).then(() => {
+      void scope.update(migration).then(() => {
         if (currentAttachment === attachment) {
           current = normalizeAgentTeamsSettings(scope.get())
         }
