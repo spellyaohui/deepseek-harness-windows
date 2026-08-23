@@ -15,6 +15,11 @@ import { registerAgentTeamsTools } from '../lib/tools.js'
 import { buildActivationDirective, invokedAgentTeamsGoal, registerAgentTeamsCommand } from '../lib/command.js'
 import { readArchivedTeam, readTeam, readUnreadMailbox } from '../lib/state.js'
 import { collectArchivedTeamsActivity } from '../lib/snapshot.js'
+import {
+  NATIVE_DELEGATION_TOOLS,
+  policyMarker,
+  registerDelegationPolicyLifecycle,
+} from '../lib/routing-policy.js'
 
 const workspace = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-lifecycle-'))
 const definitions = new Map()
@@ -24,6 +29,9 @@ const deliveries = []
 const listeners = new Map()
 const failNextDelivery = new Set()
 const failures = []
+const continuableSetups = []
+const lifecycleSections = new WeakMap()
+const lifecycleDenials = new WeakMap()
 let childSeq = 0
 let messageSeq = 0
 let memberDefaults = {
@@ -41,6 +49,136 @@ function check(label, condition, detail = '') {
   if (!condition) failures.push(label)
 }
 
+console.log('durable Team/Native routing policy')
+const policyTools = new Set([
+  ...NATIVE_DELEGATION_TOOLS,
+  'read_file',
+  'agent_teams_send_message',
+  'agent_teams_update_task',
+])
+const policyAgents = new Map()
+const policyListeners = []
+const policySections = new WeakMap()
+const policyDenials = new WeakMap()
+let defaultDelegationMode = 'teams'
+
+function policySession(events = [], parentSession) {
+  return {
+    header: { parentSession, seedLength: 0 },
+    events,
+  }
+}
+
+function policyAgent(id, events = [], parentSession, availableTools = policyTools) {
+  const subject = {
+    id,
+    session: policySession(events, parentSession),
+    options: { provider: 'fake', model: 'fake-model' },
+  }
+  subject.ctx = {
+    systemPrompt: {
+      section(section) {
+        policySections.set(subject, section)
+        return () => policySections.delete(subject)
+      },
+    },
+    tools: {
+      get(name) {
+        return availableTools.has(name) && !policyDenials.get(subject)?.has(name)
+          ? { name }
+          : undefined
+      },
+      restrict({ deny }) {
+        const previous = policyDenials.get(subject) ?? new Set()
+        const next = new Set([...previous, ...deny])
+        policyDenials.set(subject, next)
+        return () => policyDenials.set(subject, previous)
+      },
+    },
+  }
+  return subject
+}
+
+const policyCtx = {
+  agents: { get: id => policyAgents.get(id) },
+  on(name, listener) {
+    if (name === 'agent/created') policyListeners.push(listener)
+    return () => {
+      const index = policyListeners.indexOf(listener)
+      if (index >= 0) policyListeners.splice(index, 1)
+    }
+  },
+}
+registerDelegationPolicyLifecycle(policyCtx, {
+  defaultMode: () => defaultDelegationMode,
+  order: 117,
+  text: policy => `${policyMarker(policy)}\n\npolicy-specific usage`,
+})
+
+function announcePolicyAgent(subject) {
+  policyAgents.set(subject.id, subject)
+  for (const listener of policyListeners) listener({ agent: subject })
+}
+
+function visiblePolicyTools(subject) {
+  return [...policyTools].filter(name => subject.ctx.tools.get(name, subject) !== undefined)
+}
+
+const teamCaptain = policyAgent('policy-team-captain')
+announcePolicyAgent(teamCaptain)
+check('Team captain prompt contains the durable teams-v1 marker',
+  policySections.get(teamCaptain)?.text.includes(policyMarker('teams-v1')))
+check('Team captain assembled tools contain no native delegation deny-list name',
+  NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(teamCaptain).includes(name)))
+
+const sparseTeamCaptain = policyAgent(
+  'policy-sparse-team-captain',
+  [],
+  undefined,
+  new Set(['subagent', 'read_file']),
+)
+announcePolicyAgent(sparseTeamCaptain)
+check('Team restriction excludes absent optional native tools from its deny list',
+  JSON.stringify([...policyDenials.get(sparseTeamCaptain)]) === JSON.stringify(['subagent']))
+
+const teamMember = policyAgent('policy-team-member', [], teamCaptain.id)
+announcePolicyAgent(teamMember)
+check('fresh child inherits the live parent Team policy',
+  policySections.get(teamMember)?.text.includes(policyMarker('teams-v1'))
+    && NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(teamMember).includes(name)))
+check('Team restriction preserves member-local AgentTeams reporting tools',
+  ['agent_teams_send_message', 'agent_teams_update_task']
+    .every(name => visiblePolicyTools(teamMember).includes(name)))
+
+defaultDelegationMode = 'native'
+const nativeCaptain = policyAgent('policy-native-captain')
+announcePolicyAgent(nativeCaptain)
+check('Native policy leaves official delegation tools visible',
+  NATIVE_DELEGATION_TOOLS.every(name => visiblePolicyTools(nativeCaptain).includes(name)))
+
+teamCaptain.session.events.push({
+  type: 'request/header',
+  data: {
+    header: {
+      config: { provider: 'fake', model: 'fake-model' },
+      system: `${policyMarker('teams-v1')}\n\npolicy-specific usage`,
+    },
+    reason: 'initial',
+  },
+})
+const restoredTeamCaptain = policyAgent('policy-team-restored', teamCaptain.session.events)
+announcePolicyAgent(restoredTeamCaptain)
+check('settings changes do not change a restored durable Team policy',
+  policySections.get(restoredTeamCaptain)?.text.includes(policyMarker('teams-v1'))
+    && NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(restoredTeamCaptain).includes(name)))
+
+defaultDelegationMode = 'teams'
+const legacyCaptain = policyAgent('policy-legacy-captain', [{ type: 'user/message', data: {} }])
+announcePolicyAgent(legacyCaptain)
+check('legacy session without a marker resolves Native',
+  policySections.get(legacyCaptain)?.text.includes(policyMarker('native-v1'))
+    && NATIVE_DELEGATION_TOOLS.every(name => visiblePolicyTools(legacyCaptain).includes(name)))
+
 function session(parentSession) {
   return {
     header: { cwd: workspace, parentSession, seedLength: 0 },
@@ -53,7 +191,7 @@ function session(parentSession) {
 }
 
 function makeAgent(id, parentSession) {
-  return {
+  const subject = {
     id,
     status: 'idle',
     options: { provider: 'fake', model: 'fake-model' },
@@ -68,6 +206,32 @@ function makeAgent(id, parentSession) {
       return this.status === 'idle' ? Promise.resolve() : new Promise(resolve => { this._idle = resolve })
     },
   }
+  const agentListeners = new Map()
+  subject.ctx = {
+    agent: subject,
+    on(name, listener) {
+      agentListeners.set(name, listener)
+      return () => agentListeners.delete(name)
+    },
+    systemPrompt: {
+      section(section) {
+        lifecycleSections.set(subject, section)
+        return () => lifecycleSections.delete(subject)
+      },
+    },
+    tools: {
+      get(name) {
+        const exists = definitions.has(name) || NATIVE_DELEGATION_TOOLS.includes(name)
+        return exists && !lifecycleDenials.get(subject)?.has(name) ? { name } : undefined
+      },
+      restrict({ deny }) {
+        const previous = lifecycleDenials.get(subject) ?? new Set()
+        lifecycleDenials.set(subject, new Set([...previous, ...deny]))
+        return () => lifecycleDenials.set(subject, previous)
+      },
+    },
+  }
+  return subject
 }
 
 function publishStatus(subject, status) {
@@ -80,6 +244,16 @@ function publishStatus(subject, status) {
 }
 
 const captain = makeAgent('captain-session')
+captain.session.events.push({
+  type: 'request/header',
+  data: {
+    header: {
+      config: { provider: 'fake', model: 'fake-model' },
+      system: policyMarker('teams-v1'),
+    },
+    reason: 'initial',
+  },
+})
 liveAgents.set(captain.id, captain)
 // A non-AgentTeams continuable sibling must survive every team lifecycle
 // operation untouched.
@@ -109,7 +283,8 @@ const ctx = {
     },
   },
   subagents: {
-    registerContinuableSetup() {
+    registerContinuableSetup(setup) {
+      continuableSetups.push(setup)
       return () => {}
     },
     getProvider(name) {
@@ -122,6 +297,19 @@ const ctx = {
     async startContinuable(spec) {
       const id = `member-session-${++childSeq}`
       const child = makeAgent(id, captain.id)
+      child.session.events.push({
+        type: 'subagent/descriptor',
+        data: {
+          version: 2,
+          mode: 'continuable',
+          provider: spec.provider,
+          label: spec.label,
+          agentProvider: spec.request.agentOptions.provider,
+          agentModel: spec.request.agentOptions.model,
+        },
+      })
+      lifecycleDenials.set(child, new Set(spec.request.toolFilter?.deny ?? []))
+      for (const setup of continuableSetups) setup(child.ctx)
       child.status = 'running'
       liveAgents.set(id, child)
       children.push({ id, label: spec.label, mode: 'continuable' })
@@ -163,6 +351,11 @@ registerAgentTeamsTools(ctx, {
   },
   memberMaxDepth: 1,
   maxMembers: 8,
+  delegationPolicy: {
+    defaultMode: () => memberDefaults.delegationMode,
+    order: 117,
+    text: policy => `${policyMarker(policy)}\n\nmember policy usage`,
+  },
 })
 
 function execFor(subject) {
@@ -255,6 +448,14 @@ try {
   const alpha = liveAgents.get(addedAlpha.member_id)
   const beta = liveAgents.get(addedBeta.member_id)
   const gamma = liveAgents.get(addedGamma.member_id)
+  check('AgentTeams internal startContinuable succeeds under Team policy',
+    typeof addedAlpha.member_id === 'string' && alpha !== undefined)
+  check('member receives Team policy before publication',
+    lifecycleSections.get(alpha)?.text.includes(policyMarker('teams-v1'))
+      && NATIVE_DELEGATION_TOOLS.every(name => alpha.ctx.tools.get(name, alpha) === undefined))
+  check('captain-only and Team restrictions preserve member-local report tools',
+    alpha.ctx.tools.get('agent_teams_send_message', alpha) !== undefined
+      && alpha.ctx.tools.get('agent_teams_update_task', alpha) !== undefined)
   publishStatus(alpha, 'idle')
   publishStatus(beta, 'idle')
   publishStatus(gamma, 'idle')

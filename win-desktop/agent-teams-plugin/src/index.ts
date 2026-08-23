@@ -38,6 +38,13 @@ import {
   type MemberReasoningMode,
   normalizeLegacyDesktopAgentTeamsSettings,
 } from './settings.ts'
+import {
+  delegationPolicyUsagePreamble,
+  policyMarker,
+  registerDelegationPolicyLifecycle,
+  type DelegationPolicyId,
+  type DelegationPolicyRuntime,
+} from './routing-policy.ts'
 
 /**
  * Structural slice of the web server service, compatible with both the
@@ -125,8 +132,10 @@ export const Config: z<Config> = z.object({
 })
 
 /** The model-facing usage policy: when and how to drive AgentTeams. */
-function usageSectionText(toolNames: string): string {
-  return `When the user asks to run something with AgentTeams (e.g. "use AgentTeams to do X"), or an activation message from the /agent-teams slash command arrives, you are the captain of a multi-agent team. Follow this protocol:
+function usageSectionText(policy: DelegationPolicyId, toolNames: string): string {
+  return `${policyMarker(policy)}
+
+${delegationPolicyUsagePreamble(policy)} Follow this protocol:
 1. Call agent_teams_create with a team name and the goal as description. You become the captain and may lead one team at a time.
 2. Call agent_teams_add_member once per role the goal needs (researcher, engineer, reviewer, ...). Members are durable subagents: they wait for your messages, then work a full turn. Provider, model, and reasoning defaults come from AgentTeams settings: target-default uses the selected target model's default effort; route-aware inherits the captain's effort only on the exact same provider/model route; explicit uses the configured effort. An explicit per-member provider/model or reasoning_effort overrides settings; reasoning_effort="default" selects the target default. Never ask the user to choose these per member; only pass provider/model when the user explicitly requests a different route for that role, and reasoning_effort only when the user explicitly requests a particular effort.
 3. Break the goal into tasks with agent_teams_create_task and wire dependencies. Assign role-specific work when useful; unassigned ready work belongs to the shared pool. The scheduler automatically claims one ready task for each truly idle member and wakes it, including across later rounds.
@@ -148,20 +157,6 @@ export function apply(ctx: Context, config: Config): void {
     migrationVersion: 0,
   }, normalizeLegacyDesktopAgentTeamsSettings(config.legacyDesktopSettings))
 
-  const resolved: ToolsConfig = {
-    stateDir: config.stateDir ?? '.agent-teams',
-    memberProvider: config.memberProvider ?? 'spawn',
-    memberMaxDepth: config.memberMaxDepth ?? 1,
-    maxMembers: config.maxMembers ?? 8,
-    settings,
-  }
-
-  // Provider registration is a sibling plugin's effect (`subagent-spawn` /
-  // `subagent-fork` rows), which can land after this mount under the Loader's
-  // concurrent activation — so capability validation happens at the first
-  // member spawn (`spawnMember`), the earliest point the provider list is
-  // settled, rather than here.
-
   const toolNames = [
     'agent_teams_create',
     'agent_teams_add_member',
@@ -174,12 +169,28 @@ export function apply(ctx: Context, config: Config): void {
     'agent_teams_status',
     'agent_teams_delete',
   ].join(', ')
-  ctx.systemPrompt.section({
-    name: 'agent-teams:usage',
+  const delegationPolicy: DelegationPolicyRuntime = {
+    defaultMode: () => settings.get().delegationMode,
     order: config.promptSectionOrder ?? 117,
-    text: usageSectionText(toolNames),
-  })
+    text: (policy) => usageSectionText(policy, toolNames),
+  }
 
+  const resolved: ToolsConfig = {
+    stateDir: config.stateDir ?? '.agent-teams',
+    memberProvider: config.memberProvider ?? 'spawn',
+    memberMaxDepth: config.memberMaxDepth ?? 1,
+    maxMembers: config.maxMembers ?? 8,
+    settings,
+    delegationPolicy,
+  }
+
+  // Provider registration is a sibling plugin's effect (`subagent-spawn` /
+  // `subagent-fork` rows), which can land after this mount under the Loader's
+  // concurrent activation — so capability validation happens at the first
+  // member spawn (`spawnMember`), the earliest point the provider list is
+  // settled, rather than here.
+
+  registerDelegationPolicyLifecycle(ctx, delegationPolicy)
   registerAgentTeamsTools(ctx, resolved)
 
   // Deterministic activation surfaces: the closed-namespace `/agent-teams`

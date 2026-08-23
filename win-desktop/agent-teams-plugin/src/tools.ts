@@ -51,6 +51,7 @@ import {
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
 import { installTeamScheduler } from './scheduler.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
+import type { DelegationPolicyRuntime } from './routing-policy.ts'
 
 /** Resolved plugin config consumed by the tools. */
 export interface ToolsConfig {
@@ -64,6 +65,8 @@ export interface ToolsConfig {
   maxMembers: number
   /** Live AgentTeams settings runtime. */
   settings: AgentTeamsSettingsRuntime
+  /** Durable Team/Native policy installed into captains and member children. */
+  delegationPolicy?: DelegationPolicyRuntime
 }
 
 /** The caller agent, or a loud failure for non-agent callers. */
@@ -224,7 +227,7 @@ export function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, 
  */
 export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): void {
   installRetiredMemberGuard(ctx, config.stateDir)
-  const memberSelections = installMemberSelectionRuntime(ctx, config.stateDir)
+  const memberSelections = installMemberSelectionRuntime(ctx, config.stateDir, config.delegationPolicy)
   const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir })
 
   ctx.tools.register(defineTool({

@@ -154,7 +154,7 @@ export function steerCaptainReport(captain, from, content) {
  */
 export function registerAgentTeamsTools(ctx, config) {
     installRetiredMemberGuard(ctx, config.stateDir);
-    const memberSelections = installMemberSelectionRuntime(ctx, config.stateDir);
+    const memberSelections = installMemberSelectionRuntime(ctx, config.stateDir, config.delegationPolicy);
     const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir });
     ctx.tools.register(defineTool({
         name: 'agent_teams_create',

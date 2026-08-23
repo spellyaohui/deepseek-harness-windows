@@ -14,6 +14,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { type Agent } from '@deepseek-ai/dsh-agent';
 import type { AgentTeamsSettings } from './settings.ts';
+import { type DelegationPolicyRuntime } from './routing-policy.ts';
 import type { TeamMember, TeamState } from './types.ts';
 /** Runtime knobs for member spawning, resolved from plugin config. */
 export interface MemberRuntimeConfig {
@@ -64,7 +65,7 @@ export declare function resolveMemberLlmSelection(ctx: Context, captain: Agent, 
  * record. Legacy members without a complete saved route retain Harness's
  * descriptor provider/model behavior.
  */
-export declare function installMemberSelectionRuntime(ctx: Context, stateDir: string): MemberSelectionRuntime;
+export declare function installMemberSelectionRuntime(ctx: Context, stateDir: string, delegationPolicy?: DelegationPolicyRuntime): MemberSelectionRuntime;
 /**
  * The member's system prompt (persona), shadowing the deployment persona for
  * that child. Self-contained: it replaces the whole persona section.

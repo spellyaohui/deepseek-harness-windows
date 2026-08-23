@@ -11,6 +11,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { AgentTeamsSettingsRuntime } from './settings.ts';
+import type { DelegationPolicyRuntime } from './routing-policy.ts';
 /** Resolved plugin config consumed by the tools. */
 export interface ToolsConfig {
     /** State directory name under the captain's workspace. */
@@ -23,6 +24,8 @@ export interface ToolsConfig {
     maxMembers: number;
     /** Live AgentTeams settings runtime. */
     settings: AgentTeamsSettingsRuntime;
+    /** Durable Team/Native policy installed into captains and member children. */
+    delegationPolicy?: DelegationPolicyRuntime;
 }
 /**
  * Deliver a durable member report at the captain's nearest model boundary.

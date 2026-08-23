@@ -21,6 +21,10 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { join } from 'node:path'
 import { selectMemberCandidate } from './selection-policy.ts'
 import type { AgentTeamsSettings } from './settings.ts'
+import {
+  resolveAndInstallDelegationPolicy,
+  type DelegationPolicyRuntime,
+} from './routing-policy.ts'
 import { readRetiredMemberIds, readTeamSync } from './state.ts'
 import type { TeamMember, TeamState } from './types.ts'
 
@@ -162,7 +166,11 @@ export async function resolveMemberLlmSelection(
  * record. Legacy members without a complete saved route retain Harness's
  * descriptor provider/model behavior.
  */
-export function installMemberSelectionRuntime(ctx: Context, stateDir: string): MemberSelectionRuntime {
+export function installMemberSelectionRuntime(
+  ctx: Context,
+  stateDir: string,
+  delegationPolicy?: DelegationPolicyRuntime,
+): MemberSelectionRuntime {
   const pending = new Map<string, MemberLlmSelection>()
   ctx.subagents.registerContinuableSetup((childCtx) => {
     const child = childCtx.agent
@@ -175,32 +183,50 @@ export function installMemberSelectionRuntime(ctx: Context, stateDir: string): M
 
     const parentSessionId = child.session.header.parentSession
     if (parentSessionId === undefined) return () => undefined
+    const policyInstallation = delegationPolicy === undefined
+      ? undefined
+      : resolveAndInstallDelegationPolicy(
+          child,
+          ctx.agents.get(parentSessionId),
+          delegationPolicy,
+        )
+    const disposePolicy = policyInstallation?.dispose ?? (() => undefined)
     const key = pendingSelectionKey(parentSessionId, descriptor.label)
     let selection = pending.get(key)
     if (selection === undefined) {
       const identity = descriptor.label.slice(MEMBER_LABEL_PREFIX.length)
       const separator = identity.indexOf(':')
-      if (separator < 1 || separator === identity.length - 1) return () => undefined
+      if (separator < 1 || separator === identity.length - 1) return disposePolicy
       const teamId = identity.slice(0, separator)
       const memberName = identity.slice(separator + 1)
       const workspace = child.session.header.cwd ?? process.cwd()
       const team = readTeamSync(join(workspace, stateDir), teamId)
-      if (team?.captainSessionId !== parentSessionId) return () => undefined
+      if (team?.captainSessionId !== parentSessionId) return disposePolicy
       selection = selectionFromMember(team.members.find(member => member.name === memberName))
       // An old team record has no provider/reasoning snapshot. Its durable
       // Harness descriptor still restores provider/model, so leave it alone.
-      if (selection === undefined) return () => undefined
+      if (selection === undefined) return disposePolicy
       if (descriptor.agentProvider !== selection.provider || descriptor.agentModel !== selection.model) {
+        disposePolicy()
         throw new Error(
           `agent-teams: saved model route for member "${memberName}" does not match its subagent descriptor`,
         )
       }
     }
 
-    return installModelSelection(childCtx, {
-      current: modelSelection(selection),
-      assembled: undefined,
-    })
+    try {
+      const disposeSelection = installModelSelection(childCtx, {
+        current: modelSelection(selection),
+        assembled: undefined,
+      })
+      return () => {
+        disposeSelection()
+        disposePolicy()
+      }
+    } catch (error) {
+      disposePolicy()
+      throw error
+    }
   })
 
   return {
