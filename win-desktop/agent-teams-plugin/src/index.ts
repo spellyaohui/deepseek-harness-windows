@@ -75,6 +75,50 @@ interface HostModelCatalogFailure {
   message: string
 }
 
+interface HostModelCatalogSource {
+  listProviders(): readonly { id: string }[]
+  listModels(provider: string): Promise<readonly { id: string; name: string }[]>
+  resolveModelInfo(provider: string, model: string): Promise<{
+    reasoning?: {
+      efforts: readonly { id: unknown; name: string }[]
+      defaultEffort?: unknown
+    }
+  }>
+}
+
+export async function buildHostModelCatalog(llm: HostModelCatalogSource): Promise<{
+  models: HostModelCatalogEntry[]
+  failures: HostModelCatalogFailure[]
+}> {
+  const models: HostModelCatalogEntry[] = []
+  const failures: HostModelCatalogFailure[] = []
+  for (const provider of llm.listProviders()) {
+    try {
+      for (const model of await llm.listModels(provider.id)) {
+        const exact = await llm.resolveModelInfo(provider.id, model.id)
+        models.push({
+          provider: provider.id,
+          id: model.id,
+          name: model.name,
+          efforts: exact.reasoning?.efforts.map((effort) => ({
+            id: String(effort.id),
+            name: effort.name,
+          })) ?? [],
+          ...(exact.reasoning?.defaultEffort === undefined
+            ? {}
+            : { defaultEffort: String(exact.reasoning.defaultEffort) }),
+        })
+      }
+    } catch (error: unknown) {
+      failures.push({
+        provider: provider.id,
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+  return { models, failures }
+}
+
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'] as const
 /** Workspace registry service key candidates, newest first. */
@@ -259,32 +303,7 @@ export function apply(ctx: Context, config: Config): void {
           res.end(JSON.stringify({ models: [], failures: [] }))
           return
         }
-        const models: HostModelCatalogEntry[] = []
-        const failures: HostModelCatalogFailure[] = []
-        for (const provider of ctx.llm.listProviders()) {
-          try {
-            for (const model of await ctx.llm.listModels(provider.id)) {
-              const exact = await ctx.llm.resolveModelInfo(provider.id, model.id)
-              models.push({
-                provider: provider.id,
-                id: model.id,
-                name: model.name,
-                efforts: exact.reasoning?.efforts.map((effort) => ({
-                  id: String(effort.id),
-                  name: effort.name,
-                })) ?? [],
-                ...(exact.reasoning?.defaultEffort === undefined
-                  ? {}
-                  : { defaultEffort: String(exact.reasoning.defaultEffort) }),
-              })
-            }
-          } catch (error: unknown) {
-            failures.push({
-              provider: provider.id,
-              message: error instanceof Error ? error.message : String(error),
-            })
-          }
-        }
+        const { models, failures } = await buildHostModelCatalog(ctx.llm)
         res.writeHead(200, responseHeaders)
         res.end(JSON.stringify({ models, failures }))
       },

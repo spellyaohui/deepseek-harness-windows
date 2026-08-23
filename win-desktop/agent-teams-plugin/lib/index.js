@@ -25,6 +25,36 @@ import { fileURLToPath } from 'node:url';
 import { collectArchivedTeamsActivity, collectTeamsActivity } from "./snapshot.js";
 import { AGENT_TEAMS_MIGRATION_VERSION, createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, } from "./settings.js";
 import { delegationPolicyUsagePreamble, policyMarker, registerDelegationPolicyLifecycle, } from "./routing-policy.js";
+export async function buildHostModelCatalog(llm) {
+    const models = [];
+    const failures = [];
+    for (const provider of llm.listProviders()) {
+        try {
+            for (const model of await llm.listModels(provider.id)) {
+                const exact = await llm.resolveModelInfo(provider.id, model.id);
+                models.push({
+                    provider: provider.id,
+                    id: model.id,
+                    name: model.name,
+                    efforts: exact.reasoning?.efforts.map((effort) => ({
+                        id: String(effort.id),
+                        name: effort.name,
+                    })) ?? [],
+                    ...(exact.reasoning?.defaultEffort === undefined
+                        ? {}
+                        : { defaultEffort: String(exact.reasoning.defaultEffort) }),
+                });
+            }
+        }
+        catch (error) {
+            failures.push({
+                provider: provider.id,
+                message: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+    return { models, failures };
+}
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
 /** Workspace registry service key candidates, newest first. */
@@ -172,33 +202,7 @@ export function apply(ctx, config) {
                     res.end(JSON.stringify({ models: [], failures: [] }));
                     return;
                 }
-                const models = [];
-                const failures = [];
-                for (const provider of ctx.llm.listProviders()) {
-                    try {
-                        for (const model of await ctx.llm.listModels(provider.id)) {
-                            const exact = await ctx.llm.resolveModelInfo(provider.id, model.id);
-                            models.push({
-                                provider: provider.id,
-                                id: model.id,
-                                name: model.name,
-                                efforts: exact.reasoning?.efforts.map((effort) => ({
-                                    id: String(effort.id),
-                                    name: effort.name,
-                                })) ?? [],
-                                ...(exact.reasoning?.defaultEffort === undefined
-                                    ? {}
-                                    : { defaultEffort: String(exact.reasoning.defaultEffort) }),
-                            });
-                        }
-                    }
-                    catch (error) {
-                        failures.push({
-                            provider: provider.id,
-                            message: error instanceof Error ? error.message : String(error),
-                        });
-                    }
-                }
+                const { models, failures } = await buildHostModelCatalog(ctx.llm);
                 res.writeHead(200, responseHeaders);
                 res.end(JSON.stringify({ models, failures }));
             },

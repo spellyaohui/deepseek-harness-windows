@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import yaml from 'js-yaml'
 import { generateAgentTeamsPatch } from '../src/dsh-service.js'
+import { buildHostModelCatalog } from '../agent-teams-plugin/lib/index.js'
 
 const wrapperRoot = fileURLToPath(new URL('..', import.meta.url))
 const pluginRoot = join(wrapperRoot, 'node_modules', '@nanmicoder', 'dsh-agent-teams')
@@ -80,4 +81,49 @@ test('desktop settings bundle registers only the desktop settings section', () =
   const ids = [...clientBundle.matchAll(/name:\s*['\"]settings\.section['\"],[\s\S]{0,160}?id:\s*['\"]([^'\"]+)['\"]/g)]
     .map((match) => match[1])
   assert.deepEqual(ids, ['desktop'])
+})
+
+test('AgentTeams shared catalog preserves CPA models and reasoning efforts', async () => {
+  const result = await buildHostModelCatalog({
+    listProviders: () => [{ id: 'cpa' }],
+    listModels: async (provider) => {
+      assert.equal(provider, 'cpa')
+      return [{ id: 'gpt-5.6-sol', name: 'gpt-5.6-sol' }]
+    },
+    resolveModelInfo: async (provider, model) => {
+      assert.equal(provider, 'cpa')
+      assert.equal(model, 'gpt-5.6-sol')
+      return {
+        reasoning: {
+          efforts: [
+            { id: 'off', name: 'Off' },
+            { id: 'low', name: 'Low' },
+            { id: 'medium', name: 'Medium' },
+            { id: 'high', name: 'High' },
+            { id: 'xhigh', name: 'Xhigh' },
+            { id: 'max', name: 'Max' },
+          ],
+          defaultEffort: 'high',
+        },
+      }
+    },
+  })
+
+  assert.deepEqual(result, {
+    models: [{
+      provider: 'cpa',
+      id: 'gpt-5.6-sol',
+      name: 'gpt-5.6-sol',
+      efforts: [
+        { id: 'off', name: 'Off' },
+        { id: 'low', name: 'Low' },
+        { id: 'medium', name: 'Medium' },
+        { id: 'high', name: 'High' },
+        { id: 'xhigh', name: 'Xhigh' },
+        { id: 'max', name: 'Max' },
+      ],
+      defaultEffort: 'high',
+    }],
+    failures: [],
+  })
 })
