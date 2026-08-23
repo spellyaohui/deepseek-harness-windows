@@ -1246,7 +1246,7 @@ try {
           `$f = '${transientJson.replaceAll("'", "''")}';
            $s = [System.IO.File]::Open($f, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite);
            [Console]::Out.WriteLine('HELD_T'); [Console]::Out.Flush();
-           Start-Sleep -Milliseconds 140; $s.Dispose()`],
+           [Threading.Thread]::Sleep(140); $s.Dispose()`],
         { stdio: ['ignore', 'pipe', 'inherit'] },
       )
       const flashed = await new Promise((resolve, reject) => {

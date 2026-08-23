@@ -22,6 +22,7 @@
 - One-time migration from legacy Electron settings.
 - Desktop integration and regression verification.
 - Path-stable virtual CSS module ids with generated-artifact verification.
+- Windows PowerShell lock-fixture timing uses `[Threading.Thread]::Sleep(140)`.
 
 ## Upgrade rule
 
