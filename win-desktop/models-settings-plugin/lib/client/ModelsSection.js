@@ -264,7 +264,7 @@ function Loaded({ injected }) {
                                             setEditing(targetOf(row));
                                         }, children: addable.map(row => (_jsx("option", { value: row.entry.provider, children: row.entry.displayName }, row.entry.provider))) })] }), _jsx(ProviderEditor, { provider: addTarget.provider, displayName: addTarget.displayName, hideTitle: true, namespace: addNamespace, schema: schema, settingsPath: addTarget.settingsPath, api: api, t: t, readOnly: !state.writable, onClose: (changed) => { closeEditor(changed, addTarget); } }, addTarget.provider)] }))
                     : declaring
-                        ? (_jsx("div", { className: styles['addCard'], children: _jsx(CustomProviderCard, { taken: state.rows.map(row => row.entry.provider), protocols: protocols, 
+                        ? (_jsx("div", { className: styles['addCard'], children: _jsx(CustomProviderCard, { taken: state.rows.map(row => row.entry.provider), protocols: protocols,
                                 /* v8 ignore next -- the card only opens from a button disabled without this namespace */
                                 revision: state.namespaces.get('llm-pi-ai')?.revision ?? 0, api: api, t: t, readOnly: !state.writable, onClose: (changed) => {
                                     setDeclaring(false);
