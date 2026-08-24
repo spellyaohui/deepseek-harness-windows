@@ -53,13 +53,20 @@ window.__ModuleLoader__.load({
 		//#region lib/profile.js
 		/** Merge a fresh listing with configured rows the endpoint temporarily omitted. */
 		function mergeCpaCandidates(configured, discovered) {
+			const configuredById = new Map(configured.map((candidate) => [candidate.id.trim(), candidate]));
 			const merged = /* @__PURE__ */ new Map();
 			for (const candidate of discovered) {
 				const id = candidate.id.trim();
-				if (id !== "" && !merged.has(id)) merged.set(id, {
+				if (id === "" || merged.has(id)) continue;
+				const previous = configuredById.get(id);
+				const next = {
+					...previous,
 					...candidate,
 					id
-				});
+				};
+				if (candidate.contextWindow === void 0 && previous?.contextWindow !== void 0) next.contextWindow = previous.contextWindow;
+				if (candidate.maxTokens === void 0 && previous?.maxTokens !== void 0) next.maxTokens = previous.maxTokens;
+				merged.set(id, next);
 			}
 			for (const candidate of configured) {
 				const id = candidate.id.trim();
@@ -99,6 +106,60 @@ window.__ModuleLoader__.load({
 				api: "openai-responses",
 				baseURL: normalizeCpaBaseURL(draft.baseURL),
 				models: buildCpaModels(draft.models)
+			};
+		}
+		//#endregion
+		//#region lib/client/capacity.js
+		function draftFromModel(model) {
+			return {
+				contextWindow: model.contextWindow === void 0 ? "" : String(model.contextWindow),
+				maxTokens: model.maxTokens === void 0 ? "" : String(model.maxTokens)
+			};
+		}
+		function parseCapacity(value) {
+			if (value === "") return void 0;
+			if (!/^[0-9]+$/.test(value)) return false;
+			const parsed = Number(value);
+			return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : false;
+		}
+		function capacityDraftsFromModels(models) {
+			return new Map(models.map((model) => [model.id, draftFromModel(model)]));
+		}
+		function mergeCapacityDrafts(current, discovered) {
+			const merged = new Map(current);
+			for (const model of discovered) if (!merged.has(model.id)) merged.set(model.id, draftFromModel(model));
+			return merged;
+		}
+		function applyCapacityDrafts(models, drafts) {
+			const parsedModels = [];
+			for (const model of models) {
+				if (model.selected === false) {
+					parsedModels.push(model);
+					continue;
+				}
+				const draft = drafts.get(model.id) ?? draftFromModel(model);
+				const contextWindow = parseCapacity(draft.contextWindow);
+				if (contextWindow === false) return {
+					ok: false,
+					modelId: model.id,
+					field: "contextWindow"
+				};
+				const maxTokens = parseCapacity(draft.maxTokens);
+				if (maxTokens === false) return {
+					ok: false,
+					modelId: model.id,
+					field: "maxTokens"
+				};
+				const { contextWindow: _contextWindow, maxTokens: _maxTokens, ...base } = model;
+				parsedModels.push({
+					...base,
+					...contextWindow === void 0 ? {} : { contextWindow },
+					...maxTokens === void 0 ? {} : { maxTokens }
+				});
+			}
+			return {
+				ok: true,
+				models: parsedModels
 			};
 		}
 		//#endregion
@@ -253,7 +314,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:src/client/CpaProviderCard.module.css.mjs
-		const css = ".VTWtTW_card{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);border-radius:12px;flex-direction:column;gap:12px;margin-top:12px;padding:14px;display:flex}.VTWtTW_header,.VTWtTW_modelHeader,.VTWtTW_footer{align-items:center;gap:12px;display:flex}.VTWtTW_header>:first-child,.VTWtTW_validation{flex:1;min-width:0}.VTWtTW_title{margin:0;font-size:14px;font-weight:500;line-height:22px}.VTWtTW_intro,.VTWtTW_help,.VTWtTW_empty,.VTWtTW_notice,.VTWtTW_status,.VTWtTW_validation{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}.VTWtTW_notice,.VTWtTW_validation{color:var(--dsw-alias-state-warn-label)}.VTWtTW_status{color:var(--dsw-alias-state-success-primary)}.VTWtTW_error{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px;line-height:18px}.VTWtTW_credential{color:var(--dsw-alias-label-secondary);flex:none;align-items:center;gap:6px;font-size:12px;display:inline-flex}.VTWtTW_dotReady,.VTWtTW_dotMissing{border-radius:50%;width:8px;height:8px}.VTWtTW_dotReady{background:var(--dsw-alias-state-success-primary)}.VTWtTW_dotMissing{background:var(--dsw-alias-state-error-primary)}.VTWtTW_fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;display:grid}.VTWtTW_field{min-width:0;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:6px;font-size:12px;line-height:18px;display:flex}.VTWtTW_input{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;outline:none;padding:0 12px}.VTWtTW_input:focus-visible{border-color:var(--dsw-alias-interactive-border-focus);box-shadow:0 0 0 2px var(--dsw-alias-border-l3)}.VTWtTW_modelHeader{justify-content:space-between}.VTWtTW_modelHeader>span{font-size:13px;font-weight:500}.VTWtTW_actions{align-items:center;gap:8px;display:inline-flex}.VTWtTW_linkButton{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:0;font-size:12px}.VTWtTW_linkButton:disabled,.VTWtTW_primaryButton:disabled{opacity:.4;cursor:default}.VTWtTW_linkButton:focus-visible,.VTWtTW_primaryButton:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-border-l3);outline:none}.VTWtTW_models{flex-direction:column;gap:4px;max-height:220px;margin:0;padding:0;list-style:none;display:flex;overflow:auto}.VTWtTW_model{border-radius:6px;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;min-height:32px;padding:0 8px;font-size:13px;display:grid}.VTWtTW_model:hover{background:var(--dsw-alias-interactive-bg-hover)}.VTWtTW_model code{color:var(--dsw-alias-label-tertiary);font-size:11px}.VTWtTW_primaryButton{box-sizing:border-box;background:var(--dsw-alias-button-primary-fill);height:36px;color:var(--dsw-alias-label-primary-foreground);font:inherit;cursor:pointer;border:0;border-radius:18px;padding:0 14px}.VTWtTW_primaryButton:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}.VTWtTW_footer{justify-content:flex-end}@media (width<=640px){.VTWtTW_header,.VTWtTW_modelHeader,.VTWtTW_footer{flex-direction:column;align-items:stretch}.VTWtTW_fields{grid-template-columns:minmax(0,1fr)}.VTWtTW_credential{align-self:flex-start}.VTWtTW_actions{flex-wrap:wrap}.VTWtTW_primaryButton{width:100%}.VTWtTW_model{grid-template-columns:auto minmax(0,1fr)}.VTWtTW_model code{grid-column:2}}";
+		const css = ".VTWtTW_card{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);border-radius:12px;flex-direction:column;gap:12px;margin-top:12px;padding:14px;display:flex}.VTWtTW_header,.VTWtTW_modelHeader,.VTWtTW_footer{align-items:center;gap:12px;display:flex}.VTWtTW_header>:first-child,.VTWtTW_validation{flex:1;min-width:0}.VTWtTW_title{margin:0;font-size:14px;font-weight:500;line-height:22px}.VTWtTW_intro,.VTWtTW_help,.VTWtTW_empty,.VTWtTW_notice,.VTWtTW_status,.VTWtTW_validation{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}.VTWtTW_notice,.VTWtTW_validation{color:var(--dsw-alias-state-warn-label)}.VTWtTW_status{color:var(--dsw-alias-state-success-primary)}.VTWtTW_error{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px;line-height:18px}.VTWtTW_credential{color:var(--dsw-alias-label-secondary);flex:none;align-items:center;gap:6px;font-size:12px;display:inline-flex}.VTWtTW_dotReady,.VTWtTW_dotMissing{border-radius:50%;width:8px;height:8px}.VTWtTW_dotReady{background:var(--dsw-alias-state-success-primary)}.VTWtTW_dotMissing{background:var(--dsw-alias-state-error-primary)}.VTWtTW_fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;display:grid}.VTWtTW_field{min-width:0;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:6px;font-size:12px;line-height:18px;display:flex}.VTWtTW_input{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;outline:none;padding:0 12px}.VTWtTW_input:focus-visible{border-color:var(--dsw-alias-interactive-border-focus);box-shadow:0 0 0 2px var(--dsw-alias-border-l3)}.VTWtTW_modelHeader{justify-content:space-between}.VTWtTW_modelHeader>span{font-size:13px;font-weight:500}.VTWtTW_actions{align-items:center;gap:8px;display:inline-flex}.VTWtTW_linkButton{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:0;font-size:12px}.VTWtTW_linkButton:disabled,.VTWtTW_primaryButton:disabled{opacity:.4;cursor:default}.VTWtTW_linkButton:focus-visible,.VTWtTW_primaryButton:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-border-l3);outline:none}.VTWtTW_models{flex-direction:column;gap:4px;max-height:220px;margin:0;padding:0;list-style:none;display:flex;overflow:auto}.VTWtTW_model{border-radius:6px;flex-direction:column;gap:8px;padding:8px;font-size:13px;display:flex}.VTWtTW_model:hover{background:var(--dsw-alias-interactive-bg-hover)}.VTWtTW_modelIdentity{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;display:grid}.VTWtTW_modelIdentity code{color:var(--dsw-alias-label-tertiary);font-size:11px}.VTWtTW_modelCapacities{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding-left:24px;display:grid}.VTWtTW_capacityField{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:11px;display:flex}.VTWtTW_capacityInput{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;height:30px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:6px;outline:none;padding:0 8px}.VTWtTW_capacityInput:focus-visible{border-color:var(--dsw-alias-interactive-border-focus);box-shadow:0 0 0 2px var(--dsw-alias-border-l3)}.VTWtTW_primaryButton{box-sizing:border-box;background:var(--dsw-alias-button-primary-fill);height:36px;color:var(--dsw-alias-label-primary-foreground);font:inherit;cursor:pointer;border:0;border-radius:18px;padding:0 14px}.VTWtTW_primaryButton:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}.VTWtTW_footer{justify-content:flex-end}@media (width<=640px){.VTWtTW_header,.VTWtTW_modelHeader,.VTWtTW_footer{flex-direction:column;align-items:stretch}.VTWtTW_fields{grid-template-columns:minmax(0,1fr)}.VTWtTW_credential{align-self:flex-start}.VTWtTW_actions{flex-wrap:wrap}.VTWtTW_primaryButton{width:100%}.VTWtTW_modelIdentity{grid-template-columns:auto minmax(0,1fr)}.VTWtTW_modelIdentity code{grid-column:2}.VTWtTW_modelCapacities{grid-template-columns:minmax(0,1fr)}}";
 		const tagId = "@deepseek-ai/dsh-cpa-provider/CpaProviderCard.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -264,6 +325,8 @@ window.__ModuleLoader__.load({
 		}
 		var CpaProviderCard_module_css_default = {
 			"actions": "VTWtTW_actions",
+			"capacityField": "VTWtTW_capacityField",
+			"capacityInput": "VTWtTW_capacityInput",
 			"card": "VTWtTW_card",
 			"credential": "VTWtTW_credential",
 			"dotMissing": "VTWtTW_dotMissing",
@@ -279,7 +342,9 @@ window.__ModuleLoader__.load({
 			"intro": "VTWtTW_intro",
 			"linkButton": "VTWtTW_linkButton",
 			"model": "VTWtTW_model",
+			"modelCapacities": "VTWtTW_modelCapacities",
 			"modelHeader": "VTWtTW_modelHeader",
+			"modelIdentity": "VTWtTW_modelIdentity",
 			"models": "VTWtTW_models",
 			"notice": "VTWtTW_notice",
 			"primaryButton": "VTWtTW_primaryButton",
@@ -297,6 +362,7 @@ window.__ModuleLoader__.load({
 			const [baseURL, setBaseURL] = (0, react.useState)("");
 			const [token, setToken] = (0, react.useState)("");
 			const [models, setModels] = (0, react.useState)([]);
+			const [capacities, setCapacities] = (0, react.useState)(/* @__PURE__ */ new Map());
 			const [operation, setOperation] = (0, react.useState)({ kind: "idle" });
 			const [profileLocked, setProfileLocked] = (0, react.useState)(false);
 			(0, react.useEffect)(() => {
@@ -304,6 +370,7 @@ window.__ModuleLoader__.load({
 				initialized.current = true;
 				setBaseURL(view.baseURL);
 				setModels(view.models);
+				setCapacities(capacityDraftsFromModels(view.models));
 			}, [view]);
 			const busy = operation.kind === "discovering" || operation.kind === "saving-profile" || operation.kind === "saving-credential";
 			const selectedCount = models.filter((model) => model.selected !== false).length;
@@ -319,6 +386,7 @@ window.__ModuleLoader__.load({
 						token
 					});
 					setModels((current) => mergeCpaCandidates(current, found));
+					setCapacities((current) => mergeCapacityDrafts(current, found));
 					setOperation({ kind: "idle" });
 				} catch (error) {
 					setOperation({
@@ -330,10 +398,20 @@ window.__ModuleLoader__.load({
 			};
 			const save = async () => {
 				if (view.revision === void 0) return;
+				const parsed = applyCapacityDrafts(models, capacities);
+				if (!parsed.ok) {
+					const field = cpaT(parsed.field === "contextWindow" ? "modelContextWindow" : "modelMaxTokens");
+					setOperation({
+						kind: "error",
+						stage: "profile",
+						message: `${parsed.modelId}: ${field} ${cpaT("capacityInvalid")}`
+					});
+					return;
+				}
 				const result = await cpa.save({
 					baseURL,
 					token,
-					models
+					models: parsed.models
 				}, view.revision, (stage) => {
 					setOperation({ kind: stage === "profile" ? "saving-profile" : "saving-credential" });
 				});
@@ -356,6 +434,20 @@ window.__ModuleLoader__.load({
 					...model,
 					selected: model.selected === false
 				} : model));
+			};
+			const editCapacity = (id, field, value) => {
+				setCapacities((current) => {
+					const next = new Map(current);
+					const draft = next.get(id) ?? {
+						contextWindow: "",
+						maxTokens: ""
+					};
+					next.set(id, {
+						...draft,
+						[field]: value
+					});
+					return next;
+				});
 			};
 			if (view.status === "idle" || view.status === "loading") return (0, react_jsx_runtime.jsx)("section", {
 				className: CpaProviderCard_module_css_default["card"],
@@ -477,20 +569,50 @@ window.__ModuleLoader__.load({
 						children: cpaT("emptyModels")
 					}) : (0, react_jsx_runtime.jsx)("ul", {
 						className: CpaProviderCard_module_css_default["models"],
-						children: models.map((model) => (0, react_jsx_runtime.jsx)("li", { children: (0, react_jsx_runtime.jsxs)("label", {
+						children: models.map((model) => (0, react_jsx_runtime.jsx)("li", { children: (0, react_jsx_runtime.jsxs)("div", {
 							className: CpaProviderCard_module_css_default["model"],
-							children: [
-								(0, react_jsx_runtime.jsx)("input", {
-									type: "checkbox",
-									checked: model.selected !== false,
-									disabled: !editable || profileLocked,
-									onChange: () => {
-										toggleModel(model.id);
-									}
-								}),
-								(0, react_jsx_runtime.jsx)("span", { children: model.name || model.id }),
-								(0, react_jsx_runtime.jsx)("code", { children: model.id })
-							]
+							children: [(0, react_jsx_runtime.jsxs)("label", {
+								className: CpaProviderCard_module_css_default["modelIdentity"],
+								children: [
+									(0, react_jsx_runtime.jsx)("input", {
+										type: "checkbox",
+										checked: model.selected !== false,
+										disabled: !editable || profileLocked,
+										onChange: () => {
+											toggleModel(model.id);
+										}
+									}),
+									(0, react_jsx_runtime.jsx)("span", { children: model.name || model.id }),
+									(0, react_jsx_runtime.jsx)("code", { children: model.id })
+								]
+							}), (0, react_jsx_runtime.jsxs)("div", {
+								className: CpaProviderCard_module_css_default["modelCapacities"],
+								children: [(0, react_jsx_runtime.jsxs)("label", {
+									className: CpaProviderCard_module_css_default["capacityField"],
+									children: [(0, react_jsx_runtime.jsx)("span", { children: cpaT("modelContextWindow") }), (0, react_jsx_runtime.jsx)("input", {
+										className: CpaProviderCard_module_css_default["capacityInput"],
+										type: "text",
+										inputMode: "numeric",
+										value: capacities.get(model.id)?.contextWindow ?? "",
+										disabled: !editable || profileLocked,
+										onChange: (event) => {
+											editCapacity(model.id, "contextWindow", event.currentTarget.value);
+										}
+									})]
+								}), (0, react_jsx_runtime.jsxs)("label", {
+									className: CpaProviderCard_module_css_default["capacityField"],
+									children: [(0, react_jsx_runtime.jsx)("span", { children: cpaT("modelMaxTokens") }), (0, react_jsx_runtime.jsx)("input", {
+										className: CpaProviderCard_module_css_default["capacityInput"],
+										type: "text",
+										inputMode: "numeric",
+										value: capacities.get(model.id)?.maxTokens ?? "",
+										disabled: !editable || profileLocked,
+										onChange: (event) => {
+											editCapacity(model.id, "maxTokens", event.currentTarget.value);
+										}
+									})]
+								})]
+							})]
 						}) }, model.id))
 					}),
 					(0, react_jsx_runtime.jsx)("p", {
@@ -554,6 +676,9 @@ window.__ModuleLoader__.load({
 			addressRequired: "请输入 API 地址。",
 			tokenRequired: "首次配置需要输入 Token。",
 			modelRequired: "至少选择一个模型。",
+			modelContextWindow: "上下文窗口",
+			modelMaxTokens: "最大输出 token",
+			capacityInvalid: "必须是大于 0 的完整十进制整数。",
 			reasoningHelp: "思考强度使用英文 R 档位；GPT-5.6 显示 none、low、medium、high、xhigh、max。"
 		};
 		const en = {
@@ -582,6 +707,9 @@ window.__ModuleLoader__.load({
 			addressRequired: "Enter the API address.",
 			tokenRequired: "A Token is required for initial setup.",
 			modelRequired: "Select at least one model.",
+			modelContextWindow: "Context window",
+			modelMaxTokens: "Max output tokens",
+			capacityInvalid: "must be a whole base-10 integer greater than zero.",
 			reasoningHelp: "Reasoning uses English R levels; GPT-5.6 offers none, low, medium, high, xhigh, and max."
 		};
 		//#endregion

@@ -2,6 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { mergeCpaCandidates } from '../profile.ts'
 import type { CpaModelCandidate } from '../types.ts'
+import {
+  applyCapacityDrafts,
+  capacityDraftsFromModels,
+  mergeCapacityDrafts,
+  type CpaCapacityDraft,
+  type CpaCapacityField,
+} from './capacity.ts'
 import { createCpaController } from './controller.ts'
 import type { CpaProviderCardProps } from './index.tsx'
 import { cpaSettingsView } from './view-model.ts'
@@ -24,6 +31,7 @@ export function CpaProviderCard(props: CpaProviderCardProps): ReactNode {
   const [baseURL, setBaseURL] = useState('')
   const [token, setToken] = useState('')
   const [models, setModels] = useState<CpaModelCandidate[]>([])
+  const [capacities, setCapacities] = useState<Map<string, CpaCapacityDraft>>(new Map())
   const [operation, setOperation] = useState<OperationState>({ kind: 'idle' })
   const [profileLocked, setProfileLocked] = useState(false)
 
@@ -32,6 +40,7 @@ export function CpaProviderCard(props: CpaProviderCardProps): ReactNode {
     initialized.current = true
     setBaseURL(view.baseURL)
     setModels(view.models)
+    setCapacities(capacityDraftsFromModels(view.models))
   }, [view])
 
   const busy = operation.kind === 'discovering'
@@ -48,6 +57,7 @@ export function CpaProviderCard(props: CpaProviderCardProps): ReactNode {
     try {
       const found = await cpa.discover({ baseURL, token })
       setModels(current => mergeCpaCandidates(current, found))
+      setCapacities(current => mergeCapacityDrafts(current, found))
       setOperation({ kind: 'idle' })
     } catch (error) {
       setOperation({
@@ -60,7 +70,17 @@ export function CpaProviderCard(props: CpaProviderCardProps): ReactNode {
 
   const save = async (): Promise<void> => {
     if (view.revision === undefined) return
-    const result = await cpa.save({ baseURL, token, models }, view.revision, (stage) => {
+    const parsed = applyCapacityDrafts(models, capacities)
+    if (!parsed.ok) {
+      const field = cpaT(parsed.field === 'contextWindow' ? 'modelContextWindow' : 'modelMaxTokens')
+      setOperation({
+        kind: 'error',
+        stage: 'profile',
+        message: `${parsed.modelId}: ${field} ${cpaT('capacityInvalid')}`,
+      })
+      return
+    }
+    const result = await cpa.save({ baseURL, token, models: parsed.models }, view.revision, (stage) => {
       setOperation({ kind: stage === 'profile' ? 'saving-profile' : 'saving-credential' })
     })
     if (!result.ok) {
@@ -78,6 +98,15 @@ export function CpaProviderCard(props: CpaProviderCardProps): ReactNode {
     setModels(current => current.map(model => (
       model.id === id ? { ...model, selected: model.selected === false } : model
     )))
+  }
+
+  const editCapacity = (id: string, field: CpaCapacityField, value: string): void => {
+    setCapacities(current => {
+      const next = new Map(current)
+      const draft = next.get(id) ?? { contextWindow: '', maxTokens: '' }
+      next.set(id, { ...draft, [field]: value })
+      return next
+    })
   }
 
   if (view.status === 'idle' || view.status === 'loading') {
@@ -154,11 +183,37 @@ export function CpaProviderCard(props: CpaProviderCardProps): ReactNode {
           <ul className={styles['models']}>
             {models.map(model => (
               <li key={model.id}>
-                <label className={styles['model']}>
-                  <input type="checkbox" checked={model.selected !== false} disabled={!editable || profileLocked} onChange={() => { toggleModel(model.id) }} />
-                  <span>{model.name || model.id}</span>
-                  <code>{model.id}</code>
-                </label>
+                <div className={styles['model']}>
+                  <label className={styles['modelIdentity']}>
+                    <input type="checkbox" checked={model.selected !== false} disabled={!editable || profileLocked} onChange={() => { toggleModel(model.id) }} />
+                    <span>{model.name || model.id}</span>
+                    <code>{model.id}</code>
+                  </label>
+                  <div className={styles['modelCapacities']}>
+                    <label className={styles['capacityField']}>
+                      <span>{cpaT('modelContextWindow')}</span>
+                      <input
+                        className={styles['capacityInput']}
+                        type="text"
+                        inputMode="numeric"
+                        value={capacities.get(model.id)?.contextWindow ?? ''}
+                        disabled={!editable || profileLocked}
+                        onChange={event => { editCapacity(model.id, 'contextWindow', event.currentTarget.value) }}
+                      />
+                    </label>
+                    <label className={styles['capacityField']}>
+                      <span>{cpaT('modelMaxTokens')}</span>
+                      <input
+                        className={styles['capacityInput']}
+                        type="text"
+                        inputMode="numeric"
+                        value={capacities.get(model.id)?.maxTokens ?? ''}
+                        disabled={!editable || profileLocked}
+                        onChange={event => { editCapacity(model.id, 'maxTokens', event.currentTarget.value) }}
+                      />
+                    </label>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

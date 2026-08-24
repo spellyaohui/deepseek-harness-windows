@@ -24,6 +24,9 @@ export const zh = {
   addressRequired: '请输入 API 地址。',
   tokenRequired: '首次配置需要输入 Token。',
   modelRequired: '至少选择一个模型。',
+  modelContextWindow: '上下文窗口',
+  modelMaxTokens: '最大输出 token',
+  capacityInvalid: '必须是大于 0 的完整十进制整数。',
   reasoningHelp: '思考强度使用英文 R 档位；GPT-5.6 显示 none、low、medium、high、xhigh、max。',
 } as const
 
@@ -55,5 +58,8 @@ export const en: Record<CpaLocaleKey, string> = {
   addressRequired: 'Enter the API address.',
   tokenRequired: 'A Token is required for initial setup.',
   modelRequired: 'Select at least one model.',
+  modelContextWindow: 'Context window',
+  modelMaxTokens: 'Max output tokens',
+  capacityInvalid: 'must be a whole base-10 integer greater than zero.',
   reasoningHelp: 'Reasoning uses English R levels; GPT-5.6 offers none, low, medium, high, xhigh, and max.',
 }

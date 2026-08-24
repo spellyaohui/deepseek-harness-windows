@@ -33,6 +33,19 @@ test('preserves configured models omitted by a later discovery', () => {
   ])
 })
 
+test('preserves configured capacities when discovery omits them', () => {
+  assert.deepEqual(mergeCpaCandidates(
+    [{ id: 'same', name: 'Configured', contextWindow: 1050000, maxTokens: 128000, selected: true }],
+    [{ id: 'same', name: 'Fresh name', selected: true }],
+  ), [{
+    id: 'same',
+    name: 'Fresh name',
+    contextWindow: 1050000,
+    maxTokens: 128000,
+    selected: true,
+  }])
+})
+
 test('assembles the stable CPA llm-pi-ai route', () => {
   const profile = buildCpaProfile({
     baseURL: 'https://proxy.example.invalid',

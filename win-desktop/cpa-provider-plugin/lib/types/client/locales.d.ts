@@ -24,6 +24,9 @@ export declare const zh: {
     readonly addressRequired: "请输入 API 地址。";
     readonly tokenRequired: "首次配置需要输入 Token。";
     readonly modelRequired: "至少选择一个模型。";
+    readonly modelContextWindow: "上下文窗口";
+    readonly modelMaxTokens: "最大输出 token";
+    readonly capacityInvalid: "必须是大于 0 的完整十进制整数。";
     readonly reasoningHelp: "思考强度使用英文 R 档位；GPT-5.6 显示 none、low、medium、high、xhigh、max。";
 };
 export type CpaLocaleKey = keyof typeof zh;
