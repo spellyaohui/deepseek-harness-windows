@@ -32,8 +32,10 @@ const sandboxAclSource = sandboxAclBundleSource()
 const sandboxLocalSource = readFileSync(require.resolve('@deepseek-ai/dsh-sandbox-local'), 'utf8')
 const pwshSourcePath = require.resolve('@deepseek-ai/dsh-tool-pwsh')
 const bashSourcePath = require.resolve('@deepseek-ai/dsh-tool-bash')
+const fsToolSourcePath = require.resolve('@deepseek-ai/dsh-tool-fs')
 const pwshSource = readFileSync(pwshSourcePath, 'utf8')
 const bashSource = readFileSync(bashSourcePath, 'utf8')
+const fsToolSource = readFileSync(fsToolSourcePath, 'utf8')
 
 test('normalizes only redundant shell escalation requests', () => {
   assert.deepEqual(normalizeRedundantEscalationArgs({
@@ -148,6 +150,44 @@ test('rewritten Pwsh and Bash execute paths preserve validation and approval bou
       validWideningRunnerCalls: 1,
     })
   }
+})
+
+test('rewrite normalizes real filesystem mutation escalation before validation', () => {
+  const rewritten = rewriteDesktopConsoleSource(fsToolSource, pathToFileURL(fsToolSourcePath).href)
+  const standingPolicy = 'const standingPolicy = this.policy?.resolve({ ...exec.agent ? { session: exec.agent.session } : {} });'
+  const oldResolveBlock = `async resolvePolicy(toolName, args, exec) {
+\t\tvalidateEscalationArgs(args.sandbox_permissions, args.justification);
+\t\t${standingPolicy}`
+  const expectedPatch = `async resolvePolicy(toolName, args, exec) {
+\t\t${standingPolicy}
+\t\t${normalizeRedundantEscalationArgs.toString()}
+\t\targs = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);
+\t\tvalidateEscalationArgs(args.sandbox_permissions, args.justification);`
+  assert.notEqual(rewritten, fsToolSource)
+  assert.ok(!rewritten.includes(oldResolveBlock))
+  assert.ok(rewritten.includes(expectedPatch))
+  assert.equal(rewriteDesktopConsoleSource(rewritten, pathToFileURL(fsToolSourcePath).href), rewritten)
+})
+
+test('rewritten write and edit paths preserve validation and approval boundaries', () => {
+  const fixture = fileURLToPath(new URL('./fixtures/fs-escalation-runtime.mjs', import.meta.url))
+  const result = spawnSync(process.execPath, [fixture], {
+    encoding: 'utf8',
+    windowsHide: true,
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+  })
+  assert.equal(result.status, 0, result.stderr)
+  const expected = {
+    sameModeMutationCalls: 1,
+    narrowerModeMutationCalls: 1,
+    wideningBlankMutationCalls: 0,
+    justificationOnlyMutationCalls: 0,
+    validWideningApprovalCalls: 1,
+    mutationsBeforeApproval: 0,
+    validWideningMutationCalls: 1,
+    validWideningMutationModes: ['danger-full-access'],
+  }
+  assert.deepEqual(JSON.parse(result.stdout), { write: expected, edit: expected })
 })
 
 test('dsh web args preload the Windows console-hide guard', () => {

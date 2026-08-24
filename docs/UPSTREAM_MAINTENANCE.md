@@ -7,7 +7,7 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.7`
+- Windows desktop wrapper: `0.1.1-rc.8`
 - AgentTeams fork: `0.1.13-desktop.3`, based on upstream `0.1.13`
 - CPA provider plugin: `0.1.1`
 - Models settings fork: `0.1.1-rc.2-desktop.1`
@@ -48,7 +48,7 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Shell escalation normalization without weakening validation, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | Compatibility rewrites over official Windows runtime packages | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js` and `tests/dsh-service-syntax.test.js` |
+| Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | Compatibility rewrites over official Windows runtime packages | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |
 | Local plugin installation, patch graph, startup healing and OpenCode model-catalog preparation | `win-desktop` | Desktop composition around official Harness packages | `package.json`, `package-lock.json`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js` | `tests/heal-desktop-plugins.test.js`, `tests/model-fetcher.test.js`, and the local capability manifest test |
 

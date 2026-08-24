@@ -90,6 +90,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'tests/model-fetcher.test.js',
     'tests/opencode-stream-rewrite.test.js',
     'tests/session-markdown-export-integration.test.js',
+    'tests/fixtures/fs-escalation-runtime.mjs',
     'tests/win-hide-console.test.js',
   ]
 
@@ -120,6 +121,7 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('session-markdown-export-plugin/src/http.ts', /\/api\/session\.export-markdown/)
 
   assertContains('src/win-hide-console-rewrite.js', /normalizeRedundantEscalationArgs/)
+  assertContains('src/win-hide-console-rewrite.js', /@deepseek-ai\/dsh-tool-fs/)
   assertContains('src/win-hide-console-rewrite.js', /windowsHide/)
   assertContains('src/win-hide-console-rewrite.js', /Stream ended without finish_reason/)
 })

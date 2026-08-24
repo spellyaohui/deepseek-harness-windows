@@ -66,6 +66,19 @@ function rewriteShellEscalationSource(source, validator) {
   return source.includes(needle) ? source.replace(needle, patch) : source
 }
 
+function rewriteFsEscalationSource(source) {
+  const standingPolicy = 'const standingPolicy = this.policy?.resolve({ ...exec.agent ? { session: exec.agent.session } : {} });'
+  const needle = `async resolvePolicy(toolName, args, exec) {
+\t\tvalidateEscalationArgs(args.sandbox_permissions, args.justification);
+\t\t${standingPolicy}`
+  const patch = `async resolvePolicy(toolName, args, exec) {
+\t\t${standingPolicy}
+\t\t${normalizeRedundantEscalationArgs.toString()}
+\t\targs = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);
+\t\tvalidateEscalationArgs(args.sandbox_permissions, args.justification);`
+  return source.includes(needle) ? source.replace(needle, patch) : source
+}
+
 export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUrl = '') {
   const url = decodeURIComponent(String(moduleUrl))
   let next = source
@@ -109,6 +122,10 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
 
   if (url.includes('@deepseek-ai/dsh-tool-bash')) {
     next = rewriteShellEscalationSource(next, 'validateBashArgs')
+  }
+
+  if (url.includes('@deepseek-ai/dsh-tool-fs')) {
+    next = rewriteFsEscalationSource(next)
   }
 
   if (url.includes('@earendil-works/pi-ai/dist/api/openai-completions.js')) {
