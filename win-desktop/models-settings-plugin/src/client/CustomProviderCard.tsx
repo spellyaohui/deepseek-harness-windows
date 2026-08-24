@@ -32,6 +32,7 @@ import type { ModelDraft } from './ModelListEditor.tsx'
 import { deriveKeyRef, messageOf } from './store.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
+import type { ProviderProfileNormalizer } from './provider-profile.ts'
 
 /** The settings namespace a hand-declared provider is written into. */
 const NS = 'llm-pi-ai'
@@ -66,6 +67,8 @@ export interface CustomProviderCardProps {
   readOnly: boolean
   /** Close the card; `changed` reports whether a provider was created. */
   onClose: (changed: boolean) => void
+  /** Adapter-owned profile normalization before the create mutation. */
+  normalizeProviderProfile: ProviderProfileNormalizer
 }
 
 /**
@@ -144,9 +147,11 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         baseURL,
         models: models.map(model => ({ ...model })),
       }
+      const normalized = props.normalizeProviderProfile(route, profile)
+      if (!normalized.ok) return normalized.message
       const response = await api.settings.mutate({
         ns: NS,
-        ops: [{ op: 'set', path: ['providers', route], value: profile }],
+        ops: [{ op: 'set', path: ['providers', route], value: normalized.value }],
         // `taken` is a snapshot too, so the id check alone cannot see a route
         // declared after this card opened; the revision makes that race a
         // `settings-conflict` instead of a write over the other profile.

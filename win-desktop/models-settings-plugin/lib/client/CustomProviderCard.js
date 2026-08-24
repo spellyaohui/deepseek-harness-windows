@@ -113,9 +113,12 @@ export function CustomProviderCard(props) {
                 baseURL,
                 models: models.map(model => ({ ...model })),
             };
+            const normalized = props.normalizeProviderProfile(route, profile);
+            if (!normalized.ok)
+                return normalized.message;
             const response = await api.settings.mutate({
                 ns: NS,
-                ops: [{ op: 'set', path: ['providers', route], value: profile }],
+                ops: [{ op: 'set', path: ['providers', route], value: normalized.value }],
                 // `taken` is a snapshot too, so the id check alone cannot see a route
                 // declared after this card opened; the revision makes that race a
                 // `settings-conflict` instead of a write over the other profile.

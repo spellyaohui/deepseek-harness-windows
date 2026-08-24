@@ -27,6 +27,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     }
 }
 export type { ModelsSettingsState, ProviderRow } from './store.ts';
+export type { ProviderProfileDraft, ProviderProfileNormalization, ProviderProfileNormalizer, } from './provider-profile.ts';
 /**
  * Refetch the page snapshot only after its first load: an unopened Models
  * page must not fetch on background invalidations.

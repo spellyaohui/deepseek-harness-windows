@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
 import type { IApiClient, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client';
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
+import type { ProviderProfileNormalizer } from './provider-profile.ts';
 /** Props of {@link ProviderEditor}. */
 export interface ProviderEditorProps {
     /** Provider route id. */
@@ -66,6 +67,8 @@ export interface ProviderEditorProps {
     submitBusyLabel?: keyof typeof en;
     /** Close the editor; `changed` reports whether an Apply committed. */
     onClose: (changed: boolean) => void;
+    /** Adapter-owned profile normalization before schema validation and write. */
+    normalizeProviderProfile: ProviderProfileNormalizer;
 }
 /**
  * The minimal path ops carrying `after` over `before`, both as the card sees

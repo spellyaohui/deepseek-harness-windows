@@ -17,6 +17,7 @@ import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-sl
 import type { ModelsSettingsStore, ProviderRow } from './store.ts';
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
+import type { ProviderProfileNormalizer } from './provider-profile.ts';
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
 export interface ModelsSectionInjected {
     /** The page store (loaded on mount, refreshed on pushed invalidations). */
@@ -31,6 +32,8 @@ export interface ModelsSectionInjected {
     schema: SettingsSchemaOperations;
     /** Section copy. */
     t: (key: keyof typeof en) => string;
+    /** Adapter-owned normalization before a profile is validated and written. */
+    normalizeProviderProfile: ProviderProfileNormalizer;
 }
 /**
  * Props delivered by the slot outlet: the inject face spread flat (the

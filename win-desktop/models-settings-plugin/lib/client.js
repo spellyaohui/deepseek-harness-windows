@@ -1128,12 +1128,14 @@ window.__ModuleLoader__.load({
 						baseURL,
 						models: models.map((model) => ({ ...model }))
 					};
+					const normalized = props.normalizeProviderProfile(route, profile);
+					if (!normalized.ok) return normalized.message;
 					const response = await api.settings.mutate({
 						ns: NS$1,
 						ops: [{
 							op: "set",
 							path: ["providers", route],
-							value: profile
+							value: normalized.value
 						}],
 						expectedRevision: openedAt
 					});
@@ -1455,22 +1457,25 @@ window.__ModuleLoader__.load({
 			const applyOnce = async () => {
 				const ns = namespace.ns;
 				const next = layout === "pi-ai" && stringAt(draft, "apiKeyEnv") === void 0 && stringAt(fallback, "apiKeyEnv") === void 0 && keyValue.length > 0 ? schema.setPath(draft, ["apiKeyEnv"], keyRef) : draft;
+				const normalized = props.normalizeProviderProfile(props.provider, next);
+				if (!normalized.ok) return normalized.message;
+				const normalizedNext = normalized.value;
 				if (props.credentialOnly !== true) {
-					const failure = validateDeepSeekModels(schema.getPath(next, ["models"]));
+					const failure = validateDeepSeekModels(schema.getPath(normalizedNext, ["models"]));
 					/* v8 ignore next 3 -- unreachable from the card: the same failure disables submit */
 					if (failure !== void 0) return `${t("model")} ${String(failure.index + 1)}: ${t(failure.key)}`;
 				}
 				/* v8 ignore next -- apply is only reachable from the rendered card, which required a resolved node */
 				if (props.credentialOnly !== true && node !== void 0 && settingsPath.length === 0) {
-					const sectionError = schema.validate(node, next);
+					const sectionError = schema.validate(node, normalizedNext);
 					if (sectionError !== void 0) return sectionError;
 				}
-				const materializesNativeProfile = layout === "pi-ai" && fallback === void 0 && committedOriginal === void 0 && Object.keys(next).length === 0;
+				const materializesNativeProfile = layout === "pi-ai" && fallback === void 0 && committedOriginal === void 0 && Object.keys(normalizedNext).length === 0;
 				const ops = props.credentialOnly === true ? [] : materializesNativeProfile ? [{
 					op: "set",
 					path: [...settingsPath],
 					value: {}
-				}] : pathOps(settingsPath, committedOriginal, next);
+				}] : pathOps(settingsPath, committedOriginal, normalizedNext);
 				if (ops.length > 0) {
 					const response = await api.settings.mutate({
 						ns,
@@ -1480,7 +1485,7 @@ window.__ModuleLoader__.load({
 					if (!response.result.ok) return response.result.error.code === "settings-conflict" ? t("conflict") : response.result.error.message;
 					setCommittedOriginal(schema.getPath(response.result.value.user, settingsPath));
 					setExpectedRevision(response.result.value.revision);
-					setDraft(next);
+					setDraft(normalizedNext);
 				}
 				if (keyValue.length > 0) {
 					const stored = await api.credentials.set({
@@ -1790,19 +1795,20 @@ window.__ModuleLoader__.load({
 		* @returns the section, or null while the shell has not injected yet.
 		*/
 		function ModelsSection(props) {
-			const { controller, useSnapshot, api, schema, t, renderSlot } = props;
-			if (controller === void 0 || useSnapshot === void 0 || api === void 0 || schema === void 0 || t === void 0 || renderSlot === void 0) return null;
+			const { controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile } = props;
+			if (controller === void 0 || useSnapshot === void 0 || api === void 0 || schema === void 0 || t === void 0 || renderSlot === void 0 || normalizeProviderProfile === void 0) return null;
 			return (0, react_jsx_runtime.jsx)(Loaded, { injected: {
 				controller,
 				useSnapshot,
 				api,
 				schema,
 				t,
-				renderSlot
+				renderSlot,
+				normalizeProviderProfile
 			} });
 		}
 		function Loaded({ injected }) {
-			const { controller, api, schema, t } = injected;
+			const { controller, api, schema, t, normalizeProviderProfile } = injected;
 			const state = injected.useSnapshot((snapshot) => snapshot);
 			const [editing, setEditing] = (0, react.useState)(void 0);
 			const [adding, setAdding] = (0, react.useState)(false);
@@ -1921,6 +1927,7 @@ window.__ModuleLoader__.load({
 									schema,
 									api,
 									t,
+									normalizeProviderProfile,
 									readOnly: !state.writable,
 									onClose: (changed) => {
 										closeSetup(changed, target);
@@ -1989,6 +1996,7 @@ window.__ModuleLoader__.load({
 									schema,
 									api,
 									t,
+									normalizeProviderProfile,
 									readOnly: !state.writable,
 									onClose: (changed) => {
 										closeEditor(changed, target);
@@ -2030,6 +2038,7 @@ window.__ModuleLoader__.load({
 								settingsPath: addTarget.settingsPath,
 								api,
 								t,
+								normalizeProviderProfile,
 								readOnly: !state.writable,
 								onClose: (changed) => {
 									closeEditor(changed, addTarget);
@@ -2044,6 +2053,7 @@ window.__ModuleLoader__.load({
 								revision: state.namespaces.get("llm-pi-ai")?.revision ?? 0,
 								api,
 								t,
+								normalizeProviderProfile,
 								readOnly: !state.writable,
 								onClose: (changed) => {
 									setDeclaring(false);
@@ -2205,7 +2215,7 @@ window.__ModuleLoader__.load({
 		* @returns the onboarding modal or null when onboarding needs no intervention.
 		*/
 		function DeepSeekOnboardingDialog(props) {
-			const { complete, controller, useModels, api, schema, t } = props;
+			const { complete, controller, useModels, api, schema, t, normalizeProviderProfile } = props;
 			const state = useModels((snapshot) => snapshot);
 			const readiness = onboardingReadiness(state);
 			(0, react.useEffect)(() => {
@@ -2257,7 +2267,8 @@ window.__ModuleLoader__.load({
 						cancelLabel: "onboardingLater",
 						submitLabel: "onboardingSave",
 						submitBusyLabel: "onboardingSaving",
-						onClose: finishCredential
+						onClose: finishCredential,
+						normalizeProviderProfile
 					})
 				})]
 			});
@@ -2741,6 +2752,22 @@ window.__ModuleLoader__.load({
 			}), "ui-settings-models: copy dictionaries");
 			const connection = ctx.get("connection");
 			const schema = createSettingsSchemaOperations(ctx.settingsSchema);
+			const normalizeProfile = (provider, value) => {
+				const payload = ctx.waterfall("settings.models/normalize-provider-profile", {
+					provider,
+					value
+				}, () => ({
+					provider,
+					value
+				}));
+				return payload.failure === void 0 ? {
+					ok: true,
+					value: payload.value
+				} : {
+					ok: false,
+					message: payload.failure
+				};
+			};
 			const controller = new ModelsSettingsStore(connection.api, schema, ctx.settingsScope.describe());
 			const t = ctx.locale.bind(NS);
 			const injected = () => ({
@@ -2748,14 +2775,16 @@ window.__ModuleLoader__.load({
 				hooks: { snapshot: controller.store },
 				api: connection.api,
 				schema,
-				t
+				t,
+				normalizeProviderProfile: normalizeProfile
 			});
 			const deepSeekOnboardingInjected = () => ({
 				controller,
 				hooks: { models: controller.store },
 				api: connection.api,
 				schema,
-				t
+				t,
+				normalizeProviderProfile: normalizeProfile
 			});
 			const welcomeController = new WelcomeNoticeStore(ctx.settingsScope.bind({
 				namespace: WELCOME_NOTICE_SETTINGS_NAMESPACE,

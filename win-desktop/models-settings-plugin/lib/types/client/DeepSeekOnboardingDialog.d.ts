@@ -12,6 +12,7 @@ import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts';
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
+import type { ProviderProfileNormalizer } from './provider-profile.ts';
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
 export interface DeepSeekOnboardingInjected {
     hooks: {
@@ -26,6 +27,8 @@ export interface DeepSeekOnboardingInjected {
     schema: SettingsSchemaOperations;
     /** Feature copy. */
     t: (key: keyof typeof en) => string;
+    /** Adapter-owned normalization before the credential-only write. */
+    normalizeProviderProfile: ProviderProfileNormalizer;
 }
 /** Slot owner props plus the feature's injected dependencies. */
 export type DeepSeekOnboardingDialogProps = PropsRuntime<'settings.onboarding'> & InjectFace<DeepSeekOnboardingInjected>;

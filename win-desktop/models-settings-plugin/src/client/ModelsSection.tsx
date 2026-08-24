@@ -24,6 +24,7 @@ import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
+import type { ProviderProfileNormalizer } from './provider-profile.ts'
 
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
 export interface ModelsSectionInjected {
@@ -39,6 +40,8 @@ export interface ModelsSectionInjected {
   schema: SettingsSchemaOperations
   /** Section copy. */
   t: (key: keyof typeof en) => string
+  /** Adapter-owned normalization before a profile is validated and written. */
+  normalizeProviderProfile: ProviderProfileNormalizer
 }
 
 /**
@@ -72,7 +75,7 @@ interface EditorTarget extends ProviderIdentity {
 /** Values that vary around the shared provider-editor rendering. */
 interface ProviderEditorRenderProps extends Pick<
   ProviderEditorProps,
-  'namespace' | 'schema' | 'api' | 't' | 'readOnly' | 'onClose'
+  'namespace' | 'schema' | 'api' | 't' | 'readOnly' | 'onClose' | 'normalizeProviderProfile'
 > {
   target: EditorTarget
 }
@@ -178,16 +181,17 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  const { controller, useSnapshot, api, schema, t, renderSlot } = props
+  const { controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile } = props
   if (
     controller === undefined || useSnapshot === undefined || api === undefined
     || schema === undefined || t === undefined || renderSlot === undefined
+    || normalizeProviderProfile === undefined
   ) return null
-  return <Loaded injected={{ controller, useSnapshot, api, schema, t, renderSlot }} />
+  return <Loaded injected={{ controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile }} />
 }
 
 function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
-  const { controller, api, schema, t } = injected
+  const { controller, api, schema, t, normalizeProviderProfile } = injected
   const state = injected.useSnapshot(snapshot => snapshot)
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
   const [adding, setAdding] = useState(false)
@@ -313,6 +317,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   schema,
                   api,
                   t,
+                  normalizeProviderProfile,
                   readOnly: !state.writable,
                   onClose: (changed) => { closeSetup(changed, target) },
                 })}
@@ -398,6 +403,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   schema,
                   api,
                   t,
+                  normalizeProviderProfile,
                   readOnly: !state.writable,
                   onClose: (changed) => { closeEditor(changed, target) },
                 })
@@ -438,6 +444,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                 settingsPath={addTarget.settingsPath}
                 api={api}
                 t={t}
+                normalizeProviderProfile={normalizeProviderProfile}
                 readOnly={!state.writable}
                 onClose={(changed) => { closeEditor(changed, addTarget) }}
               />
@@ -453,6 +460,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   revision={state.namespaces.get('llm-pi-ai')?.revision ?? 0}
                   api={api}
                   t={t}
+                  normalizeProviderProfile={normalizeProviderProfile}
                   readOnly={!state.writable}
                   onClose={(changed) => {
                     setDeclaring(false)

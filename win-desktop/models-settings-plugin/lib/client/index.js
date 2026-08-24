@@ -34,6 +34,12 @@ export function apply(ctx) {
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries');
     const connection = ctx.get('connection');
     const schema = createSettingsSchemaOperations(ctx.settingsSchema);
+    const normalizeProfile = (provider, value) => {
+        const payload = ctx.waterfall('settings.models/normalize-provider-profile', { provider, value }, () => ({ provider, value }));
+        return payload.failure === undefined
+            ? { ok: true, value: payload.value }
+            : { ok: false, message: payload.failure };
+    };
     const controller = new ModelsSettingsStore(connection.api, schema, ctx.settingsScope.describe());
     // Registration-time text (the nav label thunk) and the inject faces share
     // one bound translate; copy freshness rides the locale revision.
@@ -44,6 +50,7 @@ export function apply(ctx) {
         api: connection.api,
         schema,
         t,
+        normalizeProviderProfile: normalizeProfile,
     });
     const deepSeekOnboardingInjected = () => ({
         controller,
@@ -51,6 +58,7 @@ export function apply(ctx) {
         api: connection.api,
         schema,
         t,
+        normalizeProviderProfile: normalizeProfile,
     });
     // The scope's own memory mode is what keeps a remote browser process-local,
     // so the store needs no isLoopback branch of its own.

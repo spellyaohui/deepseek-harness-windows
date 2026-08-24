@@ -23,6 +23,7 @@
 import type { ReactNode } from 'react';
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client';
 import type { en } from './locales.ts';
+import type { ProviderProfileNormalizer } from './provider-profile.ts';
 /** Props of {@link CustomProviderCard}. */
 export interface CustomProviderCardProps {
     /** Route ids already declared, so the card refuses to shadow one. */
@@ -43,6 +44,8 @@ export interface CustomProviderCardProps {
     readOnly: boolean;
     /** Close the card; `changed` reports whether a provider was created. */
     onClose: (changed: boolean) => void;
+    /** Adapter-owned profile normalization before the create mutation. */
+    normalizeProviderProfile: ProviderProfileNormalizer;
 }
 /**
  * Render the custom-provider creation card.

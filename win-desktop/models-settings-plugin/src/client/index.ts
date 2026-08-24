@@ -26,6 +26,7 @@ import { ModelsSettingsStore } from './store.ts'
 import { createSettingsSchemaOperations } from './schema-operations.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from '../onboarding-copy.ts'
+import type { ProviderProfileNormalizer } from './provider-profile.ts'
 
 export type { ModelsSectionInjected, ModelsSectionProps } from './ModelsSection.tsx'
 export type { ModelsKey } from './locales.ts'
@@ -49,6 +50,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.models'
 export type { ModelsSettingsState, ProviderRow } from './store.ts'
+export type {
+  ProviderProfileDraft,
+  ProviderProfileNormalization,
+  ProviderProfileNormalizer,
+} from './provider-profile.ts'
 
 /**
  * Refetch the page snapshot only after its first load: an unopened Models
@@ -78,6 +84,16 @@ export function apply(ctx: ClientContext): void {
 
   const connection = ctx.get('connection') as ConnectionHandle
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)
+  const normalizeProfile: ProviderProfileNormalizer = (provider, value) => {
+    const payload = ctx.waterfall(
+      'settings.models/normalize-provider-profile',
+      { provider, value },
+      () => ({ provider, value }),
+    )
+    return payload.failure === undefined
+      ? { ok: true, value: payload.value }
+      : { ok: false, message: payload.failure }
+  }
   const controller = new ModelsSettingsStore(connection.api, schema, ctx.settingsScope.describe())
   // Registration-time text (the nav label thunk) and the inject faces share
   // one bound translate; copy freshness rides the locale revision.
@@ -88,6 +104,7 @@ export function apply(ctx: ClientContext): void {
     api: connection.api,
     schema,
     t,
+    normalizeProviderProfile: normalizeProfile,
   })
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
     controller,
@@ -95,6 +112,7 @@ export function apply(ctx: ClientContext): void {
     api: connection.api,
     schema,
     t,
+    normalizeProviderProfile: normalizeProfile,
   })
   // The scope's own memory mode is what keeps a remote browser process-local,
   // so the store needs no isLoopback branch of its own.

@@ -106,14 +106,15 @@ export function providerCopy(template, target) {
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props) {
-    const { controller, useSnapshot, api, schema, t, renderSlot } = props;
+    const { controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile } = props;
     if (controller === undefined || useSnapshot === undefined || api === undefined
-        || schema === undefined || t === undefined || renderSlot === undefined)
+        || schema === undefined || t === undefined || renderSlot === undefined
+        || normalizeProviderProfile === undefined)
         return null;
-    return _jsx(Loaded, { injected: { controller, useSnapshot, api, schema, t, renderSlot } });
+    return _jsx(Loaded, { injected: { controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile } });
 }
 function Loaded({ injected }) {
-    const { controller, api, schema, t } = injected;
+    const { controller, api, schema, t, normalizeProviderProfile } = injected;
     const state = injected.useSnapshot(snapshot => snapshot);
     const [editing, setEditing] = useState(undefined);
     const [adding, setAdding] = useState(false);
@@ -215,6 +216,7 @@ function Loaded({ injected }) {
                                 schema,
                                 api,
                                 t,
+                                normalizeProviderProfile,
                                 readOnly: !state.writable,
                                 onClose: (changed) => { closeSetup(changed, target); },
                             }) }, row.entry.provider));
@@ -251,6 +253,7 @@ function Loaded({ injected }) {
                                     schema,
                                     api,
                                     t,
+                                    normalizeProviderProfile,
                                     readOnly: !state.writable,
                                     onClose: (changed) => { closeEditor(changed, target); },
                                 })
@@ -262,11 +265,11 @@ function Loaded({ injected }) {
                                             if (row === undefined)
                                                 return;
                                             setEditing(targetOf(row));
-                                        }, children: addable.map(row => (_jsx("option", { value: row.entry.provider, children: row.entry.displayName }, row.entry.provider))) })] }), _jsx(ProviderEditor, { provider: addTarget.provider, displayName: addTarget.displayName, hideTitle: true, namespace: addNamespace, schema: schema, settingsPath: addTarget.settingsPath, api: api, t: t, readOnly: !state.writable, onClose: (changed) => { closeEditor(changed, addTarget); } }, addTarget.provider)] }))
+                                        }, children: addable.map(row => (_jsx("option", { value: row.entry.provider, children: row.entry.displayName }, row.entry.provider))) })] }), _jsx(ProviderEditor, { provider: addTarget.provider, displayName: addTarget.displayName, hideTitle: true, namespace: addNamespace, schema: schema, settingsPath: addTarget.settingsPath, api: api, t: t, normalizeProviderProfile: normalizeProviderProfile, readOnly: !state.writable, onClose: (changed) => { closeEditor(changed, addTarget); } }, addTarget.provider)] }))
                     : declaring
-                        ? (_jsx("div", { className: styles['addCard'], children: _jsx(CustomProviderCard, { taken: state.rows.map(row => row.entry.provider), protocols: protocols,
+                        ? (_jsx("div", { className: styles['addCard'], children: _jsx(CustomProviderCard, { taken: state.rows.map(row => row.entry.provider), protocols: protocols, 
                                 /* v8 ignore next -- the card only opens from a button disabled without this namespace */
-                                revision: state.namespaces.get('llm-pi-ai')?.revision ?? 0, api: api, t: t, readOnly: !state.writable, onClose: (changed) => {
+                                revision: state.namespaces.get('llm-pi-ai')?.revision ?? 0, api: api, t: t, normalizeProviderProfile: normalizeProviderProfile, readOnly: !state.writable, onClose: (changed) => {
                                     setDeclaring(false);
                                     if (changed)
                                         void controller.load();

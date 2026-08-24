@@ -16,6 +16,7 @@ import { onboardingReadiness } from './store.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
+import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './DeepSeekOnboardingDialog.module.css'
 
@@ -33,6 +34,8 @@ export interface DeepSeekOnboardingInjected {
   schema: SettingsSchemaOperations
   /** Feature copy. */
   t: (key: keyof typeof en) => string
+  /** Adapter-owned normalization before the credential-only write. */
+  normalizeProviderProfile: ProviderProfileNormalizer
 }
 
 /** Slot owner props plus the feature's injected dependencies. */
@@ -51,7 +54,7 @@ function assertNever(_value: never): never {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, api, schema, t } = props
+  const { complete, controller, useModels, api, schema, t, normalizeProviderProfile } = props
   const state = useModels(snapshot => snapshot)
   const readiness = onboardingReadiness(state)
 
@@ -117,6 +120,7 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           submitLabel="onboardingSave"
           submitBusyLabel="onboardingSaving"
           onClose={finishCredential}
+          normalizeProviderProfile={normalizeProviderProfile}
         />
       </div>
     </OnboardingModal>

@@ -176,12 +176,16 @@ export function ProviderEditor(props) {
             && stringAt(fallback, 'apiKeyEnv') === undefined && keyValue.length > 0
             ? schema.setPath(draft, ['apiKeyEnv'], keyRef)
             : draft;
+        const normalized = props.normalizeProviderProfile(props.provider, next);
+        if (!normalized.ok)
+            return normalized.message;
+        const normalizedNext = normalized.value;
         if (props.credentialOnly !== true) {
             // The same checker gates the submit button, so a card cannot reach this
             // with a bad row; it stays because the schema check below would refuse
             // the write with a message naming a path instead of the row, and because
             // nothing but this function decides what is written.
-            const failure = validateDeepSeekModels(schema.getPath(next, ['models']));
+            const failure = validateDeepSeekModels(schema.getPath(normalizedNext, ['models']));
             /* v8 ignore next 3 -- unreachable from the card: the same failure disables submit */
             if (failure !== undefined) {
                 return `${t('model')} ${String(failure.index + 1)}: ${t(failure.key)}`;
@@ -189,19 +193,19 @@ export function ProviderEditor(props) {
         }
         /* v8 ignore next -- apply is only reachable from the rendered card, which required a resolved node */
         if (props.credentialOnly !== true && node !== undefined && settingsPath.length === 0) {
-            const sectionError = schema.validate(node, next);
+            const sectionError = schema.validate(node, normalizedNext);
             if (sectionError !== undefined)
                 return sectionError;
         }
         const materializesNativeProfile = layout === 'pi-ai'
             && fallback === undefined
             && committedOriginal === undefined
-            && Object.keys(next).length === 0;
+            && Object.keys(normalizedNext).length === 0;
         const ops = props.credentialOnly === true
             ? []
             : materializesNativeProfile
                 ? [{ op: 'set', path: [...settingsPath], value: {} }]
-                : pathOps(settingsPath, committedOriginal, next);
+                : pathOps(settingsPath, committedOriginal, normalizedNext);
         if (ops.length > 0) {
             const response = await api.settings.mutate({ ns, ops, expectedRevision });
             if (!response.result.ok) {
@@ -211,7 +215,7 @@ export function ProviderEditor(props) {
             }
             setCommittedOriginal(schema.getPath(response.result.value.user, settingsPath));
             setExpectedRevision(response.result.value.revision);
-            setDraft(next);
+            setDraft(normalizedNext);
         }
         if (keyValue.length > 0) {
             const stored = await api.credentials.set({ ref: keyRef, value: keyValue });
@@ -291,7 +295,7 @@ export function ProviderEditor(props) {
             onReset: () => { setDraft(current => schema.deletePath(current, ['models'])); },
         };
         return (_jsxs(_Fragment, { children: [_jsxs("div", { className: styles['field'], children: [_jsx("span", { className: styles['fieldLabel'], children: t('keyInput') }), _jsx("input", { className: styles['input'], type: "password", autoComplete: "off", value: keyDraft, placeholder: keyPlaceholder, "aria-label": t('keyInput'), "aria-invalid": shownKeyFailure !== undefined, required: props.credentialRequired === true, autoFocus: props.autoFocusCredential === true, disabled: disabled || keyLocked, onChange: (event) => { setKeyDraft(event.target.value); } }), shownKeyFailure === undefined ? null : _jsx("p", { className: styles['error'], children: t(shownKeyFailure) })] }), props.credentialOnly === true ? null : _jsxs("details", { className: styles['customized'], children: [_jsx("summary", { className: styles['customizedSummary'], children: t('customized') }), _jsxs("div", { className: styles['customizedBody'], children: [ownsIdentity
-                                    ? (_jsxs("div", { className: styles['field'], children: [_jsx("span", { className: styles['fieldLabel'], children: t('customDisplayName') }), _jsx("input", { className: styles['input'], type: "text", value: stringAt(draft, 'displayName') ?? '',
+                                    ? (_jsxs("div", { className: styles['field'], children: [_jsx("span", { className: styles['fieldLabel'], children: t('customDisplayName') }), _jsx("input", { className: styles['input'], type: "text", value: stringAt(draft, 'displayName') ?? '', 
                                                 // What this route is called the moment the field is
                                                 // cleared, which is the layer beneath the one this field
                                                 // edits: a `cordis.yml` may pin a name for a route the

@@ -34,6 +34,7 @@ import { deriveKeyRef, messageOf, protocolChoices } from './store.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
+import type { ProviderProfileNormalizer } from './provider-profile.ts'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
 type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
@@ -83,6 +84,8 @@ export interface ProviderEditorProps {
   submitBusyLabel?: keyof typeof en
   /** Close the editor; `changed` reports whether an Apply committed. */
   onClose: (changed: boolean) => void
+  /** Adapter-owned profile normalization before schema validation and write. */
+  normalizeProviderProfile: ProviderProfileNormalizer
 }
 
 /** A user-section subtree as a plain draft object (absent → empty). */
@@ -253,12 +256,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       && stringAt(fallback, 'apiKeyEnv') === undefined && keyValue.length > 0
       ? schema.setPath(draft, ['apiKeyEnv'], keyRef)
       : draft
+    const normalized = props.normalizeProviderProfile(props.provider, next)
+    if (!normalized.ok) return normalized.message
+    const normalizedNext = normalized.value
     if (props.credentialOnly !== true) {
       // The same checker gates the submit button, so a card cannot reach this
       // with a bad row; it stays because the schema check below would refuse
       // the write with a message naming a path instead of the row, and because
       // nothing but this function decides what is written.
-      const failure = validateDeepSeekModels(schema.getPath(next, ['models']))
+      const failure = validateDeepSeekModels(schema.getPath(normalizedNext, ['models']))
       /* v8 ignore next 3 -- unreachable from the card: the same failure disables submit */
       if (failure !== undefined) {
         return `${t('model')} ${String(failure.index + 1)}: ${t(failure.key)}`
@@ -266,18 +272,18 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     }
     /* v8 ignore next -- apply is only reachable from the rendered card, which required a resolved node */
     if (props.credentialOnly !== true && node !== undefined && settingsPath.length === 0) {
-      const sectionError = schema.validate(node, next)
+      const sectionError = schema.validate(node, normalizedNext)
       if (sectionError !== undefined) return sectionError
     }
     const materializesNativeProfile = layout === 'pi-ai'
       && fallback === undefined
       && committedOriginal === undefined
-      && Object.keys(next).length === 0
+      && Object.keys(normalizedNext).length === 0
     const ops: SettingsPathOpView[] = props.credentialOnly === true
       ? []
       : materializesNativeProfile
         ? [{ op: 'set', path: [...settingsPath], value: {} }]
-        : pathOps(settingsPath, committedOriginal, next)
+        : pathOps(settingsPath, committedOriginal, normalizedNext)
     if (ops.length > 0) {
       const response = await api.settings.mutate({ ns, ops, expectedRevision })
       if (!response.result.ok) {
@@ -287,7 +293,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       }
       setCommittedOriginal(schema.getPath(response.result.value.user, settingsPath))
       setExpectedRevision(response.result.value.revision)
-      setDraft(next)
+      setDraft(normalizedNext)
     }
     if (keyValue.length > 0) {
       const stored = await api.credentials.set({ ref: keyRef, value: keyValue })
