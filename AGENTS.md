@@ -49,12 +49,16 @@ evidence that the local capability is preserved.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
   OpenCode stream recovery, plugin mounting, and startup integration.
 
-## Release `v0.1.1-rc.11` interaction invariants
+## Release `v0.1.1-rc.12` interaction invariants
 
 - CPA appears once in “设置 → 模型”, through the native configured-provider
   row. The expandable native editor must retain API address, Token, model
   discovery, model selection, text/image input modalities, raw context/output
   capacities, and model-specific R reasoning levels.
+- Existing CPA profiles created before image modalities were persisted must be
+  migrated on startup through the CPA plugin's path-scoped, revision-guarded
+  settings mutation. The migration must preserve unrelated providers,
+  credentials, raw capacities, and explicit per-model text-only overrides.
 - The `桌面` section has no save button. Changing close behavior immediately
   persists through the existing IPC bridge, disables the selector while the
   write is pending, announces success, and restores the prior committed value

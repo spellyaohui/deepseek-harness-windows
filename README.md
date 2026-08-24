@@ -2,7 +2,7 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.11`（开发者预览）
+> 当前版本：`v0.1.1-rc.12`（开发者预览）
 
 ## 为什么选择这个项目
 
@@ -57,6 +57,12 @@
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+
+## `v0.1.1-rc.12` 更新说明
+
+- 修复从旧版本升级后，已有 CPA 模型配置缺少图片输入能力元数据，导致粘贴图片后发送仍提示“当前模型不支持图片”的问题。
+- CPA 插件会在启动时仅迁移既有 `cpa` Provider：补齐路由和模型的 `text + image` 声明，同时保留 Token 引用、API 地址、上下文/输出容量、其他 Provider，以及模型显式 `input: ['text']` 覆盖。
+- 新增旧配置迁移回归并继续纳入 `npm run verify:upstream`，防止后续上游刷新再次丢失升级兼容。
 
 ## `v0.1.1-rc.11` 更新说明
 

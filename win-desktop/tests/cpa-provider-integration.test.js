@@ -16,6 +16,8 @@ function packageRoot(name) {
 }
 
 const cpaPackageRoot = packageRoot('@deepseek-ai/dsh-cpa-provider')
+const cpaHostBundle = readFileSync(join(cpaPackageRoot, 'lib/index.js'), 'utf8')
+const cpaMigrationBundle = readFileSync(join(cpaPackageRoot, 'lib/migration.js'), 'utf8')
 const cpaBundle = readFileSync(join(cpaPackageRoot, 'lib/client.js'), 'utf8')
 const cpaPackage = JSON.parse(readFileSync(join(cpaPackageRoot, 'package.json'), 'utf8'))
 const sourceCpaPackage = JSON.parse(readFileSync(new URL('../cpa-provider-plugin/package.json', import.meta.url), 'utf8'))
@@ -30,9 +32,9 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
     lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.resolved,
     'file:cpa-provider-plugin',
   )
-  assert.equal(sourceCpaPackage.version, '0.1.3')
-  assert.equal(cpaPackage.version, '0.1.3')
-  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.3')
+  assert.equal(sourceCpaPackage.version, '0.1.4')
+  assert.equal(cpaPackage.version, '0.1.4')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.4')
 })
 
 test('static and generated desktop patches both mount CPA', () => {
@@ -46,6 +48,17 @@ test('built browser packages expose the native Models slot without a duplicate C
   assert.match(cpaBundle, /normalize-provider-profile/)
   assert.doesNotMatch(cpaBundle, /name:\s*["']settings\.models\.card["']/)
   assert.doesNotMatch(cpaBundle, /id:\s*["']cpa["']/)
+})
+
+test('CPA host startup migrates legacy persisted profiles before image admission', () => {
+  assert.match(cpaHostBundle, /cpaProfileMigration/)
+  assert.match(cpaHostBundle, /settings\.describe/)
+  assert.match(cpaHostBundle, /settings\.mutate/)
+  assert.match(cpaMigrationBundle, /providers["']?,\s*["']cpa/)
+  assert.match(cpaMigrationBundle, /normalizeCpaProviderProfile/)
+  assert.match(cpaMigrationBundle, /expectedRevision/)
+  assert.match(cpaBundle, /defaultInput/)
+  assert.match(cpaBundle, /["']text["'],\s*["']image["']/)
 })
 
 test('desktop composition contains no credential value', () => {

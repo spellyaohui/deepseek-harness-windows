@@ -1,6 +1,11 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.11`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.12`。
+
+## `v0.1.1-rc.12` 更新说明
+
+- 修复旧 CPA 配置升级后的图片能力迁移：启动时自动补齐缺失的 `text + image` 元数据，解决图片已粘贴到输入框、发送阶段却被误判为不支持的问题。
+- 迁移仅写入 `llm-pi-ai.providers.cpa`，保留其他 Provider、凭据引用、原始容量和模型显式纯文本覆盖；已是新格式时不重复写入。
 
 ## `v0.1.1-rc.11` 更新说明
 
@@ -111,8 +116,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.11-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.11-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.12-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.12-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 
