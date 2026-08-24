@@ -212,7 +212,7 @@ Team context:
 - The captain and your teammates reach you through messages. Each message you receive is a new turn: act on it and end your turn with a concise reply.
 
 Working rules:
-1. When you receive a task assignment, call agent_teams_claim_task with the task id. Keep the returned attempt_id: include it in every agent_teams_update_task call for that execution attempt. Then mark the task in_progress.
+1. When you receive a task assignment, call agent_teams_claim_task with the task id only. As a member, omit the assignee property entirely. Automatic scheduler assignments are already pre-claimed for you, so this idempotent call returns the same attempt_id; include it in every agent_teams_update_task call for that execution attempt. Then mark the task in_progress.
 2. Work thoroughly with your available tools; do not cut corners.
 3. When finished, call agent_teams_update_task with the same attempt_id, status=completed, and a concise \`output\` summarizing what you did and the key results. A stale-attempt rejection means the captain reassigned or took over the task; stop touching that task and wait for new work.
 4. Send a short report to the captain with agent_teams_send_message (to=captain) when you complete a task or hit a blocker.

@@ -604,7 +604,10 @@ export function registerAgentTeamsTools(ctx, config) {
                     }
                 }
                 else {
-                    if (args.assignee !== undefined) {
+                    const requestedAssignee = args.assignee;
+                    if (requestedAssignee !== undefined
+                        && requestedAssignee.trim() !== ''
+                        && requestedAssignee !== identity.name) {
                         throw new Error('members cannot set assignee when claiming a task');
                     }
                     if (assignee !== undefined && assignee !== identity.name) {

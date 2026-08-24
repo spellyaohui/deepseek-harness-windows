@@ -368,6 +368,12 @@ async function call(name, args, subject = captain) {
   return definition.execute(args, execFor(subject))
 }
 
+function deliveryText(delivery) {
+  if (!delivery) return ''
+  if (!Array.isArray(delivery.content)) return String(delivery.content)
+  return delivery.content.map(block => block?.text ?? '').join('')
+}
+
 const teamId = 'lifecycle'
 const stateRoot = join(workspace, '.agent-teams')
 const state = () => readTeam(stateRoot, teamId)
@@ -465,8 +471,40 @@ try {
   check('idle assigned member is claimed and woken automatically',
     firstAttempt?.status === 'claimed' && firstAttempt.assignee === 'alpha'
       && deliveries.some(delivery => delivery.childId === alpha.id))
+  const alphaAssignment = deliveries.find(delivery => delivery.childId === alpha.id
+    && deliveryText(delivery).includes(`Task: ${t1.task_id}`))
+  const alphaAssignmentText = deliveryText(alphaAssignment)
+  const assignmentShapeOk = alphaAssignmentText
+    .includes(`agent_teams_claim_task({"task_id":"${t1.task_id}"})`)
+    && alphaAssignmentText.includes('omit the assignee property entirely')
+  check('automatic assignment gives members an exact task-id-only claim shape',
+    assignmentShapeOk,
+    assignmentShapeOk ? '' : alphaAssignmentText || 'missing assignment delivery')
   const alphaClaim = await call('agent_teams_claim_task', { task_id: t1.task_id }, alpha)
   check('member observes the scheduler attempt idempotently', alphaClaim.attempt_id === firstAttempt?.attemptId)
+  const alphaEmptyClaim = await call('agent_teams_claim_task', {
+    task_id: t1.task_id, assignee: '',
+  }, alpha)
+  const alphaWhitespaceClaim = await call('agent_teams_claim_task', {
+    task_id: t1.task_id, assignee: '   ',
+  }, alpha)
+  const alphaSelfClaim = await call('agent_teams_claim_task', {
+    task_id: t1.task_id, assignee: 'alpha',
+  }, alpha)
+  check('member empty, whitespace, and self assignee noise remain idempotent',
+    [alphaEmptyClaim, alphaWhitespaceClaim, alphaSelfClaim]
+      .every(claim => claim.attempt_id === firstAttempt?.attemptId))
+  for (const forbiddenAssignee of ['captain', 'beta']) {
+    let rejected = false
+    try {
+      await call('agent_teams_claim_task', {
+        task_id: t1.task_id, assignee: forbiddenAssignee,
+      }, alpha)
+    } catch (error) {
+      rejected = /members cannot set assignee when claiming a task/.test(String(error))
+    }
+    check(`member cannot claim as ${forbiddenAssignee}`, rejected)
+  }
   await call('agent_teams_update_task', {
     task_id: t1.task_id, status: 'in_progress', attempt_id: alphaClaim.attempt_id,
   }, alpha)
