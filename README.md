@@ -22,6 +22,10 @@ DeepSeek Harness 的 Windows 桌面封装，以及面向桌面使用场景的可
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
 
+## `v0.1.1-rc.10` 更新说明
+
+- 修复 CPA / CLIProxyAPI 图片附件在 Harness 中被误判为“当前模型不支持图片”的问题。CPA 路由和模型现在声明 `text + image` 输入模态，同时保留单模型显式纯文本覆盖。
+
 ## `v0.1.1-rc.9` 更新说明
 
 - `CPA / CLIProxyAPI` 现在只保留一个原生提供方入口：在“设置 → 模型”中点击 CPA 行的“编辑”即可展开/收起配置，不再显示重复的 CPA 专用大卡片。

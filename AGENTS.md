@@ -49,12 +49,12 @@ evidence that the local capability is preserved.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
   OpenCode stream recovery, plugin mounting, and startup integration.
 
-## Release `v0.1.1-rc.9` interaction invariants
+## Release `v0.1.1-rc.10` interaction invariants
 
 - CPA appears once in “设置 → 模型”, through the native configured-provider
   row. The expandable native editor must retain API address, Token, model
-  discovery, model selection, raw context/output capacities, and model-specific
-  R reasoning levels.
+  discovery, model selection, text/image input modalities, raw context/output
+  capacities, and model-specific R reasoning levels.
 - The `桌面` section has no save button. Changing close behavior immediately
   persists through the existing IPC bridge, disables the selector while the
   write is pending, announces success, and restores the prior committed value

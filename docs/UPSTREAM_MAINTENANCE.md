@@ -7,9 +7,9 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.9`
+- Windows desktop wrapper: `0.1.1-rc.10`
 - AgentTeams fork: `0.1.13-desktop.3`, based on upstream `0.1.13`
-- CPA provider plugin: `0.1.2`
+- CPA provider plugin: `0.1.3`
 - Models settings fork: `0.1.1-rc.2-desktop.2`
 - Desktop Settings plugin: `0.1.1`
 - Session Markdown export plugin: `0.1.0`
@@ -24,7 +24,7 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| CLIProxyAPI address and Token flow, `/v1/models` discovery, `openai-responses` profile, seven-level R vocabulary, GPT-5.6 effort filtering, per-model raw context/output capacities, redacted persistence, and exactly one native Models provider row | `win-desktop/cpa-provider-plugin` | Independent local Provider plugin; native editor is rendered by the Models fork through a provider-profile normalization seam | `src/index.ts`, `src/address.ts`, `src/profile.ts`, `src/reasoning.ts`, `src/client/index.tsx`, `src/client/capacity.ts`, `src/client/controller.ts` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` and `tests/agent-teams-integration.test.js` |
+| CLIProxyAPI address and Token flow, `/v1/models` discovery, `openai-responses` profile, text/image input modalities, seven-level R vocabulary, GPT-5.6 effort filtering, per-model raw context/output capacities, redacted persistence, and exactly one native Models provider row | `win-desktop/cpa-provider-plugin` | Independent local Provider plugin; native editor is rendered by the Models fork through a provider-profile normalization seam | `src/index.ts`, `src/address.ts`, `src/profile.ts`, `src/reasoning.ts`, `src/client/index.tsx`, `src/client/capacity.ts`, `src/client/controller.ts` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` and `tests/agent-teams-integration.test.js` |
 
 ## Models settings owner
 

@@ -30,9 +30,9 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
     lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.resolved,
     'file:cpa-provider-plugin',
   )
-  assert.equal(sourceCpaPackage.version, '0.1.2')
-  assert.equal(cpaPackage.version, '0.1.2')
-  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.2')
+  assert.equal(sourceCpaPackage.version, '0.1.3')
+  assert.equal(cpaPackage.version, '0.1.3')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.3')
 })
 
 test('static and generated desktop patches both mount CPA', () => {
