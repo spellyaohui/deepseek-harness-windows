@@ -8,6 +8,7 @@ const patch = readFileSync(new URL('../config/agent-teams.patch.yml', import.met
 const service = readFileSync(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
 const modelsBundle = readFileSync(new URL('../models-settings-plugin/lib/client.js', import.meta.url), 'utf8')
 const cpaBundle = readFileSync(new URL('../cpa-provider-plugin/lib/client.js', import.meta.url), 'utf8')
+const cpaPackage = JSON.parse(readFileSync(new URL('../cpa-provider-plugin/package.json', import.meta.url), 'utf8'))
 
 test('wrapper installs the local Models fork and CPA plugin', () => {
   assert.equal(
@@ -19,6 +20,8 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
     lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.resolved,
     'file:cpa-provider-plugin',
   )
+  assert.equal(cpaPackage.version, '0.1.1')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.1')
 })
 
 test('static and generated desktop patches both mount CPA', () => {
@@ -31,6 +34,9 @@ test('built browser packages expose and consume the Models card slot', () => {
   assert.match(modelsBundle, /settings\.models\.card/)
   assert.match(cpaBundle, /name:\s*["']settings\.models\.card["']/)
   assert.match(cpaBundle, /id:\s*["']cpa["']/)
+  assert.match(cpaBundle, /contextWindow/)
+  assert.match(cpaBundle, /maxTokens/)
+  assert.match(cpaBundle, /inputMode:\s*["']numeric["']/)
 })
 
 test('desktop composition contains no credential value', () => {
