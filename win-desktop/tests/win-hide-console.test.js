@@ -84,16 +84,23 @@ test('normalizes only redundant shell escalation requests', () => {
 })
 
 test('rewrite normalizes real Pwsh and Bash module escalation before validation', () => {
-  for (const [source, sourcePath, validator] of [
-    [pwshSource, pwshSourcePath, 'validatePwshArgs(args);'],
-    [bashSource, bashSourcePath, 'validateBashArgs(args);'],
+  for (const [source, sourcePath, validator, name] of [
+    [pwshSource, pwshSourcePath, 'validatePwshArgs', 'Pwsh'],
+    [bashSource, bashSourcePath, 'validateBashArgs', 'Bash'],
   ]) {
     const rewritten = rewriteDesktopConsoleSource(source, pathToFileURL(sourcePath).href)
-    const normalizerIndex = rewritten.indexOf('normalizeRedundantEscalationArgs')
-    const validatorIndex = rewritten.indexOf(validator)
-    assert.ok(normalizerIndex >= 0, `expected ${validator} rewrite to include the normalizer`)
-    assert.ok(validatorIndex >= 0, `expected real module to include ${validator}`)
-    assert.ok(normalizerIndex < validatorIndex, `expected normalizer before ${validator}`)
+    const oldExecuteBlock = `async execute(args, exec) {
+\t\t\t${validator}(args);
+\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);`
+    const expectedPatch = `async execute(args, exec) {
+\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);
+\t\t\t${normalizeRedundantEscalationArgs.toString()}
+\t\t\targs = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);
+\t\t\t${validator}(args);`
+    assert.notEqual(rewritten, source, `expected ${name} source to be rewritten`)
+    assert.ok(rewritten.includes(`${validator}(args);`), `expected real ${name} module validator`)
+    assert.ok(!rewritten.includes(oldExecuteBlock), `expected old ${name} validation order to be removed`)
+    assert.ok(rewritten.includes(expectedPatch), `expected complete ${name} normalization patch before validation`)
     assert.equal(rewriteDesktopConsoleSource(rewritten, pathToFileURL(sourcePath).href), rewritten)
   }
 })

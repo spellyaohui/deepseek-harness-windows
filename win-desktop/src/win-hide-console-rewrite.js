@@ -58,7 +58,8 @@ function rewriteShellEscalationSource(source, validator) {
 \t\t\tconst standingPolicy = resolveSandboxPolicy(exec);`
   const patch = `async execute(args, exec) {
 \t\t\tconst standingPolicy = resolveSandboxPolicy(exec);
-\t\t\targs = (${normalizeRedundantEscalationArgs.toString()})(args, standingPolicy.mode);
+\t\t\t${normalizeRedundantEscalationArgs.toString()}
+\t\t\targs = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);
 \t\t\t${validator}(args);`
   return source.includes(needle) ? source.replace(needle, patch) : source
 }
