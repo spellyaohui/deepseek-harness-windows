@@ -1,13 +1,18 @@
+function optionalNonBlank(value) {
+    const normalized = value?.trim();
+    return normalized === '' ? undefined : normalized;
+}
 export function selectMemberCandidate(input) {
-    const explicitProvider = input.explicit.provider?.trim();
-    const explicitModel = input.explicit.model?.trim();
-    const explicitEffort = input.explicit.reasoningEffort?.trim();
-    if (input.explicit.provider !== undefined && explicitProvider === '')
-        throw new Error('member LLM provider must not be empty');
-    if (input.explicit.model !== undefined && explicitModel === '')
-        throw new Error('member model must not be empty');
-    if (input.explicit.reasoningEffort !== undefined && explicitEffort === '')
-        throw new Error('member reasoning effort must not be empty');
+    if (input.settings.memberReasoningMode === 'explicit') {
+        return {
+            provider: input.settings.memberLlmProvider || input.captain.provider,
+            model: input.settings.memberModel || input.captain.model,
+            reasoningEffort: input.settings.memberReasoningEffort,
+        };
+    }
+    const explicitProvider = optionalNonBlank(input.explicit.provider);
+    const explicitModel = optionalNonBlank(input.explicit.model);
+    const explicitEffort = optionalNonBlank(input.explicit.reasoningEffort);
     if (explicitProvider !== undefined && explicitModel === undefined) {
         throw new Error('an explicit member LLM provider requires an explicit member model');
     }
@@ -16,10 +21,8 @@ export function selectMemberCandidate(input) {
     const sameRoute = provider === input.captain.provider && model === input.captain.model;
     const reasoningEffort = explicitEffort === 'default'
         ? undefined
-        : explicitEffort ?? (input.settings.memberReasoningMode === 'explicit'
-            ? input.settings.memberReasoningEffort
-            : input.settings.memberReasoningMode === 'route-aware' && sameRoute
-                ? input.captain.reasoningEffort
-                : undefined);
+        : explicitEffort ?? (input.settings.memberReasoningMode === 'route-aware' && sameRoute
+            ? input.captain.reasoningEffort
+            : undefined);
     return { provider, model, ...(reasoningEffort === undefined ? {} : { reasoningEffort }) };
 }

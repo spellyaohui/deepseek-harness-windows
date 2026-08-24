@@ -16,16 +16,42 @@ assert.deepEqual(selectMemberCandidate({ captain, settings, explicit: {} }), {
 })
 assert.deepEqual(selectMemberCandidate({
   captain, settings, explicit: { provider: 'role-p', model: 'role-m', reasoningEffort: 'max' },
+}), { provider: 'settings-p', model: 'settings-m', reasoningEffort: 'low' })
+assert.deepEqual(selectMemberCandidate({
+  captain, settings, explicit: { provider: '', model: '', reasoningEffort: '' },
+}), { provider: 'settings-p', model: 'settings-m', reasoningEffort: 'low' })
+assert.deepEqual(selectMemberCandidate({
+  captain,
+  settings,
+  explicit: { provider: 'guessed-provider', model: 'guessed-model', reasoningEffort: 'max' },
+}), { provider: 'settings-p', model: 'settings-m', reasoningEffort: 'low' })
+
+const targetDefaultSettings = {
+  ...settings,
+  memberLlmProvider: '',
+  memberModel: '',
+  memberReasoningMode: 'target-default',
+  memberReasoningEffort: '',
+}
+assert.deepEqual(selectMemberCandidate({
+  captain,
+  settings: targetDefaultSettings,
+  explicit: { provider: '  ', model: '', reasoningEffort: ' ' },
+}), { provider: 'captain-p', model: 'captain-m' })
+assert.deepEqual(selectMemberCandidate({
+  captain,
+  settings: targetDefaultSettings,
+  explicit: { provider: 'role-p', model: 'role-m', reasoningEffort: 'max' },
 }), { provider: 'role-p', model: 'role-m', reasoningEffort: 'max' })
 assert.equal(selectMemberCandidate({
   captain,
-  settings: { ...settings, memberLlmProvider: '', memberModel: '', memberReasoningMode: 'target-default', memberReasoningEffort: '' },
+  settings: targetDefaultSettings,
   explicit: {},
 }).reasoningEffort, undefined)
 assert.equal(selectMemberCandidate({
   captain,
   settings: { ...settings, memberLlmProvider: '', memberModel: '', memberReasoningMode: 'route-aware', memberReasoningEffort: '' },
-  explicit: {},
+  explicit: { provider: '', model: ' ', reasoningEffort: '  ' },
 }).reasoningEffort, 'high')
 assert.equal(selectMemberCandidate({
   captain,
