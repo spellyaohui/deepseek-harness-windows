@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildCpaModels, buildCpaProfile, mergeCpaCandidates } from '../lib/profile.js'
+import {
+  buildCpaModels,
+  buildCpaProfile,
+  mergeCpaCandidates,
+  normalizeCpaProviderProfile,
+} from '../lib/profile.js'
 
 test('builds deduplicated CPA models with exact per-model reasoning metadata', () => {
   const models = buildCpaModels([
@@ -57,4 +62,23 @@ test('assembles the stable CPA llm-pi-ai route', () => {
   assert.equal(profile.api, 'openai-responses')
   assert.equal(profile.baseURL, 'https://proxy.example.invalid/v1')
   assert.equal(JSON.stringify(profile).includes('fixture'), false)
+})
+
+test('normalizes native CPA edits without scaling capacities or leaking the Token', () => {
+  const profile = normalizeCpaProviderProfile({
+    baseURL: 'https://proxy.example.invalid',
+    api: 'openai-completions',
+    apiKeyEnv: 'WRONG_KEY',
+    models: [{ id: ' gpt-5.6-sol ', contextWindow: 1050000, maxTokens: 131072 }],
+  })
+
+  assert.equal(profile.baseURL, 'https://proxy.example.invalid/v1')
+  assert.equal(profile.api, 'openai-responses')
+  assert.equal(profile.apiKeyEnv, 'CPA_API_KEY')
+  assert.equal(profile.models[0].id, 'gpt-5.6-sol')
+  assert.equal(profile.models[0].contextWindow, 1050000)
+  assert.equal(profile.models[0].maxTokens, 131072)
+  assert.deepEqual(Object.values(profile.models[0].reasoningEfforts), [
+    'none', 'low', 'medium', 'high', 'xhigh', 'max',
+  ])
 })

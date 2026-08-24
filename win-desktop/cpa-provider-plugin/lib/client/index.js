@@ -1,15 +1,15 @@
-import { CpaProviderCard } from "./CpaProviderCard.js";
-import { en, zh } from "./locales.js";
-const NS = 'settings.cpa';
-const CARD_NAME = 'CPA / CLIProxyAPI';
-export const inject = ['slots', 'locale'];
+import { normalizeCpaProviderProfile } from "../profile.js";
 export function apply(ctx) {
-    ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'cpa-provider: locale');
-    const cpaT = ctx.locale.bind(NS);
-    ctx.slots.inject('settings.models.card', () => ctx.slots.register({
-        name: 'settings.models.card',
-        id: 'cpa',
-        order: -100,
-        inject: () => ({ cpaT, cardName: CARD_NAME }),
-    }, CpaProviderCard));
+    ctx.on('settings.models/normalize-provider-profile', (payload, next) => {
+        if (payload.provider !== 'cpa')
+            return next();
+        try {
+            payload.value = normalizeCpaProviderProfile(payload.value);
+            return next();
+        }
+        catch (error) {
+            payload.failure = error instanceof Error ? error.message : String(error);
+            return payload;
+        }
+    });
 }

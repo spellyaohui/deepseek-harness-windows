@@ -59,3 +59,37 @@ export function buildCpaProfile(draft) {
         models: buildCpaModels(draft.models),
     };
 }
+/**
+ * Normalize a CPA profile edited through Harness's native provider editor.
+ * Provider-specific facts stay here so the generic Models fork remains
+ * provider-neutral. Unknown fields and raw capacity numbers are preserved.
+ */
+export function normalizeCpaProviderProfile(value) {
+    const baseURL = value['baseURL'];
+    if (typeof baseURL !== 'string')
+        throw new Error('CPA API address is required');
+    const rawModels = value['models'];
+    if (!Array.isArray(rawModels))
+        throw new Error('Select at least one model');
+    const models = rawModels.map((rawModel) => {
+        if (typeof rawModel !== 'object' || rawModel === null || Array.isArray(rawModel))
+            return rawModel;
+        const model = rawModel;
+        const id = typeof model['id'] === 'string' ? model['id'].trim() : '';
+        if (id === '')
+            return model;
+        return {
+            ...model,
+            id,
+            reasoningEfforts: reasoningEffortsForModel(id),
+        };
+    });
+    return {
+        ...value,
+        displayName: 'CPA / CLIProxyAPI',
+        apiKeyEnv: 'CPA_API_KEY',
+        api: 'openai-responses',
+        baseURL: normalizeCpaBaseURL(baseURL),
+        models,
+    };
+}

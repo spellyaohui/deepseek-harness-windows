@@ -2,6 +2,8 @@ import { normalizeCpaBaseURL } from './address.ts'
 import { reasoningEffortsForModel } from './reasoning.ts'
 import type { CpaDraft, CpaModelCandidate, CpaModelProfile, CpaProviderProfile } from './types.ts'
 
+type UnknownRecord = Record<string, unknown>
+
 /** Merge a fresh listing with configured rows the endpoint temporarily omitted. */
 export function mergeCpaCandidates(
   configured: readonly CpaModelCandidate[],
@@ -59,5 +61,39 @@ export function buildCpaProfile(draft: CpaDraft): CpaProviderProfile {
     api: 'openai-responses',
     baseURL: normalizeCpaBaseURL(draft.baseURL),
     models: buildCpaModels(draft.models),
+  }
+}
+
+/**
+ * Normalize a CPA profile edited through Harness's native provider editor.
+ * Provider-specific facts stay here so the generic Models fork remains
+ * provider-neutral. Unknown fields and raw capacity numbers are preserved.
+ */
+export function normalizeCpaProviderProfile(value: UnknownRecord): UnknownRecord {
+  const baseURL = value['baseURL']
+  if (typeof baseURL !== 'string') throw new Error('CPA API address is required')
+
+  const rawModels = value['models']
+  if (!Array.isArray(rawModels)) throw new Error('Select at least one model')
+
+  const models = rawModels.map((rawModel) => {
+    if (typeof rawModel !== 'object' || rawModel === null || Array.isArray(rawModel)) return rawModel
+    const model = rawModel as UnknownRecord
+    const id = typeof model['id'] === 'string' ? model['id'].trim() : ''
+    if (id === '') return model
+    return {
+      ...model,
+      id,
+      reasoningEfforts: reasoningEffortsForModel(id),
+    }
+  })
+
+  return {
+    ...value,
+    displayName: 'CPA / CLIProxyAPI',
+    apiKeyEnv: 'CPA_API_KEY',
+    api: 'openai-responses',
+    baseURL: normalizeCpaBaseURL(baseURL),
+    models,
   }
 }
