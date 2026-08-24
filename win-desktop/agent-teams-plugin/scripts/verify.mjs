@@ -86,6 +86,17 @@ function check(label, condition, detail = '') {
 
 console.log('dsh-agent-teams offline verification')
 
+const builtTools = await readFile(new URL('../lib/tools.js', import.meta.url), 'utf8')
+const builtIndex = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')
+check(
+  'tool schema says explicit mode ignores route arguments',
+  builtTools.includes('ignored while AgentTeams settings use explicit mode'),
+)
+check(
+  'usage prompt says explicit mode is settings-enforced',
+  builtIndex.includes('In explicit mode, omit provider/model/reasoning_effort; the plugin enforces the configured settings route.'),
+)
+
 // The bundle patch's `name` is the specifier Node resolves when a profile
 // loads this plugin, so it must equal the published package name. A mismatch
 // only surfaces after someone installs the package (the row fails to load),

@@ -295,13 +295,13 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): void
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_add_member',
-    description: 'Add a durable continuable member. By default it snapshots the captain\'s current LLM route and effort. Supply provider/model only for an explicitly requested role-specific route; a changed provider or model automatically uses the target model\'s default effort. Set reasoning_effort only to request one of the target model\'s supported ids explicitly (or "default" to force its default). The member waits for messages, works on assigned tasks, and can message the team.',
+    description: 'Add a durable continuable member. AgentTeams settings choose the ordinary member route. Provider/model/reasoning_effort arguments are ignored while AgentTeams settings use explicit mode, which enforces the configured route. In target-default or route-aware mode, supply provider/model only when the user explicitly requests a heterogeneous role-specific route; blank optional route fields are treated as omitted. The member waits for messages, works on assigned tasks, and can message the team.',
     parameters: {
       name: { type: 'string', required: true, description: 'Unique member name inside the team.' },
       role: { type: 'string', description: 'Role of the member (e.g. researcher, engineer, reviewer).' },
-      provider: { type: 'string', description: 'Optional LLM provider route. Use only when the user explicitly requests a different provider; requires model.' },
-      model: { type: 'string', description: 'Optional model override. Omit for the captain\'s current model (or the configured memberModel default).' },
-      reasoning_effort: { type: 'string', description: 'Optional reasoning effort override: one of the target model\'s supported effort ids, or "default" to force its default. When omitted, the captain\'s effort is inherited only for the same provider/model; a changed route uses the target default.' },
+      provider: { type: 'string', description: 'Optional heterogeneous LLM provider route for target-default or route-aware mode; requires model. Ignored in explicit mode.' },
+      model: { type: 'string', description: 'Optional heterogeneous model override for target-default or route-aware mode. Ignored in explicit mode.' },
+      reasoning_effort: { type: 'string', description: 'Optional heterogeneous reasoning effort override for target-default or route-aware mode, or "default" to force the target default. Ignored in explicit mode.' },
     },
     output: {
       schema: {
