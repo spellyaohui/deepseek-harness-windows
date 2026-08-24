@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.13-desktop.1`.
+- Desktop fork version is `0.1.13-desktop.2`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -23,6 +23,9 @@
 - Desktop integration and regression verification.
 - Path-stable virtual CSS module ids with generated-artifact verification.
 - Windows PowerShell lock-fixture timing uses `[Threading.Thread]::Sleep(140)`.
+- `.desktop.2` makes explicit member settings authoritative, treats blank
+  non-explicit tool arguments as omitted, and adds actionable invalid-route
+  errors.
 
 ## Upgrade rule
 

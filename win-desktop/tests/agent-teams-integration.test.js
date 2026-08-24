@@ -48,7 +48,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
 
     const metadata = JSON.parse(readText(pluginRoot, 'package.json'))
     assert.equal(metadata.name, '@nanmicoder/dsh-agent-teams')
-    assert.equal(metadata.version, '0.1.13-desktop.1')
+    assert.equal(metadata.version, '0.1.13-desktop.2')
     assert.equal(metadata.exports['./client'].default, './lib/client.js')
 
     const imported = spawnSync(process.execPath, [
