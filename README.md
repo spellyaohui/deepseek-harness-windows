@@ -1,6 +1,42 @@
 # DeepSeek Harness Windows
 
-DeepSeek Harness 的 Windows 桌面封装，以及面向桌面使用场景的可维护插件增强。
+把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
+
+> 当前版本：`v0.1.1-rc.10`（开发者预览）
+
+## 为什么选择这个项目
+
+上游 Harness 适合通过 Node.js 命令行启动和扩展；本项目面向希望在 Windows 上直接使用、又不想放弃上游生态的用户，提供一层可维护的桌面组合与兼容增强。
+
+| 关注点 | 直接使用上游 Harness | DeepSeek Harness Windows |
+| --- | --- | --- |
+| 启动方式 | 需要 Node.js 和命令行环境 | Electron 独立窗口，支持双击启动 |
+| Windows 体验 | 依赖本机终端和子进程行为 | 随机 loopback 端口、隐藏控制台、启动自愈和 shell 兼容处理 |
+| CPA / CLIProxyAPI | 需要自行组合 Provider | 原生“设置 → 模型”入口，支持地址、Token、模型发现、图片输入和 R 协议档位 |
+| 子智能体 | 使用上游默认委派路径 | AgentTeams 独立配置提供商/模型/思考强度，并可选择 Team 或 Native 路由 |
+| 会话延续 | 依赖原始日志导出 | 提供可审查、可继续工作的 `续接 MD` 上下文包，同时保留原始 Session log |
+| 上游升级 | 由使用者自行验证兼容性 | 维护能力注册表和 `verify:upstream` 回归门禁，避免本地功能在刷新后悄悄丢失 |
+
+## 核心卖点
+
+- **上游兼容，而不是另起炉灶**：运行时核心来自锁定版本的官方 DeepSeek Harness npm 包，本项目主要负责 Windows 包装、插件组合和窄范围兼容修复。
+- **开箱即用的 Windows 桌面入口**：随机本地端口避免冲突，隐藏 Node/命令行窗口，启动失败提供更清晰的恢复路径。
+- **CPA 多模型与多模态**：通过 `CPA / CLIProxyAPI` 原生提供方接入 OpenAI Responses 兼容网关，自动获取模型；CPA 模型默认声明 `text + image`，支持图片附件和模型级纯文本覆盖。
+- **完整的思考协议映射**：支持 `off / low / medium / high / xhigh / max`，其他模型保留完整七档词汇，GPT-5.6 按其可用档位过滤。
+- **子智能体可控可追踪**：AgentTeams 的模型、提供商、思考强度和 Team/Native 委派路由在主程序设置 TAB 中管理；明确指定时不继承上游模型和思考参数。
+- **会话可续接**：`续接 MD` 以确定性程序导出时间线、可见上下文、工具摘要和子会话 lineage，方便交给新的智能体继续；隐藏思维链和成功工具原始载荷不会被伪装导出。
+- **面向长期维护的插件边界**：CPA、AgentTeams、Models 设置、桌面设置、Session Markdown 和 Windows 包装器各自负责清晰能力，便于后续独立升级和回归。
+
+## 与上游项目的关系
+
+本项目不是官方 DeepSeek Harness 的替代实现，也不声称获得官方认证。官方 Harness 负责核心运行时、Web UI 和插件接口；本项目负责 Windows 桌面启动层以及独立维护的本地插件和兼容性重写。上游版本更新后，必须先阅读 [上游维护注册表](docs/UPSTREAM_MAINTENANCE.md)，逐项标记 `UPSTREAM_EQUIVALENT`、`REAPPLY` 或 `SUPERSEDED_BY_DESIGN`，再运行完整回归门禁。这样既能获得上游生态的持续更新，也能避免 CPA、子智能体、会话导出和 Windows 修复在合并时丢失。
+
+## 适合谁
+
+- 想在 Windows 上双击使用 DeepSeek Harness，而不是每次打开终端的开发者。
+- 使用 CLIProxyAPI 统一管理多个模型、思考档位或图片输入的用户。
+- 需要对子智能体模型和委派路由进行明确控制的 AgentTeams 用户。
+- 需要把一次会话整理成可审查上下文，再交给另一个智能体继续处理的团队。
 
 ## 仓库内容
 
@@ -25,6 +61,8 @@ DeepSeek Harness 的 Windows 桌面封装，以及面向桌面使用场景的可
 ## `v0.1.1-rc.10` 更新说明
 
 - 修复 CPA / CLIProxyAPI 图片附件在 Harness 中被误判为“当前模型不支持图片”的问题。CPA 路由和模型现在声明 `text + image` 输入模态，同时保留单模型显式纯文本覆盖。
+
+Windows 安装包请从 [GitHub Releases](https://github.com/spellyaohui/deepseek-harness-windows/releases) 下载；仓库源码不会跟踪 `win-desktop/dist/` 中的安装包和绿色压缩包。
 
 ## `v0.1.1-rc.9` 更新说明
 
