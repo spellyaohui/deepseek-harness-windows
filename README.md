@@ -2,7 +2,7 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.10`（开发者预览）
+> 当前版本：`v0.1.1-rc.11`（开发者预览）
 
 ## 为什么选择这个项目
 
@@ -57,6 +57,11 @@
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+
+## `v0.1.1-rc.11` 更新说明
+
+- Electron 更新至 `43.4.1`，electron-builder 更新至 `26.15.7`；保留全部本地插件和上游回归门禁。
+- 继续包含 CPA 图片输入修复、AgentTeams 子智能体设置、续接 Markdown 和 Windows 兼容修复。
 
 ## `v0.1.1-rc.10` 更新说明
 

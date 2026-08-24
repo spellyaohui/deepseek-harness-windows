@@ -1,6 +1,10 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.10`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.11`。
+
+## `v0.1.1-rc.11` 更新说明
+
+- Electron 更新至 `43.4.1`，electron-builder 更新至 `26.15.7`；全部本地插件和回归门禁保持不变。
 
 ## `v0.1.1-rc.10` 更新说明
 
@@ -107,8 +111,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.10-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.10-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.11-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.11-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 
