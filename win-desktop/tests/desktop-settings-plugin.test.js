@@ -30,7 +30,7 @@ test('wrapper packs the local AgentTeams package instead of linking its dev depe
   assert.equal(npmrcSource.trim(), 'install-links=true')
   const installed = packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']
   assert.notEqual(installed.link, true)
-  assert.equal(installed.version, '0.1.13-desktop.2')
+  assert.equal(installed.version, '0.1.13-desktop.3')
 })
 
 test('desktop settings plugin is included in the DSH patch graph', () => {
