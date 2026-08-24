@@ -1,6 +1,12 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.8`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.9`。
+
+## `v0.1.1-rc.9` 更新说明
+
+- CPA 只保留原生 `CPA / CLIProxyAPI` 提供方行；点击“编辑”即可展开/收起，原生模型目录继续承载 API 地址、Token、模型发现、模型选择和容量设置。
+- 桌面关闭行为改为即时保存，不再提供单独的“保存设置”按钮；保存失败会恢复此前已提交的选择。
+- CPA 思考协议、AgentTeams 子智能体独立模型/思考设置、会话续接 Markdown、OpenCode 流恢复和文件工具提权兼容修复均纳入上游回归门禁。
 
 ## 它做了什么
 
@@ -35,9 +41,9 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 ## CPA / CLIProxyAPI 模型
 
 1. 打开“设置 → 模型”。
-2. 找到 `CPA / CLIProxyAPI` 卡片。
-3. 输入 API 地址和 Token，点击获取模型。
-4. 选择需要启用的模型并应用。
+2. 找到 `CPA / CLIProxyAPI` 提供方行并点击“编辑”。
+3. 在展开的原生编辑区域输入 API 地址和 Token，打开模型目录并获取模型。
+4. 选择需要启用的模型并点击“应用”。
 5. 主会话直接选择 Provider `cpa`；子智能体则在“设置 → 子智能体”中选择同一个 Provider 和模型。
 
 API 地址会自动规范到 `/v1`，调用协议固定为 `openai-responses`。Token 只写入 Harness 凭据存储 `CPA_API_KEY`，不会写入普通设置、桌面 patch 或仓库文件；编辑已有配置时留空 Token 会保留已配置的凭据。
@@ -97,8 +103,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.8-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.8-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.9-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.9-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

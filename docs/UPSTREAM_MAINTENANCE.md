@@ -7,11 +7,11 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.8`
+- Windows desktop wrapper: `0.1.1-rc.9`
 - AgentTeams fork: `0.1.13-desktop.3`, based on upstream `0.1.13`
-- CPA provider plugin: `0.1.1`
-- Models settings fork: `0.1.1-rc.2-desktop.1`
-- Desktop Settings plugin: `0.1.0`
+- CPA provider plugin: `0.1.2`
+- Models settings fork: `0.1.1-rc.2-desktop.2`
+- Desktop Settings plugin: `0.1.1`
 - Session Markdown export plugin: `0.1.0`
 
 ## AgentTeams owner
@@ -24,19 +24,19 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| CLIProxyAPI address and Token flow, `/v1/models` discovery, `openai-responses` profile, seven-level R vocabulary, GPT-5.6 effort filtering, per-model raw context/output capacities, redacted persistence and Models-card registration | `win-desktop/cpa-provider-plugin` | Independent local Provider plugin; must remain separate from the Models fork and AgentTeams | `src/index.ts`, `src/address.ts`, `src/profile.ts`, `src/reasoning.ts`, `src/client/capacity.ts`, `src/client/controller.ts`, `src/client/CpaProviderCard.tsx` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` and `tests/agent-teams-integration.test.js` |
+| CLIProxyAPI address and Token flow, `/v1/models` discovery, `openai-responses` profile, seven-level R vocabulary, GPT-5.6 effort filtering, per-model raw context/output capacities, redacted persistence, and exactly one native Models provider row | `win-desktop/cpa-provider-plugin` | Independent local Provider plugin; native editor is rendered by the Models fork through a provider-profile normalization seam | `src/index.ts`, `src/address.ts`, `src/profile.ts`, `src/reasoning.ts`, `src/client/index.tsx`, `src/client/capacity.ts`, `src/client/controller.ts` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` and `tests/agent-teams-integration.test.js` |
 
 ## Models settings owner
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Additive `settings.models.card` slot rendered in the native Models page | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; no provider-specific behavior belongs here | `src/client/ModelsSection.tsx`, `UPSTREAM.md` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` |
+| Additive `settings.models.card` slot, provider-neutral profile normalization seam, and native expandable provider rows | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; no CPA-specific behavior belongs here | `src/client/ModelsSection.tsx`, `src/client/ProviderEditor.tsx`, `src/client/provider-profile.ts`, `UPSTREAM.md` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` |
 
 ## Desktop Settings owner
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `桌面` settings section, theme-consistent window behavior UI, and IPC bridge without a separate settings window | `win-desktop/desktop-settings-plugin` plus wrapper bridge | Independent local desktop integration | `desktop-settings-plugin/lib/client.js`, `src/settings-window.js`, `src/desktop-settings.js`, `src/preload.cjs`, `config/agent-teams.patch.yml` | wrapper `tests/desktop-settings-plugin.test.js` and `tests/desktop-settings.test.js` |
+| Harness-native `桌面` settings section, theme-consistent window behavior UI, IPC bridge without a separate settings window, and immediate close-behavior autosave with rollback | `win-desktop/desktop-settings-plugin` plus wrapper bridge | Independent local desktop integration | `desktop-settings-plugin/lib/client.js`, `src/settings-window.js`, `src/desktop-settings.js`, `src/preload.cjs`, `config/agent-teams.patch.yml` | wrapper `tests/desktop-settings-plugin.test.js` and `tests/desktop-settings.test.js` |
 
 ## Session Markdown owner
 

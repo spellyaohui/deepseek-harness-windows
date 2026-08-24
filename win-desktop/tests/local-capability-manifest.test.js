@@ -104,8 +104,8 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
 test('critical integration markers retain local capability ownership', () => {
   assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.card/)
 
-  assertContains('cpa-provider-plugin/src/client/index.tsx', /name: 'settings\.models\.card'/)
-  assertContains('cpa-provider-plugin/src/client/index.tsx', /id: 'cpa'/)
+  assertContains('cpa-provider-plugin/src/client/index.tsx', /normalize-provider-profile/)
+  assertContains('cpa-provider-plugin/src/client/index.tsx', /provider !== 'cpa'/)
   assertContains('cpa-provider-plugin/src/client/capacity.ts', /contextWindow/)
   assertContains('cpa-provider-plugin/src/client/capacity.ts', /maxTokens/)
 

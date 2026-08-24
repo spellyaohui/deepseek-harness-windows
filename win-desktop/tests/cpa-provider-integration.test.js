@@ -30,9 +30,9 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
     lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.resolved,
     'file:cpa-provider-plugin',
   )
-  assert.equal(sourceCpaPackage.version, '0.1.1')
-  assert.equal(cpaPackage.version, '0.1.1')
-  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.1')
+  assert.equal(sourceCpaPackage.version, '0.1.2')
+  assert.equal(cpaPackage.version, '0.1.2')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.2')
 })
 
 test('static and generated desktop patches both mount CPA', () => {
@@ -41,13 +41,11 @@ test('static and generated desktop patches both mount CPA', () => {
   assert.match(service, /@deepseek-ai\/dsh-cpa-provider/)
 })
 
-test('built browser packages expose and consume the Models card slot', () => {
+test('built browser packages expose the native Models slot without a duplicate CPA card', () => {
   assert.match(modelsBundle, /settings\.models\.card/)
-  assert.match(cpaBundle, /name:\s*["']settings\.models\.card["']/)
-  assert.match(cpaBundle, /id:\s*["']cpa["']/)
-  assert.match(cpaBundle, /contextWindow/)
-  assert.match(cpaBundle, /maxTokens/)
-  assert.match(cpaBundle, /inputMode:\s*["']numeric["']/)
+  assert.match(cpaBundle, /normalize-provider-profile/)
+  assert.doesNotMatch(cpaBundle, /name:\s*["']settings\.models\.card["']/)
+  assert.doesNotMatch(cpaBundle, /id:\s*["']cpa["']/)
 })
 
 test('desktop composition contains no credential value', () => {

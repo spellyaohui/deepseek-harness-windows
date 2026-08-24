@@ -37,14 +37,31 @@ evidence that the local capability is preserved.
 - AgentTeams owns subagent member defaults, explicit/route-aware reasoning,
   shared model-catalog consumption, Team/Native routing, and task lifecycle.
 - CPA owns CLIProxyAPI address/credential handling, model discovery, reasoning
-  vocabulary, and per-model context/output capacities.
-- The Models settings fork owns only the additive provider-card slot.
+  vocabulary, per-model context/output capacities, and the native-provider
+  profile normalization seam. CPA must not register a second visible Models
+  card; the single native `CPA / CLIProxyAPI` row owns its editor chrome.
+- The Models settings fork owns the provider-neutral native editor and its
+  additive slot/normalization seam; it must not contain CPA-specific rules.
 - Desktop Settings owns the Harness-native `桌面` settings section and window
   behavior bridge.
 - Session Markdown owns continuation export ordering, lineage, sanitization,
   and the header action.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
   OpenCode stream recovery, plugin mounting, and startup integration.
+
+## Release `v0.1.1-rc.9` interaction invariants
+
+- CPA appears once in “设置 → 模型”, through the native configured-provider
+  row. The expandable native editor must retain API address, Token, model
+  discovery, model selection, raw context/output capacities, and model-specific
+  R reasoning levels.
+- The `桌面` section has no save button. Changing close behavior immediately
+  persists through the existing IPC bridge, disables the selector while the
+  write is pending, announces success, and restores the prior committed value
+  on failure.
+- Every future upstream refresh must classify these behaviors as
+  `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
+  regressions, and run `npm run verify:upstream` before packaging.
 
 Do not collapse these owners into one plugin during conflict resolution. Do not
 move provider-specific behavior into the Models fork.
