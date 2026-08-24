@@ -850,8 +850,15 @@ const routeDefaultEfforts = new Map([
 ])
 const selectionContext = {
   llm: {
+    listProviders: () => [
+      { id: 'captain-provider' },
+      { id: 'other-provider' },
+    ],
     resolveCallConfig: async (config) => {
       resolvedCalls.push(config)
+      if (config.provider === 'guessed-provider') {
+        throw new Error('no adapter registered for provider "guessed-provider"')
+      }
       const route = `${config.provider}/${config.model}`
       if (route !== 'captain-provider/captain-model' && config.reasoningEffort === 'max') {
         const error = new Error(`provider/model route ${route} does not support reasoning effort "max"`)
@@ -924,6 +931,41 @@ check(
     && forcedDefaultSelection.reasoningEffort === 'high'
     && resolvedCalls.at(-1)?.reasoningEffort === undefined,
 )
+let invalidRouteMessage = ''
+try {
+  await resolveMemberLlmSelection(selectionContext, captain, {
+    provider: 'guessed-provider',
+    model: 'guessed-model',
+    defaults: routeAwareSettings,
+  })
+} catch (error) {
+  invalidRouteMessage = error instanceof Error ? error.message : String(error)
+}
+check(
+  'invalid heterogeneous route explains valid providers and settings inheritance',
+  invalidRouteMessage.includes('Valid providers: captain-provider, other-provider')
+    && invalidRouteMessage.includes('Omit provider/model to inherit AgentTeams settings'),
+  invalidRouteMessage,
+)
+const lockedExplicitSelection = await resolveMemberLlmSelection(selectionContext, captain, {
+  provider: 'guessed-provider',
+  model: 'guessed-model',
+  reasoningEffort: 'max',
+  defaults: {
+    ...routeAwareSettings,
+    memberLlmProvider: 'other-provider',
+    memberModel: 'other-model',
+    memberReasoningMode: 'explicit',
+    memberReasoningEffort: 'high',
+  },
+})
+check(
+  'explicit settings prevent guessed route arguments from reaching target resolution',
+  lockedExplicitSelection.provider === 'other-provider'
+    && lockedExplicitSelection.model === 'other-model'
+    && lockedExplicitSelection.reasoningEffort === 'high'
+    && resolvedCalls.at(-1)?.provider === 'other-provider',
+)
 let providerWithoutModelRejected = false
 try {
   await resolveMemberLlmSelection(selectionContext, captain, { provider: 'other-provider', defaults: routeAwareSettings })
@@ -931,13 +973,14 @@ try {
   providerWithoutModelRejected = true
 }
 check('explicit provider without model is rejected', providerWithoutModelRejected)
-let emptyEffortRejected = false
-try {
-  await resolveMemberLlmSelection(selectionContext, captain, { reasoningEffort: '  ', defaults: routeAwareSettings })
-} catch {
-  emptyEffortRejected = true
-}
-check('empty explicit reasoning effort is rejected', emptyEffortRejected)
+const blankEffortSelection = await resolveMemberLlmSelection(selectionContext, captain, {
+  reasoningEffort: '  ',
+  defaults: routeAwareSettings,
+})
+check(
+  'blank member reasoning effort is treated as omitted',
+  blankEffortSelection.reasoningEffort === 'max',
+)
 
 let startSpec
 const spawnMemberRecord = {

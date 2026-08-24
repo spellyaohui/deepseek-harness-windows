@@ -78,6 +78,21 @@ export interface MemberLlmSelectionRequest {
   defaults: AgentTeamsSettings
 }
 
+function hasNonBlank(value: string | undefined): boolean {
+  return value !== undefined && value.trim() !== ''
+}
+
+function memberSelectionError(error: unknown, providerIds: readonly string[]): Error {
+  const message = error instanceof Error ? error.message : String(error)
+  const base = message.endsWith('.') ? message : `${message}.`
+  const validProviders = [...new Set(providerIds.map((provider) => provider.trim()).filter(Boolean))].sort()
+  const valid = validProviders.length === 0 ? '' : ` Valid providers: ${validProviders.join(', ')}.`
+  return new Error(
+    `${base}${valid} Omit provider/model to inherit AgentTeams settings.`,
+    { cause: error },
+  )
+}
+
 /** Process-local bridge between spawn admission and synchronous child setup. */
 export interface MemberSelectionRuntime {
   /** Make one selection visible while Harness materializes the fresh child. */
@@ -149,7 +164,13 @@ export async function resolveMemberLlmSelection(
     provider: candidate.provider,
     model: candidate.model,
     ...(candidate.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(candidate.reasoningEffort) }),
-  }, signal)
+  }, signal).catch((error: unknown): never => {
+    const hasRouteOverride = hasNonBlank(request.provider) || hasNonBlank(request.model)
+    if (request.defaults.memberReasoningMode !== 'explicit' && hasRouteOverride) {
+      throw memberSelectionError(error, ctx.llm.listProviders().map((provider) => provider.id))
+    }
+    throw error
+  })
   return {
     provider: resolved.provider,
     model: resolved.model,
