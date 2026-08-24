@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.13-desktop.2`.
+- Desktop fork version is `0.1.13-desktop.3`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -26,7 +26,15 @@
 - `.desktop.2` makes explicit member settings authoritative, treats blank
   non-explicit tool arguments as omitted, and adds actionable invalid-route
   errors.
+- `.desktop.3` makes member task claims compatible with noisy tool arguments:
+  members are instructed to send only `task_id`, while blank, whitespace, or
+  self `assignee` values remain idempotent and attempts to claim as another
+  actor are still rejected.
 
 ## Upgrade rule
 
-Import a future upstream release into a fresh temporary checkout, compare it with this directory, reapply only the intentional local modules above, then run `pnpm build`, `pnpm verify`, and every `scripts/desktop-*-verify.mjs` gate before changing the recorded baseline.
+Import a future upstream release into a fresh isolated worktree, classify every
+registered capability in `../../docs/UPSTREAM_MAINTENANCE.md`, reapply or
+migrate the intentional local modules above, then run `pnpm test` here and
+`npm run verify:upstream` from `win-desktop` before changing the recorded
+baseline.

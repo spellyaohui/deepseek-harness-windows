@@ -55,10 +55,13 @@ Markdown 可能包含 system prompt、工作区路径、对话和敏感项目上
 cd win-desktop
 npm ci --legacy-peer-deps --install-links=true
 npm test
+npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.13`（`v0.1.13` / `912aae5225d3d85fa841a1b0c8a5c77021876c25`），本地版本为 `0.1.13-desktop.1`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.13`（`v0.1.13` / `912aae5225d3d85fa841a1b0c8a5c77021876c25`），本地版本为 `0.1.13-desktop.3`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+
+同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 
 验证本地 fork 与 Windows 包装器：
 
