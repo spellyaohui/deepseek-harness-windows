@@ -2,12 +2,13 @@ import { createRequire } from 'node:module'
 import { readFileSync, readdirSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   HIDDEN_CONSOLE_STARTF,
   injectWindowsHideArgs,
+  normalizeRedundantEscalationArgs,
   rewriteDesktopConsoleSource,
   patchNodeChildProcess,
 } from '../src/win-hide-console-rewrite.js'
@@ -29,6 +30,74 @@ function sandboxAclBundleSource() {
 const subprocessSource = readFileSync(require.resolve('@deepseek-ai/dsh-subprocess-local'), 'utf8')
 const sandboxAclSource = sandboxAclBundleSource()
 const sandboxLocalSource = readFileSync(require.resolve('@deepseek-ai/dsh-sandbox-local'), 'utf8')
+const pwshSourcePath = require.resolve('@deepseek-ai/dsh-tool-pwsh')
+const bashSourcePath = require.resolve('@deepseek-ai/dsh-tool-bash')
+const pwshSource = readFileSync(pwshSourcePath, 'utf8')
+const bashSource = readFileSync(bashSourcePath, 'utf8')
+
+test('normalizes only redundant shell escalation requests', () => {
+  assert.deepEqual(normalizeRedundantEscalationArgs({
+    sandbox_permissions: 'danger-full-access',
+    justification: 'Already unrestricted.',
+    command: 'Get-Location',
+  }, 'danger-full-access'), {
+    sandbox_permissions: undefined,
+    justification: undefined,
+    command: 'Get-Location',
+  })
+  assert.deepEqual(normalizeRedundantEscalationArgs({
+    sandbox_permissions: 'workspace-write',
+    justification: '',
+    command: 'Get-Location',
+  }, 'danger-full-access'), {
+    sandbox_permissions: undefined,
+    justification: undefined,
+    command: 'Get-Location',
+  })
+  assert.deepEqual(normalizeRedundantEscalationArgs({
+    sandbox_permissions: 'workspace-write',
+    justification: 'Already writable.',
+    command: 'pwd',
+  }, 'workspace-write'), {
+    sandbox_permissions: undefined,
+    justification: undefined,
+    command: 'pwd',
+  })
+  assert.deepEqual(normalizeRedundantEscalationArgs({
+    sandbox_permissions: 'danger-full-access',
+    justification: 'Need wider access.',
+    command: 'pwd',
+  }, 'workspace-write'), {
+    sandbox_permissions: 'danger-full-access',
+    justification: 'Need wider access.',
+    command: 'pwd',
+  })
+  assert.deepEqual(normalizeRedundantEscalationArgs({
+    sandbox_permissions: 'workspace-write',
+    justification: 'Need write access.',
+    command: 'pwd',
+  }, 'read-only'), {
+    sandbox_permissions: 'workspace-write',
+    justification: 'Need write access.',
+    command: 'pwd',
+  })
+})
+
+test('rewrite normalizes real Pwsh and Bash module escalation before validation', () => {
+  for (const [source, sourcePath, validator] of [
+    [pwshSource, pwshSourcePath, 'validatePwshArgs(args);'],
+    [bashSource, bashSourcePath, 'validateBashArgs(args);'],
+  ]) {
+    const rewritten = rewriteDesktopConsoleSource(source, pathToFileURL(sourcePath).href)
+    const normalizerIndex = rewritten.indexOf('normalizeRedundantEscalationArgs')
+    const validatorIndex = rewritten.indexOf(validator)
+    assert.ok(normalizerIndex >= 0, `expected ${validator} rewrite to include the normalizer`)
+    assert.ok(validatorIndex >= 0, `expected real module to include ${validator}`)
+    assert.ok(normalizerIndex < validatorIndex, `expected normalizer before ${validator}`)
+    assert.equal(rewriteDesktopConsoleSource(rewritten, pathToFileURL(sourcePath).href), rewritten)
+  }
+})
+
 test('dsh web args preload the Windows console-hide guard', () => {
   const hook = resolveWinHideConsoleImport()
   const args = buildDshArgs('entry.js', { platform: 'win32' })

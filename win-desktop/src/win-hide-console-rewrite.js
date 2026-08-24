@@ -41,6 +41,28 @@ const OPENCODE_MISSING_FINISH_PATCH = `if (!hasFinishReason) {
 
 export { HIDDEN_CONSOLE_STARTF }
 
+export function normalizeRedundantEscalationArgs(args, currentMode) {
+  const requested = args?.sandbox_permissions
+  const redundant = requested !== undefined && (
+    currentMode === 'danger-full-access'
+    || (currentMode === 'workspace-write' && requested === 'workspace-write')
+  )
+  return redundant
+    ? { ...args, sandbox_permissions: undefined, justification: undefined }
+    : args
+}
+
+function rewriteShellEscalationSource(source, validator) {
+  const needle = `async execute(args, exec) {
+\t\t\t${validator}(args);
+\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);`
+  const patch = `async execute(args, exec) {
+\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);
+\t\t\targs = (${normalizeRedundantEscalationArgs.toString()})(args, standingPolicy.mode);
+\t\t\t${validator}(args);`
+  return source.includes(needle) ? source.replace(needle, patch) : source
+}
+
 export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUrl = '') {
   const url = decodeURIComponent(String(moduleUrl))
   let next = source
@@ -76,6 +98,14 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
     if (next.includes(RUNNER_DEV_NEEDLE)) {
       next = next.replace(RUNNER_DEV_NEEDLE, runnerDevPatch)
     }
+  }
+
+  if (url.includes('@deepseek-ai/dsh-tool-pwsh')) {
+    next = rewriteShellEscalationSource(next, 'validatePwshArgs')
+  }
+
+  if (url.includes('@deepseek-ai/dsh-tool-bash')) {
+    next = rewriteShellEscalationSource(next, 'validateBashArgs')
   }
 
   if (url.includes('@earendil-works/pi-ai/dist/api/openai-completions.js')) {
