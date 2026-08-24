@@ -1,8 +1,10 @@
 import { normalizeCpaBaseURL } from './address.ts'
 import { reasoningEffortsForModel } from './reasoning.ts'
-import type { CpaDraft, CpaModelCandidate, CpaModelProfile, CpaProviderProfile } from './types.ts'
+import type { CpaDraft, CpaInputModality, CpaModelCandidate, CpaModelProfile, CpaProviderProfile } from './types.ts'
 
 type UnknownRecord = Record<string, unknown>
+
+const CPA_INPUT_MODALITIES: CpaInputModality[] = ['text', 'image']
 
 /** Merge a fresh listing with configured rows the endpoint temporarily omitted. */
 export function mergeCpaCandidates(
@@ -46,6 +48,7 @@ export function buildCpaModels(candidates: readonly CpaModelCandidate[]): CpaMod
       name,
       ...candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow },
       ...candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens },
+      input: [...CPA_INPUT_MODALITIES],
       reasoningEfforts: reasoningEffortsForModel(id),
     })
   }
@@ -60,6 +63,7 @@ export function buildCpaProfile(draft: CpaDraft): CpaProviderProfile {
     apiKeyEnv: 'CPA_API_KEY',
     api: 'openai-responses',
     baseURL: normalizeCpaBaseURL(draft.baseURL),
+    defaultInput: [...CPA_INPUT_MODALITIES],
     models: buildCpaModels(draft.models),
   }
 }
@@ -81,9 +85,13 @@ export function normalizeCpaProviderProfile(value: UnknownRecord): UnknownRecord
     const model = rawModel as UnknownRecord
     const id = typeof model['id'] === 'string' ? model['id'].trim() : ''
     if (id === '') return model
+    const input = Array.isArray(model['input']) && model['input'].length > 0
+      ? model['input']
+      : [...CPA_INPUT_MODALITIES]
     return {
       ...model,
       id,
+      input,
       reasoningEfforts: reasoningEffortsForModel(id),
     }
   })
@@ -94,6 +102,11 @@ export function normalizeCpaProviderProfile(value: UnknownRecord): UnknownRecord
     apiKeyEnv: 'CPA_API_KEY',
     api: 'openai-responses',
     baseURL: normalizeCpaBaseURL(baseURL),
+    // CPA is a multimodal gateway by contract. Keep a per-model ['text']
+    // override when a deployment has a genuinely text-only model, but do not
+    // let an old route-level text-only default disable image admission for
+    // newly added CPA models.
+    defaultInput: [...CPA_INPUT_MODALITIES],
     models,
   }
 }

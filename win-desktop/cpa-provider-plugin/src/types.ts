@@ -4,6 +4,8 @@ export type CpaReasoningWire = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 
 
 export type CpaReasoningEfforts = Readonly<Partial<Record<CpaReasoningKey, CpaReasoningWire>>>
 
+export type CpaInputModality = 'text' | 'image'
+
 export interface CpaModelCandidate {
   id: string
   name?: string
@@ -17,6 +19,7 @@ export interface CpaModelProfile {
   name: string
   contextWindow?: number
   maxTokens?: number
+  input: CpaInputModality[]
   reasoningEfforts: CpaReasoningEfforts
 }
 
@@ -31,5 +34,6 @@ export interface CpaProviderProfile {
   apiKeyEnv: 'CPA_API_KEY'
   api: 'openai-responses'
   baseURL: string
+  defaultInput: CpaInputModality[]
   models: CpaModelProfile[]
 }

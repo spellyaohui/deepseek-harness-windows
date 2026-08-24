@@ -1,5 +1,6 @@
 import { normalizeCpaBaseURL } from "./address.js";
 import { reasoningEffortsForModel } from "./reasoning.js";
+const CPA_INPUT_MODALITIES = ['text', 'image'];
 /** Merge a fresh listing with configured rows the endpoint temporarily omitted. */
 export function mergeCpaCandidates(configured, discovered) {
     const configuredById = new Map(configured.map(candidate => [candidate.id.trim(), candidate]));
@@ -42,6 +43,7 @@ export function buildCpaModels(candidates) {
             name,
             ...candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow },
             ...candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens },
+            input: [...CPA_INPUT_MODALITIES],
             reasoningEfforts: reasoningEffortsForModel(id),
         });
     }
@@ -56,6 +58,7 @@ export function buildCpaProfile(draft) {
         apiKeyEnv: 'CPA_API_KEY',
         api: 'openai-responses',
         baseURL: normalizeCpaBaseURL(draft.baseURL),
+        defaultInput: [...CPA_INPUT_MODALITIES],
         models: buildCpaModels(draft.models),
     };
 }
@@ -78,9 +81,13 @@ export function normalizeCpaProviderProfile(value) {
         const id = typeof model['id'] === 'string' ? model['id'].trim() : '';
         if (id === '')
             return model;
+        const input = Array.isArray(model['input']) && model['input'].length > 0
+            ? model['input']
+            : [...CPA_INPUT_MODALITIES];
         return {
             ...model,
             id,
+            input,
             reasoningEfforts: reasoningEffortsForModel(id),
         };
     });
@@ -90,6 +97,11 @@ export function normalizeCpaProviderProfile(value) {
         apiKeyEnv: 'CPA_API_KEY',
         api: 'openai-responses',
         baseURL: normalizeCpaBaseURL(baseURL),
+        // CPA is a multimodal gateway by contract. Keep a per-model ['text']
+        // override when a deployment has a genuinely text-only model, but do not
+        // let an old route-level text-only default disable image admission for
+        // newly added CPA models.
+        defaultInput: [...CPA_INPUT_MODALITIES],
         models,
     };
 }

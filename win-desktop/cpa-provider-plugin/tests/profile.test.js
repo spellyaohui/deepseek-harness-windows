@@ -18,6 +18,7 @@ test('builds deduplicated CPA models with exact per-model reasoning metadata', (
     id: 'gpt-5.6-sol',
     name: 'GPT 5.6 Sol',
     contextWindow: 400000,
+    input: ['text', 'image'],
     reasoningEfforts: {
       off: 'none', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max',
     },
@@ -61,6 +62,8 @@ test('assembles the stable CPA llm-pi-ai route', () => {
   assert.equal(profile.apiKeyEnv, 'CPA_API_KEY')
   assert.equal(profile.api, 'openai-responses')
   assert.equal(profile.baseURL, 'https://proxy.example.invalid/v1')
+  assert.deepEqual(profile.defaultInput, ['text', 'image'])
+  assert.deepEqual(profile.models[0].input, ['text', 'image'])
   assert.equal(JSON.stringify(profile).includes('fixture'), false)
 })
 
@@ -78,7 +81,28 @@ test('normalizes native CPA edits without scaling capacities or leaking the Toke
   assert.equal(profile.models[0].id, 'gpt-5.6-sol')
   assert.equal(profile.models[0].contextWindow, 1050000)
   assert.equal(profile.models[0].maxTokens, 131072)
+  assert.deepEqual(profile.defaultInput, ['text', 'image'])
+  assert.deepEqual(profile.models[0].input, ['text', 'image'])
   assert.deepEqual(Object.values(profile.models[0].reasoningEfforts), [
     'none', 'low', 'medium', 'high', 'xhigh', 'max',
+  ])
+})
+
+test('preserves an explicit native modality override while defaulting CPA models to vision', () => {
+  const profile = normalizeCpaProviderProfile({
+    baseURL: 'https://proxy.example.invalid/v1',
+    defaultInput: ['text'],
+    models: [
+      { id: 'vision-model', input: ['text', 'image'] },
+      { id: 'text-only-model', input: ['text'] },
+      { id: 'default-vision-model' },
+    ],
+  })
+
+  assert.deepEqual(profile.defaultInput, ['text', 'image'])
+  assert.deepEqual(profile.models.map(model => model.input), [
+    ['text', 'image'],
+    ['text'],
+    ['text', 'image'],
   ])
 })

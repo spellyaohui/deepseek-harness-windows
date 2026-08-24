@@ -49,6 +49,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/profile.js
+		const CPA_INPUT_MODALITIES = ["text", "image"];
 		/**
 		* Normalize a CPA profile edited through Harness's native provider editor.
 		* Provider-specific facts stay here so the generic Models fork remains
@@ -64,9 +65,11 @@ window.__ModuleLoader__.load({
 				const model = rawModel;
 				const id = typeof model["id"] === "string" ? model["id"].trim() : "";
 				if (id === "") return model;
+				const input = Array.isArray(model["input"]) && model["input"].length > 0 ? model["input"] : [...CPA_INPUT_MODALITIES];
 				return {
 					...model,
 					id,
+					input,
 					reasoningEfforts: reasoningEffortsForModel(id)
 				};
 			});
@@ -76,6 +79,7 @@ window.__ModuleLoader__.load({
 				apiKeyEnv: "CPA_API_KEY",
 				api: "openai-responses",
 				baseURL: normalizeCpaBaseURL(baseURL),
+				defaultInput: [...CPA_INPUT_MODALITIES],
 				models
 			};
 		}
