@@ -14,10 +14,6 @@ window.__ModuleLoader__.load({
       .dsh-desktop-settings-label { display:block; margin:14px 0 7px; color:var(--dsw-alias-label-primary,#eef2f7); font-size:13px; font-weight:500; }
       .dsh-desktop-settings-select { width:100%; min-height:38px; padding:8px 10px; border:1px solid var(--dsw-alias-border-primary,rgba(255,255,255,.16)); border-radius:9px; background:var(--dsw-alias-bg-layer-2,#111821); color:var(--dsw-alias-label-primary,#eef2f7); font:inherit; }
       .dsh-desktop-settings-select:focus { outline:2px solid var(--dsw-alias-interactive-border-focus,#5b8cff); outline-offset:1px; }
-      .dsh-desktop-settings-button { min-height:38px; padding:8px 13px; border:1px solid var(--dsw-alias-border-primary,rgba(255,255,255,.16)); border-radius:9px; background:var(--dsw-alias-bg-layer-2,#111821); color:var(--dsw-alias-label-primary,#eef2f7); font:inherit; cursor:pointer; }
-      .dsh-desktop-settings-button:hover { border-color:var(--dsw-alias-interactive-border-hover,#5b8cff); }
-      .dsh-desktop-settings-button:disabled { opacity:.55; cursor:wait; }
-      .dsh-desktop-settings-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:2px; }
     `
 
     function ensureStyles() {
@@ -53,16 +49,17 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'dsh-desktop-settings' }, h('div', { className: 'dsh-desktop-settings-card' }, '正在加载桌面设置…'))
       }
 
-      const setField = (key, value) => setSettings((current) => ({ ...current, [key]: value }))
-      const save = async () => {
+      const persistCloseBehavior = async (closeBehavior) => {
+        const previous = settings
+        setSettings((current) => ({ ...current, closeBehavior }))
         setSaving(true)
         setMessage('正在保存…')
         try {
-          await bridge.setSettings({
-            closeBehavior: settings.closeBehavior,
-          })
+          const committed = await bridge.setSettings({ closeBehavior })
+          setSettings(committed)
           setMessage('已保存')
         } catch (error) {
+          setSettings(previous)
           setMessage(`保存失败：${String(error)}`)
         } finally {
           setSaving(false)
@@ -74,12 +71,12 @@ window.__ModuleLoader__.load({
           h('h2', { className: 'dsh-desktop-settings-title' }, '窗口行为'),
           h('p', { className: 'dsh-desktop-settings-help' }, '选择关闭主窗口时退出程序，或继续在系统托盘运行。'),
           h('label', { className: 'dsh-desktop-settings-label', htmlFor: 'dsh-close-behavior' }, '关闭主窗口'),
-          h('select', { id: 'dsh-close-behavior', className: 'dsh-desktop-settings-select', value: settings.closeBehavior ?? 'quit', onChange: (event) => setField('closeBehavior', event.target.value) },
+          h('select', { id: 'dsh-close-behavior', className: 'dsh-desktop-settings-select', value: settings.closeBehavior ?? 'quit', disabled: saving, onChange: (event) => { void persistCloseBehavior(event.target.value) } },
             h('option', { value: 'quit' }, '关闭窗口并退出程序'),
             h('option', { value: 'tray' }, '关闭窗口后隐藏到系统托盘'),
           ),
         ),
-        h('div', { className: 'dsh-desktop-settings-actions' }, h('button', { type: 'button', className: 'dsh-desktop-settings-button', disabled: saving, onClick: save }, saving ? '保存中…' : '保存设置')),
+        message === '' ? null : h('p', { role: message.startsWith('保存失败') ? 'alert' : 'status', 'aria-live': 'polite' }, message),
       )
     }
 
