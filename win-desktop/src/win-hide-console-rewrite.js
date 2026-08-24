@@ -43,10 +43,12 @@ export { HIDDEN_CONSOLE_STARTF }
 
 export function normalizeRedundantEscalationArgs(args, currentMode) {
   const requested = args?.sandbox_permissions
-  const redundant = requested !== undefined && (
-    currentMode === 'danger-full-access'
-    || (currentMode === 'workspace-write' && requested === 'workspace-write')
-  )
+  const knownModes = ['read-only', 'workspace-write', 'danger-full-access']
+  const currentRank = knownModes.indexOf(currentMode)
+  const requestedRank = knownModes.indexOf(requested)
+  const redundant = currentRank !== -1
+    && requestedRank !== -1
+    && requestedRank <= currentRank
   return redundant
     ? { ...args, sandbox_permissions: undefined, justification: undefined }
     : args

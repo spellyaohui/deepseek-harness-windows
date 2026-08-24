@@ -81,6 +81,29 @@ test('normalizes only redundant shell escalation requests', () => {
     justification: 'Need write access.',
     command: 'pwd',
   })
+
+  for (const requested of [null, 'bogus-mode', 'future-sandbox-mode']) {
+    const args = {
+      sandbox_permissions: requested,
+      justification: 'Leave validation to the official shell tool.',
+      command: 'pwd',
+    }
+    assert.equal(
+      normalizeRedundantEscalationArgs(args, 'danger-full-access'),
+      args,
+      `expected unknown requested mode ${JSON.stringify(requested)} to remain untouched`,
+    )
+  }
+
+  const unknownCurrentMode = {
+    sandbox_permissions: 'workspace-write',
+    justification: 'Leave future policy semantics to the official shell tool.',
+    command: 'pwd',
+  }
+  assert.equal(
+    normalizeRedundantEscalationArgs(unknownCurrentMode, 'future-sandbox-mode'),
+    unknownCurrentMode,
+  )
 })
 
 test('rewrite normalizes real Pwsh and Bash module escalation before validation', () => {
@@ -102,6 +125,28 @@ test('rewrite normalizes real Pwsh and Bash module escalation before validation'
     assert.ok(!rewritten.includes(oldExecuteBlock), `expected old ${name} validation order to be removed`)
     assert.ok(rewritten.includes(expectedPatch), `expected complete ${name} normalization patch before validation`)
     assert.equal(rewriteDesktopConsoleSource(rewritten, pathToFileURL(sourcePath).href), rewritten)
+  }
+})
+
+test('rewritten Pwsh and Bash execute paths preserve validation and approval boundaries', () => {
+  const fixture = fileURLToPath(new URL('./fixtures/shell-escalation-runtime.mjs', import.meta.url))
+  for (const shell of ['pwsh', 'bash']) {
+    const result = spawnSync(process.execPath, [fixture, shell], {
+      encoding: 'utf8',
+      windowsHide: true,
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+    })
+    assert.equal(result.status, 0, result.stderr)
+    assert.deepEqual(JSON.parse(result.stdout), {
+      shell,
+      sameModeRunnerCalls: 1,
+      narrowerModeRunnerCalls: 1,
+      wideningBlankRunnerCalls: 0,
+      justificationOnlyRunnerCalls: 0,
+      validWideningApprovalCalls: 1,
+      runnerCallsBeforeApproval: 0,
+      validWideningRunnerCalls: 1,
+    })
   }
 })
 
