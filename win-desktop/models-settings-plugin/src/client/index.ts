@@ -53,6 +53,7 @@ export type { ModelsSettingsState, ProviderRow } from './store.ts'
 export type {
   ProviderProfileDraft,
   ProviderProfileNormalization,
+  ProviderProfileNormalizationPayload,
   ProviderProfileNormalizer,
 } from './provider-profile.ts'
 
