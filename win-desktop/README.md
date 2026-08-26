@@ -1,6 +1,11 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.14`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.15`。
+
+## `v0.1.1-rc.15` 更新说明
+
+- 修复 OpenCode 模型能力卡片的浏览器插件加载格式：不再引用加载器环境中不存在的 CommonJS `exports`，避免启动时报 `Failed to load plugins`。
+- 增加加载器工厂真实执行回归，验证客户端正确返回 `inject` 与 `apply` 定义。
 
 ## `v0.1.1-rc.14` 更新说明
 
@@ -128,8 +133,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.14-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.14-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.15-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.15-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

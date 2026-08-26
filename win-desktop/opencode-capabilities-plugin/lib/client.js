@@ -51,13 +51,14 @@ window.__ModuleLoader__.load({
       )
     }
 
-    exports.inject = ['slots']
-    exports.apply = (ctx) => {
+    function apply(ctx) {
       ctx.slots.inject('settings.models.card', () => ctx.slots.register({
         name: 'settings.models.card',
         id: 'opencode-capabilities',
         order: -20,
       }, OpenCodeCapabilitiesCard))
     }
+
+    return { inject: ['slots'], apply }
   },
 })

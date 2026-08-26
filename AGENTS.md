@@ -51,7 +51,7 @@ evidence that the local capability is preserved.
   reconciliation, the manual capability-validation bridge, plugin mounting, and
   startup integration.
 
-## Release `v0.1.1-rc.14` interaction invariants
+## Release `v0.1.1-rc.15` interaction invariants
 
 - CPA appears once in “设置 → 模型”, through the native configured-provider
   row. The expandable native editor must retain API address, Token, model
