@@ -143,6 +143,34 @@ test('persisted OpenCode models hydrate the runtime catalog before startup', () 
   }
 })
 
+test('static OpenCode protocol mismatches are repaired even without a settings file', () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-opencode-static-repair-'))
+  const catalogPath = join(root, 'opencode-go.json')
+  const settingsPath = join(root, 'missing-settings.yaml')
+  writeFileSync(catalogPath, JSON.stringify({
+    'openai-completions': {
+      'muse-spark-1.2-contributor': minimalOpencodeModel('muse-spark-1.2-contributor'),
+      'gpt-5.6-luna': minimalOpencodeModel('gpt-5.6-luna'),
+    },
+    'anthropic-messages': {
+      'qwen3.7-max': minimalOpencodeModel('qwen3.7-max', 'anthropic-messages'),
+      'qwen3.7-plus': minimalOpencodeModel('qwen3.7-plus', 'anthropic-messages'),
+    },
+  }))
+
+  try {
+    const result = hydrateOpencodeCatalogFromSettings({ catalogPath, settingsPath })
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+    assert.equal(result.added, 0)
+    assert.equal(catalog['openai-responses']['muse-spark-1.2-contributor'].api, 'openai-responses')
+    assert.equal(catalog['openai-responses']['gpt-5.6-luna'].api, 'openai-responses')
+    assert.equal(catalog['openai-completions']['qwen3.7-max'].api, 'openai-completions')
+    assert.equal(catalog['openai-completions']['qwen3.7-plus'].api, 'openai-completions')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('catalog preparation waits for live OpenCode models before resolving', async () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-opencode-prepare-'))
   const catalogPath = join(root, 'opencode-go.json')
@@ -172,6 +200,30 @@ test('catalog preparation waits for live OpenCode models before resolving', asyn
     const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
     assert.equal(result.added, 1)
     assert.equal(catalog['openai-completions']['live-model'].api, 'openai-completions')
+  } finally {
+    globalThis.fetch = previousFetch
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('live discovery gives a documented OpenCode profile its verified transport', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-opencode-live-profile-'))
+  const catalogPath = join(root, 'opencode-go.json')
+  const settingsPath = join(root, 'settings.yaml')
+  writeFileSync(catalogPath, JSON.stringify({ 'openai-completions': {} }))
+  writeFileSync(settingsPath, '{}\n')
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({ data: [{ id: 'muse-spark-1.2-contributor' }, { id: 'future-model' }] }),
+  })
+
+  try {
+    const result = await prepareOpencodeCatalog({ catalogPath, settingsPath })
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+    assert.equal(result.added, 2)
+    assert.equal(catalog['openai-responses']['muse-spark-1.2-contributor'].api, 'openai-responses')
+    assert.equal(catalog['openai-completions']['future-model'].api, 'openai-completions')
   } finally {
     globalThis.fetch = previousFetch
     rmSync(root, { recursive: true, force: true })
