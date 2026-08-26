@@ -35,6 +35,28 @@ const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
  * fallback rather than being retried on another endpoint after a server error.
  */
 export const OPENCODE_GO_PROTOCOL_PROFILES = Object.freeze({
+  // K3 is served by the Moonshot backend through the OpenCode Go
+  // Chat-Completions translator. Its first request already carries Harness
+  // tools, so retain the backend's stricter tool and reasoning replay rules
+  // here instead of treating it as a generic OpenAI-compatible model.
+  'kimi-k3': Object.freeze({
+    api: 'openai-completions',
+    name: 'Kimi K3 (2x usage)',
+    reasoning: true,
+    input: ['text', 'image'],
+    thinkingLevelMap: { off: null, minimal: null, low: null, medium: null, high: null, xhigh: null, max: 'max' },
+    contextWindow: 1048576,
+    maxTokens: 131072,
+    cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 0 },
+    compat: {
+      supportsStore: false,
+      supportsDeveloperRole: false,
+      supportsStrictMode: false,
+      maxTokensField: 'max_tokens',
+      requiresReasoningContentOnAssistantMessages: true,
+      deferredToolsMode: 'kimi',
+    },
+  }),
   'muse-spark-1.2-contributor': Object.freeze({
     api: 'openai-responses',
     name: 'Muse Spark 1.2 Contributor',

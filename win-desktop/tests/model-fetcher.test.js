@@ -77,6 +77,26 @@ test('applies verified OpenCode Muse capabilities without mutating the source ca
   assert.equal(catalog['openai-completions']['muse-spark-1.2-contributor'].api, 'openai-completions')
 })
 
+test('repairs Kimi K3 tool compatibility before the first OpenCode Go request', () => {
+  const catalog = {
+    'openai-completions': {
+      'kimi-k3': minimalOpencodeModel('kimi-k3'),
+    },
+  }
+
+  const repaired = reconcileOpencodeCatalog(catalog)
+  const k3 = repaired['openai-completions']['kimi-k3']
+
+  assert.equal(k3.api, 'openai-completions')
+  assert.equal(k3.compat.supportsStrictMode, false)
+  assert.equal(k3.compat.requiresReasoningContentOnAssistantMessages, true)
+  assert.equal(k3.compat.deferredToolsMode, 'kimi')
+  assert.equal(k3.thinkingLevelMap.max, 'max')
+  assert.equal(k3.thinkingLevelMap.low, null)
+  assert.equal(k3.contextWindow, 1048576)
+  assert.equal(k3.maxTokens, 131072)
+})
+
 test('repairs the complete verified OpenCode image capability coverage without guessing unknown models', () => {
   const catalog = {
     'openai-completions': Object.fromEntries([

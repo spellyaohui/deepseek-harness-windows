@@ -2,7 +2,7 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.15`（开发者预览）
+> 当前版本：`v0.1.1-rc.17`（开发者预览）
 
 ## 为什么选择这个项目
 
@@ -26,6 +26,7 @@
 - **子智能体可控可追踪**：AgentTeams 的模型、提供商、思考强度和 Team/Native 委派路由在主程序设置 TAB 中管理；明确指定时不继承上游模型和思考参数。
 - **会话可续接**：`续接 MD` 以确定性程序导出时间线、可见上下文、工具摘要和子会话 lineage，方便交给新的智能体继续；隐藏思维链和成功工具原始载荷不会被伪装导出。
 - **OpenCode 图片能力自愈**：启动时校正已验证的协议和图片能力；遇到旧目录或可疑模型时，可在“设置 → 模型”一键校验，不会修改 API 地址或 Token。
+- **OpenCode Go 会话路由兼容**：所有 OpenCode Go 模型沿用 Harness 当前会话的 `x-opencode-session` 粘性路由，避免 Kimi K3 等模型被网关误路由后伪装成“API key 无效”；通用 Provider 不受影响。
 - **面向长期维护的插件边界**：CPA、AgentTeams、Models 设置、桌面设置、Session Markdown 和 Windows 包装器各自负责清晰能力，便于后续独立升级和回归。
 
 ## 与上游项目的关系
@@ -58,6 +59,16 @@
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+
+## `v0.1.1-rc.17` 更新说明
+
+- 修复 OpenCode Go 模型的会话粘性：参考 OpenCode 官方客户端，为所有 `opencode-go` 请求注入当前 Harness 会话的 `x-opencode-session`，并与提示缓存开关解耦。Kimi K3 不再因无会话头被网关路由到返回 403 的后端；Kimi K2.7 Code 等模型也使用同一稳定路由。
+- 新增真实 Pi 请求链回归：验证 `cacheRetention: 'none'` 仍发送会话头，且普通 `openai` Provider 不会收到 OpenCode 专用头。Muse Spark 仍固定走上一版已验证的 `openai-responses` 路由；本次只补会话头，不改协议、地址或 Token。
+
+## `v0.1.1-rc.16` 更新说明
+
+- 修复 OpenCode Go 的 `Kimi K3 (2x usage)` 首轮工具调用兼容性：保留 Chat Completions 路由，避免发送 Kimi 原生目录禁用的 `strict` 字段，并补齐推理内容与延迟工具处理。该覆盖不读取或修改 API Key、地址或套餐设置。
+- Kimi K3 的工具参数会在发送前采用 OpenCode 官方客户端同类归一化：移除 `$ref` 节点的同级字段、把数组式 `items` 收敛为单一 Schema。真实 Pi 请求回归同时验证 `strict` 未发送及 Schema 已处理。
 
 ## `v0.1.1-rc.15` 更新说明
 

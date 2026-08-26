@@ -51,7 +51,7 @@ evidence that the local capability is preserved.
   reconciliation, the manual capability-validation bridge, plugin mounting, and
   startup integration.
 
-## Release `v0.1.1-rc.15` interaction invariants
+## Release `v0.1.1-rc.17` interaction invariants
 
 - CPA appears once in “设置 → 模型”, through the native configured-provider
   row. The expandable native editor must retain API address, Token, model
@@ -77,6 +77,15 @@ evidence that the local capability is preserved.
   same offline-safe catalog validation manually; it writes no provider settings,
   addresses, credentials, or Token, and requires restart before the repaired
   catalog is loaded.
+- `opencode-go/kimi-k3` retains its verified Chat Completions transport and
+  Kimi-specific tool compatibility: no OpenAI `strict` field, required
+  reasoning-content replay, deferred-tool handling, and the official-client
+  Kimi Schema normalization (ref siblings and tuple-style `items`). This must
+  apply before the first Harness request, including a brand-new session.
+- Every `opencode-go` model request carries the current Harness session as
+  `x-opencode-session`, including when prompt-cache retention is `none`, so the
+  OpenCode Go gateway keeps model routing stable. Generic OpenAI-compatible
+  providers must not receive this OpenCode-specific header.
 - Every future upstream refresh must classify these behaviors as
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.

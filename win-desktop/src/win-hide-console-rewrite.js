@@ -38,6 +38,41 @@ const OPENCODE_MISSING_FINISH_PATCH = `if (!hasFinishReason) {
                     throw new Error("Stream ended without finish_reason");
                 }
             }`
+const OPENCODE_ACTIVE_TOOLS_NEEDLE = 'params.tools = convertTools(activeTools, compat);'
+const OPENCODE_DEFERRED_TOOLS_NEEDLE = 'tools: convertTools(deferredTools, compat),'
+const OPENCODE_CONVERT_TOOLS_NEEDLE = 'function convertTools(tools, compat) {'
+const OPENCODE_COMPLETIONS_CACHE_SESSION_NEEDLE = 'const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;'
+const OPENCODE_COMPLETIONS_CLIENT_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, cacheSessionId, compat);'
+const OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE = `if (sessionId && compat.sendSessionAffinityHeaders) {
+        if (compat.sessionAffinityFormat === "openrouter") {`
+const OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH = `if (sessionId && (compat.sendSessionAffinityHeaders || model.provider === "opencode-go")) {
+        if (model.provider === "opencode-go") {
+            headers["x-opencode-session"] = sessionId;
+        }
+        else if (compat.sessionAffinityFormat === "openrouter") {`
+const OPENCODE_RESPONSES_CACHE_SESSION_NEEDLE = 'const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;'
+const OPENCODE_RESPONSES_CLIENT_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, cacheSessionId);'
+const OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE = `if (sessionId) {
+        if (compat.sessionAffinityFormat === "openrouter") {`
+const OPENCODE_RESPONSES_SESSION_AFFINITY_PATCH = `if (sessionId) {
+        if (model.provider === "opencode-go") {
+            headers["x-opencode-session"] = sessionId;
+        }
+        if (compat.sessionAffinityFormat === "openrouter") {`
+const OPENCODE_KIMI_SCHEMA_HELPER = `function normalizeOpenCodeKimiToolSchema(schema) {
+    if (schema === null || typeof schema !== "object") return schema;
+    if (Array.isArray(schema)) return schema.map(normalizeOpenCodeKimiToolSchema);
+    // Match OpenCode's Kimi compatibility transform: Moonshot expands refs
+    // before validation and rejects sibling fields on the ref node.
+    if (typeof schema.$ref === "string") return { $ref: schema.$ref };
+    const normalized = Object.fromEntries(Object.entries(schema).map(([key, value]) => [key, normalizeOpenCodeKimiToolSchema(value)]));
+    // Moonshot's function-schema validator expects one item schema, not a
+    // tuple-style array of schemas.
+    if (Array.isArray(normalized.items)) normalized.items = normalized.items[0] ?? {};
+    return normalized;
+}
+function convertTools(tools, compat, model) {
+    const isOpenCodeKimi = model.provider === "opencode-go" && model.id.toLowerCase().includes("kimi");`
 
 export { HIDDEN_CONSOLE_STARTF }
 
@@ -128,8 +163,14 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
     next = rewriteFsEscalationSource(next)
   }
 
+  if (url.includes('@earendil-works/pi-ai/dist/api/openai-responses.js')) {
+    next = rewriteOpenCodeGoSessionAffinity(next)
+  }
+
   if (url.includes('@earendil-works/pi-ai/dist/api/openai-completions.js')) {
     next = rewriteOpenCodeMissingFinishReason(next)
+    next = rewriteOpenCodeGoSessionAffinity(next)
+    next = rewriteOpenCodeKimiToolSchemas(next)
   }
 
   return next
@@ -144,6 +185,77 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
 export function rewriteOpenCodeMissingFinishReason(source) {
   if (!OPENCODE_MISSING_FINISH_PATTERN.test(source)) return source
   return source.replace(OPENCODE_MISSING_FINISH_PATTERN, OPENCODE_MISSING_FINISH_PATCH)
+}
+
+/**
+ * Give every OpenCode Go request the same session affinity used by the
+ * official client. The gateway can route a model-specific request to a
+ * backend that rejects it when this header is absent, even though the API
+ * key and model catalog are valid. Keep the session id independent from Pi's
+ * prompt-cache retention so `cacheRetention: "none"` still has stable routing.
+ */
+export function rewriteOpenCodeGoSessionAffinity(source) {
+  let next = rewriteOpenCodeGoCompletionsSessionAffinity(source)
+  next = rewriteOpenCodeGoResponsesSessionAffinity(next)
+  return next
+}
+
+function rewriteOpenCodeGoCompletionsSessionAffinity(source) {
+  let next = source
+  if (!next.includes('headers["x-opencode-session"] = sessionId')
+    && next.includes(OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE)) {
+    next = next.replace(OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE, OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH)
+  }
+  if (!next.includes('const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId')
+    && next.includes(OPENCODE_COMPLETIONS_CACHE_SESSION_NEEDLE)
+    && next.includes(OPENCODE_COMPLETIONS_CLIENT_NEEDLE)) {
+    next = next.replace(
+      OPENCODE_COMPLETIONS_CLIENT_NEEDLE,
+      'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId, compat);',
+    )
+  }
+  return next
+}
+
+function rewriteOpenCodeGoResponsesSessionAffinity(source) {
+  let next = source
+  if (!next.includes('headers["x-opencode-session"] = sessionId')
+    && next.includes(OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE)) {
+    next = next.replace(OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE, OPENCODE_RESPONSES_SESSION_AFFINITY_PATCH)
+  }
+  if (!next.includes('const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId')
+    && next.includes(OPENCODE_RESPONSES_CACHE_SESSION_NEEDLE)
+    && next.includes(OPENCODE_RESPONSES_CLIENT_NEEDLE)) {
+    next = next.replace(
+      OPENCODE_RESPONSES_CLIENT_NEEDLE,
+      'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId);',
+    )
+  }
+  return next
+}
+
+/**
+ * Align Kimi models on OpenCode Go with the official OpenCode client before
+ * Pi serializes tool definitions. This is deliberately provider-and-family
+ * scoped: generic OpenCode models keep their schemas byte-for-byte unchanged.
+ */
+export function rewriteOpenCodeKimiToolSchemas(source) {
+  if (source.includes('function normalizeOpenCodeKimiToolSchema(schema)')) return source
+  if (!source.includes(OPENCODE_ACTIVE_TOOLS_NEEDLE)
+    || !source.includes(OPENCODE_DEFERRED_TOOLS_NEEDLE)
+    || !source.includes(OPENCODE_CONVERT_TOOLS_NEEDLE)
+    || !source.includes('parameters: tool.parameters, // TypeBox already generates JSON Schema')) {
+    return source
+  }
+
+  return source
+    .replace(OPENCODE_ACTIVE_TOOLS_NEEDLE, 'params.tools = convertTools(activeTools, compat, model);')
+    .replace(OPENCODE_DEFERRED_TOOLS_NEEDLE, 'tools: convertTools(deferredTools, compat, model),')
+    .replace(OPENCODE_CONVERT_TOOLS_NEEDLE, OPENCODE_KIMI_SCHEMA_HELPER)
+    .replace(
+      'parameters: tool.parameters, // TypeBox already generates JSON Schema',
+      'parameters: isOpenCodeKimi ? normalizeOpenCodeKimiToolSchema(tool.parameters) : tool.parameters, // TypeBox already generates JSON Schema',
+    )
 }
 
 function injectWindowsHide(options) {

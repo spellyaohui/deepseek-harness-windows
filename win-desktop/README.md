@@ -1,6 +1,16 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.15`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.17`。
+
+## `v0.1.1-rc.17` 更新说明
+
+- OpenCode Go 所有模型请求现在携带当前 Harness 会话的 `x-opencode-session`，即使提示缓存设置为 `none` 也保持会话路由；修复 Kimi K3、Kimi K2.7 Code 等模型被网关误路由后显示“API key is invalid”的问题。
+- Muse Spark 继续使用上一版已验证的 `openai-responses` 协议；本次 Responses 兼容层只补会话头，不改变既有路由、地址、Token 或模型能力配置。
+- 普通 OpenAI-compatible Provider 保持原有请求头不变；新增真实 Pi 请求链回归覆盖 OpenCode Go 与通用 Provider 的边界。
+
+## `v0.1.1-rc.16` 更新说明
+
+- 修复 OpenCode Go `Kimi K3 (2x usage)` 在全新 Harness 会话的工具调用兼容：启动前为该模型保留 Kimi 原生目录所需的无 `strict` 工具格式、推理内容回放和延迟工具处理；工具 Schema 同步应用 OpenCode 官方客户端的 Kimi 归一化；不改变 API 地址、Token 或套餐路由。
 
 ## `v0.1.1-rc.15` 更新说明
 
@@ -133,8 +143,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.15-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.15-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.17-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.17-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 
