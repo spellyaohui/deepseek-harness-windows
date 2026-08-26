@@ -8,7 +8,73 @@ import {
   getOpencodeModelList,
   hydrateOpencodeCatalogFromSettings,
   prepareOpencodeCatalog,
+  reconcileOpencodeCatalog,
 } from '../src/model-fetcher.js'
+
+function minimalOpencodeModel(id, api = 'openai-completions') {
+  return {
+    id,
+    name: id,
+    api,
+    provider: 'opencode-go',
+    baseUrl: 'https://opencode.ai/zen/go/v1',
+    reasoning: true,
+    input: ['text'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 262144,
+    maxTokens: 32768,
+  }
+}
+
+function countCatalogId(catalog, id) {
+  return Object.values(catalog)
+    .filter(models => typeof models === 'object' && models !== null)
+    .filter(models => Object.hasOwn(models, id))
+    .length
+}
+
+test('reconciles every documented OpenCode transport mismatch exactly once', () => {
+  const futureModel = minimalOpencodeModel('future-model')
+  const catalog = {
+    'openai-completions': {
+      'muse-spark-1.2-contributor': minimalOpencodeModel('muse-spark-1.2-contributor'),
+      'gpt-5.6-luna': minimalOpencodeModel('gpt-5.6-luna'),
+      'future-model': futureModel,
+    },
+    'anthropic-messages': {
+      'qwen3.7-max': minimalOpencodeModel('qwen3.7-max', 'anthropic-messages'),
+      'qwen3.7-plus': minimalOpencodeModel('qwen3.7-plus', 'anthropic-messages'),
+    },
+  }
+
+  const repaired = reconcileOpencodeCatalog(catalog)
+
+  assert.equal(repaired['openai-responses']['muse-spark-1.2-contributor'].api, 'openai-responses')
+  assert.equal(repaired['openai-responses']['gpt-5.6-luna'].api, 'openai-responses')
+  assert.equal(repaired['openai-completions']['qwen3.7-max'].api, 'openai-completions')
+  assert.equal(repaired['openai-completions']['qwen3.7-plus'].api, 'openai-completions')
+  assert.equal(countCatalogId(repaired, 'muse-spark-1.2-contributor'), 1)
+  assert.equal(countCatalogId(repaired, 'gpt-5.6-luna'), 1)
+  assert.equal(countCatalogId(repaired, 'qwen3.7-max'), 1)
+  assert.equal(countCatalogId(repaired, 'qwen3.7-plus'), 1)
+  assert.deepEqual(repaired['openai-completions']['future-model'], futureModel)
+})
+
+test('applies verified OpenCode Muse capabilities without mutating the source catalog', () => {
+  const catalog = {
+    'openai-completions': {
+      'muse-spark-1.2-contributor': minimalOpencodeModel('muse-spark-1.2-contributor'),
+    },
+  }
+
+  const repaired = reconcileOpencodeCatalog(catalog)
+  const muse = repaired['openai-responses']['muse-spark-1.2-contributor']
+
+  assert.deepEqual(muse.input, ['text', 'image'])
+  assert.equal(muse.contextWindow, 1048576)
+  assert.equal(muse.maxTokens, 131072)
+  assert.equal(catalog['openai-completions']['muse-spark-1.2-contributor'].api, 'openai-completions')
+})
 
 test('model fetch aborts a stalled API request', async () => {
   const previousFetch = globalThis.fetch

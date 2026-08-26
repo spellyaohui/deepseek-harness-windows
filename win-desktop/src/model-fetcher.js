@@ -27,6 +27,59 @@ export const DEFAULT_OPENCODE_TIMEOUT_MS = 8_000
 const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 
 /**
+ * Verified per-model OpenCode Go protocol profiles.
+ *
+ * OpenCode's `/models` response exposes IDs only, so its live catalog cannot
+ * describe a model's transport. Keep only profiles verified by Pi's model
+ * registry here; unknown IDs deliberately retain the generic Completions
+ * fallback rather than being retried on another endpoint after a server error.
+ */
+export const OPENCODE_GO_PROTOCOL_PROFILES = Object.freeze({
+  'muse-spark-1.2-contributor': Object.freeze({
+    api: 'openai-responses',
+    name: 'Muse Spark 1.2 Contributor',
+    reasoning: true,
+    input: ['text', 'image'],
+    thinkingLevelMap: { off: null, minimal: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: null },
+    contextWindow: 1048576,
+    maxTokens: 131072,
+    cost: { input: 0.1, output: 0.2, cacheRead: 0.002, cacheWrite: 0 },
+    compat: { sessionAffinityFormat: 'openai-nosession' },
+  }),
+  'gpt-5.6-luna': Object.freeze({
+    api: 'openai-responses',
+    name: 'GPT-5.6 Luna',
+    reasoning: true,
+    input: ['text', 'image'],
+    thinkingLevelMap: { off: null, minimal: null, low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' },
+    contextWindow: 1050000,
+    maxTokens: 128000,
+    cost: { input: 0.2, output: 1.2, cacheRead: 0.02, cacheWrite: 0.25 },
+    compat: { sessionAffinityFormat: 'openai-nosession' },
+  }),
+  'qwen3.7-max': Object.freeze({
+    api: 'openai-completions',
+    name: 'Qwen3.7 Max',
+    reasoning: true,
+    input: ['text'],
+    contextWindow: 1000000,
+    maxTokens: 65536,
+    cost: { input: 2.5, output: 7.5, cacheRead: 0.5, cacheWrite: 3.125 },
+    compat: { supportsStore: false, supportsDeveloperRole: false, maxTokensField: 'max_tokens' },
+  }),
+  'qwen3.7-plus': Object.freeze({
+    api: 'openai-completions',
+    name: 'Qwen3.7 Plus',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1000000,
+    maxTokens: 65536,
+    cost: { input: 0.4, output: 1.6, cacheRead: 0.04, cacheWrite: 0.5 },
+    compat: { supportsStore: false, supportsDeveloperRole: false, maxTokensField: 'max_tokens' },
+  }),
+})
+
+/**
  * Resolve the pi-ai catalog JSON file path for one provider.
  *
  * In dev the file sits at `../node_modules/...` relative to `src/`; in the
@@ -129,6 +182,62 @@ function recordOf(value) {
     : undefined
 }
 
+function profileModel(model, profile) {
+  const { thinkingLevelMap: _thinkingLevelMap, compat: _compat, cost: _cost, ...base } = recordOf(model) ?? {}
+  return {
+    ...base,
+    id: base.id,
+    provider: base.provider ?? 'opencode-go',
+    baseUrl: base.baseUrl ?? DEFAULT_OPENCODE_BASE_URL,
+    api: profile.api,
+    name: profile.name,
+    reasoning: profile.reasoning,
+    input: [...profile.input],
+    contextWindow: profile.contextWindow,
+    maxTokens: profile.maxTokens,
+    cost: { ...profile.cost },
+    compat: { ...profile.compat },
+    ...(profile.thinkingLevelMap === undefined ? {} : { thinkingLevelMap: { ...profile.thinkingLevelMap } }),
+  }
+}
+
+/**
+ * Return a catalog whose documented OpenCode Go models appear exactly once
+ * under their verified API transport. The input remains untouched.
+ *
+ * @param {Record<string, Record<string, object>>} catalog Pi catalog JSON.
+ * @returns {Record<string, Record<string, object>>} repaired catalog JSON.
+ */
+export function reconcileOpencodeCatalog(catalog) {
+  const repaired = {}
+  for (const [api, models] of Object.entries(recordOf(catalog) ?? {})) {
+    repaired[api] = recordOf(models) === undefined ? models : { ...models }
+  }
+
+  for (const [id, profile] of Object.entries(OPENCODE_GO_PROTOCOL_PROFILES)) {
+    let source
+    for (const models of Object.values(repaired)) {
+      if (recordOf(models) === undefined || !Object.hasOwn(models, id)) continue
+      source ??= models[id]
+      delete models[id]
+    }
+    if (source === undefined) continue
+    if (recordOf(repaired[profile.api]) === undefined) repaired[profile.api] = {}
+    repaired[profile.api][id] = profileModel(source, profile)
+  }
+
+  return repaired
+}
+
+function reconcileOpencodeCatalogFile(catalogPath) {
+  const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+  const repaired = reconcileOpencodeCatalog(catalog)
+  if (JSON.stringify(repaired) !== JSON.stringify(catalog)) {
+    writeFileSync(catalogPath, JSON.stringify(repaired), 'utf8')
+  }
+  return repaired
+}
+
 /**
  * Restore model metadata persisted by the Models page before the LLM runtime
  * imports pi-ai's JSON catalog. Desktop upgrades replace package files while
@@ -142,6 +251,16 @@ export function hydrateOpencodeCatalogFromSettings({
   if (catalogPath === undefined || !existsSync(catalogPath)) {
     return { models: [], added: 0, error: 'catalog file not found' }
   }
+  let catalog
+  try {
+    catalog = reconcileOpencodeCatalogFile(catalogPath)
+  } catch (error) {
+    return {
+      models: readCatalogModels(catalogPath),
+      added: 0,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
   if (!existsSync(settingsPath)) {
     return { models: readCatalogModels(catalogPath), added: 0, error: undefined }
   }
@@ -152,7 +271,6 @@ export function hydrateOpencodeCatalogFromSettings({
     const providers = recordOf(piAi?.['providers'])
     const opencode = recordOf(providers?.['opencode-go'])
     const persisted = Array.isArray(opencode?.['models']) ? opencode.models : []
-    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
     const existingIds = new Set()
     for (const apiModels of Object.values(catalog)) {
       if (typeof apiModels !== 'object' || apiModels === null) continue
@@ -177,7 +295,10 @@ export function hydrateOpencodeCatalogFromSettings({
       added++
     }
 
-    if (added > 0) writeFileSync(catalogPath, JSON.stringify(catalog), 'utf8')
+    const repaired = reconcileOpencodeCatalog(catalog)
+    if (added > 0 || JSON.stringify(repaired) !== JSON.stringify(catalog)) {
+      writeFileSync(catalogPath, JSON.stringify(repaired), 'utf8')
+    }
     return { models: readCatalogModels(catalogPath), added, error: undefined }
   } catch (error) {
     return {
@@ -232,6 +353,17 @@ export async function syncOpencodeCatalog(
     return { models: [], added: 0, error: 'catalog file not found' }
   }
 
+  let catalog
+  try {
+    catalog = reconcileOpencodeCatalogFile(catalogPath)
+  } catch (error) {
+    return {
+      models: readCatalogModels(catalogPath),
+      added: 0,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+
   let fetched
   try {
     fetched = await fetchOpencodeModelIds(baseUrl, undefined, options)
@@ -244,7 +376,6 @@ export async function syncOpencodeCatalog(
     }
   }
 
-  const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
   const existingIds = new Set()
   for (const apiModels of Object.values(catalog)) {
     if (typeof apiModels !== 'object' || apiModels === null) continue
@@ -261,8 +392,9 @@ export async function syncOpencodeCatalog(
     added++
   }
 
-  if (added > 0) {
-    writeFileSync(catalogPath, JSON.stringify(catalog), 'utf8')
+  const repaired = reconcileOpencodeCatalog(catalog)
+  if (added > 0 || JSON.stringify(repaired) !== JSON.stringify(catalog)) {
+    writeFileSync(catalogPath, JSON.stringify(repaired), 'utf8')
   }
 
   return { models: readCatalogModels(catalogPath), added, error: undefined }
