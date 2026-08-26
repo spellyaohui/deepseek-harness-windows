@@ -8,6 +8,7 @@ const gates = [
   ['cpa-provider-plugin', 'pnpm', ['test']],
   ['agent-teams-plugin', 'pnpm', ['test']],
   ['session-markdown-export-plugin', 'pnpm', ['test']],
+  ['.', 'npm', ['run', 'sync:local-plugin-artifacts']],
   ['.', 'npm', ['test']],
 ]
 

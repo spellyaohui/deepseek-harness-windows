@@ -94,5 +94,7 @@ npm run verify:upstream
 
 The gate must pass before accepting an upstream refresh, updating provenance,
 or building release artifacts. Do not weaken or skip a failing regression to
-make the gate green. If ownership moves upstream, preserve the regression and
-point it at the new implementation.
+make the gate green. The gate compiles local plugins and synchronizes their
+`lib` outputs into the already-installed `file:` dependencies; it must not run
+a package-manager install. If ownership moves upstream, preserve the
+regression and point it at the new implementation.

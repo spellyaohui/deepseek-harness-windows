@@ -83,6 +83,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'session-markdown-export-plugin/tests/http.test.js',
     'session-markdown-export-plugin/tests/render-markdown.test.js',
     'session-markdown-export-plugin/tests/session-export.test.js',
+    'scripts/sync-local-plugin-artifacts.mjs',
     'tests/agent-teams-integration.test.js',
     'tests/cpa-provider-integration.test.js',
     'tests/desktop-settings.test.js',
@@ -126,6 +127,7 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /Stream ended without finish_reason/)
   assertContains('src/model-fetcher.js', /OPENCODE_GO_PROTOCOL_PROFILES/)
   assertContains('src/model-fetcher.js', /reconcileOpencodeCatalog/)
+  assertContains('scripts/sync-local-plugin-artifacts.mjs', /LOCAL_PLUGIN_ARTIFACTS/)
 })
 
 test('the complete upstream regression gate remains registered', () => {
@@ -135,6 +137,11 @@ test('the complete upstream regression gate remains registered', () => {
     'package.json must retain the upstream regression command',
   )
   assertFile('scripts/verify-upstream-regressions.mjs')
+  assert.equal(
+    packageJson.scripts?.['sync:local-plugin-artifacts'],
+    'node scripts/sync-local-plugin-artifacts.mjs',
+    'package.json must retain local plugin artifact synchronization',
+  )
   const runner = read('scripts/verify-upstream-regressions.mjs')
   for (const directory of [
     'models-settings-plugin',
@@ -149,5 +156,6 @@ test('the complete upstream regression gate remains registered', () => {
   assert.match(runner, /\[upstream-regression\] START/)
   assert.match(runner, /\[upstream-regression\] PASS/)
   assert.match(runner, /\[upstream-regression\] FAIL/)
+  assert.match(runner, /sync:local-plugin-artifacts/)
   assert.doesNotMatch(runner, /\b(?:install|publish|dist:win|electron-builder)\b/)
 })
