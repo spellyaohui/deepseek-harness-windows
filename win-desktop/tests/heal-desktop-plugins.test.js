@@ -21,6 +21,7 @@ const PLUGINS = [
   '@nanmicoder/dsh-auto-mode',
   '@nanmicoder/dsh-agent-teams',
   '@deepseek-ai/dsh-session-markdown-export',
+  '@deepseek-ai/dsh-opencode-capabilities',
 ]
 
 function makeHome() {

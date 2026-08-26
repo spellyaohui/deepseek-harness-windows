@@ -1,6 +1,12 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.13`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.14`。
+
+## `v0.1.1-rc.14` 更新说明
+
+- 将 OpenCode Go 的图片能力校正扩展到完整的已验证目录：`ox-alpha-free`、DeepSeek V4 Flash Vision、Qwen 3.8 Max、Kimi K2.5、Qwen 3.5 Plus、MiMo V2 Omni，以及此前已修复的 Muse Spark 1.2 Contributor、GPT-5.6 Luna。
+- “设置 → 模型”新增 **OpenCode 模型能力** 卡片，可手动校验并修复本机模型目录；只使用离线验证规则，不读取或修改 API 地址、凭据或 Token，重启 Harness 后生效。
+- 已确认的纯文本模型和未知模型继续保持纯文本，HTTP 500 不触发猜测性协议切换或重试。
 
 ## `v0.1.1-rc.13` 更新说明
 
@@ -122,8 +128,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.13-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.13-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.14-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.14-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

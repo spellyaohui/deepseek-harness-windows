@@ -15,6 +15,7 @@ const localDependencies = {
   '@deepseek-ai/dsh-client-ui-settings-models': 'models-settings-plugin',
   '@deepseek-ai/dsh-cpa-provider': 'cpa-provider-plugin',
   '@deepseek-ai/dsh-desktop-settings': 'desktop-settings-plugin',
+  '@deepseek-ai/dsh-opencode-capabilities': 'opencode-capabilities-plugin',
   '@deepseek-ai/dsh-session-markdown-export': 'session-markdown-export-plugin',
   '@nanmicoder/dsh-agent-teams': 'agent-teams-plugin',
 }
@@ -62,6 +63,8 @@ test('desktop composition retains every independently owned local plugin', () =>
 
   assertFile('desktop-settings-plugin/lib/client.js')
   assertFile('tests/desktop-settings-plugin.test.js')
+  assertFile('opencode-capabilities-plugin/lib/client.js')
+  assertFile('tests/opencode-capabilities-integration.test.js')
 })
 
 test('behavioral regressions and ownership records cannot be silently deleted', () => {
@@ -89,6 +92,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'tests/desktop-settings.test.js',
     'tests/heal-desktop-plugins.test.js',
     'tests/model-fetcher.test.js',
+    'tests/opencode-capabilities-integration.test.js',
     'tests/opencode-stream-rewrite.test.js',
     'tests/session-markdown-export-integration.test.js',
     'tests/fixtures/fs-escalation-runtime.mjs',
@@ -126,7 +130,11 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /windowsHide/)
   assertContains('src/win-hide-console-rewrite.js', /Stream ended without finish_reason/)
   assertContains('src/model-fetcher.js', /OPENCODE_GO_PROTOCOL_PROFILES/)
+  assertContains('src/model-fetcher.js', /OPENCODE_GO_COMPATIBILITY_INPUTS/)
   assertContains('src/model-fetcher.js', /reconcileOpencodeCatalog/)
+  assertContains('opencode-capabilities-plugin/lib/client.js', /settings\.models\.card/)
+  assertContains('src/preload.cjs', /opencode-capabilities:validate/)
+  assertContains('src/settings-window.js', /validateOpencodeCatalog/)
   assertContains('scripts/sync-local-plugin-artifacts.mjs', /LOCAL_PLUGIN_ARTIFACTS/)
 })
 

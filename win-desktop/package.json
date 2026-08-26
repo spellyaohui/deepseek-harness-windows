@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-windows",
-  "version": "0.1.1-rc.13",
+  "version": "0.1.1-rc.14",
   "description": "Windows 桌面包装器：启动官方 DeepSeek Harness Web UI",
   "type": "module",
   "main": "src/main.js",
@@ -31,6 +31,7 @@
     "@deepseek-ai/dsh-home-paths": "0.1.1-rc.2",
     "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
     "@deepseek-ai/dsh-output-retention": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-opencode-capabilities": "file:opencode-capabilities-plugin",
     "@deepseek-ai/dsh-sandbox": "0.1.1-rc.2",
     "@deepseek-ai/dsh-scope": "0.1.1-rc.2",
     "@deepseek-ai/dsh-session-markdown-export": "file:session-markdown-export-plugin",

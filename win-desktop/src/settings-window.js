@@ -4,6 +4,7 @@
  */
 import { BrowserWindow, ipcMain } from 'electron'
 import { getDesktopSettings, setDesktopSettings } from './desktop-settings.js'
+import { validateOpencodeCatalog } from './model-fetcher.js'
 
 /** Whether IPC handlers have been registered (once per process). */
 let ipcInstalled = false
@@ -22,4 +23,5 @@ export function installSettingsIpc() {
     }
     return next
   })
+  ipcMain.handle('opencode-capabilities:validate', () => validateOpencodeCatalog())
 }

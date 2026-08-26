@@ -2,7 +2,7 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.13`（开发者预览）
+> 当前版本：`v0.1.1-rc.14`（开发者预览）
 
 ## 为什么选择这个项目
 
@@ -25,6 +25,7 @@
 - **完整的思考协议映射**：支持 `off / low / medium / high / xhigh / max`，其他模型保留完整七档词汇，GPT-5.6 按其可用档位过滤。
 - **子智能体可控可追踪**：AgentTeams 的模型、提供商、思考强度和 Team/Native 委派路由在主程序设置 TAB 中管理；明确指定时不继承上游模型和思考参数。
 - **会话可续接**：`续接 MD` 以确定性程序导出时间线、可见上下文、工具摘要和子会话 lineage，方便交给新的智能体继续；隐藏思维链和成功工具原始载荷不会被伪装导出。
+- **OpenCode 图片能力自愈**：启动时校正已验证的协议和图片能力；遇到旧目录或可疑模型时，可在“设置 → 模型”一键校验，不会修改 API 地址或 Token。
 - **面向长期维护的插件边界**：CPA、AgentTeams、Models 设置、桌面设置、Session Markdown 和 Windows 包装器各自负责清晰能力，便于后续独立升级和回归。
 
 ## 与上游项目的关系
@@ -57,6 +58,12 @@
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+
+## `v0.1.1-rc.14` 更新说明
+
+- 扩展 OpenCode Go 图片能力校正，覆盖旧目录中容易被误标为仅文本的 `ox-alpha-free`、DeepSeek V4 Flash Vision、Qwen 3.8 Max、Kimi K2.5、Qwen 3.5 Plus、MiMo V2 Omni，以及已修复的 Muse Spark 1.2 Contributor、GPT-5.6 Luna。
+- “设置 → 模型”新增独立的 **OpenCode 模型能力** 卡片；点击“校验模型能力”会以同一份离线验证规则修复本机 OpenCode 目录，显示修复数量，并提示重启后生效。不会访问、读取或写入 API Token。
+- 纯文本模型和未知模型不被猜测为支持图片；HTTP 500 仍按服务端错误保留，不切换协议重试。
 
 ## `v0.1.1-rc.13` 更新说明
 

@@ -76,6 +76,10 @@ test('runtime-generated desktop patch retains AgentTeams migration settings befo
       name: '@deepseek-ai/dsh-cpa-provider',
     },
     {
+      id: 'opencode-capabilities',
+      name: '@deepseek-ai/dsh-opencode-capabilities',
+    },
+    {
       id: 'agent-teams',
       name: '@nanmicoder/dsh-agent-teams',
       config: {

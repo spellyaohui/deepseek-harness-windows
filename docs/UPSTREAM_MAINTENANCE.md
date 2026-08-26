@@ -7,7 +7,7 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.13`
+- Windows desktop wrapper: `0.1.1-rc.14`
 - AgentTeams fork: `0.1.13-desktop.3`, based on upstream `0.1.13`
 - CPA provider plugin: `0.1.4`
 - Models settings fork: `0.1.1-rc.2-desktop.2`
@@ -50,7 +50,7 @@ prove it still exists.
 | --- | --- | --- | --- | --- |
 | Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | Compatibility rewrites over official Windows runtime packages | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |
-| Local plugin installation, patch graph, startup healing, compiled-local-plugin artifact synchronization, OpenCode model-catalog preparation, and the verified OpenCode protocol-profile reconciler (static, persisted and live catalogs) | `win-desktop` | `REAPPLY` until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; do not infer an unknown model's protocol or retry a 500 over another endpoint | `package.json`, `package-lock.json`, `scripts/sync-local-plugin-artifacts.mjs`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js` | `tests/heal-desktop-plugins.test.js`, `tests/local-plugin-artifacts.test.js`, `tests/model-fetcher.test.js`, and the local capability manifest test |
+| Local plugin installation, patch graph, startup healing, compiled-local-plugin artifact synchronization, OpenCode model-catalog preparation, verified OpenCode protocol/image-capability reconciliation (static, persisted and live catalogs), and the narrow manual validation bridge | `win-desktop` plus `opencode-capabilities-plugin` | `REAPPLY` until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; known legacy modality mappings may correct only input capability, while unknown models retain text-only fallback. Do not infer an unknown model's protocol or retry a 500 over another endpoint. | `package.json`, `package-lock.json`, `scripts/sync-local-plugin-artifacts.mjs`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js`, `src/preload.cjs`, `src/settings-window.js`, `opencode-capabilities-plugin/lib/client.js` | `tests/heal-desktop-plugins.test.js`, `tests/local-plugin-artifacts.test.js`, `tests/model-fetcher.test.js`, `tests/opencode-capabilities-integration.test.js`, and the local capability manifest test |
 
 ## Required classification
 
@@ -94,7 +94,7 @@ npm run verify:upstream
 ```
 
 The command runs the Models, CPA, AgentTeams, Session Markdown, and desktop
-test suites sequentially, then synchronizes each compiled local plugin `lib`
+test suites sequentially, then synchronizes each local plugin `lib`
 directory into its existing `file:` dependency before wrapper tests verify the
 packed runtime surface. It must not install dependencies, publish packages,
 build installers, access the network, or mutate live session/team state.
