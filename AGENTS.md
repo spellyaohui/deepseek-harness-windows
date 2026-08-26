@@ -47,9 +47,10 @@ evidence that the local capability is preserved.
 - Session Markdown owns continuation export ordering, lineage, sanitization,
   and the header action.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
-  OpenCode stream recovery, plugin mounting, and startup integration.
+  OpenCode stream recovery, verified OpenCode model-protocol reconciliation,
+  plugin mounting, and startup integration.
 
-## Release `v0.1.1-rc.12` interaction invariants
+## Release `v0.1.1-rc.13` interaction invariants
 
 - CPA appears once in “设置 → 模型”, through the native configured-provider
   row. The expandable native editor must retain API address, Token, model
@@ -63,6 +64,12 @@ evidence that the local capability is preserved.
   persists through the existing IPC bridge, disables the selector while the
   write is pending, announces success, and restores the prior committed value
   on failure.
+- Before Harness imports the Pi OpenCode Go catalog, the wrapper reconciles
+  only its documented model profiles across static, persisted and live
+  catalogs. Muse Spark 1.2 Contributor and GPT-5.6 Luna use
+  `openai-responses`; Qwen3.7 Max and Qwen3.7 Plus use
+  `openai-completions`. Unknown models retain the generic Completions fallback;
+  a server 500 never triggers an alternative-protocol retry.
 - Every future upstream refresh must classify these behaviors as
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.

@@ -1,6 +1,12 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.12`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.13`。
+
+## `v0.1.1-rc.13` 更新说明
+
+- 增加 OpenCode Go 模型协议档案覆盖层：启动前统一修复静态目录、已保存目录和实时发现目录中的已验证协议错配。
+- Muse Spark 1.2 Contributor、GPT-5.6 Luna 通过 `openai-responses` 调用；Qwen3.7 Max、Qwen3.7 Plus 通过 `openai-completions` 调用，并同步已验证的图片、思考和容量能力。
+- 未知模型继续使用原有 Completions 默认值；不会在 HTTP 500 后猜测另一协议重试，避免重复请求并保留上游服务故障。
 
 ## `v0.1.1-rc.12` 更新说明
 
@@ -116,8 +122,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.12-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.12-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.13-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.13-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

@@ -2,7 +2,7 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.12`（开发者预览）
+> 当前版本：`v0.1.1-rc.13`（开发者预览）
 
 ## 为什么选择这个项目
 
@@ -57,6 +57,12 @@
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+
+## `v0.1.1-rc.13` 更新说明
+
+- 修复 OpenCode Go 模型目录的协议错配：Muse Spark 1.2 Contributor 和 GPT-5.6 Luna 现在固定走 `openai-responses`；Qwen3.7 Max 与 Qwen3.7 Plus 固定走 `openai-completions`。
+- Windows 启动前会统一校正官方静态目录、既有目录和实时发现目录中的已验证模型能力，包含图片、思考档位和原始上下文/输出容量；未知模型不会因一次 500 被自动改协议或重试，避免重复请求并保留真实服务端错误。
+- 将 OpenCode 协议档案覆盖层及其启动、离线回退、实时发现回归纳入 `verify:upstream`，后续上游刷新必须先分类并保留该能力。
 
 ## `v0.1.1-rc.12` 更新说明
 

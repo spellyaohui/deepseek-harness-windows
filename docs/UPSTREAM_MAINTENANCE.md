@@ -7,7 +7,7 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.12`
+- Windows desktop wrapper: `0.1.1-rc.13`
 - AgentTeams fork: `0.1.13-desktop.3`, based on upstream `0.1.13`
 - CPA provider plugin: `0.1.4`
 - Models settings fork: `0.1.1-rc.2-desktop.2`
@@ -50,7 +50,7 @@ prove it still exists.
 | --- | --- | --- | --- | --- |
 | Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | Compatibility rewrites over official Windows runtime packages | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |
-| Local plugin installation, patch graph, startup healing and OpenCode model-catalog preparation | `win-desktop` | Desktop composition around official Harness packages | `package.json`, `package-lock.json`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js` | `tests/heal-desktop-plugins.test.js`, `tests/model-fetcher.test.js`, and the local capability manifest test |
+| Local plugin installation, patch graph, startup healing, OpenCode model-catalog preparation, and the verified OpenCode protocol-profile reconciler (static, persisted and live catalogs) | `win-desktop` | `REAPPLY` until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; do not infer an unknown model's protocol or retry a 500 over another endpoint | `package.json`, `package-lock.json`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js` | `tests/heal-desktop-plugins.test.js`, `tests/model-fetcher.test.js`, and the local capability manifest test |
 
 ## Required classification
 

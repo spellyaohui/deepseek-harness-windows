@@ -124,6 +124,8 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /@deepseek-ai\/dsh-tool-fs/)
   assertContains('src/win-hide-console-rewrite.js', /windowsHide/)
   assertContains('src/win-hide-console-rewrite.js', /Stream ended without finish_reason/)
+  assertContains('src/model-fetcher.js', /OPENCODE_GO_PROTOCOL_PROFILES/)
+  assertContains('src/model-fetcher.js', /reconcileOpencodeCatalog/)
 })
 
 test('the complete upstream regression gate remains registered', () => {
