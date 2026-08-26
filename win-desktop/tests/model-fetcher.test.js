@@ -9,6 +9,7 @@ import {
   hydrateOpencodeCatalogFromSettings,
   prepareOpencodeCatalog,
   reconcileOpencodeCatalog,
+  validateOpencodeCatalog,
 } from '../src/model-fetcher.js'
 
 function minimalOpencodeModel(id, api = 'openai-completions') {
@@ -74,6 +75,45 @@ test('applies verified OpenCode Muse capabilities without mutating the source ca
   assert.equal(muse.contextWindow, 1048576)
   assert.equal(muse.maxTokens, 131072)
   assert.equal(catalog['openai-completions']['muse-spark-1.2-contributor'].api, 'openai-completions')
+})
+
+test('repairs the complete verified OpenCode image capability coverage without guessing unknown models', () => {
+  const catalog = {
+    'openai-completions': Object.fromEntries([
+      'ox-alpha-free',
+      'deepseek-v4-flash-vision-exp',
+      'qwen3.8-max',
+      'kimi-k2.5',
+      'qwen3.5-plus',
+      'mimo-v2-omni',
+      'muse-spark-1.2-contributor',
+      'gpt-5.6-luna',
+      'mimo-v2.5-pro',
+      'future-model',
+    ].map(id => [id, minimalOpencodeModel(id)])),
+  }
+
+  const repaired = reconcileOpencodeCatalog(catalog)
+  const find = (id) => Object.values(repaired)
+    .find(models => typeof models === 'object' && models !== null && Object.hasOwn(models, id))[id]
+
+  for (const id of [
+    'ox-alpha-free',
+    'deepseek-v4-flash-vision-exp',
+    'qwen3.8-max',
+    'kimi-k2.5',
+    'qwen3.5-plus',
+    'mimo-v2-omni',
+    'muse-spark-1.2-contributor',
+    'gpt-5.6-luna',
+  ]) {
+    assert.deepEqual(find(id).input, ['text', 'image'], id)
+  }
+  assert.equal(find('ox-alpha-free').api, 'openai-completions')
+  assert.equal(find('ox-alpha-free').contextWindow, 1000000)
+  assert.equal(find('ox-alpha-free').maxTokens, 131072)
+  assert.deepEqual(find('mimo-v2.5-pro').input, ['text'])
+  assert.deepEqual(find('future-model').input, ['text'])
 })
 
 test('model fetch aborts a stalled API request', async () => {
@@ -166,6 +206,28 @@ test('static OpenCode protocol mismatches are repaired even without a settings f
     assert.equal(catalog['openai-responses']['gpt-5.6-luna'].api, 'openai-responses')
     assert.equal(catalog['openai-completions']['qwen3.7-max'].api, 'openai-completions')
     assert.equal(catalog['openai-completions']['qwen3.7-plus'].api, 'openai-completions')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('manual OpenCode validation reports the repaired model count and is idempotent', () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-opencode-manual-validation-'))
+  const catalogPath = join(root, 'opencode-go.json')
+  writeFileSync(catalogPath, JSON.stringify({
+    'openai-completions': {
+      'ox-alpha-free': minimalOpencodeModel('ox-alpha-free'),
+    },
+  }))
+
+  try {
+    const first = validateOpencodeCatalog({ catalogPath })
+    const second = validateOpencodeCatalog({ catalogPath })
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+    assert.equal(first.repaired, 1)
+    assert.equal(second.repaired, 0)
+    assert.equal(first.error, undefined)
+    assert.deepEqual(catalog['openai-completions']['ox-alpha-free'].input, ['text', 'image'])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

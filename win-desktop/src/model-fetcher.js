@@ -27,7 +27,7 @@ export const DEFAULT_OPENCODE_TIMEOUT_MS = 8_000
 const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 
 /**
- * Verified per-model OpenCode Go protocol profiles.
+ * Verified per-model OpenCode Go catalog profiles.
  *
  * OpenCode's `/models` response exposes IDs only, so its live catalog cannot
  * describe a model's transport. Keep only profiles verified by Pi's model
@@ -77,6 +77,49 @@ export const OPENCODE_GO_PROTOCOL_PROFILES = Object.freeze({
     cost: { input: 0.4, output: 1.6, cacheRead: 0.04, cacheWrite: 0.5 },
     compat: { supportsStore: false, supportsDeveloperRole: false, maxTokensField: 'max_tokens' },
   }),
+  'ox-alpha-free': Object.freeze({
+    api: 'openai-completions',
+    name: 'Ox Alpha Free (Unlimited)',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1000000,
+    maxTokens: 131072,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    compat: { supportsStore: false, supportsDeveloperRole: false, maxTokensField: 'max_tokens' },
+  }),
+  'deepseek-v4-flash-vision-exp': Object.freeze({
+    api: 'openai-completions',
+    name: 'DeepSeek V4 Flash Vision Exp',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1000000,
+    maxTokens: 384000,
+    cost: { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 },
+    compat: { supportsStore: false, supportsDeveloperRole: false, maxTokensField: 'max_tokens' },
+  }),
+  'qwen3.8-max': Object.freeze({
+    api: 'openai-completions',
+    name: 'Qwen3.8 Max',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 1000000,
+    maxTokens: 131072,
+    cost: { input: 2, output: 6, cacheRead: 0.25, cacheWrite: 2.5 },
+    compat: { supportsStore: false, supportsDeveloperRole: false, maxTokensField: 'max_tokens' },
+  }),
+})
+
+/**
+ * Image-input compatibility corrections for models retained by OpenCode Go
+ * but absent from the current Pi catalog. The source only confirms modality,
+ * so unlike {@link OPENCODE_GO_PROTOCOL_PROFILES} these entries never guess
+ * a transport, capacity, cost, or reasoning vocabulary.
+ */
+export const OPENCODE_GO_COMPATIBILITY_INPUTS = Object.freeze({
+  'kimi-k2.5': Object.freeze(['text', 'image']),
+  'qwen3.5-plus': Object.freeze(['text', 'image']),
+  'mimo-v2-omni': Object.freeze(['text', 'image']),
+  'mimo-v2.5-pro': Object.freeze(['text']),
 })
 
 /**
@@ -182,11 +225,11 @@ function recordOf(value) {
     : undefined
 }
 
-function profileModel(model, profile) {
+function profileModel(id, model, profile) {
   const { thinkingLevelMap: _thinkingLevelMap, compat: _compat, cost: _cost, ...base } = recordOf(model) ?? {}
   return {
     ...base,
-    id: base.id,
+    id,
     provider: base.provider ?? 'opencode-go',
     baseUrl: base.baseUrl ?? DEFAULT_OPENCODE_BASE_URL,
     api: profile.api,
@@ -223,7 +266,14 @@ export function reconcileOpencodeCatalog(catalog) {
     }
     if (source === undefined) continue
     if (recordOf(repaired[profile.api]) === undefined) repaired[profile.api] = {}
-    repaired[profile.api][id] = profileModel(source, profile)
+    repaired[profile.api][id] = profileModel(id, source, profile)
+  }
+
+  for (const [id, input] of Object.entries(OPENCODE_GO_COMPATIBILITY_INPUTS)) {
+    for (const models of Object.values(repaired)) {
+      if (recordOf(models) === undefined || !Object.hasOwn(models, id)) continue
+      models[id] = { ...models[id], input: [...input] }
+    }
   }
 
   return repaired
@@ -232,10 +282,41 @@ export function reconcileOpencodeCatalog(catalog) {
 function reconcileOpencodeCatalogFile(catalogPath) {
   const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
   const repaired = reconcileOpencodeCatalog(catalog)
-  if (JSON.stringify(repaired) !== JSON.stringify(catalog)) {
+  const repairedCount = countRepairedModels(catalog, repaired)
+  if (repairedCount > 0) {
     writeFileSync(catalogPath, JSON.stringify(repaired), 'utf8')
   }
-  return repaired
+  return { catalog: repaired, repaired: repairedCount }
+}
+
+function countRepairedModels(before, after) {
+  const models = (catalog) => new Map(Object.entries(recordOf(catalog) ?? {})
+    .flatMap(([api, rows]) => Object.entries(recordOf(rows) ?? {})
+      .map(([id, model]) => [id, { api, model }])))
+  const beforeModels = models(before)
+  const afterModels = models(after)
+  return [...new Set([...beforeModels.keys(), ...afterModels.keys()])]
+    .filter(id => JSON.stringify(beforeModels.get(id)) !== JSON.stringify(afterModels.get(id)))
+    .length
+}
+
+/**
+ * Repair only the installed OpenCode catalog, without reading settings or
+ * contacting a remote endpoint. Used by Settings → 模型 when a user wants to
+ * validate stale capability declarations before restarting Harness.
+ */
+export function validateOpencodeCatalog({
+  catalogPath = resolveCatalogPath('opencode-go'),
+} = {}) {
+  if (catalogPath === undefined || !existsSync(catalogPath)) {
+    return { models: [], repaired: 0, error: 'catalog file not found' }
+  }
+  try {
+    const result = reconcileOpencodeCatalogFile(catalogPath)
+    return { models: readCatalogModels(catalogPath), repaired: result.repaired, error: undefined }
+  } catch (error) {
+    return { models: [], repaired: 0, error: error instanceof Error ? error.message : String(error) }
+  }
 }
 
 /**
@@ -253,7 +334,7 @@ export function hydrateOpencodeCatalogFromSettings({
   }
   let catalog
   try {
-    catalog = reconcileOpencodeCatalogFile(catalogPath)
+    catalog = reconcileOpencodeCatalogFile(catalogPath).catalog
   } catch (error) {
     return {
       models: readCatalogModels(catalogPath),
@@ -355,7 +436,7 @@ export async function syncOpencodeCatalog(
 
   let catalog
   try {
-    catalog = reconcileOpencodeCatalogFile(catalogPath)
+    catalog = reconcileOpencodeCatalogFile(catalogPath).catalog
   } catch (error) {
     return {
       models: readCatalogModels(catalogPath),
