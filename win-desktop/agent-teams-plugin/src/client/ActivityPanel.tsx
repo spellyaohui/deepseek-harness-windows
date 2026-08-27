@@ -23,20 +23,28 @@ import {
 } from 'react'
 import {
   IconBranchOutline16, IconChevronDownOutline14, IconPanelLeftOutline16,
+  IconStopFill16, IconWarningOutline16, Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ModelDirectory, ModelDirectoryResolver } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ObservableSnapshot, SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
 import {
   activityPanelExpandedForSession,
+  activityPanelShouldAutoExpand,
   compactDagLayout,
+  compactModelLabel,
   COMPACT_DAG_NODE_HEIGHT,
   COMPACT_DAG_NODE_WIDTH,
   dependencyFocusTaskId,
+  memberRouteLabel,
   relatedTaskIds,
+  taskModelLabel,
+  teamIsActive,
   usesParallelTaskGrid,
 } from './activity-model.ts'
 import {
+  ACTIVITY_HALT_URL,
   getActivityMonitorTargetsSnapshot,
   getActivitySnapshotsSnapshot,
   startActivityPolling,
@@ -48,6 +56,7 @@ import {
 } from './activity-monitor.ts'
 import { ACTION_ART, LEAD_ART, memberArtUrl } from './artwork.ts'
 import { OPEN_PANEL_EVENT } from './AgentTeamsCard.tsx'
+import { StagingPlanEditor } from './StagingPlanEditor.tsx'
 import type { AgentTeamsCardData } from './agent-teams-card-definition.ts'
 import type { AgentTeamsLocaleKey, AgentTeamsTranslate } from './locales.ts'
 import {
@@ -82,6 +91,7 @@ const PANEL_OPEN_ATTRIBUTE = 'data-agent-teams-panel-open'
 const PANEL_SHIFT_PROPERTY = '--agent-teams-panel-shift'
 const PANEL_CONVERSATION_GAP = 14
 const MOVE_THRESHOLD = 4
+const CAPTAIN_ASSIGNEE = 'captain'
 
 type PanelGesture = {
   readonly kind: 'move' | 'resize'
@@ -148,6 +158,16 @@ function formatTaskIds(ids: readonly string[], t: AgentTeamsTranslate): string {
   return ids.join(t('format.listSeparator'))
 }
 
+function taskTitle(task: ActivityTask, model: string): string {
+  const extras = [
+    task.kind,
+    task.round === undefined ? undefined : `r${task.round}`,
+    task.verdict,
+    model === '' ? undefined : model,
+  ].filter((item): item is string => item !== undefined)
+  return extras.length === 0 ? `${task.id} · ${task.subject}` : `${task.id} · ${task.subject} · ${extras.join(' · ')}`
+}
+
 /** Badge/bar coloring key: visual state, widened for terminal statuses. */
 function taskTone(state: ActivityTask['state'], status: string): string {
   if (status === 'failed') return 'failed'
@@ -212,7 +232,12 @@ function memberStatusText(
   const owned = tasks.filter((task) => task.assignee === member.name)
   const current = owned.find((task) => task.id === member.currentTask)
   const blocked = owned.find((task) => task.state === 'blocked')
-  if (member.activity === 'working' && current !== undefined) return t('member.status.executing', { taskId: current.id })
+  if (member.activity === 'working' && current !== undefined) {
+    const model = taskModelLabel(current, [member])
+    return model === ''
+      ? t('member.status.executing', { taskId: current.id })
+      : t('member.status.executingModel', { taskId: current.id, model })
+  }
   if (member.activity === 'working') return t('member.status.working')
   if (blocked !== undefined) {
     const dependency = tasks.find((task) => blocked.dependencies.includes(task.id) && task.state !== 'completed')
@@ -235,13 +260,27 @@ function compactTaskLabel(subject: string): string {
   return head.length > 18 ? `${head.slice(0, 17)}…` : head
 }
 
-function taskSummary(team: ActivityTeam, t: AgentTeamsTranslate): string {
+function taskSummary(team: ActivityTeam, t: AgentTeamsTranslate, discarded = false): string {
   const completed = team.tasks.filter((task) => task.status === 'completed')
+  const cancelled = team.tasks.filter((task) => task.status === 'cancelled')
   const running = team.tasks.filter((task) => task.state === 'running')
   const blocked = team.tasks.filter((task) => task.state === 'blocked')
-  const ready = team.tasks.filter((task) => task.state === 'open' && task.status !== 'completed')
+  const ready = team.tasks.filter((task) => task.state === 'open' && task.status !== 'completed' && task.status !== 'failed' && task.status !== 'cancelled')
+  const failed = team.tasks.filter((task) => task.status === 'failed')
+  if (discarded) return t('task.summary.discarded', { count: team.tasks.length })
   if (team.tasks.length === 0) return t('task.summary.waitingBreakdown')
+  if (team.phase === 'staged') return t('task.summary.staged', { count: team.tasks.length })
   if (completed.length === team.tasks.length) return t('task.summary.allDelivered', { count: completed.length })
+  if (completed.length + cancelled.length + failed.length === team.tasks.length) {
+    return t('task.summary.ended', {
+      completed: completed.length,
+      cancelled: cancelled.length,
+      failed: failed.length,
+    })
+  }
+  if (failed.length > 0 && running.length === 0 && ready.length === 0 && blocked.length === 0) {
+    return t('task.summary.failedSettled', { count: failed.length })
+  }
   if (blocked.length > 0 && running.length > 0) {
     return t('task.summary.blockedAndRunning', {
       tasks: formatTaskIds(blocked.slice(0, 3).map((task) => task.id), t),
@@ -254,17 +293,20 @@ function taskSummary(team: ActivityTeam, t: AgentTeamsTranslate): string {
   return t('task.summary.waitingSchedule')
 }
 
-function ProgressOverview({ team, t }: { readonly team: ActivityTeam; readonly t: AgentTeamsTranslate }) {
-  const running = team.tasks.filter((task) => task.state === 'running').length
-  const blocked = team.tasks.filter((task) => task.state === 'blocked').length
-  const completed = team.tasks.filter((task) => task.status === 'completed').length
-  const summaryTone = blocked > 0 ? 'warning' : completed === team.tasks.length && team.tasks.length > 0 ? 'completed' : 'running'
+function ProgressOverview({ team, t, discarded = false }: { readonly team: ActivityTeam; readonly t: AgentTeamsTranslate; readonly discarded?: boolean }) {
+  const running = discarded ? 0 : team.tasks.filter((task) => task.state === 'running').length
+  const blocked = discarded ? 0 : team.tasks.filter((task) => task.state === 'blocked').length
+  const completed = discarded ? 0 : team.tasks.filter((task) => task.status === 'completed').length
+  const settled = !discarded && team.tasks.length > 0 && team.tasks.every((task) => (
+    task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled'
+  ))
+  const summaryTone = discarded ? 'discarded' : blocked > 0 ? 'warning' : settled ? 'completed' : 'running'
   return (
     <section className={css.progressOverview} aria-label={t('progress.aria')} data-progress-summary>
       <span className={css.progressTitle}>{t('progress.title')}</span>
       {team.tasks.length > 0 ? (
         <span className={css.progressSegments} aria-hidden>
-          {team.tasks.map((task) => <span key={task.id} data-state={taskTone(task.state, task.status)} />)}
+          {team.tasks.map((task) => <span key={task.id} data-state={discarded ? 'cancelled' : taskTone(task.state, task.status)} />)}
         </span>
       ) : <span className={css.progressEmpty} />}
       <span className={css.progressLegend}>
@@ -274,15 +316,17 @@ function ProgressOverview({ team, t }: { readonly team: ActivityTeam; readonly t
       </span>
       <span className={css.progressSummary} data-state={summaryTone}>
         <span className={css.progressSummaryDot} />
-        <span>{taskSummary(team, t)}</span>
+        <span>{taskSummary(team, t, discarded)}</span>
       </span>
     </section>
   )
 }
 
-function DependencyMap({ tasks, t }: {
+function DependencyMap({ tasks, members, t, discarded = false }: {
   readonly tasks: readonly ActivityTask[]
+  readonly members: readonly ActivityMember[]
   readonly t: AgentTeamsTranslate
+  readonly discarded?: boolean
 }) {
   const [open, setOpen] = useState(true)
   const [hoverTaskId, setHoverTaskId] = useState<string | null>(null)
@@ -325,6 +369,7 @@ function DependencyMap({ tasks, t }: {
     ?? tasks.find((task) => task.state === 'running')
     ?? tasks[0]!
   const detailTask = tasks.find((task) => task.id === focusedTaskId) ?? fallbackTask
+  const detailModel = taskModelLabel(detailTask, members)
   const waitingOn = detailTask.dependencies.filter((dependency) => (
     tasks.find((task) => task.id === dependency)?.status !== 'completed'
   ))
@@ -353,45 +398,56 @@ function DependencyMap({ tasks, t }: {
                   return <path key={`${edge.from}:${edge.to}`} d={edge.path} data-active={active} data-dimmed={related !== null && !active} />
                 })}
               </svg>}
-              {layout.nodes.map(({ task, x, y }) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  className={css.dagNode}
-                  style={parallel
-                    ? { height: COMPACT_DAG_NODE_HEIGHT }
-                    : { left: x, top: y, width: COMPACT_DAG_NODE_WIDTH, height: COMPACT_DAG_NODE_HEIGHT }}
-                  data-task-id={task.id}
-                  data-state={taskTone(task.state, task.status)}
-                  data-focused={related?.has(task.id) ?? false}
-                  data-dimmed={related !== null && !related.has(task.id)}
-                  aria-pressed={pinnedTaskId === task.id}
-                  title={`${task.id} · ${task.subject}`}
-                  onClick={() => { setPinnedTaskId((current) => current === task.id ? null : task.id) }}
-                  onMouseEnter={() => { scheduleHover(task.id) }}
-                  onMouseLeave={() => { scheduleHover(null) }}
-                  onFocus={() => { setKeyboardTaskId(task.id) }}
-                  onBlur={() => { setKeyboardTaskId(null) }}
-                >
-                  <span className={css.dagNodeHead}><span className={css.dagNodeDot} />{task.id}</span>
-                  <span className={css.dagNodeLabel}>{compactTaskLabel(task.subject)}</span>
-                  {task.state === 'running' && (
-                    <span className={css.dagRunningState} aria-label={t('task.runningAria')}>
-                      <WorkGlyph active />
+              {layout.nodes.map(({ task, x, y }) => {
+                const model = taskModelLabel(task, members)
+                const shortModel = compactModelLabel(model)
+                return (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className={css.dagNode}
+                    style={parallel
+                      ? { height: COMPACT_DAG_NODE_HEIGHT }
+                      : { left: x, top: y, width: COMPACT_DAG_NODE_WIDTH, height: COMPACT_DAG_NODE_HEIGHT }}
+                    data-task-id={task.id}
+                    data-state={discarded ? 'cancelled' : taskTone(task.state, task.status)}
+                    data-task-model={model || undefined}
+                    data-focused={related?.has(task.id) ?? false}
+                    data-dimmed={related !== null && !related.has(task.id)}
+                    aria-pressed={pinnedTaskId === task.id}
+                    title={taskTitle(task, model)}
+                    onClick={() => { setPinnedTaskId((current) => current === task.id ? null : task.id) }}
+                    onMouseEnter={() => { scheduleHover(task.id) }}
+                    onMouseLeave={() => { scheduleHover(null) }}
+                    onFocus={() => { setKeyboardTaskId(task.id) }}
+                    onBlur={() => { setKeyboardTaskId(null) }}
+                  >
+                    <span className={css.dagNodeHead}><span className={css.dagNodeDot} />{task.id}</span>
+                    <span className={css.dagNodeLabel}>
+                      {task.state === 'running' && shortModel !== '' ? shortModel : compactTaskLabel(task.subject)}
                     </span>
-                  )}
-                </button>
-              ))}
+                    {task.state === 'running' && (
+                      <span className={css.dagRunningState} aria-label={t('task.runningAria')}>
+                        <WorkGlyph active />
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
           <section className={css.taskDetail} data-task-detail={detailTask.id}>
             <span className={css.taskDetailHead}>
               <span className={css.taskDetailId}>{detailTask.id}</span>
               <span className={css.taskDetailSubject} title={detailTask.subject}>{detailTask.subject.replace(/^开发\s*/u, '')}</span>
-              <span className={css.taskDetailBadge} data-state={taskTone(detailTask.state, detailTask.status)}>{taskStatusLabel(detailTask.status, t)}</span>
+              <span className={css.taskDetailBadge} data-state={discarded ? 'cancelled' : taskTone(detailTask.state, detailTask.status)}>
+                {discarded ? t('task.status.notRun') : taskStatusLabel(detailTask.status, t)}
+              </span>
             </span>
             <span className={css.taskDetailLine}>
-              {detailTask.assignee || t('task.assignee.unclaimed')} · {detailTask.status === 'completed'
+              {detailTask.assignee || t('task.assignee.unclaimed')} · {discarded
+                ? t('task.detail.notRun')
+                : detailTask.status === 'completed'
                 ? t('task.detail.completed')
                 : detailTask.dependencies.length === 0
                 ? t('task.detail.noPrerequisite')
@@ -399,6 +455,11 @@ function DependencyMap({ tasks, t }: {
                   ? t('task.detail.ready')
                   : t('task.detail.waitingOn', { tasks: formatTaskIds(waitingOn, t) })}
             </span>
+            {detailModel !== '' && (
+              <span className={css.taskDetailModel} data-task-model={detailModel}>
+                {t('task.model', { model: detailModel })}
+              </span>
+            )}
             <span className={css.taskDetailMeta}>{dependents.length === 0
               ? t('task.detail.noDownstream')
               : t('task.detail.unlocks', { tasks: formatTaskIds(dependents.map((task) => task.id), t) })}</span>
@@ -409,29 +470,97 @@ function DependencyMap({ tasks, t }: {
   )
 }
 
-function TeamSection({ team, onNavigate, t, historic = false }: {
+function TeamSection({ team, modelDirectory, onContinuePlanning, onDiscarded, onNavigate, t, historic = false }: {
   readonly team: ActivityTeam
+  readonly modelDirectory?: ModelDirectory
+  readonly onContinuePlanning?: () => void
+  readonly onDiscarded?: () => void
   /** Navigate to a member transcript (floater hides immediately). */
   readonly onNavigate: (parentId: SessionId, childId: SessionId) => void
   readonly t: AgentTeamsTranslate
   readonly historic?: boolean
 }) {
   const [membersOpen, setMembersOpen] = useState(true)
+  const [stopOpen, setStopOpen] = useState(false)
+  const [stopping, setStopping] = useState(false)
+  const [stopError, setStopError] = useState('')
+  const discarded = historic && team.phase === 'staged'
+  const stopped = !historic && team.halted === true
   const busyCount = team.members.filter((member) => member.activity === 'working').length
-  const assignedCount = team.tasks.filter((task) => task.assignee !== '').length
+  const assignedCount = team.tasks.filter((task) => task.assignee !== '' && task.assignee !== CAPTAIN_ASSIGNEE).length
+  const captainOwned = team.tasks.filter((task) => task.assignee === CAPTAIN_ASSIGNEE
+    && task.status !== 'completed' && task.status !== 'failed' && task.status !== 'cancelled')
+  const captainBusy = captainOwned.length > 0
+  const captainTaskIds = formatTaskIds(captainOwned.map((task) => task.id), t)
   const completedCount = team.tasks.filter((task) => task.status === 'completed').length
   const allCompleted = team.tasks.length > 0 && completedCount === team.tasks.length
+  const allSettled = team.tasks.length > 0 && team.tasks.every((task) => (
+    task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled'
+  ))
+  const unfinishedCount = team.tasks.filter((task) => (
+    task.status !== 'completed' && task.status !== 'failed' && task.status !== 'cancelled'
+  )).length
+  const canStop = !historic && team.phase === 'running' && team.halted !== true && teamIsActive(team)
+  const stopTeam = async (): Promise<void> => {
+    if (stopping) return
+    setStopping(true)
+    setStopError('')
+    try {
+      const response = await fetch(ACTIVITY_HALT_URL, {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sessionId: team.captainSessionId, teamId: team.teamId }),
+      })
+      if (!response.ok) {
+        let message = t('team.stopRequestFailed')
+        try {
+          const body = await response.json() as { error?: unknown }
+          if (typeof body.error === 'string' && body.error.trim() !== '') message = body.error
+        } catch {}
+        throw new Error(message)
+      }
+      setStopOpen(false)
+    } catch (error: unknown) {
+      setStopError(t('team.stopFailed', { message: error instanceof Error ? error.message : String(error) }))
+    } finally {
+      setStopping(false)
+    }
+  }
   return (
-    <section className={css.team} data-team-id={team.teamId}>
-      <header className={css.teamHead}>
-        <span className={css.teamName} title={team.name}>{team.name}</span>
-        {historic && <span className={css.historicPill}>{t('team.ended')}</span>}
-        <span className={css.teamStats}>
-          <span data-stat="members">{t('team.stats.members', { count: team.members.length })}</span>
-          <span data-stat="tasks">{t('team.stats.completed', { completed: completedCount, total: team.tasks.length })}</span>
-          <span data-stat="messages">{t('team.stats.messages', { count: team.messageCount })}</span>
-        </span>
-      </header>
+    <>
+      <section className={css.team} data-team-id={team.teamId}>
+        <header className={css.teamHead}>
+          <span className={css.teamName} title={team.name}>{team.name}</span>
+          {historic && <span className={css.historicPill}>{t(discarded ? 'team.discarded' : 'team.ended')}</span>}
+          {stopped && <span className={css.historicPill}>{t('team.stopped')}</span>}
+          <span className={css.teamStats}>
+            <span data-stat="members">{t('team.stats.members', { count: team.members.length })}</span>
+            <span data-stat="tasks">{t('team.stats.completed', { completed: completedCount, total: team.tasks.length })}</span>
+            <span data-stat="messages">{t('team.stats.messages', { count: team.messageCount })}</span>
+          </span>
+          {canStop && (
+            <button
+              type="button"
+              className={css.teamStopButton}
+              aria-label={t('team.stop')}
+              title={t('team.stop')}
+              onClick={() => { setStopError(''); setStopOpen(true) }}
+            >
+              <IconStopFill16 />
+            </button>
+          )}
+        </header>
+
+        {team.phase === 'staged' && !historic && modelDirectory !== undefined && onContinuePlanning !== undefined && onDiscarded !== undefined && (
+          <StagingPlanEditor
+            team={team}
+            modelDirectory={modelDirectory}
+            onContinuePlanning={onContinuePlanning}
+            onDiscarded={onDiscarded}
+            t={t}
+          />
+        )}
 
       <section className={css.delegationSection} aria-label={t('delegation.aria')} data-delegation-map>
         <div className={css.captainNode}>
@@ -443,20 +572,37 @@ function TeamSection({ team, onNavigate, t, historic = false }: {
               <span className={css.captainName}>{t('captain.name')}</span>
               <span className={css.captainRole}>{t('captain.role')}</span>
             </span>
-            <span className={css.captainSummary}>{t('captain.summary', {
-              tasks: assignedCount,
-              members: team.members.length,
-            })}</span>
+            <span className={css.captainSummary}>{discarded
+              ? t('captain.summary.discarded', { tasks: team.tasks.length, members: team.members.length })
+              : captainBusy
+                ? t('captain.summary.withTakeover', { tasks: assignedCount, captainTasks: captainTaskIds })
+              : team.phase === 'staged'
+                ? t(team.planReviewState === 'awaiting_feedback'
+                  ? 'captain.summary.awaitingFeedback'
+                  : 'captain.summary.staged', { tasks: team.tasks.length, members: team.members.length })
+                : t('captain.summary', { tasks: assignedCount, members: team.members.length })}</span>
           </span>
-          <span className={css.captainState} data-busy={busyCount > 0}>
-            <WorkGlyph active={busyCount > 0} />
-            {busyCount > 0
-              ? t('captain.state.working', { count: busyCount })
-              : t(allCompleted ? 'captain.state.collected' : 'captain.state.waiting')}
+          <span className={css.captainState} data-busy={captainBusy || busyCount > 0}>
+            <WorkGlyph active={captainBusy || busyCount > 0} />
+            {discarded
+              ? t('captain.state.discarded')
+              : captainBusy
+                ? t('captain.state.takeover', { tasks: captainTaskIds })
+              : team.phase === 'staged'
+                ? t(team.planReviewState === 'awaiting_feedback'
+                  ? 'captain.state.awaitingFeedback'
+                  : 'captain.state.staged')
+              : busyCount > 0
+                ? t('captain.state.working', { count: busyCount })
+                : t(allCompleted
+                  ? 'captain.state.collected'
+                  : allSettled
+                    ? 'captain.state.settled'
+                    : 'captain.state.waiting')}
           </span>
         </div>
 
-        <ProgressOverview team={team} t={t} />
+        <ProgressOverview team={team} t={t} discarded={discarded} />
 
         <button type="button" className={css.membersToggle} onClick={() => { setMembersOpen((current) => !current) }} aria-expanded={membersOpen} data-members-toggle>
           <span><Chevron open={membersOpen} />{t('members.toggle', { count: team.members.length })}</span>
@@ -467,8 +613,9 @@ function TeamSection({ team, onNavigate, t, historic = false }: {
           {team.members.length === 0 && <span className={css.emptyHint}>{t('members.empty')}</span>}
           {team.members.map((member) => {
             const owned = team.tasks.filter((task) => task.assignee === member.name)
+            const memberModel = memberRouteLabel(member)
             return (
-              <div key={member.id} className={css.memberBlock} data-activity={member.activity}>
+              <div key={member.id || member.name} className={css.memberBlock} data-activity={member.activity}>
                 <span className={css.memberBranch} aria-hidden><span /></span>
                 <button
                   type="button"
@@ -494,23 +641,58 @@ function TeamSection({ team, onNavigate, t, historic = false }: {
                       {member.role !== '' && <span className={css.memberRole}>{member.role}</span>}
                       <span className={css.memberState} data-activity={member.activity}>
                         <WorkGlyph active={member.activity === 'working'} />
-                        {memberStateLabel(member, team.tasks, historic, t)}
+                        {discarded
+                          ? t('member.state.notCreated')
+                          : stopped
+                            ? t('member.state.stopped')
+                            : team.phase === 'staged'
+                              ? t('member.state.staged')
+                              : memberStateLabel(member, team.tasks, historic, t)}
                       </span>
                     </span>
-                    <span className={css.memberStatusLine}>{memberStatusText(member, team.tasks, t)}</span>
+                    <span className={css.memberStatusLine}>{discarded
+                      ? t('member.status.discarded')
+                      : stopped
+                        ? t('member.status.stopped')
+                        : team.phase === 'staged'
+                          ? t('member.status.staged')
+                      : historic && owned.length > 0 && owned.every((task) => (
+                        task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled'
+                      ))
+                        ? t('member.status.settled')
+                      : memberStatusText(member, team.tasks, t)}</span>
+                    {memberModel !== '' && (
+                      <span className={css.memberModel} data-member-model={memberModel}>
+                        {t('member.model', { model: memberModel })}
+                      </span>
+                    )}
                   </span>
                   <span className={css.memberCount}>{member.done}/{member.total}</span>
                 </button>
                 <div className={css.assignmentLine}>
-                  <span className={css.assignmentLabel}>{t('assignment.label')}</span>
+                  <span className={css.assignmentLabel}>{t(discarded
+                    ? 'assignment.discarded'
+                    : team.phase === 'staged'
+                      ? 'assignment.staged'
+                      : 'assignment.label')}</span>
                   <span className={css.assignmentTasks}>
                     {owned.length === 0
                       ? <span className={css.taskEmpty}>{t('assignment.empty')}</span>
-                      : owned.map((task) => (
-                        <span key={task.id} className={css.assignmentChip} data-state={taskTone(task.state, task.status)} title={task.subject}>
-                          {task.id}
-                        </span>
-                      ))}
+                      : owned.map((task) => {
+                          const model = taskModelLabel(task, team.members)
+                          const shortModel = compactModelLabel(model)
+                          return (
+                            <span
+                              key={task.id}
+                              className={css.assignmentChip}
+                              data-state={discarded ? 'cancelled' : taskTone(task.state, task.status)}
+                              data-task-model={model || undefined}
+                              title={taskTitle(task, model)}
+                            >
+                              {task.state === 'running' && shortModel !== '' ? `${task.id} · ${shortModel}` : task.id}
+                            </span>
+                          )
+                        })}
                   </span>
                 </div>
               </div>
@@ -519,8 +701,27 @@ function TeamSection({ team, onNavigate, t, historic = false }: {
         </div>}
       </section>
 
-      <DependencyMap tasks={team.tasks} t={t} />
-    </section>
+      <DependencyMap tasks={team.tasks} members={team.members} t={t} discarded={discarded} />
+      </section>
+      <Modal
+        open={stopOpen}
+        onClose={() => { if (!stopping) setStopOpen(false) }}
+        title={t('team.stopTitle', { team: team.name })}
+        closeLabel={t('plan.cancel')}
+        description={t('team.stopDescription', { tasks: unfinishedCount, members: busyCount })}
+        footer={(
+          <span className={css.stopModalActions}>
+            <button type="button" disabled={stopping} onClick={() => { setStopOpen(false) }}>{t('team.stopCancel')}</button>
+            <button type="button" data-danger disabled={stopping} onClick={() => { void stopTeam() }}>
+              <IconStopFill16 />
+              {stopping ? t('team.stopping') : t('team.stopConfirm')}
+            </button>
+          </span>
+        )}
+      >
+        {stopError !== '' && <p className={css.stopModalError} role="alert"><IconWarningOutline16 />{stopError}</p>}
+      </Modal>
+    </>
   )
 }
 
@@ -532,6 +733,7 @@ function historicCardTeam(data: AgentTeamsCardData, owner: string): ActivityTeam
     teamId: data.teamId,
     name: data.teamName,
     captainSessionId: data.captainSessionId || owner,
+    phase: 'running',
     members: data.members.map((member) => ({
       ...member,
       status: 'removed',
@@ -553,10 +755,11 @@ function historicCardTeam(data: AgentTeamsCardData, owner: string): ActivityTeam
  * session is the one currently open. */
 export type ActivityPanelProps = {
   readonly sessionsList: ObservableSnapshot<SessionListState>
+  readonly modelDirectories: ModelDirectoryResolver
   readonly openMember: (parentId: SessionId, childId: SessionId) => void
 } & PropsLocale<'agentTeams'>
 
-export function ActivityPanel({ sessionsList, openMember, t }: ActivityPanelProps) {
+export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }: ActivityPanelProps) {
   // Navigating to a member's subagent transcript is an explicit departure:
   // hide the floater immediately instead of waiting out the autocollapse
   // grace, so the panel never lingers over the member session.
@@ -582,10 +785,22 @@ export function ActivityPanel({ sessionsList, openMember, t }: ActivityPanelProp
     sessionsList.subscribe,
     sessionsList.getSnapshot,
   ).current
+  const autoOpenTrackerRef = useRef<{
+    sessionId: SessionId | undefined
+    restoreComplete: boolean
+    liveTeamIds: ReadonlySet<string>
+  }>({ sessionId: current, restoreComplete: false, liveTeamIds: new Set() })
   const monitorTargets = useSyncExternalStore(
     subscribeActivityMonitorTargets,
     getActivityMonitorTargetsSnapshot,
   )
+  const returnToComposer = (): void => {
+    setOpen(false)
+    setOpenOwner(undefined)
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLTextAreaElement>('[data-composer-card] textarea')?.focus()
+    })
+  }
   const { teams, archivedTeams } = useSyncExternalStore(
     subscribeActivitySnapshots,
     getActivitySnapshotsSnapshot,
@@ -656,11 +871,17 @@ export function ActivityPanel({ sessionsList, openMember, t }: ActivityPanelProp
   // removes the old panel immediately instead of waiting for the no-team
   // autoclose grace period on the destination page.
   useLayoutEffect(() => {
+    const tracker = autoOpenTrackerRef.current
+    if (tracker.sessionId !== current) {
+      tracker.sessionId = current
+      tracker.restoreComplete = false
+      tracker.liveTeamIds = new Set()
+      setWasActive(false)
+      setAutoOpened(false)
+    }
     if (openOwner === undefined || openOwner === current) return
     setOpen(false)
     setOpenOwner(undefined)
-    setWasActive(false)
-    setAutoOpened(false)
   }, [current, openOwner])
 
   // Only the wide docked mode asks the conversation column to yield. Floating
@@ -688,7 +909,22 @@ export function ActivityPanel({ sessionsList, openMember, t }: ActivityPanelProp
     // also performs one cold-start discovery pass so archived/cardless teams
     // survive a browser or `dsh web` restart.
     const controller = startActivityPolling(currentTargets, { discoverySessionId: current })
-    return () => { controller.stop() }
+    let active = true
+    const tracker = autoOpenTrackerRef.current
+    if (tracker.sessionId === current && !tracker.restoreComplete) {
+      void controller.firstTick.then(() => {
+        const latest = autoOpenTrackerRef.current
+        if (!active || latest.sessionId !== current || latest.restoreComplete) return
+        latest.liveTeamIds = new Set(getActivitySnapshotsSnapshot().teams
+          .filter((team) => team.captainSessionId === current)
+          .map((team) => team.teamId))
+        latest.restoreComplete = true
+      })
+    }
+    return () => {
+      active = false
+      controller.stop()
+    }
   }, [current, currentTargets])
 
   useEffect(() => {
@@ -743,14 +979,30 @@ export function ActivityPanel({ sessionsList, openMember, t }: ActivityPanelProp
     [archivedTeams, current, teams],
   )
   const visibleCount = visibleTeams.length + visibleArchived.length + visibleHistoric.length
+  const visibleLiveTeamIds = useMemo(
+    () => visibleTeams.map((team) => team.teamId).sort(),
+    [visibleTeams],
+  )
+  const visibleLiveTeamKey = visibleLiveTeamIds.join('\u0000')
 
   useEffect(() => {
+    const tracker = autoOpenTrackerRef.current
+    const settled = performance.now() - mountedAtRef.current >= AUTO_OPEN_SETTLE_MS
+    const shouldAutoExpand = tracker.sessionId === current && activityPanelShouldAutoExpand({
+      alreadyAutoOpened: autoOpened,
+      pageSettled: settled,
+      restoreComplete: tracker.restoreComplete,
+      previousLiveTeamIds: tracker.liveTeamIds,
+      currentLiveTeamIds: visibleLiveTeamIds,
+    })
+    if (tracker.sessionId === current && tracker.restoreComplete) {
+      tracker.liveTeamIds = new Set(visibleLiveTeamIds)
+    }
     if (visibleCount > 0) {
       setWasActive(true)
-      // Auto-expand only after the page-settle window: opening (and its
-      // main-column yield) right after load reads as a whole-page flicker.
-      const settled = performance.now() - mountedAtRef.current >= AUTO_OPEN_SETTLE_MS
-      if (!autoOpened && settled) {
+      // Existing state restored for a reopened conversation stays collapsed.
+      // Only a live team that appears after the restore pass may auto-expand.
+      if (shouldAutoExpand) {
         setOpenOwner(current)
         setOpen(true)
         setAutoOpened(true)
@@ -767,7 +1019,7 @@ export function ActivityPanel({ sessionsList, openMember, t }: ActivityPanelProp
       setAutoOpened(false)
     }, AUTOCLOSE_GRACE_MS)
     return () => { clearTimeout(timer) }
-  }, [visibleCount, autoOpened, wasActive])
+  }, [visibleCount, visibleLiveTeamKey, autoOpened, wasActive, current])
 
   const busy = useMemo(
     () => visibleTeams.some((team) => team.members.some((member) => member.activity === 'working')),
@@ -976,11 +1228,21 @@ export function ActivityPanel({ sessionsList, openMember, t }: ActivityPanelProp
               : (
                 <>
                   {visibleTeams.map((team) => (
-                    <TeamSection key={team.teamId} team={team} onNavigate={navigateToSession} t={t} />
+                    <TeamSection
+                      key={team.teamId}
+                      team={team}
+                      modelDirectory={team.phase === 'staged'
+                        ? modelDirectories.directoryFor(team.captainSessionId as SessionId)
+                        : undefined}
+                      onContinuePlanning={returnToComposer}
+                      onDiscarded={returnToComposer}
+                      onNavigate={navigateToSession}
+                      t={t}
+                    />
                   ))}
                   {visibleArchived.map((team) => (
                     <div key={`${team.captainSessionId}:${team.teamId}`} data-team-id={team.teamId} data-historic className={css.archivedWrap}>
-                      <span className={css.archiveLabel}>{t('archive.label')}</span>
+                      <span className={css.archiveLabel}>{t(team.phase === 'staged' ? 'archive.discardedLabel' : 'archive.label')}</span>
                       <TeamSection team={team} onNavigate={navigateToSession} t={t} historic />
                     </div>
                   ))}

@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import yaml from 'js-yaml'
 import { generateAgentTeamsPatch } from '../src/dsh-service.js'
+import { BUILTIN_AGENT_TEAMS_PROFILES } from '../src/agent-teams-profile-store.js'
 import { buildHostModelCatalog } from '../agent-teams-plugin/lib/host-model-catalog.js'
 
 const wrapperRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -38,6 +39,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
       config: {
         stateDir: '.agent-teams',
         memberProvider: 'spawn',
+        profiles: BUILTIN_AGENT_TEAMS_PROFILES,
         legacyDesktopSettings: {
           provider: 'openai-compatible',
           model: 'example-model',
@@ -48,7 +50,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
 
     const metadata = JSON.parse(readText(pluginRoot, 'package.json'))
     assert.equal(metadata.name, '@nanmicoder/dsh-agent-teams')
-    assert.equal(metadata.version, '0.1.13-desktop.3')
+    assert.equal(metadata.version, '0.1.14-desktop.4')
     assert.equal(metadata.exports['./client'].default, './lib/client.js')
 
     const imported = spawnSync(process.execPath, [
@@ -62,8 +64,53 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
     assert.equal(imported.status, 0, imported.stderr)
     assert.deepEqual(JSON.parse(imported.stdout), {
       name: 'agent-teams',
-      exports: ['Config', 'apply', 'inject', 'name'],
+      exports: ['Config', 'apply', 'inject', 'name', 'usageSectionText'],
     })
+  } finally {
+    rmSync(userData, { recursive: true, force: true })
+  }
+})
+
+test('runtime patch injects supplied profiles without corrupting YAML', () => {
+  const userData = mkdtempSync(join(tmpdir(), 'dsh-agent-teams-profile-yaml-'))
+  const protocol = 'colon: # hash "quote" and newline\nnext line'
+  try {
+    const patchPath = generateAgentTeamsPatch({
+      getSettings: () => ({}),
+      getProfiles: () => ({
+        profiles: {
+          'software-delivery': {
+            taskPlanning: 'captain',
+            protocol,
+            members: [{ name: 'analyst', role: '分析' }],
+          },
+        },
+        builtInNames: ['software-delivery'],
+      }),
+      getUserDataPath: () => userData,
+    })
+    const patch = yaml.load(readFileSync(patchPath, 'utf8'))
+    const entries = patch.flatMap((item) => item.insert ?? [])
+    const agentTeams = entries.find((entry) => entry.id === 'agent-teams')
+    assert.equal(agentTeams.config.profiles['software-delivery'].protocol, protocol)
+    assert.deepEqual(agentTeams.config.profiles['software-delivery'].members, [{ name: 'analyst', role: '分析' }])
+  } finally {
+    rmSync(userData, { recursive: true, force: true })
+  }
+})
+
+test('runtime patch falls back to the safe built-in map for malformed profile snapshots', () => {
+  const userData = mkdtempSync(join(tmpdir(), 'dsh-agent-teams-profile-fallback-'))
+  try {
+    const patchPath = generateAgentTeamsPatch({
+      getSettings: () => ({}),
+      getProfiles: () => ({ profiles: { broken: [] }, builtInNames: [] }),
+      getUserDataPath: () => userData,
+    })
+    const patch = yaml.load(readFileSync(patchPath, 'utf8'))
+    const agentTeams = patch.flatMap((item) => item.insert ?? [])
+      .find((entry) => entry.id === 'agent-teams')
+    assert.deepEqual(agentTeams.config.profiles, BUILTIN_AGENT_TEAMS_PROFILES)
   } finally {
     rmSync(userData, { recursive: true, force: true })
   }

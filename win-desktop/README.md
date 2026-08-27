@@ -1,6 +1,25 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.17`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.21`。
+
+## `v0.1.1-rc.21` 更新说明
+
+- 修复 AgentTeams 运行中团队读取到上游/旧格式的可选任务字段哨兵值时被判为无效，避免 `invalid AgentTeams state` 阻断继续创建任务。
+- 冷启动只归一化 `round: 0` 和空的可选质量字段，真实质量合同、依赖、成员状态和任务内容全部保留；新增状态文件回归测试。
+
+## `v0.1.1-rc.20` 更新说明
+
+- 修复未配置 `memberModel` 时把默认空字符串误判为非法配置的问题；普通成员现在会按设计继承队长当前的 provider、模型和思考强度。
+
+- `设置 → 子智能体` 增加可编辑的 Profile 配置区，贴近上游 profile 字段，支持四角色内置 `software-delivery`、自定义/复制/重命名/删除、成员路由、fallback、captain/seed 任务依赖和 review policy。
+- Profile 写入本机 `desktop-settings.json`，主进程在启动前安全注入 AgentTeams；保存后需重启，内置 profile 可恢复，坏配置不会阻断启动。
+- 保留 AgentTeams v0.1.14 的 staged plan、质量门、fallback、生命周期与压力回归，以及本项目的 CPA 共用模型目录、Team/Native、OpenCode、Session Markdown 和 Windows 兼容能力。
+
+## `v0.1.1-rc.18` 更新说明
+
+- AgentTeams 本地 fork 刷新至上游 `v0.1.14`：加入 staged plan、原子审批、profile、可选质量门禁、fallback 和更安全的停止/恢复控制。
+- 普通 AgentTeams 请求继续使用本项目原有即时执行默认；显式 `approval=required` 与队长规划 profile 才进入执行前审查。现有 `子智能体` 设置、CPA 共用模型目录、Team/Native 路由、显式路由权威、成员认领兼容及其他本地插件功能均保留。
+- staged plan 编辑器使用 Harness 原生 Provider/模型目录，和本地设置/连接注入共同挂载；CPA 专属行为仍由 CPA 插件负责。
 
 ## `v0.1.1-rc.17` 更新说明
 
@@ -74,7 +93,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
 - 设置更改只影响之后创建的成员和新会话。现有成员及会话继续使用其创建时的提供商、模型、推理与路由标记；重启也不会改写该标记。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.13`、`v0.1.13`、提交 `912aae5225d3d85fa841a1b0c8a5c77021876c25`，桌面 fork 版本是 `0.1.13-desktop.3`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.4`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 
@@ -143,8 +162,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.17-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.17-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.21-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.21-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

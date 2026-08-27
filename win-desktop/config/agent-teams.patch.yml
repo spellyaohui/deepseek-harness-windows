@@ -13,3 +13,17 @@
       config:
         stateDir: .agent-teams
         memberProvider: spawn
+        profiles:
+          software-delivery:
+            description: "A general software delivery team for analysis, implementation, verification, and review."
+            protocol: "Keep scope, acceptance criteria, and verification evidence traceable. Analyze before implementation and verify before delivery."
+            taskPlanning: captain
+            members:
+              - name: analyst
+                role: "Requirements analyst"
+              - name: implementer
+                role: "Implementation engineer"
+              - name: tester
+                role: "Verification engineer"
+              - name: reviewer
+                role: "Code and risk reviewer"

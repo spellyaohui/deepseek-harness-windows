@@ -16,9 +16,12 @@ import { installModelSelection } from '@deepseek-ai/dsh-agent';
 import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent';
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
 import { join } from 'node:path';
+import { readRetiredMemberIds, readTeamSync, readTeam, withTeamLock, writeTeam } from "./state.js";
+import { TERMINAL_TASK_STATUSES } from "./types.js";
 import { selectMemberCandidate } from "./selection-policy.js";
 import { resolveAndInstallDelegationPolicy, } from "./routing-policy.js";
-import { readRetiredMemberIds, readTeamSync } from "./state.js";
+/** Persona snapshot of a profile protocol; the full text lives on team.json. */
+export const PERSONA_PROTOCOL_MAX_CHARS = 400;
 /** Captain-only AgentTeams tools hidden from newly spawned members. */
 const MEMBER_DENIED_TOOLS = [
     'agent_teams_create',
@@ -26,6 +29,7 @@ const MEMBER_DENIED_TOOLS = [
     'agent_teams_remove_member',
     'agent_teams_reassign_task',
     'agent_teams_create_task',
+    'agent_teams_resume',
     'agent_teams_delete',
 ];
 /**
@@ -37,6 +41,34 @@ const MEMBER_DENIED_TOOLS = [
 function brandedSessionId(value) {
     return value;
 }
+/**
+ * Validate a resolved roster against every provider catalog before any child
+ * session is created. Catalogs are advisory when empty (some adapters accept
+ * dynamic model ids), but a non-empty catalog is authoritative enough to
+ * catch a typo that would otherwise boot a child and fail on its first turn.
+ */
+export async function validateMemberLlmSelections(ctx, selections, signal) {
+    const catalogs = new Map();
+    for (const selection of selections) {
+        if (signal?.aborted === true)
+            throw signal.reason ?? new Error('member model validation was cancelled');
+        let catalog = catalogs.get(selection.provider);
+        if (catalog === undefined) {
+            catalog = await ctx.llm.listModels(selection.provider);
+            catalogs.set(selection.provider, catalog);
+        }
+        if (catalog.length === 0 || catalog.some((model) => model.id === selection.model))
+            continue;
+        const available = catalog.slice(0, 8).map((model) => model.id).join(', ');
+        throw new Error(`unknown member model "${selection.model}" for provider "${selection.provider}"`
+            + `${available === '' ? '' : ` (available: ${available}${catalog.length > 8 ? ', …' : ''})`}`);
+    }
+}
+const MEMBER_LABEL_PREFIX = 'agent-teams:';
+const FALLBACK_FAILURE_CODES = new Set(['QUOTA', 'RATE_LIMIT', 'AUTH', 'MISSING_CREDENTIAL', 'NO_ADAPTER']);
+export function isFallbackFailureCode(code) {
+    return FALLBACK_FAILURE_CODES.has(code);
+}
 function hasNonBlank(value) {
     return value !== undefined && value.trim() !== '';
 }
@@ -47,15 +79,36 @@ function memberSelectionError(error, providerIds) {
     const valid = validProviders.length === 0 ? '' : ` Valid providers: ${validProviders.join(', ')}.`;
     return new Error(`${base}${valid} Omit provider/model to inherit AgentTeams settings.`, { cause: error });
 }
-const MEMBER_LABEL_PREFIX = 'agent-teams:';
+/** Pure state transition used by the request-error handler and TDD tests. */
+export function selectFallbackRoute(current, fallback, failureCode, alreadySwitched) {
+    if (alreadySwitched || fallback === undefined || !isFallbackFailureCode(failureCode)) {
+        return { retry: false, switched: alreadySwitched, selection: current };
+    }
+    return { retry: true, switched: true, selection: fallback };
+}
+async function updateFallbackState(stateRoot, teamId, memberName, fallback, ctx) {
+    await withTeamLock(`team:${stateRoot}:${teamId}`, async () => {
+        const team = await readTeam(stateRoot, teamId);
+        if (team === undefined)
+            return;
+        const member = team.members.find(candidate => candidate.name === memberName);
+        if (member === undefined)
+            return;
+        member.activeProvider = fallback.provider;
+        member.activeModel = fallback.model;
+        member.fallbackActive = true;
+        await writeTeam(stateRoot, team);
+    });
+    void ctx;
+}
 function pendingSelectionKey(parentSessionId, label) {
     return `${parentSessionId}\u0000${label}`;
 }
 function selectionFromMember(member) {
     if (member?.provider === undefined || member.model === undefined)
         return undefined;
-    const provider = member.provider.trim();
-    const model = member.model.trim();
+    const provider = (member.activeProvider ?? member.provider).trim();
+    const model = (member.activeModel ?? member.model).trim();
     if (provider === '' || model === '')
         return undefined;
     const reasoningEffort = member.reasoningEffort?.trim();
@@ -63,6 +116,7 @@ function selectionFromMember(member) {
         provider,
         model,
         ...reasoningEffort === undefined || reasoningEffort === '' ? {} : { reasoningEffort },
+        ...member.fallback === undefined ? {} : { fallback: member.fallback },
     };
 }
 function modelSelection(selection) {
@@ -84,6 +138,18 @@ function modelSelection(selection) {
  * the target model before a child is created.
  */
 export async function resolveMemberLlmSelection(ctx, captain, request, signal) {
+    const explicitProvider = request.provider?.trim();
+    const explicitModel = request.model?.trim();
+    // Schemastery uses an empty string for the optional config default. Treat
+    // that sentinel (and whitespace-only values) as omitted so ordinary members
+    // inherit the captain's current route.
+    const defaultModel = request.defaultModel?.trim() || undefined;
+    if (request.provider !== undefined && explicitProvider === '') {
+        throw new Error('member LLM provider must not be empty');
+    }
+    if (request.model !== undefined && explicitModel === '') {
+        throw new Error('member model must not be empty');
+    }
     const current = captain.session.requestHeader()?.config;
     const provider = current?.provider ?? captain.options.provider;
     const model = current?.model ?? captain.options.model;
@@ -95,11 +161,16 @@ export async function resolveMemberLlmSelection(ctx, captain, request, signal) {
         model,
         ...(current?.reasoningEffort === undefined ? {} : { reasoningEffort: String(current.reasoningEffort) }),
     };
-    const candidate = selectMemberCandidate({ captain: captainSelection, settings: request.defaults, explicit: request });
+    const defaults = defaultModel !== undefined && request.defaults.memberModel === ''
+        ? { ...request.defaults, memberModel: defaultModel }
+        : request.defaults;
+    const candidate = selectMemberCandidate({ captain: captainSelection, settings: defaults, explicit: request });
     const resolved = await ctx.llm.resolveCallConfig({
         provider: candidate.provider,
         model: candidate.model,
-        ...(candidate.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(candidate.reasoningEffort) }),
+        ...(candidate.reasoningEffort === undefined
+            ? {}
+            : { reasoningEffort: ReasoningEffortId(candidate.reasoningEffort) }),
     }, signal).catch((error) => {
         const hasRouteOverride = hasNonBlank(request.provider) || hasNonBlank(request.model);
         if (request.defaults.memberReasoningMode !== 'explicit' && hasRouteOverride) {
@@ -113,6 +184,7 @@ export async function resolveMemberLlmSelection(ctx, captain, request, signal) {
         ...resolved.reasoningEffort === undefined
             ? {}
             : { reasoningEffort: String(resolved.reasoningEffort) },
+        ...request.fallback === undefined ? {} : { fallback: request.fallback },
     };
 }
 /**
@@ -153,22 +225,51 @@ export function installMemberSelectionRuntime(ctx, stateDir, delegationPolicy) {
             const team = readTeamSync(join(workspace, stateDir), teamId);
             if (team?.captainSessionId !== parentSessionId)
                 return disposePolicy;
-            selection = selectionFromMember(team.members.find(member => member.name === memberName));
+            const durableMember = team.members.find(member => member.name === memberName);
+            selection = selectionFromMember(durableMember);
             // An old team record has no provider/reasoning snapshot. Its durable
             // Harness descriptor still restores provider/model, so leave it alone.
             if (selection === undefined)
                 return disposePolicy;
-            if (descriptor.agentProvider !== selection.provider || descriptor.agentModel !== selection.model) {
+            if (descriptor.agentProvider !== durableMember?.provider || descriptor.agentModel !== durableMember?.model) {
                 disposePolicy();
                 throw new Error(`agent-teams: saved model route for member "${memberName}" does not match its subagent descriptor`);
             }
         }
         try {
-            const disposeSelection = installModelSelection(childCtx, {
-                current: modelSelection(selection),
-                assembled: undefined,
+            const selectionRef = { current: modelSelection(selection), assembled: undefined };
+            const disposeSelection = installModelSelection(childCtx, selectionRef);
+            const fallback = selection.fallback;
+            if (fallback === undefined) {
+                return () => {
+                    disposeSelection();
+                    disposePolicy();
+                };
+            }
+            let switched = false;
+            const disposeFallback = childCtx.on('agent/request-error', async (payload) => {
+                if (payload.agent.id !== child.id)
+                    return undefined;
+                const transition = selectFallbackRoute(selectionRef.current ?? { provider: selection.provider, model: selection.model }, fallback, payload.failure.code, switched);
+                if (!transition.retry)
+                    return undefined;
+                switched = transition.switched;
+                selectionRef.current = transition.selection;
+                const workspace = child.session.header.cwd ?? process.cwd();
+                const identity = descriptor.label.slice(MEMBER_LABEL_PREFIX.length);
+                const separator = identity.indexOf(':');
+                if (separator > 0) {
+                    const teamId = identity.slice(0, separator);
+                    const memberName = identity.slice(separator + 1);
+                    void updateFallbackState(join(workspace, stateDir), teamId, memberName, fallback, ctx).catch((error) => {
+                        ctx.logger.warn(`agent-teams: failed to persist fallback route: ${String(error)}`);
+                    });
+                }
+                ctx.logger.warn(`agent-teams: member ${child.id} switching to fallback ${fallback.provider}/${fallback.model} after ${payload.failure.code}`);
+                return { kind: 'retry' };
             });
             return () => {
+                disposeFallback();
                 disposeSelection();
                 disposePolicy();
             };
@@ -194,38 +295,75 @@ export function installMemberSelectionRuntime(ctx, stateDir, delegationPolicy) {
         },
     };
 }
+function configuredExecutionPrompt(member, config) {
+    const prompt = member.executionPrompt?.trim() || config.executionPrompt?.trim();
+    return prompt === undefined || prompt === '' ? undefined : prompt;
+}
+function truncatedPersonaProtocol(protocol) {
+    if (protocol === undefined || protocol.trim() === '')
+        return '(none)';
+    if (protocol.length <= PERSONA_PROTOCOL_MAX_CHARS)
+        return protocol;
+    return `${protocol.slice(0, PERSONA_PROTOCOL_MAX_CHARS)}… [truncated]`;
+}
+function assignedNonTerminalCount(team, memberName) {
+    return team.tasks.filter(task => (task.assignee === memberName && !TERMINAL_TASK_STATUSES.includes(task.status))).length;
+}
 /**
  * The member's system prompt (persona), shadowing the deployment persona for
  * that child. Self-contained: it replaces the whole persona section.
+ * Frozen at spawn: draft must already carry the Team goal and profile protocol.
  * @param team - the team the member joined.
  * @param member - the member record (name/role are read before spawning).
  * @param stateDir - configured state directory, so the member can locate the
  *   team files with its own file tools.
  */
-export function memberPersona(team, member, stateDir) {
+export function memberPersona(team, member, stateDir, executionPrompt) {
+    const goal = team.description?.trim() || '(not provided)';
+    const injectedPrompt = member.executionPrompt?.trim() || executionPrompt?.trim();
+    const protocol = truncatedPersonaProtocol(team.profile?.protocol);
     return `You are ${member.name}, a member of the multi-agent team "${team.name}" running inside DeepSeek Harness AgentTeams. The captain leads the team; you are a worker member${member.role ? ` with the role: ${member.role}` : ''}.
 
 Team context:
 - Team id: ${team.id}
 - Your name inside the team (use it as \`from\`/identity): ${member.name}
-- The team state lives under ${stateDir}/${team.id}/ (team.json and inbox/*.jsonl). You may inspect these files read-only for diagnostics, but never edit them directly; use the agent_teams_* tools so JSON escaping and concurrent updates stay safe.
+- Team goal: ${goal}
+- Profile protocol: ${protocol}
+${injectedPrompt === undefined || injectedPrompt === '' ? '' : `- Execution guidance:
+${injectedPrompt}
+`}- The team state lives under ${stateDir}/${team.id}/ (team.json and inbox/*.jsonl). You may inspect these files read-only for diagnostics, but never edit them directly; use the agent_teams_* tools so JSON escaping and concurrent updates stay safe.
 - The captain and your teammates reach you through messages. Each message you receive is a new turn: act on it and end your turn with a concise reply.
+When you receive a task, treat the assignment prompt's dependency results as source material. Do not ignore them.
 
 Working rules:
 1. When you receive a task assignment, call agent_teams_claim_task with the task id only. As a member, omit the assignee property entirely. Automatic scheduler assignments are already pre-claimed for you, so this idempotent call returns the same attempt_id; include it in every agent_teams_update_task call for that execution attempt. Then mark the task in_progress.
 2. Work thoroughly with your available tools; do not cut corners.
-3. When finished, call agent_teams_update_task with the same attempt_id, status=completed, and a concise \`output\` summarizing what you did and the key results. A stale-attempt rejection means the captain reassigned or took over the task; stop touching that task and wait for new work.
+3. When finishing a task:
+   - use status=completed only when the task's success criteria are satisfied;
+   - use status=failed when blocking findings or validation failures mean downstream work must not proceed;
+   - include a concise output in either case;
+   - a stale-attempt rejection means the captain reassigned or took over the task; stop touching that task and wait for new work.
+   claimed cannot jump to completed. Mark in_progress first, then completed or failed.
+   Include attempt_id on every update. Then send_message to captain and become idle.
 4. Send a short report to the captain with agent_teams_send_message (to=captain) when you complete a task or hit a blocker.
 5. To ask a teammate something, use agent_teams_send_message with to=<teammate name>; the message lands in their mailbox and wakes them directly — teammates talk to each other without the captain in the loop. The same applies to the captain (to=captain).
 6. After your turn becomes idle, the shared task scheduler may assign your next ready task automatically. Never claim a second task while you still own unfinished work.
-7. You are a worker: do not create or delete teams, reassign tasks, or add/remove members — that is the captain's job.`;
+7. If you already own an open attempt (claimed or in_progress) and receive mail, treat it as guidance for that same attempt_id unless the mail explicitly tells you to stop or fail. Do not claim a new task in that turn.
+8. Do not start a teammate's assigned task. Do not privately tell the next-stage member to start; the scheduler assigns unlocked work after you become idle.
+9. You are a worker: do not create or delete teams, reassign tasks, or add/remove members — that is the captain's job.
+10. Quality-gate kinds carry a contract (kind, objective, inScope, acceptance, verify). Stay inside inScope. Do not mark your own implementation as review pass. Review/requirements complete only with verdict=pass; needs_revision/reject must fail with findings. Mail is not a formal next review.`;
 }
 /**
  * The initial user message delivered when the member is created.
+ * Counts non-terminal tasks already assigned to this member on the in-memory draft.
  * @param team - the team the member joined.
+ * @param memberName - canonical member name used to count assigned pending work.
  */
-export function memberWelcome(team) {
-    return `You have joined the team "${team.name}" as a member. The captain will send you tasks and messages; wait for instructions. Current team status: ${team.tasks.length} task(s), none assigned to you yet.`;
+export function memberWelcome(team, memberName) {
+    const assigned = assignedNonTerminalCount(team, memberName);
+    return `You have joined the team "${team.name}" as a member. Wait for an automatic assignment or a captain message.
+Current team status: ${team.tasks.length} task(s), ${assigned} pending task(s) assigned to you.
+Do not start work until the scheduler or captain assigns a task in this turn.`;
 }
 /**
  * Spawn one member as a durable continuable subagent of the captain and fill
@@ -263,9 +401,9 @@ export async function spawnMember(ctx, config, selections, llmSelection, captain
         provider: config.provider,
         label,
         request: {
-            prompt: [{ type: 'text', text: memberWelcome(team) }],
+            prompt: [{ type: 'text', text: memberWelcome(team, member.name) }],
             parent: captain,
-            persona: memberPersona(team, member, stateDir),
+            persona: memberPersona(team, member, stateDir, config.executionPrompt),
             toolFilter: { deny: [...MEMBER_DENIED_TOOLS] },
             agentOptions: {
                 provider: llmSelection.provider,

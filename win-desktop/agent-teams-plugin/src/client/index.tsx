@@ -12,6 +12,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 // The frame-level overlay is declared by ui-layout. This import is type-only;
 // ctx.slots.inject below owns the runtime wait for the declaration.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+// Official model catalog/directory service. The staged roster reads its
+// provider/model/effort metadata without mutating the captain's own selection.
+import type {} from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import { ActivityPanel } from './ActivityPanel.tsx'
 import { AgentTeamsSettingsSection } from './AgentTeamsSettingsSection.tsx'
 import { AgentTeamsCard, type AgentTeamsCardInjected } from './AgentTeamsCard.tsx'
@@ -32,7 +35,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Required services: conversation nodes, slots, sessions navigation, and locale. */
 export const inject = [
-  'conversationEvents', 'slots', 'sessions', 'locale', 'settingsScope', 'connection',
+  'conversationEvents', 'slots', 'sessions', 'locale', 'modelDirectories', 'settingsScope', 'connection',
 ]
 
 /** The replayed user message is the canonical transcript entry. */
@@ -75,6 +78,7 @@ export function apply(ctx: ClientContext): void {
   const Panel = ({ t }: PropsLocale<'agentTeams'>) => (
     <ActivityPanel
       sessionsList={ctx.sessions.list}
+      modelDirectories={ctx.modelDirectories}
       openMember={openMember}
       t={t}
     />

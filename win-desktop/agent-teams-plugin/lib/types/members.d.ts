@@ -13,15 +13,24 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import { type Agent } from '@deepseek-ai/dsh-agent';
+import { type TeamMember, type TeamState } from './types.ts';
 import type { AgentTeamsSettings } from './settings.ts';
 import { type DelegationPolicyRuntime } from './routing-policy.ts';
-import type { TeamMember, TeamState } from './types.ts';
+/** Persona snapshot of a profile protocol; the full text lives on team.json. */
+export declare const PERSONA_PROTOCOL_MAX_CHARS = 400;
 /** Runtime knobs for member spawning, resolved from plugin config. */
 export interface MemberRuntimeConfig {
     /** Registered `ctx.subagents` provider name (must support continuable + persona). */
     provider: string;
     /** Child delegation depth cap (0 forbids delegation entirely). */
     maxDepth?: number;
+    /** Plugin-wide execution prompt. */
+    executionPrompt?: string;
+    /** Plugin-wide fallback route. */
+    fallback?: {
+        provider: string;
+        model: string;
+    };
 }
 /** Durable provider/model/reasoning snapshot for one member. */
 export interface MemberLlmSelection {
@@ -31,15 +40,27 @@ export interface MemberLlmSelection {
     model: string;
     /** Adapter-owned reasoning effort, absent when the target has no explicit/default effort. */
     reasoningEffort?: string;
+    /** Configured second-choice route. */
+    fallback?: {
+        provider: string;
+        model: string;
+    };
 }
 /** Optional member-level route requested by the captain. */
 export interface MemberLlmSelectionRequest {
     /** Explicit LLM provider route; requires an explicit model. */
     provider?: string;
-    /** Explicit model id; otherwise current AgentTeams settings or captain model is used. */
+    /** Explicit model id; otherwise the plugin default or captain model is used. */
     model?: string;
+    /** Plugin-level member model default. */
+    defaultModel?: string;
     /** Explicit reasoning effort; "default" selects the target model's default effort. */
     reasoningEffort?: string;
+    /** Configured fallback route. */
+    fallback?: {
+        provider: string;
+        model: string;
+    };
     /** Current AgentTeams settings, read immediately before member selection. */
     defaults: AgentTeamsSettings;
 }
@@ -48,6 +69,29 @@ export interface MemberSelectionRuntime {
     /** Make one selection visible while Harness materializes the fresh child. */
     withPending<T>(parentSessionId: string, label: string, selection: MemberLlmSelection, operation: () => Promise<T>): Promise<T>;
 }
+/**
+ * Validate a resolved roster against every provider catalog before any child
+ * session is created. Catalogs are advisory when empty (some adapters accept
+ * dynamic model ids), but a non-empty catalog is authoritative enough to
+ * catch a typo that would otherwise boot a child and fail on its first turn.
+ */
+export declare function validateMemberLlmSelections(ctx: Context, selections: readonly MemberLlmSelection[], signal?: AbortSignal): Promise<void>;
+export declare function isFallbackFailureCode(code: string): boolean;
+/** Pure state transition used by the request-error handler and TDD tests. */
+export declare function selectFallbackRoute(current: {
+    provider: string;
+    model: string;
+}, fallback: {
+    provider: string;
+    model: string;
+} | undefined, failureCode: string, alreadySwitched: boolean): {
+    retry: boolean;
+    switched: boolean;
+    selection: {
+        provider: string;
+        model: string;
+    };
+};
 /**
  * Resolve one member's complete model selection. Ordinary members snapshot the
  * captain's current request route and reasoning effort. When provider or model
@@ -69,17 +113,20 @@ export declare function installMemberSelectionRuntime(ctx: Context, stateDir: st
 /**
  * The member's system prompt (persona), shadowing the deployment persona for
  * that child. Self-contained: it replaces the whole persona section.
+ * Frozen at spawn: draft must already carry the Team goal and profile protocol.
  * @param team - the team the member joined.
  * @param member - the member record (name/role are read before spawning).
  * @param stateDir - configured state directory, so the member can locate the
  *   team files with its own file tools.
  */
-export declare function memberPersona(team: TeamState, member: TeamMember, stateDir: string): string;
+export declare function memberPersona(team: TeamState, member: TeamMember, stateDir: string, executionPrompt?: string): string;
 /**
  * The initial user message delivered when the member is created.
+ * Counts non-terminal tasks already assigned to this member on the in-memory draft.
  * @param team - the team the member joined.
+ * @param memberName - canonical member name used to count assigned pending work.
  */
-export declare function memberWelcome(team: TeamState): string;
+export declare function memberWelcome(team: TeamState, memberName: string): string;
 /**
  * Spawn one member as a durable continuable subagent of the captain and fill
  * `member.id` with its child session id. On failure nothing is persisted.

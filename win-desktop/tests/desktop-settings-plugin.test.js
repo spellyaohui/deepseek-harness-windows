@@ -7,6 +7,7 @@ import { readFileSync as readText } from 'node:fs'
 const clientSource = readFileSync(new URL('../desktop-settings-plugin/lib/client.js', import.meta.url), 'utf8')
 const patchSource = readFileSync(new URL('../config/agent-teams.patch.yml', import.meta.url), 'utf8')
 const serviceSource = readText(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
+const settingsWindowSource = readText(new URL('../src/settings-window.js', import.meta.url), 'utf8')
 const preloadSource = readFileSync(new URL('../src/preload.cjs', import.meta.url), 'utf8')
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const npmrcUrl = new URL('../.npmrc', import.meta.url)
@@ -35,24 +36,38 @@ test('wrapper packs the local AgentTeams package instead of linking its dev depe
   assert.equal(npmrcSource.trim(), 'install-links=true')
   const installed = packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']
   assert.notEqual(installed.link, true)
-  assert.equal(installed.version, '0.1.13-desktop.3')
+  assert.equal(installed.version, '0.1.14-desktop.4')
 })
 
 test('desktop settings plugin is included in the DSH patch graph', () => {
   const entries = yaml.load(patchSource)
     .flatMap((patch) => patch.insert ?? [])
   assert.ok(entries.some((entry) => entry.name === '@deepseek-ai/dsh-desktop-settings'))
+  const agentTeams = entries.find((entry) => entry.id === 'agent-teams')
+  assert.equal(agentTeams.config.profiles['software-delivery'].taskPlanning, 'captain')
+  assert.deepEqual(
+    agentTeams.config.profiles['software-delivery'].members.map((member) => member.name),
+    ['analyst', 'implementer', 'tester', 'reviewer'],
+  )
 })
 
 test('runtime-generated patch also includes the desktop settings plugin', () => {
   assert.match(serviceSource, /id: desktop-settings/)
   assert.match(serviceSource, /@deepseek-ai\/dsh-desktop-settings/)
+  assert.match(serviceSource, /profiles:/)
+  assert.match(serviceSource, /getAgentTeamsProfileSnapshot/)
+})
+
+test('profile editor bridge is narrow and lives beside existing settings IPC', () => {
+  assert.match(settingsWindowSource, /agent-teams-profiles:get/)
+  assert.match(settingsWindowSource, /agent-teams-profiles:set/)
+  assert.match(preloadSource, /getAgentTeamsProfiles/)
+  assert.match(preloadSource, /setAgentTeamsProfiles/)
 })
 
 test('desktop settings are only served through the Harness modal bridge and tab', () => {
   assert.equal(existsSync(new URL('../src/settings.html', import.meta.url)), false)
   assert.equal(existsSync(new URL('../src/settings-preload.cjs', import.meta.url)), false)
-  const settingsWindowSource = readText(new URL('../src/settings-window.js', import.meta.url), 'utf8')
   assert.match(settingsWindowSource, /installSettingsIpc/)
   assert.match(clientSource, /label: \(\) => '桌面'/)
 })

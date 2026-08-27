@@ -11,6 +11,10 @@
 import * as electron from 'electron'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import {
+  getAgentTeamsProfileSnapshot,
+  writeAgentTeamsProfiles,
+} from './agent-teams-profile-store.js'
 
 const { app } = electron
 
@@ -90,6 +94,19 @@ export function setDesktopSettings(patch) {
   const next = { ...current, ...patch }
   flushSettings(next)
   return { ...next }
+}
+
+/** Read the AgentTeams profile snapshot owned by the desktop store. */
+export function getAgentTeamsProfiles() {
+  return getAgentTeamsProfileSnapshot({ settings: loadDesktopSettings() })
+}
+
+/** Validate, persist, and return the complete AgentTeams profile snapshot. */
+export function setAgentTeamsProfiles(profiles) {
+  return writeAgentTeamsProfiles(profiles, {
+    load: loadDesktopSettings,
+    flush: flushSettings,
+  })
 }
 
 /**

@@ -17,6 +17,7 @@ export interface AgentTeamsTeamCreatedData {
   readonly captainSessionId: string
   readonly name: string
   readonly description?: string
+  readonly profile?: string
 }
 
 /** Records one member after its continuable subagent is spawned. */
@@ -40,6 +41,8 @@ export interface AgentTeamsTaskCreatedData {
   readonly subject: string
   readonly dependencies: readonly string[]
   readonly assignee?: string
+  readonly kind?: string
+  readonly round?: number
 }
 
 /** Records one task status/assignee/output transition. */
@@ -51,10 +54,29 @@ export interface AgentTeamsTaskUpdatedData {
   readonly output?: string
   readonly attempt?: number
   readonly attemptId?: string
+  readonly verdict?: string
+  readonly round?: number
+}
+
+/** Records a human halt from the captain chat. */
+export interface AgentTeamsTeamHaltedData {
+  readonly teamId: string
+  readonly cancelledTasks: number
+}
+
+/** Records an explicit captain resume of a halted team. */
+export interface AgentTeamsTeamResumedData {
+  readonly teamId: string
+  readonly reason: string
 }
 
 /** Closes one team record: the team was deleted. */
 export interface AgentTeamsTeamDeletedData {
+  readonly teamId: string
+}
+
+/** Records a staged plan that the user rejected before any member was spawned. */
+export interface AgentTeamsPlanDiscardedData {
   readonly teamId: string
 }
 
@@ -103,10 +125,25 @@ declare module '@deepseek-ai/dsh-session/types' {
      */
     'agent-teams/message-sent': AgentTeamsMessageSentData
     /**
+     * Records a human halt from the captain chat.
+     * @param data - team identity and how many unfinished tasks were cancelled.
+     */
+    'agent-teams/team-halted': AgentTeamsTeamHaltedData
+    /**
+     * Records an explicit captain resume.
+     * @param data - team identity and the resume reason.
+     */
+    'agent-teams/team-resumed': AgentTeamsTeamResumedData
+    /**
      * Closes one team record after deletion.
      * @param data - stable team identity.
      */
     'agent-teams/team-deleted': AgentTeamsTeamDeletedData
+    /**
+     * Closes a staged plan rejected during pre-run review.
+     * @param data - stable team identity.
+     */
+    'agent-teams/plan-discarded': AgentTeamsPlanDiscardedData
   }
 }
 
@@ -118,4 +155,7 @@ export type AgentTeamsEventType =
   | 'agent-teams/task-created'
   | 'agent-teams/task-updated'
   | 'agent-teams/message-sent'
+  | 'agent-teams/team-halted'
+  | 'agent-teams/team-resumed'
   | 'agent-teams/team-deleted'
+  | 'agent-teams/plan-discarded'

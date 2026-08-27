@@ -2,7 +2,16 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.17`（开发者预览）
+> 当前版本：`v0.1.1-rc.21`（开发者预览）
+
+## `v0.1.1-rc.21` 更新说明
+
+- 修复运行中的 AgentTeams 团队读取到上游/旧格式可选任务字段哨兵值（如 `round: 0`、空 `objective`/来源 ID）时被误判为无效，避免 `invalid AgentTeams state` 阻断后续 `create_task`。
+- 保留真实质量合同、依赖、成员状态和任务内容；只有明确表示“未配置”的空值在冷启动读取边界被归一化，并加入状态文件回归测试。
+
+## `v0.1.1-rc.20` 更新说明
+
+- 修复未配置 `memberModel` 时把默认空字符串误判为非法配置的问题；普通成员现在会按设计继承队长当前的 provider、模型和思考强度。
 
 ## 为什么选择这个项目
 
@@ -23,7 +32,7 @@
 - **开箱即用的 Windows 桌面入口**：随机本地端口避免冲突，隐藏 Node/命令行窗口，启动失败提供更清晰的恢复路径。
 - **CPA 多模型与多模态**：通过 `CPA / CLIProxyAPI` 原生提供方接入 OpenAI Responses 兼容网关，自动获取模型；CPA 模型默认声明 `text + image`，支持图片附件和模型级纯文本覆盖。
 - **完整的思考协议映射**：支持 `off / low / medium / high / xhigh / max`，其他模型保留完整七档词汇，GPT-5.6 按其可用档位过滤。
-- **子智能体可控可追踪**：AgentTeams 的模型、提供商、思考强度和 Team/Native 委派路由在主程序设置 TAB 中管理；明确指定时不继承上游模型和思考参数。
+- **子智能体可控可追踪**：AgentTeams 的模型、提供商、思考强度、Profile 模板和 Team/Native 委派路由在主程序设置 TAB 中管理；明确指定时不继承上游模型和思考参数。
 - **会话可续接**：`续接 MD` 以确定性程序导出时间线、可见上下文、工具摘要和子会话 lineage，方便交给新的智能体继续；隐藏思维链和成功工具原始载荷不会被伪装导出。
 - **OpenCode 图片能力自愈**：启动时校正已验证的协议和图片能力；遇到旧目录或可疑模型时，可在“设置 → 模型”一键校验，不会修改 API 地址或 Token。
 - **OpenCode Go 会话路由兼容**：所有 OpenCode Go 模型沿用 Harness 当前会话的 `x-opencode-session` 粘性路由，避免 Kimi K3 等模型被网关误路由后伪装成“API key 无效”；通用 Provider 不受影响。
@@ -59,6 +68,18 @@
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。全局设置只影响未来创建的成员/会话，已有会话按其已记录的路由继续运行。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+
+## `v0.1.1-rc.19` 更新说明
+
+- `设置 → 子智能体` 增加贴近上游结构的 **Profile 配置**：可编辑成员、角色、Provider/模型、推理强度、协议、执行提示、fallback、captain/seed 任务模板、依赖和 review policy。
+- 内置 `software-delivery` Profile 默认提供 analyst、implementer、tester、reviewer 四角色；自定义 Profile 保存到本机桌面设置，升级和重启后保留，内置项可恢复。
+- Profile 保存经过主进程边界校验，启动前注入 AgentTeams；坏配置不会阻断 Harness 启动。保存后需重启，才会用于新团队；既有会话、CPA、OpenCode、Session Markdown 和 Windows 兼容能力不变。
+
+## `v0.1.1-rc.18` 更新说明
+
+- AgentTeams 本地 fork 刷新至上游 `v0.1.14`：接入执行前审查、可编辑 staged plan、原子审批、profile、可选质量门禁、fallback 和更安全的停止/恢复能力。
+- 为保持本项目既有行为，普通 AgentTeams 请求继续即时执行；显式 `approval=required` 和队长规划 profile 使用审查流程。`子智能体` 设置、CPA 共用模型目录、Team/Native 路由、显式路由权威、成员认领兼容和 OpenCode/会话导出等本地功能继续保留。
+- AgentTeams 的模型计划编辑器复用 Harness 原生模型目录，并与本地设置/连接注入共同挂载；未把 CPA 专属规则移入 AgentTeams 或 Models fork。
 
 ## `v0.1.1-rc.17` 更新说明
 
@@ -150,7 +171,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.13`（`v0.1.13` / `912aae5225d3d85fa841a1b0c8a5c77021876c25`），本地版本为 `0.1.13-desktop.3`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.4`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 
