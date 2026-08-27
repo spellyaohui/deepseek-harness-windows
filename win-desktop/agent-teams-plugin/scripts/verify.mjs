@@ -523,9 +523,14 @@ try {
     tasks: [{
       id: 't1',
       subject: 'legacy',
+      kind: 'work',
       status: 'pending',
       dependencies: [],
       profileSeedId: '   ',
+      round: 0,
+      objective: '',
+      reviewedTaskId: '',
+      sourceTaskId: '',
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }],
@@ -534,8 +539,14 @@ try {
   await mkdir(join(stateRoot, dirty.id, 'inbox'), { recursive: true })
   await writeFile(join(stateRoot, dirty.id, 'team.json'), JSON.stringify(dirty, null, 2), 'utf8')
   const recovered = await readTeam(stateRoot, dirty.id)
-  check('cold-resume ignores dirty optional profile and seed id',
-    recovered?.id === dirty.id && recovered.profile === undefined && recovered.tasks[0]?.profileSeedId === undefined)
+  check('cold-resume normalizes legacy empty quality sentinels',
+    recovered?.id === dirty.id
+      && recovered.profile === undefined
+      && recovered.tasks[0]?.profileSeedId === undefined
+      && recovered.tasks[0]?.round === undefined
+      && recovered.tasks[0]?.objective === undefined
+      && recovered.tasks[0]?.reviewedTaskId === undefined
+      && recovered.tasks[0]?.sourceTaskId === undefined)
   await removeTeamDir(stateRoot, dirty.id)
 
   const found = await findTeamByCaptain(stateRoot, 'sess-captain')

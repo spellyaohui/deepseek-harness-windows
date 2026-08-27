@@ -7,9 +7,9 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.20`
+- Windows desktop wrapper: `0.1.1-rc.21`
 - OpenCode capability validation plugin: `0.1.1`
-- AgentTeams fork: `0.1.14-desktop.3`, based on upstream `0.1.14`
+- AgentTeams fork: `0.1.14-desktop.4`, based on upstream `0.1.14`
 - CPA provider plugin: `0.1.4`
 - Models settings fork: `0.1.1-rc.2-desktop.2`
 - Desktop Settings plugin: `0.1.1`
@@ -84,6 +84,7 @@ fork's settings contract:
 | AgentTeams capability | Result | Evidence/action |
 | --- | --- | --- |
 | v0.1.14 staged plans, atomic approval, halt/resume, profiles, quality gates, fallback, and activity controls | `UPSTREAM_EQUIVALENT` | Imported the upstream implementation and retained its offline, lifecycle, quality-gate, and stress regressions. |
+| Durable task-state compatibility with upstream/legacy omitted-value sentinels | `REAPPLY` | Kept strict quality validation, but normalize only `round: 0` and blank optional quality identifiers at the cold-read boundary; the on-disk recovery regression reproduces and prevents `invalid AgentTeams state`. |
 | Local persisted profile editor, built-in roster, host IPC and restart-time injection | `REAPPLY` | Reapplied the smallest wrapper seam around the upstream profile schema; host validation is fail-closed, the editor preserves all upstream fields, and profile/store/YAML regressions pass. |
 | Local `子智能体` settings, shared catalog including CPA, target-default/route-aware/explicit reasoning, and explicit route authority | `REAPPLY` | Kept the local settings runtime, model catalog, selection policy, and settings-client regressions. |
 | Team/Native durable markers, native-tool suppression, member claim compatibility, and local desktop mounting | `REAPPLY` | Kept the routing policy, tolerant claim behavior, client injection, and wrapper integration regressions. |

@@ -709,6 +709,25 @@ function coerceProfileSnapshot(value: unknown): TeamProfileSnapshot | undefined 
   }
 }
 
+/**
+ * Normalize omitted-value sentinels emitted by older/upstream task writers.
+ * Optional quality fields must remain absent when they are not configured;
+ * keeping their empty defaults makes an otherwise usable team fail the
+ * durable-state validator during a cold read.
+ */
+function coerceTeamTask(value: unknown): unknown {
+  if (!isRecord(value)) return value
+  const next = { ...value }
+  if (next['profileSeedId'] !== undefined && (typeof next['profileSeedId'] !== 'string' || next['profileSeedId'].trim() === '')) {
+    delete next['profileSeedId']
+  }
+  if (next['round'] === 0) delete next['round']
+  for (const key of ['objective', 'reviewedTaskId', 'sourceTaskId'] as const) {
+    if (typeof next[key] === 'string' && next[key].trim() === '') delete next[key]
+  }
+  return next
+}
+
 function coerceTeamState(value: unknown, expectedId: string): TeamState | undefined {
   if (!isRecord(value)) return undefined
   if (value['profile'] !== undefined && !isTeamProfileSnapshot(value['profile']) && typeof value['profile'] !== 'string') {
@@ -728,15 +747,7 @@ function coerceTeamState(value: unknown, expectedId: string): TeamState | undefi
   if (!isRecord(value) || !Array.isArray(value['tasks'])) {
     return isTeamState(value, expectedId) ? value : undefined
   }
-  const tasks = (value['tasks'] as unknown[]).map((task) => {
-    if (!isRecord(task)) return task
-    if (task['profileSeedId'] !== undefined && (typeof task['profileSeedId'] !== 'string' || task['profileSeedId'].trim() === '')) {
-      const next = { ...task }
-      delete next['profileSeedId']
-      return next
-    }
-    return task
-  })
+  const tasks = (value['tasks'] as unknown[]).map(coerceTeamTask)
   const coerced = { ...value, tasks }
   return isTeamState(coerced, expectedId) ? coerced : undefined
 }
