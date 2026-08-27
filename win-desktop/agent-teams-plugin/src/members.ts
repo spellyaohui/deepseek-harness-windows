@@ -228,15 +228,15 @@ export async function resolveMemberLlmSelection(
 ): Promise<MemberLlmSelection> {
   const explicitProvider = request.provider?.trim()
   const explicitModel = request.model?.trim()
-  const defaultModel = request.defaultModel?.trim()
+  // Schemastery uses an empty string for the optional config default. Treat
+  // that sentinel (and whitespace-only values) as omitted so ordinary members
+  // inherit the captain's current route.
+  const defaultModel = request.defaultModel?.trim() || undefined
   if (request.provider !== undefined && explicitProvider === '') {
     throw new Error('member LLM provider must not be empty')
   }
   if (request.model !== undefined && explicitModel === '') {
     throw new Error('member model must not be empty')
-  }
-  if (request.defaultModel !== undefined && defaultModel === '') {
-    throw new Error('configured memberModel must not be empty')
   }
   const current = captain.session.requestHeader()?.config
   const provider = current?.provider ?? captain.options.provider

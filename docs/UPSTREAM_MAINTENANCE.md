@@ -7,9 +7,9 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.19`
+- Windows desktop wrapper: `0.1.1-rc.20`
 - OpenCode capability validation plugin: `0.1.1`
-- AgentTeams fork: `0.1.14-desktop.2`, based on upstream `0.1.14`
+- AgentTeams fork: `0.1.14-desktop.3`, based on upstream `0.1.14`
 - CPA provider plugin: `0.1.4`
 - Models settings fork: `0.1.1-rc.2-desktop.2`
 - Desktop Settings plugin: `0.1.1`

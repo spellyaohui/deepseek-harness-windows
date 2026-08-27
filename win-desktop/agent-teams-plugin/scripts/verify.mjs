@@ -1141,6 +1141,23 @@ check(
     && inheritedSelection.model === 'captain-model'
     && inheritedSelection.reasoningEffort === 'max',
 )
+const schemaDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, {
+  defaultModel: '',
+  defaults: routeAwareSettings,
+})
+const whitespaceSchemaDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, {
+  defaultModel: '  ',
+  defaults: routeAwareSettings,
+})
+check(
+  'blank configured memberModel is treated as omitted and inherits the captain route',
+  schemaDefaultSelection.provider === 'captain-provider'
+    && schemaDefaultSelection.model === 'captain-model'
+    && schemaDefaultSelection.reasoningEffort === 'max'
+    && whitespaceSchemaDefaultSelection.provider === 'captain-provider'
+    && whitespaceSchemaDefaultSelection.model === 'captain-model'
+    && whitespaceSchemaDefaultSelection.reasoningEffort === 'max',
+)
 const overriddenSelection = await resolveMemberLlmSelection(selectionContext, captain, {
   provider: 'other-provider',
   model: 'other-model',

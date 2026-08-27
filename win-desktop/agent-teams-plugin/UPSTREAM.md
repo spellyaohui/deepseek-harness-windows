@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.2`.
+- Desktop fork version is `0.1.14-desktop.3`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -30,6 +30,9 @@
   members are instructed to send only `task_id`, while blank, whitespace, or
   self `assignee` values remain idempotent and attempts to claim as another
   actor are still rejected.
+- `.desktop.3` treats the Schemastery empty-string sentinel for the optional
+  `memberModel` default as omitted, preserving captain-route inheritance for
+  ordinary members; `scripts/verify.mjs` covers the desktop integration shape.
 - The v0.1.14 staged-plan, named-profile, fallback, quality-gate, atomic
   approval, halt/resume, and activity-panel improvements are imported. The
   desktop fork keeps immediate execution as the default for ordinary
