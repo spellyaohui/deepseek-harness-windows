@@ -21,9 +21,13 @@
             members:
               - name: analyst
                 role: "Requirements analyst"
+                reasoning_mode: target-default
               - name: implementer
                 role: "Implementation engineer"
+                reasoning_mode: target-default
               - name: tester
                 role: "Verification engineer"
+                reasoning_mode: target-default
               - name: reviewer
                 role: "Code and risk reviewer"
+                reasoning_mode: target-default

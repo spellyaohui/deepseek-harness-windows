@@ -101,9 +101,9 @@ export function getAgentTeamsProfiles() {
   return getAgentTeamsProfileSnapshot({ settings: loadDesktopSettings() })
 }
 
-/** Validate, persist, and return the complete AgentTeams profile snapshot. */
-export function setAgentTeamsProfiles(profiles) {
-  return writeAgentTeamsProfiles(profiles, {
+/** Validate, persist, and return the complete V2 AgentTeams profile snapshot. */
+export function setAgentTeamsProfiles(profileDocument) {
+  return writeAgentTeamsProfiles(profileDocument, {
     load: loadDesktopSettings,
     flush: flushSettings,
   })

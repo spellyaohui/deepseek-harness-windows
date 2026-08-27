@@ -78,11 +78,15 @@ test('runtime patch injects supplied profiles without corrupting YAML', () => {
     const patchPath = generateAgentTeamsPatch({
       getSettings: () => ({}),
       getProfiles: () => ({
+        schemaVersion: 2,
         profiles: {
           'software-delivery': {
             taskPlanning: 'captain',
             protocol,
-            members: [{ name: 'analyst', role: '分析' }],
+            members: [{ name: 'analyst', role: '分析', reasoning_mode: 'target-default' }],
+          },
+          custom: {
+            members: [{ name: 'reviewer', role: '评审', reasoning_mode: 'target-default' }],
           },
         },
         builtInNames: ['software-delivery'],
@@ -93,7 +97,10 @@ test('runtime patch injects supplied profiles without corrupting YAML', () => {
     const entries = patch.flatMap((item) => item.insert ?? [])
     const agentTeams = entries.find((entry) => entry.id === 'agent-teams')
     assert.equal(agentTeams.config.profiles['software-delivery'].protocol, protocol)
-    assert.deepEqual(agentTeams.config.profiles['software-delivery'].members, [{ name: 'analyst', role: '分析' }])
+    assert.deepEqual(agentTeams.config.profiles['software-delivery'].members, [{ name: 'analyst', role: '分析', reasoning_mode: 'target-default' }])
+    assert.deepEqual(agentTeams.config.profiles.custom, {
+      members: [{ name: 'reviewer', role: '评审', reasoning_mode: 'target-default' }],
+    })
   } finally {
     rmSync(userData, { recursive: true, force: true })
   }
@@ -105,6 +112,30 @@ test('runtime patch falls back to the safe built-in map for malformed profile sn
     const patchPath = generateAgentTeamsPatch({
       getSettings: () => ({}),
       getProfiles: () => ({ profiles: { broken: [] }, builtInNames: [] }),
+      getUserDataPath: () => userData,
+    })
+    const patch = yaml.load(readFileSync(patchPath, 'utf8'))
+    const agentTeams = patch.flatMap((item) => item.insert ?? [])
+      .find((entry) => entry.id === 'agent-teams')
+    assert.deepEqual(agentTeams.config.profiles, BUILTIN_AGENT_TEAMS_PROFILES)
+  } finally {
+    rmSync(userData, { recursive: true, force: true })
+  }
+})
+
+test('runtime patch rejects an unversioned custom profile snapshot', () => {
+  const userData = mkdtempSync(join(tmpdir(), 'dsh-agent-teams-profile-unversioned-'))
+  try {
+    const patchPath = generateAgentTeamsPatch({
+      getSettings: () => ({}),
+      getProfiles: () => ({
+        profiles: {
+          custom: {
+            members: [{ name: 'old', role: '旧配置' }],
+          },
+        },
+        builtInNames: [],
+      }),
       getUserDataPath: () => userData,
     })
     const patch = yaml.load(readFileSync(patchPath, 'utf8'))

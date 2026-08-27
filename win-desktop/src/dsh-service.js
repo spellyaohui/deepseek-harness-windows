@@ -51,7 +51,7 @@ export function generateAgentTeamsPatch({
     ? getProfiles()
     : getAgentTeamsProfileSnapshot({ settings })
   const profiles = readAgentTeamsProfiles({
-    agentTeamsProfiles: profileSnapshot?.profiles ?? profileSnapshot,
+    agentTeamsProfiles: profileSnapshot,
   })
   const memberModel = typeof settings.agentTeamsMemberModel === 'string'
     ? settings.agentTeamsMemberModel.trim()

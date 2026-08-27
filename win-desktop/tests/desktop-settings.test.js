@@ -56,12 +56,20 @@ describe('desktop-settings logic', () => {
   })
 
   it('merges partial updates without losing other fields', () => {
-    set({ agentTeamsMemberModel: 'model-a' })
+    set({
+      agentTeamsMemberModel: 'model-a',
+      agentTeamsProfiles: {
+        schemaVersion: 2,
+        profiles: { custom: { members: [{ name: 'custom', reasoning_mode: 'target-default' }] } },
+      },
+    })
     set({ agentTeamsMemberReasoningEffort: 'low' })
     const s = get()
     assert.equal(s.agentTeamsMemberModel, 'model-a')
     assert.equal(s.agentTeamsMemberReasoningEffort, 'low')
     assert.equal(s.closeBehavior, 'tray')
+    assert.equal(s.agentTeamsProfiles.schemaVersion, 2)
+    assert.equal(s.agentTeamsProfiles.profiles.custom.members[0].reasoning_mode, 'target-default')
   })
 
   it('falls back to defaults on malformed JSON', () => {

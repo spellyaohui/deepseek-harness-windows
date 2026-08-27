@@ -14,12 +14,14 @@ const MAX_SERIALIZED_BYTES = 256 * 1024
 const PROFILE_NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u
 const CAPTAIN_NAME = 'captain'
 
+export const AGENT_TEAMS_PROFILE_SCHEMA_VERSION = 2
+
 const PROFILE_KEYS = new Set([
   'description', 'protocol', 'executionPrompt', 'fallback', 'members',
   'tasks', 'taskPlanning', 'reviewPolicy',
 ])
 const MEMBER_KEYS = new Set([
-  'name', 'role', 'provider', 'model', 'reasoning_effort', 'executionPrompt', 'fallback',
+  'name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback',
 ])
 const TASK_KEYS = new Set(['id', 'subject', 'description', 'assignee', 'dependencies'])
 const FALLBACK_KEYS = new Set(['provider', 'model'])
@@ -33,10 +35,10 @@ const SOFTWARE_DELIVERY_PROFILE = {
   protocol: 'Keep scope, acceptance criteria, and verification evidence traceable. Analyze before implementation and verify before delivery.',
   taskPlanning: 'captain',
   members: [
-    { name: 'analyst', role: 'Requirements analyst' },
-    { name: 'implementer', role: 'Implementation engineer' },
-    { name: 'tester', role: 'Verification engineer' },
-    { name: 'reviewer', role: 'Code and risk reviewer' },
+    { name: 'analyst', role: 'Requirements analyst', reasoning_mode: 'target-default' },
+    { name: 'implementer', role: 'Implementation engineer', reasoning_mode: 'target-default' },
+    { name: 'tester', role: 'Verification engineer', reasoning_mode: 'target-default' },
+    { name: 'reviewer', role: 'Code and risk reviewer', reasoning_mode: 'target-default' },
   ],
 }
 
@@ -100,6 +102,12 @@ function normalizedOptionalString(value, path) {
   const trimmed = value.trim()
   if (trimmed === '') throw new Error(`${path} must not be empty`)
   return trimmed
+}
+
+function normalizedRequiredString(value, path) {
+  const normalized = normalizedOptionalString(value, path)
+  if (normalized === undefined) throw new Error(`${path} must not be empty`)
+  return normalized
 }
 
 function normalizedFallback(value, path) {
@@ -183,14 +191,30 @@ function normalizedMember(value, path) {
   if (name === undefined || name.toLowerCase() === CAPTAIN_NAME) {
     throw new Error(`${path}.name must be a non-captain member name`)
   }
-  const member = { name }
-  for (const key of ['role', 'provider', 'model', 'reasoning_effort', 'executionPrompt']) {
+  const provider = normalizedOptionalString(value.provider, `${path}.provider`)
+  const model = normalizedOptionalString(value.model, `${path}.model`)
+  const reasoning_mode = normalizedRequiredString(value.reasoning_mode, `${path}.reasoning_mode`)
+  const reasoning_effort = normalizedOptionalString(value.reasoning_effort, `${path}.reasoning_effort`)
+  if ((provider === undefined) !== (model === undefined)) {
+    throw new Error(`${path}.provider and ${path}.model must be set together`)
+  }
+  if (!['target-default', 'route-aware', 'explicit'].includes(reasoning_mode)) {
+    throw new Error(`${path}.reasoning_mode is invalid`)
+  }
+  if (reasoning_mode === 'explicit' && (provider === undefined || model === undefined || reasoning_effort === undefined)) {
+    throw new Error(`${path} explicit policy requires provider, model, and reasoning_effort`)
+  }
+  if (reasoning_mode !== 'explicit' && reasoning_effort !== undefined) {
+    throw new Error(`${path}.reasoning_effort is valid only for explicit policy`)
+  }
+  const member = { name, reasoning_mode }
+  for (const key of ['role', 'executionPrompt']) {
     const normalized = normalizedOptionalString(value[key], `${path}.${key}`)
     if (normalized !== undefined) member[key] = normalized
   }
-  if (member.provider !== undefined && member.model === undefined) {
-    throw new Error(`${path}.provider requires model`)
-  }
+  if (provider !== undefined) member.provider = provider
+  if (model !== undefined) member.model = model
+  if (reasoning_effort !== undefined) member.reasoning_effort = reasoning_effort
   const fallback = normalizedFallback(value.fallback, `${path}.fallback`)
   if (fallback !== undefined) member.fallback = fallback
   return member
@@ -263,28 +287,68 @@ function normalizeProfileMap(value, strict) {
   return profiles
 }
 
-export function readAgentTeamsProfiles(settings) {
+function readProfileDocument(settings) {
   const stored = isPlainRecord(settings) ? settings.agentTeamsProfiles : undefined
-  const profiles = normalizeProfileMap(stored, false)
-  return {
-    ...cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
-    ...profiles,
+  const builtIns = cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES)
+  if (stored === undefined) {
+    return {
+      schemaVersion: AGENT_TEAMS_PROFILE_SCHEMA_VERSION,
+      profiles: builtIns,
+      unsupportedPersistedVersion: false,
+    }
   }
+  if (
+    !isPlainRecord(stored)
+    || stored.schemaVersion !== AGENT_TEAMS_PROFILE_SCHEMA_VERSION
+    || !isPlainRecord(stored.profiles)
+  ) {
+    return {
+      schemaVersion: AGENT_TEAMS_PROFILE_SCHEMA_VERSION,
+      profiles: builtIns,
+      unsupportedPersistedVersion: true,
+    }
+  }
+  const profiles = normalizeProfileMap(stored.profiles, false)
+  return {
+    schemaVersion: AGENT_TEAMS_PROFILE_SCHEMA_VERSION,
+    profiles: { ...builtIns, ...profiles },
+    unsupportedPersistedVersion: false,
+  }
+}
+
+function normalizeProfileDocumentForWrite(value) {
+  if (!isPlainRecord(value)) throw new Error('AgentTeams profile document must be an object')
+  for (const key of Object.keys(value)) {
+    if (key !== 'schemaVersion' && key !== 'profiles') {
+      throw new Error(`AgentTeams profile document.${key} is not supported`)
+    }
+  }
+  if (value.schemaVersion !== AGENT_TEAMS_PROFILE_SCHEMA_VERSION) {
+    throw new Error(`AgentTeams profile document.schemaVersion must be ${AGENT_TEAMS_PROFILE_SCHEMA_VERSION}`)
+  }
+  return normalizeProfileMap(value.profiles, true)
+}
+
+export function readAgentTeamsProfiles(settings) {
+  return cloneAgentTeamsProfiles(readProfileDocument(settings).profiles)
 }
 
 export function getAgentTeamsProfileSnapshot({ settings = {} } = {}) {
+  const document = readProfileDocument(settings)
   return {
-    profiles: cloneAgentTeamsProfiles(readAgentTeamsProfiles(settings)),
+    schemaVersion: AGENT_TEAMS_PROFILE_SCHEMA_VERSION,
+    profiles: cloneAgentTeamsProfiles(document.profiles),
     builtInNames: [...BUILTIN_AGENT_TEAMS_PROFILE_NAMES],
     builtInProfiles: cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
+    unsupportedPersistedVersion: document.unsupportedPersistedVersion,
   }
 }
 
-export function writeAgentTeamsProfiles(profiles, {
+export function writeAgentTeamsProfiles(profileDocument, {
   load = () => ({}),
   flush = () => {},
 } = {}) {
-  const normalized = normalizeProfileMap(profiles, true)
+  const normalized = normalizeProfileDocumentForWrite(profileDocument)
   const merged = {
     ...cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
     ...normalized,
@@ -296,12 +360,17 @@ export function writeAgentTeamsProfiles(profiles, {
   if (!isPlainRecord(current)) throw new Error('desktop settings must be an object')
   const next = {
     ...current,
-    agentTeamsProfiles: cloneAgentTeamsProfiles(merged),
+    agentTeamsProfiles: {
+      schemaVersion: AGENT_TEAMS_PROFILE_SCHEMA_VERSION,
+      profiles: cloneAgentTeamsProfiles(merged),
+    },
   }
   flush(next)
   return {
+    schemaVersion: AGENT_TEAMS_PROFILE_SCHEMA_VERSION,
     profiles: cloneAgentTeamsProfiles(merged),
     builtInNames: [...BUILTIN_AGENT_TEAMS_PROFILE_NAMES],
     builtInProfiles: cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
+    unsupportedPersistedVersion: false,
   }
 }
