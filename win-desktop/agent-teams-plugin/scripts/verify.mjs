@@ -1221,6 +1221,7 @@ check(
 const lockedExplicitSelection = await resolveMemberLlmSelection(selectionContext, captain, {
   provider: 'guessed-provider',
   model: 'guessed-model',
+  defaultModel: 'config-only-fallback-model',
   reasoningEffort: 'max',
   defaults: {
     ...routeAwareSettings,
@@ -1231,7 +1232,7 @@ const lockedExplicitSelection = await resolveMemberLlmSelection(selectionContext
   },
 })
 check(
-  'explicit settings prevent guessed route arguments from reaching target resolution',
+  'explicit settings prevent guessed route arguments and plugin defaults from reaching target resolution',
   lockedExplicitSelection.provider === 'other-provider'
     && lockedExplicitSelection.model === 'other-model'
     && lockedExplicitSelection.reasoningEffort === 'high'
