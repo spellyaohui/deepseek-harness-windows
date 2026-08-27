@@ -11,6 +11,7 @@
  */
 
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -30,12 +31,19 @@ import {
 } from '../lib/state.js'
 import {
   activityPanelExpandedForSession,
+  activityPanelShouldAutoExpand,
   compactDagLayout,
+  compactModelLabel,
   COMPACT_DAG_NODE_HEIGHT,
   COMPACT_DAG_NODE_WIDTH,
   dependencyFocusTaskId,
+  memberRouteLabel,
   relatedTaskIds,
+  taskModelLabel,
   taskStages,
+  liveCaptainTeam,
+  teamIsActive,
+  teamProgressSummary,
   usesParallelTaskGrid,
 } from '../lib/client/activity-model.js'
 import {
@@ -68,10 +76,14 @@ import {
 } from '../lib/client/locales.js'
 import { openAgentTeamMember } from '../lib/client/session-navigation.js'
 import { steerCaptainReport } from '../lib/tools.js'
+import { parseProfileInvocation, resolveTeamProfile, formatProfilesForPrompt } from '../lib/profiles.js'
+import { memberPersona, memberWelcome } from '../lib/members.js'
+import { collectCompletedDependencyOutputs, formatDependencyOutputs, assignmentPrompt } from '../lib/scheduler.js'
 import {
   installMemberSelectionRuntime,
   resolveMemberLlmSelection,
   spawnMember,
+  validateMemberLlmSelections,
 } from '../lib/members.js'
 
 let failures = 0
@@ -96,6 +108,48 @@ check(
   'usage prompt says explicit mode is settings-enforced',
   builtIndex.includes('In explicit mode, omit provider/model/reasoning_effort; the plugin enforces the configured settings route.'),
 )
+
+// Named multi-role profile rules
+const demoProfiles = { ' demo ': { protocol: 'a'.repeat(300), members: [{ name: ' Implementer ', role: 'builder', model: 'm' }, { name: 'Reviewer', model: 'r' }], tasks: [{ id: 'design', subject: 'Design', assignee: 'implementer' }, { id: 'review', subject: 'Review', assignee: ' reviewer ', dependencies: ['design'] }] } }
+const normalizedDemo = resolveTeamProfile(demoProfiles, 'demo', 8)
+check('profile keys trim and assignees canonicalize', normalizedDemo.members[0].name === 'Implementer' && normalizedDemo.tasks[1].assignee === 'Reviewer')
+check('profile tasks are stable topological order', normalizedDemo.tasks[0].id === 'design' && normalizedDemo.tasks[1].id === 'review')
+check('profile invocation supports --profile=', parseProfileInvocation('--profile=demo ship it').profile === 'demo' && parseProfileInvocation('--profile=demo ship it').goal === 'ship it')
+check('profile invocation leaves mid-goal profile text untouched', parseProfileInvocation('research profile=prod config').goal === 'research profile=prod config')
+check('profile prompt omits empty config and truncates protocol', formatProfilesForPrompt(demoProfiles).includes('demo') && formatProfilesForPrompt(demoProfiles).length < 400)
+check('seed planning remains the default', normalizedDemo.taskPlanning === 'seed')
+const captainPlanned = resolveTeamProfile({
+  dynamic: {
+    taskPlanning: 'captain',
+    members: [{ name: 'analyst', model: 'a' }, { name: 'reviewer', model: 'r' }],
+    tasks: [
+      { id: 'requirements', subject: 'Requirements', assignee: 'analyst' },
+      { id: 'review', subject: 'Review', assignee: 'reviewer', dependencies: ['requirements'] },
+    ],
+  },
+}, 'dynamic', 8)
+check('captain planning keeps the roster and drops seed tasks', captainPlanned.taskPlanning === 'captain' && captainPlanned.members.length === 2 && captainPlanned.tasks.length === 0)
+check('profile prompt marks captain planning instead of unused seed counts', formatProfilesForPrompt({ dynamic: { taskPlanning: 'captain', members: [{ name: 'solo', model: 'm' }], tasks: [{ id: 'work', subject: 'Work', assignee: 'solo' }] } }).includes('captain planning'))
+const profilePersona = memberPersona({ name: 'Demo', id: 'demo', description: 'goal', profile: { name: 'demo', protocol: 'p'.repeat(600) }, captainSessionId: 'c', createdAt: 0, members: [], tasks: [], taskSeq: 0 }, { name: 'Implementer', id: 'm', role: 'builder', joinedAt: 0, status: 'idle' }, '.agent-teams')
+check('member persona includes completed/failed and claimed transition rules', profilePersona.includes('status=completed') && profilePersona.includes('status=failed') && profilePersona.includes('claimed') && profilePersona.includes('in_progress'))
+const welcome = memberWelcome({ name: 'Demo', id: 'demo', captainSessionId: 'c', createdAt: 0, members: [], tasks: [{ id: 't1', subject: 'x', status: 'pending', assignee: 'Implementer', dependencies: [], createdAt: 0, updatedAt: 0 }], taskSeq: 1 }, 'Implementer')
+check('member welcome reports assigned pending count', welcome.includes('1 pending task(s) assigned to you') && !welcome.includes('none assigned to you yet'))
+const truncated = formatDependencyOutputs([
+  { id: 't1', subject: 'old', profileSeedId: 'requirements', output: 'x'.repeat(2500) },
+  { id: 't2', subject: 'new', profileSeedId: 'implement', output: 'keep-me' },
+])
+check('dependency outputs truncate and keep the newest seed id',
+  truncated.includes('[implement]') && truncated.includes('keep-me') && truncated.includes('[truncated]'))
+let cycleWarned = false
+const cycled = collectCompletedDependencyOutputs([
+  { id: 't1', subject: 'a', status: 'completed', dependencies: ['t2'], createdAt: 0, updatedAt: 0 },
+  { id: 't2', subject: 'b', status: 'completed', dependencies: ['t1'], createdAt: 0, updatedAt: 0 },
+], 't2', () => { cycleWarned = true })
+check('recursive dependency collection stops on cycles', cycleWarned && Array.isArray(cycled))
+check('persona protocol is truncated', profilePersona.includes('p'.repeat(400)) && !profilePersona.includes('p'.repeat(401)))
+const injected = 'The product interface should present the intended outcome, not reveal the reasoning process.'
+const assignment = assignmentPrompt({ taskId: 't1', memberName: 'Implementer', memberId: 'm', attempt: 1, attemptId: 'a', subject: 'x', dependencyOutputs: [], executionPrompt: injected }, '.agent-teams', 'demo')
+check('execution prompt is injected into persona and assignment', assignment.includes(injected) && memberPersona({ name: 'Demo', id: 'demo', description: 'goal', captainSessionId: 'c', createdAt: 0, members: [], tasks: [], taskSeq: 0 }, { name: 'Implementer', id: 'm', role: 'builder', joinedAt: 0, status: 'idle', executionPrompt: injected }, '.agent-teams').includes(injected))
 
 // The bundle patch's `name` is the specifier Node resolves when a profile
 // loads this plugin, so it must equal the published package name. A mismatch
@@ -144,11 +198,14 @@ check(
 )
 const activityPanelCss = await readFile(new URL('../src/client/ActivityPanel.module.css', import.meta.url), 'utf8')
 const activityPanelSource = await readFile(new URL('../src/client/ActivityPanel.tsx', import.meta.url), 'utf8')
+const stagingPlanSource = await readFile(new URL('../src/client/StagingPlanEditor.tsx', import.meta.url), 'utf8')
 const clientIndexSource = await readFile(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
 const agentTeamsCardCss = await readFile(new URL('../src/client/AgentTeamsCard.module.css', import.meta.url), 'utf8')
 const agentTeamsCardSource = await readFile(new URL('../src/client/AgentTeamsCard.tsx', import.meta.url), 'utf8')
 const artworkSource = await readFile(new URL('../src/client/artwork.ts', import.meta.url), 'utf8')
 const hostSource = await readFile(new URL('../src/index.ts', import.meta.url), 'utf8')
+const toolsSource = await readFile(new URL('../src/tools.ts', import.meta.url), 'utf8')
+const localesSource = await readFile(new URL('../src/client/locales.ts', import.meta.url), 'utf8')
 const localeKeys = Object.keys(agentTeamsZh).sort()
 const englishLocaleKeys = Object.keys(agentTeamsEn).sort()
 const placeholders = value => [...value.matchAll(/\{(\w+)\}/gu)].map(match => match[1]).sort()
@@ -162,7 +219,7 @@ check(
 check(
   'client registers the official locale namespace on all three visible slots',
   AGENT_TEAMS_LOCALE_NAMESPACE === 'agentTeams'
-    && clientIndexSource.includes("'conversationEvents', 'slots', 'sessions', 'locale'")
+    && clientIndexSource.includes("'conversationEvents', 'slots', 'sessions', 'locale', 'modelDirectories'")
     && clientIndexSource.includes('ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en })')
     && clientIndexSource.match(/locale:\s*AGENT_TEAMS_LOCALE_NAMESPACE/gu)?.length === 3,
 )
@@ -170,6 +227,68 @@ check(
   'slash command transcript hides the duplicate pre-message result row',
   clientIndexSource.includes('HiddenAgentTeamsCommand')
     && /name:\s*'conversation\.chat\.commandview',\s*key:\s*'agent-teams'/u.test(clientIndexSource),
+)
+check(
+  'stop-team control lives in the team panel and requires confirmation',
+  !clientIndexSource.includes("conversation.input.dock")
+    && activityPanelSource.includes('className={css.teamStopButton}')
+    && activityPanelSource.includes('<Modal')
+    && activityPanelSource.includes('ACTIVITY_HALT_URL'),
+)
+check(
+  'clean builds do not package the removed composer stop banner',
+  !existsSync(new URL('../lib/client/TeamProgressBanner.js', import.meta.url))
+    && !existsSync(new URL('../lib/types/client/TeamProgressBanner.d.ts', import.meta.url)),
+)
+check(
+  'staged member routes use the official directory and primitive Menu instead of native route selects',
+  clientIndexSource.includes('@deepseek-ai/dsh-client-ui-model-selection/client')
+    && stagingPlanSource.includes('directory.store.subscribe')
+    && stagingPlanSource.includes("from '@deepseek-ai/dsh-client-ui-primitives'")
+    && stagingPlanSource.includes('<Menu')
+    && stagingPlanSource.includes('data-plan-model-trigger')
+    && !stagingPlanSource.includes('name="provider"')
+    && !stagingPlanSource.includes('name="model"')
+    && !stagingPlanSource.includes('name="modelRoute"')
+    && !stagingPlanSource.includes('name="reasoningEffort"'),
+)
+check(
+  'staged plan review offers continue, discard, and approve outcomes',
+  stagingPlanSource.includes('data-plan-continue')
+    && stagingPlanSource.includes('data-plan-discard')
+    && stagingPlanSource.includes("action: 'continue'")
+    && stagingPlanSource.includes("action: 'discard'")
+    && hostSource.includes("if (action === 'continue')")
+    && hostSource.includes("if (action === 'discard')"),
+)
+check(
+  'review decisions control the Captain turn instead of relying on front-end state alone',
+  toolsSource.includes('stagedPlanFeedbackContext')
+    && toolsSource.includes('stagedPlanDiscardContext')
+    && toolsSource.includes("fresh.planReviewState = 'awaiting_feedback'")
+    && toolsSource.includes("captain.cancel({ kind: 'user' }, { keepInbox: true })")
+    && toolsSource.includes('captain.followup(createUserMessage')
+    && toolsSource.includes('captain.inject(createUserMessage')
+    && toolsSource.includes('Do not create a replacement team')
+    && toolsSource.includes('Do not call agent_teams_create'),
+)
+check(
+  'continued planning uses a model-facing atomic staged-plan tool instead of state-file edits',
+  toolsSource.includes("name: 'agent_teams_edit_plan'")
+    && toolsSource.includes('updateStagedPlanBatch')
+    && toolsSource.includes("action: 'remove_member'")
+    && toolsSource.includes('none of the edits are saved')
+    && hostSource.includes('agent_teams_edit_plan')
+    && hostSource.includes('Never inspect or edit .agent-teams state files or plugin source code'),
+)
+check(
+  'discarded and stopped teams render terminal semantics instead of pending execution copy',
+  activityPanelSource.includes("const discarded = historic && team.phase === 'staged'")
+    && activityPanelSource.includes("t('member.status.discarded')")
+    && activityPanelSource.includes("t('member.status.stopped')")
+    && activityPanelSource.includes("'archive.discardedLabel'")
+    && localesSource.includes("'task.status.notRun': '未执行'")
+    && localesSource.includes("'member.state.notCreated': '未创建'"),
 )
 const expectedArtwork = [
   'team-lead-v2.png',
@@ -278,6 +397,23 @@ check(
   'interactive panel controls must stay visible to browser verification',
 )
 check(
+  'staged plan editor keeps long plans compact and guards consequential actions',
+  stagingPlanSource.includes('aria-expanded={open}')
+    && stagingPlanSource.includes('aria-live=')
+    && stagingPlanSource.includes('confirmingRemove')
+    && !stagingPlanSource.includes('approvalArmed')
+    && stagingPlanSource.includes('data-plan-approve')
+    && stagingPlanSource.includes('data-confirming')
+    && activityPanelCss.includes('.planCardHeader')
+    && activityPanelCss.includes('.planFeedback')
+    && activityPanelCss.includes('.planApproveRow')
+    && activityPanelCss.includes('position: sticky')
+    && activityPanelCss.includes('container-type: inline-size')
+    && activityPanelCss.includes('@container agent-team')
+    && activityPanelCss.includes('.planSectionToggle:focus-visible'),
+  'plan review must expose disclosure, feedback, destructive confirmation, focus, sticky action, and container-based narrow-layout contracts',
+)
+check(
   'running DAG tasks reuse the animated work glyph without losing focus context',
   activityPanelSource.includes("task.state === 'running'")
     && activityPanelSource.includes('className={css.dagRunningState}')
@@ -285,6 +421,18 @@ check(
     && activityPanelCss.includes(".dagNode[data-state='running'][data-dimmed='true']")
     && activityPanelCss.includes('.dagRunningState {'),
   'running work should stay visible in both normal and dependency-focus states',
+)
+check(
+  'running tasks surface the assignee model on the activity card',
+  activityPanelSource.includes('taskModelLabel(task, members)')
+    && activityPanelSource.includes('data-task-model={model || undefined}')
+    && activityPanelSource.includes('data-task-model={detailModel}')
+    && activityPanelSource.includes('member.status.executingModel')
+    && activityPanelSource.includes('css.taskDetailModel')
+    && activityPanelSource.includes('css.memberModel')
+    && activityPanelCss.includes('.taskDetailModel')
+    && activityPanelCss.includes('.memberModel'),
+  'the right-side card must show which model a running subtask is using',
 )
 check(
   'activity polling combines card demand with current-session cold discovery',
@@ -363,6 +511,28 @@ try {
 
   await writeFile(join(stateRoot, team.id, 'team.json'), `\uFEFF${JSON.stringify(team, null, 2)}`, 'utf8')
   check('team.json accepts a UTF-8 BOM', (await readTeam(stateRoot, team.id))?.id === team.id)
+
+  const dirty = {
+    ...team,
+    id: 'dirty-profile',
+    profile: { name: '' },
+    tasks: [{
+      id: 't1',
+      subject: 'legacy',
+      status: 'pending',
+      dependencies: [],
+      profileSeedId: '   ',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }],
+    taskSeq: 1,
+  }
+  await mkdir(join(stateRoot, dirty.id, 'inbox'), { recursive: true })
+  await writeFile(join(stateRoot, dirty.id, 'team.json'), JSON.stringify(dirty, null, 2), 'utf8')
+  const recovered = await readTeam(stateRoot, dirty.id)
+  check('cold-resume ignores dirty optional profile and seed id',
+    recovered?.id === dirty.id && recovered.profile === undefined && recovered.tasks[0]?.profileSeedId === undefined)
+  await removeTeamDir(stateRoot, dirty.id)
 
   const found = await findTeamByCaptain(stateRoot, 'sess-captain')
   check('findTeamByCaptain finds the team', found?.id === team.id)
@@ -454,6 +624,8 @@ const vtasks = [
   { id: 't4', subject: 'd', status: 'pending', assignee: 'alice', dependencies: ['t9'], createdAt: 0, updatedAt: 0 },
 ]
 check('completed -> completed visual state', taskVisualState('completed', [], vtasks) === 'completed')
+check('failed -> failed visual state', taskVisualState('failed', [], vtasks) === 'failed')
+check('cancelled -> cancelled visual state', taskVisualState('cancelled', [], vtasks) === 'cancelled')
 check('in_progress -> running visual state', taskVisualState('in_progress', [], vtasks) === 'running')
 check('pending with completed dep -> open', taskVisualState('pending', ['t1'], vtasks) === 'open')
 check('pending with open dep -> blocked', taskVisualState('pending', ['t2'], vtasks) === 'blocked')
@@ -503,6 +675,28 @@ check('edge-free tasks switch to the fill-width parallel grid', usesParallelTask
   { id: 't2', dependencies: [], depth: 0 },
   { id: 't3', dependencies: ['missing'], depth: 0 },
 ]))
+const liveTeam = {
+  captainSessionId: 'captain-1',
+  members: [{ name: 'analyst', status: 'working', activity: 'working', currentTask: 't1' }],
+  tasks: [{ id: 't1', subject: 'Clarify requirements', status: 'in_progress' }],
+}
+check('live captain team is selected only for the current session', liveCaptainTeam([liveTeam], 'captain-1') === liveTeam)
+check('halted captain team is hidden from the composer banner', liveCaptainTeam([{ ...liveTeam, halted: true }], 'captain-1') === undefined)
+check('active team with working members stays visible', teamIsActive(liveTeam) === true)
+check('planning roster with no tasks still shows the banner', teamIsActive({
+  members: [{ name: 'analyst', status: 'idle', activity: 'idle' }],
+  tasks: [],
+}) === true)
+check('halted team is not active', teamIsActive({ ...liveTeam, halted: true }) === false)
+check('staged team is not presented as actively executing', teamIsActive({ ...liveTeam, phase: 'staged' }) === false)
+check('settled failed/completed team is not waiting to be scheduled', teamIsActive({
+  members: [{ name: 'analyst', status: 'idle', activity: 'idle' }],
+  tasks: [
+    { id: 't1', status: 'completed' },
+    { id: 't2', status: 'failed' },
+  ],
+}) === false)
+check('progress summary prefers running task titles', teamProgressSummary(liveTeam, '、').detail === 'Clarify requirements')
 check('a real dependency keeps the layered DAG layout', !usesParallelTaskGrid([
   { id: 't1', dependencies: [], depth: 0 },
   { id: 't2', dependencies: ['t1'], depth: 1 },
@@ -521,6 +715,15 @@ check('compact DAG keeps stable rows and reference node geometry',
 check('compact DAG emits one curved SVG edge per valid dependency',
   dag.edges.length === 3
     && dag.edges.some(edge => edge.from === 't1' && edge.to === 't2' && edge.path.startsWith('M92 15C')))
+check(
+  'task model labels prefer the snapshot field and fall back to the assignee route',
+  memberRouteLabel({ provider: 'openai', model: 'gpt-5.6-sol' }) === 'openai/gpt-5.6-sol'
+    && memberRouteLabel({ model: 'grok-4.6' }) === 'grok-4.6'
+    && compactModelLabel('openai/gpt-5.6-sol') === 'gpt-5.6-sol'
+    && taskModelLabel({ assignee: 'analyst', model: 'openai/gpt-5.6-sol' }, []) === 'openai/gpt-5.6-sol'
+    && taskModelLabel({ assignee: 'analyst' }, [{ name: 'analyst', provider: 'grok', model: 'grok-4.5' }]) === 'grok/grok-4.5'
+    && taskModelLabel({ assignee: 'analyst' }, []) === '',
+)
 const panelBounds = { width: 1440, height: 900, anchorRight: 1440 }
 const dockedPanel = resolvePanelGeometry(DEFAULT_PANEL_LAYOUT, panelBounds)
 check('docked panel follows the shell anchor and retains an available-height ceiling',
@@ -580,6 +783,42 @@ check(
   activityPanelExpandedForSession(true, 'session-a', 'session-a')
     && !activityPanelExpandedForSession(true, 'session-a', 'session-b')
     && !activityPanelExpandedForSession(true, 'session-a', undefined),
+)
+check(
+  'restored live activity stays collapsed when a conversation is reopened',
+  !activityPanelShouldAutoExpand({
+    alreadyAutoOpened: false,
+    pageSettled: true,
+    restoreComplete: true,
+    previousLiveTeamIds: new Set(['restored-team']),
+    currentLiveTeamIds: ['restored-team'],
+  }),
+)
+check(
+  'archived-only conversation restore never auto-expands the activity panel',
+  !activityPanelShouldAutoExpand({
+    alreadyAutoOpened: false,
+    pageSettled: true,
+    restoreComplete: true,
+    previousLiveTeamIds: new Set(),
+    currentLiveTeamIds: [],
+  }),
+)
+check(
+  'a new live team appearing after restore still auto-expands once',
+  activityPanelShouldAutoExpand({
+    alreadyAutoOpened: false,
+    pageSettled: true,
+    restoreComplete: true,
+    previousLiveTeamIds: new Set(),
+    currentLiveTeamIds: ['new-team'],
+  }) && !activityPanelShouldAutoExpand({
+    alreadyAutoOpened: true,
+    pageSettled: true,
+    restoreComplete: true,
+    previousLiveTeamIds: new Set(),
+    currentLiveTeamIds: ['new-team'],
+  }),
 )
 let monitorNotifications = 0
 const unsubscribeMonitor = subscribeActivityMonitorTargets(() => { monitorNotifications += 1 })
@@ -992,6 +1231,33 @@ check(
   'blank member reasoning effort is treated as omitted',
   blankEffortSelection.reasoningEffort === 'max',
 )
+
+let catalogCalls = 0
+await validateMemberLlmSelections({
+  llm: {
+    async listModels(provider) {
+      catalogCalls += 1
+      return [{ provider, id: 'known-model', name: 'Known model' }]
+    },
+  },
+}, [
+  { provider: 'known-provider', model: 'known-model' },
+  { provider: 'known-provider', model: 'known-model' },
+])
+check('approval model preflight caches one catalog lookup per provider', catalogCalls === 1)
+let unknownCatalogModelRejected = false
+try {
+  await validateMemberLlmSelections({
+    llm: {
+      async listModels(provider) {
+        return [{ provider, id: 'known-model', name: 'Known model' }]
+      },
+    },
+  }, [{ provider: 'known-provider', model: 'typo-model' }])
+} catch (error) {
+  unknownCatalogModelRejected = /unknown member model.*typo-model/i.test(String(error?.message ?? error))
+}
+check('approval model preflight rejects an unlisted typo before spawn', unknownCatalogModelRejected)
 
 let startSpec
 const spawnMemberRecord = {

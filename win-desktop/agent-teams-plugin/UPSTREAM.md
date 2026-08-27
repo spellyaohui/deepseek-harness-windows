@@ -1,16 +1,16 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.13`
-- Tag: `v0.1.13`
-- Annotated tag object: `d501d2dbd54b700307d86dde0ee9125ece769c81`
-- Source commit: `912aae5225d3d85fa841a1b0c8a5c77021876c25`
-- Imported: `2026-08-23`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.14`
+- Tag: `v0.1.14`
+- Annotated tag object: `637399ce6c4ef201284de05c79982e82b7a866b1`
+- Source commit: `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`
+- Imported: `2026-08-27`
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.13-desktop.3`.
+- Desktop fork version is `0.1.14-desktop.1`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -30,6 +30,16 @@
   members are instructed to send only `task_id`, while blank, whitespace, or
   self `assignee` values remain idempotent and attempts to claim as another
   actor are still rejected.
+- The v0.1.14 staged-plan, named-profile, fallback, quality-gate, atomic
+  approval, halt/resume, and activity-panel improvements are imported. The
+  desktop fork keeps immediate execution as the default for ordinary
+  AgentTeams requests; explicit `approval=required` and captain-planning
+  profiles use the upstream staged review flow.
+- The v0.1.14 model-directory injection is combined with the local
+  `connection` and `settings` injections so the staged editor uses Harness's
+  catalog without moving CPA-specific behavior into this plugin.
+- `scripts/clean-build.mjs` validates the package-local `lib` path by path
+  component, which keeps the upstream clean-build guard working on Windows.
 
 ## Upgrade rule
 

@@ -78,9 +78,15 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'cpa-provider-plugin/tests/profile.test.js',
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
+    'agent-teams-plugin/scripts/clean-build.mjs',
+    'agent-teams-plugin/scripts/fallback-tdd.mjs',
     'agent-teams-plugin/scripts/lifecycle-verify.mjs',
+    'agent-teams-plugin/scripts/quality-gates-tdd.mjs',
     'agent-teams-plugin/scripts/selection-policy-verify.mjs',
     'agent-teams-plugin/scripts/settings-verify.mjs',
+    'agent-teams-plugin/src/client/StagingPlanEditor.tsx',
+    'agent-teams-plugin/src/profiles.ts',
+    'agent-teams-plugin/src/quality-gates.ts',
     'session-markdown-export-plugin/tests/client-controller.test.js',
     'session-markdown-export-plugin/tests/content.test.js',
     'session-markdown-export-plugin/tests/http.test.js',
@@ -119,6 +125,10 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('agent-teams-plugin/src/selection-policy.ts', /memberReasoningMode === 'route-aware'/)
   assertContains('agent-teams-plugin/src/scheduler.ts', /omit the assignee property entirely/)
   assertContains('agent-teams-plugin/src/tools.ts', /members cannot set assignee when claiming a task/)
+  assertContains('agent-teams-plugin/src/tools.ts', /name: 'agent_teams_edit_plan'/)
+  assertContains('agent-teams-plugin/src/command.ts', /approval="required"/)
+  assertContains('agent-teams-plugin/src/client/ActivityPanel.tsx', /ACTIVITY_HALT_URL/)
+  assertContains('agent-teams-plugin/package.json', /@deepseek-ai\/dsh-client-ui-model-selection/)
 
   assertContains('desktop-settings-plugin/lib/client.js', /name: 'settings\.section'/)
   assertContains('desktop-settings-plugin/lib/client.js', /id: 'desktop'/)
