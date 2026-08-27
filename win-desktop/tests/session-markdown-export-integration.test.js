@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import yaml from 'js-yaml'
 import { generateAgentTeamsPatch } from '../src/dsh-service.js'
+import { BUILTIN_AGENT_TEAMS_PROFILES } from '../src/agent-teams-profile-store.js'
 
 const wrapperRoot = fileURLToPath(new URL('..', import.meta.url))
 const packageJson = JSON.parse(readFileSync(join(wrapperRoot, 'package.json'), 'utf8'))
@@ -85,6 +86,7 @@ test('runtime-generated desktop patch retains AgentTeams migration settings befo
       config: {
         stateDir: '.agent-teams',
         memberProvider: 'spawn',
+        profiles: BUILTIN_AGENT_TEAMS_PROFILES,
         legacyDesktopSettings: {
           provider: 'openai-compatible',
           model: 'example-model',

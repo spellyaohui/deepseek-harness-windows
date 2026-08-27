@@ -6,6 +6,10 @@ import * as electron from 'electron'
 import { healProfilesModuleFallback } from '@deepseek-ai/dsh-app-boot'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { getDesktopSettings } from './desktop-settings.js'
+import {
+  getAgentTeamsProfileSnapshot,
+  readAgentTeamsProfiles,
+} from './agent-teams-profile-store.js'
 
 const { app } = electron
 
@@ -26,8 +30,9 @@ export function resolveAutoModePatch() {
 
 /**
  * Dynamically generate the AgentTeams patch YAML from the current desktop
- * settings. These values are a first-launch migration envelope only; live
- * AgentTeams preferences are owned by the Harness settings scope.
+ * settings. Profiles are persisted by the desktop host so the live service
+ * receives the same user-edited map on every launch; the legacy member fields
+ * remain a migration envelope for older settings.
  * @returns {string} absolute path to the generated patch file.
  */
 function yamlScalar(value) {
@@ -36,11 +41,18 @@ function yamlScalar(value) {
 
 export function generateAgentTeamsPatch({
   getSettings = getDesktopSettings,
+  getProfiles,
   getUserDataPath = () => app.getPath('userData'),
   makeDir = mkdirSync,
   writeFile = writeFileSync,
 } = {}) {
   const settings = getSettings()
+  const profileSnapshot = typeof getProfiles === 'function'
+    ? getProfiles()
+    : getAgentTeamsProfileSnapshot({ settings })
+  const profiles = readAgentTeamsProfiles({
+    agentTeamsProfiles: profileSnapshot?.profiles ?? profileSnapshot,
+  })
   const memberModel = typeof settings.agentTeamsMemberModel === 'string'
     ? settings.agentTeamsMemberModel.trim()
     : ''
@@ -65,6 +77,7 @@ export function generateAgentTeamsPatch({
     '      config:',
     '        stateDir: .agent-teams',
     '        memberProvider: spawn',
+    `        profiles: ${JSON.stringify(profiles)}`,
   ]
   if (memberProvider !== '' || memberModel !== '' || memberReasoningEffort !== '') {
     lines.push('        legacyDesktopSettings:')
