@@ -108,6 +108,10 @@ check(
   'usage prompt says explicit mode is settings-enforced',
   builtIndex.includes('In explicit mode, omit provider/model/reasoning_effort; the plugin enforces the configured settings route.'),
 )
+check(
+  'usage prompt omits profile when no profile is configured',
+  builtIndex.includes('When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".'),
+)
 
 // Named multi-role profile rules
 const demoProfiles = { ' demo ': { protocol: 'a'.repeat(300), members: [{ name: ' Implementer ', role: 'builder', model: 'm' }, { name: 'Reviewer', model: 'r' }], tasks: [{ id: 'design', subject: 'Design', assignee: 'implementer' }, { id: 'review', subject: 'Review', assignee: ' reviewer ', dependencies: ['design'] }] } }
