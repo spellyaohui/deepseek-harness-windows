@@ -276,6 +276,7 @@ export function getAgentTeamsProfileSnapshot({ settings = {} } = {}) {
   return {
     profiles: cloneAgentTeamsProfiles(readAgentTeamsProfiles(settings)),
     builtInNames: [...BUILTIN_AGENT_TEAMS_PROFILE_NAMES],
+    builtInProfiles: cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
   }
 }
 
@@ -288,6 +289,9 @@ export function writeAgentTeamsProfiles(profiles, {
     ...cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
     ...normalized,
   }
+  if (Object.keys(merged).length > MAX_PROFILES) {
+    throw new Error(`too many AgentTeams profiles after built-in merge (${Object.keys(merged).length}); the limit is ${MAX_PROFILES}`)
+  }
   const current = load()
   if (!isPlainRecord(current)) throw new Error('desktop settings must be an object')
   const next = {
@@ -298,5 +302,6 @@ export function writeAgentTeamsProfiles(profiles, {
   return {
     profiles: cloneAgentTeamsProfiles(merged),
     builtInNames: [...BUILTIN_AGENT_TEAMS_PROFILE_NAMES],
+    builtInProfiles: cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
   }
 }

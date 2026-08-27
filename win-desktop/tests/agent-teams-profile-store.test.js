@@ -20,6 +20,7 @@ test('first snapshot exposes the four-role captain-planning software profile', (
   const snapshot = getAgentTeamsProfileSnapshot({ settings: {} })
 
   assert.deepEqual(snapshot.builtInNames, ['software-delivery'])
+  assert.deepEqual(snapshot.builtInProfiles, BUILTIN_AGENT_TEAMS_PROFILES)
   assert.deepEqual(BUILTIN_AGENT_TEAMS_PROFILE_NAMES, ['software-delivery'])
   assert.equal(snapshot.profiles['software-delivery'].taskPlanning, 'captain')
   assert.deepEqual(
@@ -95,6 +96,10 @@ test('writing rejects unsafe profile maps at the persistence boundary', () => {
   assert.throws(() => writeAgentTeamsProfiles([], { load: () => ({}), flush: () => {} }), /object map/u)
   assert.throws(() => writeAgentTeamsProfiles({ 'bad profile': customProfile }, { load: () => ({}), flush: () => {} }), /profile name/u)
   assert.throws(() => writeAgentTeamsProfiles({ empty: { members: [] } }, { load: () => ({}), flush: () => {} }), /members/u)
+  const sixteenCustom = Object.fromEntries(
+    Array.from({ length: 16 }, (_value, index) => [`custom-${index}`, customProfile]),
+  )
+  assert.throws(() => writeAgentTeamsProfiles(sixteenCustom, { load: () => ({}), flush: () => {} }), /after built-in merge/u)
 })
 
 test('cloneAgentTeamsProfiles rejects arrays and returns independent JSON data', () => {
