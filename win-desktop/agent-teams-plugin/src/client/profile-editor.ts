@@ -10,7 +10,7 @@ const PROFILE_KEYS = new Set([
   'tasks', 'taskPlanning', 'reviewPolicy',
 ])
 const MEMBER_KEYS = new Set([
-  'name', 'role', 'provider', 'model', 'reasoning_effort', 'executionPrompt', 'fallback',
+  'name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback',
 ])
 const TASK_KEYS = new Set(['id', 'subject', 'description', 'assignee', 'dependencies'])
 const FALLBACK_KEYS = new Set(['provider', 'model'])
@@ -25,11 +25,14 @@ export interface TeamModelFallbackConfig {
   model: string
 }
 
+export type RoleReasoningMode = 'target-default' | 'route-aware' | 'explicit'
+
 export interface TeamProfileMemberConfig {
   name: string
   role?: string
   provider?: string
   model?: string
+  reasoning_mode: RoleReasoningMode
   reasoning_effort?: string
   executionPrompt?: string
   fallback?: TeamModelFallbackConfig
@@ -63,9 +66,11 @@ export interface TeamProfileConfig {
 }
 
 export interface AgentTeamsProfilesSnapshot {
+  schemaVersion: 2
   profiles: Record<string, TeamProfileConfig>
   builtInNames: string[]
   builtInProfiles: Record<string, TeamProfileConfig>
+  unsupportedPersistedVersion: boolean
 }
 
 export type ProfileSaveResult =
@@ -105,6 +110,16 @@ function requiredString(value: unknown, path: string, errors: string[]): string 
   return normalized
 }
 
+function normalizeReasoningMode(value: unknown): RoleReasoningMode | undefined {
+  if (value === 'target-default' || value === 'route-aware' || value === 'explicit') return value
+  return undefined
+}
+
+function normalizeOptionalEditorString(value: unknown): string | undefined {
+  const normalized = trimString(value)
+  return normalized === '' ? undefined : normalized
+}
+
 function assertKnownKeys(value: Record<string, unknown>, allowed: Set<string>, path: string, errors: string[]): void {
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) errors.push(`${path}.${key} is not supported`)
@@ -122,11 +137,24 @@ function normalizeMemberForEditor(value: unknown): TeamProfileMemberConfig | und
   if (!isRecord(value)) return undefined
   const name = trimString(value.name)
   if (name === undefined || name === '') return undefined
-  const member: TeamProfileMemberConfig = { name }
-  for (const key of ['role', 'provider', 'model', 'reasoning_effort', 'executionPrompt'] as const) {
+  const reasoning_mode = normalizeReasoningMode(value.reasoning_mode)
+  if (reasoning_mode === undefined) return undefined
+  const provider = normalizeOptionalEditorString(value.provider)
+  const model = normalizeOptionalEditorString(value.model)
+  const reasoning_effort = normalizeOptionalEditorString(value.reasoning_effort)
+  if ((provider === undefined) !== (model === undefined)) return undefined
+  if (reasoning_mode === 'explicit' && (provider === undefined || model === undefined || reasoning_effort === undefined)) {
+    return undefined
+  }
+  if (reasoning_mode !== 'explicit' && reasoning_effort !== undefined) return undefined
+  const member: TeamProfileMemberConfig = { name, reasoning_mode }
+  for (const key of ['role', 'executionPrompt'] as const) {
     const normalized = trimString(value[key])
     if (normalized !== undefined && normalized !== '') member[key] = normalized
   }
+  if (provider !== undefined) member.provider = provider
+  if (model !== undefined) member.model = model
+  if (reasoning_effort !== undefined) member.reasoning_effort = reasoning_effort
   const fallback = normalizeFallbackForEditor(value.fallback)
   if (fallback !== undefined) member.fallback = fallback
   return member
@@ -214,7 +242,19 @@ function normalizeMapForEditor(value: unknown): Record<string, TeamProfileConfig
 
 /** Normalize the host response into an isolated browser-editable snapshot. */
 export function normalizeProfileSnapshot(value: unknown): AgentTeamsProfilesSnapshot {
-  const source = isRecord(value) ? value : {}
+  if (!isRecord(value) || value.schemaVersion !== 2) {
+    throw new Error('AgentTeams profile snapshot schemaVersion must be 2')
+  }
+  if (
+    !isRecord(value.profiles)
+    || !Array.isArray(value.builtInNames)
+    || !isRecord(value.builtInProfiles)
+    || typeof value.unsupportedPersistedVersion !== 'boolean'
+  ) {
+    throw new Error('AgentTeams profile snapshot must be a complete V2 document')
+  }
+  const unsupportedPersistedVersion = value.unsupportedPersistedVersion === true
+  const source = value
   const profiles = normalizeMapForEditor(source.profiles)
   const suppliedBuiltIns = normalizeMapForEditor(source.builtInProfiles)
   const requestedNames = Array.isArray(source.builtInNames)
@@ -229,9 +269,11 @@ export function normalizeProfileSnapshot(value: unknown): AgentTeamsProfilesSnap
     if (profile !== undefined) builtInProfiles[name] = cloneJson(profile)
   }
   return {
+    schemaVersion: 2,
     profiles: cloneJson(profiles),
     builtInNames,
     builtInProfiles,
+    unsupportedPersistedVersion,
   }
 }
 
@@ -239,7 +281,7 @@ export function normalizeProfileSnapshot(value: unknown): AgentTeamsProfilesSnap
 export function createEmptyTeamProfile(_name: string): TeamProfileConfig {
   return {
     taskPlanning: 'captain',
-    members: [{ name: 'member' }],
+    members: [{ name: 'member', reasoning_mode: 'target-default' }],
   }
 }
 
@@ -270,14 +312,33 @@ function normalizeMemberForSave(value: unknown, path: string, errors: string[]):
   const name = requiredString(value.name, `${path}.name`, errors)
   if (name === undefined) return undefined
   if (name.toLowerCase() === CAPTAIN_NAME) errors.push(`${path}.name is reserved for the captain`)
-  const member: TeamProfileMemberConfig = { name }
-  for (const key of ['role', 'provider', 'model', 'reasoning_effort', 'executionPrompt'] as const) {
+  const rawReasoningMode = requiredString(value.reasoning_mode, `${path}.reasoning_mode`, errors)
+  if (rawReasoningMode === undefined) return undefined
+  const reasoning_mode = normalizeReasoningMode(rawReasoningMode)
+  if (reasoning_mode === undefined) {
+    errors.push(`${path}.reasoning_mode is invalid`)
+    return undefined
+  }
+  const provider = optionalString(value.provider, `${path}.provider`, errors)
+  const model = optionalString(value.model, `${path}.model`, errors)
+  const reasoning_effort = optionalString(value.reasoning_effort, `${path}.reasoning_effort`, errors)
+  if ((provider === undefined) !== (model === undefined)) {
+    errors.push(`${path}.provider and ${path}.model must be set together`)
+  }
+  if (reasoning_mode === 'explicit' && (provider === undefined || model === undefined || reasoning_effort === undefined)) {
+    errors.push(`${path} explicit policy requires provider, model, and reasoning_effort`)
+  }
+  if (reasoning_mode !== 'explicit' && reasoning_effort !== undefined) {
+    errors.push(`${path}.reasoning_effort is valid only for explicit policy`)
+  }
+  const member: TeamProfileMemberConfig = { name, reasoning_mode }
+  for (const key of ['role', 'executionPrompt'] as const) {
     const normalized = optionalString(value[key], `${path}.${key}`, errors)
     if (normalized !== undefined) member[key] = normalized
   }
-  if (member.provider !== undefined && member.model === undefined) {
-    errors.push(`${path}.provider requires model`)
-  }
+  if (provider !== undefined) member.provider = provider
+  if (model !== undefined) member.model = model
+  if (reasoning_effort !== undefined) member.reasoning_effort = reasoning_effort
   const fallback = normalizeFallbackForSave(value.fallback, `${path}.fallback`, errors)
   if (fallback !== undefined) member.fallback = fallback
   return member

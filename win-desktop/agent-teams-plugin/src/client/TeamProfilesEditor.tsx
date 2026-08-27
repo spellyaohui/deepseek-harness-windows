@@ -372,7 +372,7 @@ function ProfileForm({
   }
   const addMember = (): void => {
     const name = uniqueName(members.map((member) => member.name), 'member')
-    onChange({ ...profile, members: [...members, { name }] })
+    onChange({ ...profile, members: [...members, { name, reasoning_mode: 'target-default' }] })
   }
   const updateTask = (index: number, next: TeamProfileTaskConfig): void => {
     onChange({ ...profile, tasks: tasks.map((task, taskIndex) => taskIndex === index ? next : task) })
