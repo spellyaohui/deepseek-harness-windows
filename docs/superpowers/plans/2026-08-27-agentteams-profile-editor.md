@@ -31,7 +31,7 @@
 
 **Interfaces:**
 - Produces `BUILTIN_AGENT_TEAMS_PROFILES`, `BUILTIN_AGENT_TEAMS_PROFILE_NAMES`, `cloneAgentTeamsProfiles(value)`, `readAgentTeamsProfiles(settings)`, `writeAgentTeamsProfiles(profiles, options)`, and `getAgentTeamsProfileSnapshot(options)`.
-- `getAgentTeamsProfileSnapshot()` returns `{ profiles: Record<string, object>, builtInNames: string[] }` and never returns the mutable internal default object.
+- `getAgentTeamsProfileSnapshot()` returns `{ profiles: Record<string, object>, builtInNames: string[], builtInProfiles: Record<string, object> }`; neither the current map nor the built-in restore payload exposes mutable internal defaults.
 - `writeAgentTeamsProfiles()` persists the full profile map through the existing desktop settings store and returns the same snapshot shape.
 
 - [ ] **Step 1: Write the failing store tests.**
@@ -297,7 +297,7 @@ git commit -m "feat: add AgentTeams profile editor to settings"
 - Modify: `docs/UPSTREAM_MAINTENANCE.md`
 - Modify: `README.md`
 - Modify: `win-desktop/README.md`
-- Create or modify: `win-desktop/agent-teams-plugin/release-notes/0.1.14-desktop.2.md`
+- Create or modify: `win-desktop/agent-teams-plugin/release-notes/v0.1.14-desktop.2.md`
 
 **Interfaces:**
 - Plugin identity becomes `0.1.14-desktop.2`; wrapper release becomes `0.1.1-rc.19`.
@@ -325,7 +325,7 @@ Expected: all version, manifest, package, patch, and UI ownership assertions pas
 - [ ] **Step 4: Commit metadata/provenance.**
 
 ```powershell
-git add win-desktop/agent-teams-plugin/package.json win-desktop/package.json win-desktop/package-lock.json win-desktop/tests/agent-teams-integration.test.js win-desktop/tests/local-capability-manifest.test.js win-desktop/agent-teams-plugin/UPSTREAM.md docs/UPSTREAM_MAINTENANCE.md README.md win-desktop/README.md win-desktop/agent-teams-plugin/release-notes/0.1.14-desktop.2.md
+git add win-desktop/agent-teams-plugin/package.json win-desktop/package.json win-desktop/package-lock.json win-desktop/tests/agent-teams-integration.test.js win-desktop/tests/local-capability-manifest.test.js win-desktop/agent-teams-plugin/UPSTREAM.md docs/UPSTREAM_MAINTENANCE.md README.md win-desktop/README.md win-desktop/agent-teams-plugin/release-notes/v0.1.14-desktop.2.md
 git commit -m "docs: record AgentTeams profile editor capability"
 ```
 

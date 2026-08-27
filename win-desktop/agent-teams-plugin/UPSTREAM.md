@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.1`.
+- Desktop fork version is `0.1.14-desktop.2`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -38,6 +38,12 @@
 - The v0.1.14 model-directory injection is combined with the local
   `connection` and `settings` injections so the staged editor uses Harness's
   catalog without moving CPA-specific behavior into this plugin.
+- The Windows wrapper owns a persisted `software-delivery` built-in and a
+  browser settings editor for the complete upstream profile shape. The editor
+  uses a narrow host IPC bridge; the host validates and stores JSON-safe maps,
+  injects them into the startup patch after a restart, and falls back to the
+  built-in map when stored entries are malformed. This local editor/persistence
+  seam is `REAPPLY`; upstream profile execution remains the semantic authority.
 - `scripts/clean-build.mjs` validates the package-local `lib` path by path
   component, which keeps the upstream clean-build guard working on Windows.
 

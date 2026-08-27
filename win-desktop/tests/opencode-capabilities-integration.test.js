@@ -14,7 +14,7 @@ test('Models settings mount the local OpenCode capability validation action thro
   const patch = yaml.load(read('config/agent-teams.patch.yml')).flatMap(entry => entry.insert ?? [])
   const pluginRoot = new URL('../opencode-capabilities-plugin/', import.meta.url)
 
-  assert.equal(packageJson.version, '0.1.1-rc.18')
+  assert.equal(packageJson.version, '0.1.1-rc.19')
   assert.equal(packageJson.dependencies['@deepseek-ai/dsh-opencode-capabilities'], 'file:opencode-capabilities-plugin')
   assert.equal(existsSync(pluginRoot), true)
   assert.equal(JSON.parse(read('opencode-capabilities-plugin/package.json')).version, '0.1.1')

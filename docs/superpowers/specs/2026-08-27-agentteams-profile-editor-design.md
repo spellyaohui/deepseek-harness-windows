@@ -47,6 +47,7 @@ AgentTeams v0.1.14 已经在插件运行时提供了 named profile：profile 可
 type AgentTeamsProfileSnapshot = {
   profiles: Record<string, TeamProfileConfig>
   builtInNames: string[]
+  builtInProfiles: Record<string, TeamProfileConfig>
 }
 
 interface DshDesktopBridge {
