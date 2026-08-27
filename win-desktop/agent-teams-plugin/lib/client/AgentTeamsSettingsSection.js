@@ -2,6 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { loadModelCatalog } from "./model-catalog.js";
+import { TeamProfilesEditor } from "./TeamProfilesEditor.js";
 import { planDelegationModeChange, planModelChange, planProviderChange, planReasoningEffortChange, planReasoningModeChange, runAgentTeamsSettingsAction, } from "./settings-write.js";
 import css from './AgentTeamsSettingsSection.module.css';
 const SETTINGS_PLAN_ERROR_KEY = {
@@ -97,5 +98,5 @@ export function AgentTeamsSettingsSection({ settings, writer, t, }) {
                                     || value.memberReasoningMode !== 'explicit'
                                     || (selectedModel?.efforts.length ?? 0) === 0, onChange: async (event) => { await setReasoningEffort(event.currentTarget.value); }, children: selectedModel?.efforts.length
                                     ? _jsxs(_Fragment, { children: [!supportsEffort(selectedModel, value.memberReasoningEffort) && (_jsx("option", { value: value.memberReasoningEffort, disabled: true, children: t('settings.reasoning.unsupportedEffort', { effort: value.memberReasoningEffort }) })), selectedModel.efforts.map((effort) => (_jsx("option", { value: effort.id, children: effort.name }, effort.id)))] })
-                                    : _jsx("option", { value: "", children: t('settings.reasoning.noEfforts') }) })] })] }), _jsxs("section", { className: css.section, "aria-labelledby": "agent-teams-scope-title", children: [_jsx("h3", { id: "agent-teams-scope-title", className: css.sectionTitle, children: t('settings.scope.title') }), _jsx("p", { className: css.help, children: t('settings.scope.description') })] })] }));
+                                    : _jsx("option", { value: "", children: t('settings.reasoning.noEfforts') }) })] })] }), _jsx(TeamProfilesEditor, { catalog: catalog.models, t: t, writable: writable }), _jsxs("section", { className: css.section, "aria-labelledby": "agent-teams-scope-title", children: [_jsx("h3", { id: "agent-teams-scope-title", className: css.sectionTitle, children: t('settings.scope.title') }), _jsx("p", { className: css.help, children: t('settings.scope.description') })] })] }));
 }

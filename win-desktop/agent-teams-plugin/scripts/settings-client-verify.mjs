@@ -55,6 +55,14 @@ assert.deepEqual(timeout.models, [])
 assert.equal(timeout.error, '模型目录请求超过 100ms')
 assert.ok(performance.now() - startedAt < 250, 'timeout case must settle within 250ms')
 
+const clientBundle = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
+assert.match(clientBundle, /getAgentTeamsProfiles/)
+assert.match(clientBundle, /setAgentTeamsProfiles/)
+assert.match(clientBundle, /Profile configuration|Profile 配置/)
+assert.match(clientBundle, /taskPlanning/)
+assert.match(clientBundle, /reviewPolicy/)
+assert.doesNotMatch(clientBundle, /node:(?:crypto|fs|path|child_process)/)
+
 const orderedOps = [
   { op: 'set', path: ['memberReasoningEffort'], value: '' },
   { op: 'set', path: ['memberReasoningMode'], value: 'target-default' },

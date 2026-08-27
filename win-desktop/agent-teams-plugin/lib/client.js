@@ -3171,6 +3171,1321 @@ window.__ModuleLoader__.load({
 			}
 		}
 		//#endregion
+		//#region lib/client/profile-editor.js
+		const MAX_PROFILES = 16;
+		const MAX_MEMBERS = 8;
+		const MAX_TASKS = 32;
+		const MAX_PROFILE_NAME_LENGTH = 64;
+		const PROFILE_NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u;
+		const CAPTAIN_NAME = "captain";
+		const PROFILE_KEYS = /* @__PURE__ */ new Set([
+			"description",
+			"protocol",
+			"executionPrompt",
+			"fallback",
+			"members",
+			"tasks",
+			"taskPlanning",
+			"reviewPolicy"
+		]);
+		const MEMBER_KEYS = /* @__PURE__ */ new Set([
+			"name",
+			"role",
+			"provider",
+			"model",
+			"reasoning_effort",
+			"executionPrompt",
+			"fallback"
+		]);
+		const TASK_KEYS = /* @__PURE__ */ new Set([
+			"id",
+			"subject",
+			"description",
+			"assignee",
+			"dependencies"
+		]);
+		const FALLBACK_KEYS = /* @__PURE__ */ new Set(["provider", "model"]);
+		const REVIEW_POLICY_KEYS = /* @__PURE__ */ new Set([
+			"requirementsMinRounds",
+			"requirementsMaxRounds",
+			"codeMaxRounds",
+			"maxRepairAttempts",
+			"requiredReviewers"
+		]);
+		function isRecord(value) {
+			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+			const prototype = Object.getPrototypeOf(value);
+			return prototype === Object.prototype || prototype === null;
+		}
+		function cloneJson(value) {
+			return JSON.parse(JSON.stringify(value));
+		}
+		function trimString(value) {
+			return typeof value === "string" ? value.trim() : void 0;
+		}
+		function optionalString(value, path, errors) {
+			if (value === void 0) return void 0;
+			if (typeof value !== "string") {
+				errors.push(`${path} must be a string`);
+				return;
+			}
+			const normalized = value.trim();
+			return normalized === "" ? void 0 : normalized;
+		}
+		function requiredString(value, path, errors) {
+			const normalized = trimString(value);
+			if (normalized === void 0 || normalized === "") {
+				errors.push(`${path} must not be empty`);
+				return;
+			}
+			return normalized;
+		}
+		function assertKnownKeys(value, allowed, path, errors) {
+			for (const key of Object.keys(value)) if (!allowed.has(key)) errors.push(`${path}.${key} is not supported`);
+		}
+		function normalizeName(value) {
+			const name = trimString(value);
+			if (name === void 0 || name === "" || name.length > MAX_PROFILE_NAME_LENGTH) return void 0;
+			if (!PROFILE_NAME_PATTERN.test(name) || name.toLowerCase() === CAPTAIN_NAME) return void 0;
+			return name;
+		}
+		function normalizeMemberForEditor(value) {
+			if (!isRecord(value)) return void 0;
+			const name = trimString(value.name);
+			if (name === void 0 || name === "") return void 0;
+			const member = { name };
+			for (const key of [
+				"role",
+				"provider",
+				"model",
+				"reasoning_effort",
+				"executionPrompt"
+			]) {
+				const normalized = trimString(value[key]);
+				if (normalized !== void 0 && normalized !== "") member[key] = normalized;
+			}
+			const fallback = normalizeFallbackForEditor(value.fallback);
+			if (fallback !== void 0) member.fallback = fallback;
+			return member;
+		}
+		function normalizeFallbackForEditor(value) {
+			if (!isRecord(value)) return void 0;
+			const provider = trimString(value.provider);
+			const model = trimString(value.model);
+			if (provider === void 0 || provider === "" || model === void 0 || model === "") return void 0;
+			return {
+				provider,
+				model
+			};
+		}
+		function normalizeTaskForEditor(value) {
+			if (!isRecord(value)) return void 0;
+			const id = trimString(value.id);
+			const subject = trimString(value.subject);
+			if (id === void 0 || id === "" || subject === void 0 || subject === "") return void 0;
+			const task = {
+				id,
+				subject
+			};
+			for (const key of ["description", "assignee"]) {
+				const normalized = trimString(value[key]);
+				if (normalized !== void 0 && normalized !== "") task[key] = normalized;
+			}
+			if (Array.isArray(value.dependencies)) {
+				const dependencies = value.dependencies.map((dependency) => trimString(dependency)).filter((dependency) => dependency !== void 0 && dependency !== "");
+				if (dependencies.length > 0) task.dependencies = dependencies;
+			}
+			return task;
+		}
+		function normalizeProfileForEditor(value) {
+			if (!isRecord(value) || !Array.isArray(value.members)) return void 0;
+			const members = value.members.map(normalizeMemberForEditor).filter((member) => member !== void 0);
+			if (members.length === 0) return void 0;
+			const profile = { members };
+			for (const key of [
+				"description",
+				"protocol",
+				"executionPrompt"
+			]) {
+				const normalized = trimString(value[key]);
+				if (normalized !== void 0 && normalized !== "") profile[key] = normalized;
+			}
+			if (value.taskPlanning === "captain" || value.taskPlanning === "seed") profile.taskPlanning = value.taskPlanning;
+			const fallback = normalizeFallbackForEditor(value.fallback);
+			if (fallback !== void 0) profile.fallback = fallback;
+			if (Array.isArray(value.tasks)) {
+				const tasks = value.tasks.map(normalizeTaskForEditor).filter((task) => task !== void 0);
+				if (tasks.length > 0) profile.tasks = tasks;
+			}
+			if (isRecord(value.reviewPolicy)) {
+				const policy = {};
+				for (const key of [
+					"requirementsMinRounds",
+					"requirementsMaxRounds",
+					"codeMaxRounds",
+					"maxRepairAttempts"
+				]) if (Number.isSafeInteger(value.reviewPolicy[key]) && Number(value.reviewPolicy[key]) > 0) policy[key] = Number(value.reviewPolicy[key]);
+				if (Array.isArray(value.reviewPolicy.requiredReviewers)) {
+					const reviewers = value.reviewPolicy.requiredReviewers.map((reviewer) => trimString(reviewer)).filter((reviewer) => reviewer !== void 0 && reviewer !== "");
+					if (reviewers.length > 0) policy.requiredReviewers = reviewers;
+				}
+				if (Object.keys(policy).length > 0) profile.reviewPolicy = policy;
+			}
+			return profile;
+		}
+		function normalizeMapForEditor(value) {
+			if (!isRecord(value)) return {};
+			const result = {};
+			for (const [rawName, rawProfile] of Object.entries(value)) {
+				const name = normalizeName(rawName);
+				const profile = normalizeProfileForEditor(rawProfile);
+				if (name !== void 0 && profile !== void 0) result[name] = profile;
+			}
+			return result;
+		}
+		/** Normalize the host response into an isolated browser-editable snapshot. */
+		function normalizeProfileSnapshot(value) {
+			const source = isRecord(value) ? value : {};
+			const profiles = normalizeMapForEditor(source.profiles);
+			const suppliedBuiltIns = normalizeMapForEditor(source.builtInProfiles);
+			const requestedNames = Array.isArray(source.builtInNames) ? source.builtInNames.map(normalizeName).filter((name) => name !== void 0) : [];
+			const builtInNames = [...new Set(requestedNames.filter((name) => suppliedBuiltIns[name] !== void 0 || profiles[name] !== void 0))];
+			const builtInProfiles = {};
+			for (const name of builtInNames) {
+				const profile = suppliedBuiltIns[name] ?? profiles[name];
+				if (profile !== void 0) builtInProfiles[name] = cloneJson(profile);
+			}
+			return {
+				profiles: cloneJson(profiles),
+				builtInNames,
+				builtInProfiles
+			};
+		}
+		/** Create the minimum valid captain-planned profile used by the editor. */
+		function createEmptyTeamProfile(_name) {
+			return {
+				taskPlanning: "captain",
+				members: [{ name: "member" }]
+			};
+		}
+		/** Clone an editable profile map before applying a UI update. */
+		function cloneProfileMap(value) {
+			return cloneJson(value);
+		}
+		function normalizeFallbackForSave(value, path, errors) {
+			if (value === void 0) return void 0;
+			if (!isRecord(value)) {
+				errors.push(`${path} must be an object`);
+				return;
+			}
+			assertKnownKeys(value, FALLBACK_KEYS, path, errors);
+			const provider = requiredString(value.provider, `${path}.provider`, errors);
+			const model = requiredString(value.model, `${path}.model`, errors);
+			if (provider === void 0 || model === void 0) return void 0;
+			return {
+				provider,
+				model
+			};
+		}
+		function normalizeMemberForSave(value, path, errors) {
+			if (!isRecord(value)) {
+				errors.push(`${path} must be an object`);
+				return;
+			}
+			assertKnownKeys(value, MEMBER_KEYS, path, errors);
+			const name = requiredString(value.name, `${path}.name`, errors);
+			if (name === void 0) return void 0;
+			if (name.toLowerCase() === CAPTAIN_NAME) errors.push(`${path}.name is reserved for the captain`);
+			const member = { name };
+			for (const key of [
+				"role",
+				"provider",
+				"model",
+				"reasoning_effort",
+				"executionPrompt"
+			]) {
+				const normalized = optionalString(value[key], `${path}.${key}`, errors);
+				if (normalized !== void 0) member[key] = normalized;
+			}
+			if (member.provider !== void 0 && member.model === void 0) errors.push(`${path}.provider requires model`);
+			const fallback = normalizeFallbackForSave(value.fallback, `${path}.fallback`, errors);
+			if (fallback !== void 0) member.fallback = fallback;
+			return member;
+		}
+		function normalizeTaskForSave(value, path, errors) {
+			if (!isRecord(value)) {
+				errors.push(`${path} must be an object`);
+				return;
+			}
+			assertKnownKeys(value, TASK_KEYS, path, errors);
+			const id = requiredString(value.id, `${path}.id`, errors);
+			const subject = requiredString(value.subject, `${path}.subject`, errors);
+			if (id === void 0 || subject === void 0) return void 0;
+			const task = {
+				id,
+				subject
+			};
+			for (const key of ["description", "assignee"]) {
+				const normalized = optionalString(value[key], `${path}.${key}`, errors);
+				if (normalized !== void 0) task[key] = normalized;
+			}
+			if (value.dependencies !== void 0) if (!Array.isArray(value.dependencies)) errors.push(`${path}.dependencies must be an array`);
+			else {
+				const dependencies = [];
+				for (const [index, dependency] of value.dependencies.entries()) {
+					const normalized = requiredString(dependency, `${path}.dependencies[${index}]`, errors);
+					if (normalized !== void 0 && !dependencies.includes(normalized)) dependencies.push(normalized);
+				}
+				if (dependencies.length > 0) task.dependencies = dependencies;
+			}
+			return task;
+		}
+		function normalizeReviewPolicyForSave(value, path, errors) {
+			if (value === void 0) return void 0;
+			if (!isRecord(value)) {
+				errors.push(`${path} must be an object`);
+				return;
+			}
+			assertKnownKeys(value, REVIEW_POLICY_KEYS, path, errors);
+			const policy = {};
+			for (const key of [
+				"requirementsMinRounds",
+				"requirementsMaxRounds",
+				"codeMaxRounds",
+				"maxRepairAttempts"
+			]) {
+				if (value[key] === void 0 || value[key] === "") continue;
+				if (!Number.isSafeInteger(value[key]) || Number(value[key]) < 1) errors.push(`${path}.${key} must be a positive integer`);
+				else policy[key] = Number(value[key]);
+			}
+			if (policy.requirementsMinRounds !== void 0 && policy.requirementsMaxRounds !== void 0 && policy.requirementsMinRounds > policy.requirementsMaxRounds) errors.push(`${path}.requirementsMinRounds must be <= requirementsMaxRounds`);
+			if (value.requiredReviewers !== void 0) if (!Array.isArray(value.requiredReviewers)) errors.push(`${path}.requiredReviewers must be an array`);
+			else {
+				const reviewers = [];
+				for (const [index, reviewer] of value.requiredReviewers.entries()) {
+					const normalized = requiredString(reviewer, `${path}.requiredReviewers[${index}]`, errors);
+					if (normalized !== void 0) reviewers.push(normalized);
+				}
+				if (reviewers.length > 0) policy.requiredReviewers = reviewers;
+			}
+			return Object.keys(policy).length === 0 ? void 0 : policy;
+		}
+		function normalizeProfileForSave(value, path, errors) {
+			if (!isRecord(value)) {
+				errors.push(`${path} must be an object`);
+				return;
+			}
+			assertKnownKeys(value, PROFILE_KEYS, path, errors);
+			if (!Array.isArray(value.members) || value.members.length < 1 || value.members.length > MAX_MEMBERS) errors.push(`${path}.members must contain 1-${MAX_MEMBERS} members`);
+			const members = Array.isArray(value.members) ? value.members.map((member, index) => normalizeMemberForSave(member, `${path}.members[${index}]`, errors)).filter((member) => member !== void 0) : [];
+			const memberKeys = /* @__PURE__ */ new Set();
+			for (const member of members) {
+				const key = member.name.normalize("NFC").trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-");
+				if (memberKeys.has(key)) errors.push(`${path}.members contains duplicate names`);
+				memberKeys.add(key);
+			}
+			const profile = { members };
+			for (const key of [
+				"description",
+				"protocol",
+				"executionPrompt"
+			]) {
+				const normalized = optionalString(value[key], `${path}.${key}`, errors);
+				if (normalized !== void 0) profile[key] = normalized;
+			}
+			if (value.taskPlanning !== void 0) if (value.taskPlanning !== "captain" && value.taskPlanning !== "seed") errors.push(`${path}.taskPlanning must be captain or seed`);
+			else profile.taskPlanning = value.taskPlanning;
+			const fallback = normalizeFallbackForSave(value.fallback, `${path}.fallback`, errors);
+			if (fallback !== void 0) profile.fallback = fallback;
+			if (value.tasks !== void 0) if (!Array.isArray(value.tasks) || value.tasks.length > MAX_TASKS) errors.push(`${path}.tasks must contain 0-${MAX_TASKS} tasks`);
+			else {
+				const tasks = value.tasks.map((task, index) => normalizeTaskForSave(task, `${path}.tasks[${index}]`, errors)).filter((task) => task !== void 0);
+				const taskIds = /* @__PURE__ */ new Set();
+				for (const task of tasks) {
+					if (taskIds.has(task.id)) errors.push(`${path}.tasks contains duplicate ids`);
+					taskIds.add(task.id);
+				}
+				if (profile.taskPlanning !== "captain") {
+					const memberNames = new Set(members.map((member) => member.name));
+					for (const task of tasks) {
+						if (task.assignee === void 0 || task.assignee === "") errors.push(`${path}.tasks.${task.id}.assignee must not be empty for seed planning`);
+						else if (!memberNames.has(task.assignee)) errors.push(`${path}.tasks.${task.id}.assignee must match a member name`);
+						for (const dependency of task.dependencies ?? []) {
+							if (dependency === task.id) errors.push(`${path}.tasks.${task.id} cannot depend on itself`);
+							if (!taskIds.has(dependency) && !tasks.some((candidate) => candidate.id === dependency)) errors.push(`${path}.tasks.${task.id} depends on unknown task "${dependency}"`);
+						}
+					}
+				}
+				if (tasks.length > 0) profile.tasks = tasks;
+			}
+			const reviewPolicy = normalizeReviewPolicyForSave(value.reviewPolicy, `${path}.reviewPolicy`, errors);
+			if (reviewPolicy !== void 0) profile.reviewPolicy = reviewPolicy;
+			return profile;
+		}
+		/** Validate and normalize the map before handing it to the host IPC boundary. */
+		function prepareProfileMapForSave(value) {
+			if (!isRecord(value)) return {
+				ok: false,
+				error: "AgentTeams profiles must be an object map"
+			};
+			const names = Object.keys(value);
+			if (names.length > MAX_PROFILES) return {
+				ok: false,
+				error: `too many AgentTeams profiles (${names.length}); the limit is ${MAX_PROFILES}`
+			};
+			const errors = [];
+			const profiles = {};
+			const seenNames = /* @__PURE__ */ new Set();
+			for (const rawName of names) {
+				const name = normalizeName(rawName);
+				if (name === void 0) {
+					errors.push(`invalid AgentTeams profile name "${rawName}"`);
+					continue;
+				}
+				if (seenNames.has(name)) {
+					errors.push(`duplicate AgentTeams profile name "${name}"`);
+					continue;
+				}
+				seenNames.add(name);
+				const profile = normalizeProfileForSave(value[rawName], `profiles.${name}`, errors);
+				if (profile !== void 0) profiles[name] = profile;
+			}
+			if (errors.length > 0) return {
+				ok: false,
+				error: errors.join("; ")
+			};
+			return {
+				ok: true,
+				profiles
+			};
+		}
+		//#endregion
+		//#region lib/client/desktop-bridge.js
+		/** Return the narrow host bridge used only by the embedded profile editor. */
+		function getAgentTeamsDesktopBridge() {
+			if (typeof window === "undefined") return void 0;
+			const bridge = window.dshDesktop;
+			if (bridge === void 0 || typeof bridge.getAgentTeamsProfiles !== "function" || typeof bridge.setAgentTeamsProfiles !== "function") return;
+			return bridge;
+		}
+		//#endregion
+		//#region \0dsh-css:src/client/AgentTeamsSettingsSection.module.css.mjs
+		const css = ".Zd8ifG_root{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;padding:4px 0 24px;display:flex}.Zd8ifG_header,.Zd8ifG_section{flex-direction:column;display:flex}.Zd8ifG_header{gap:4px}.Zd8ifG_pageTitle,.Zd8ifG_sectionTitle,.Zd8ifG_intro,.Zd8ifG_help,.Zd8ifG_settingsStatus,.Zd8ifG_catalogStatus{margin:0}.Zd8ifG_pageTitle{font-size:20px;font-weight:500;line-height:28px}.Zd8ifG_intro,.Zd8ifG_help{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.Zd8ifG_settingsStatus,.Zd8ifG_catalogStatus{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.Zd8ifG_section{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:12px;gap:10px;padding:16px}.Zd8ifG_sectionTitle{font-size:16px;font-weight:500;line-height:24px}.Zd8ifG_choices{border:0;gap:8px;margin:0;padding:0;display:grid}.Zd8ifG_choice{border:1px solid var(--dsw-alias-border-l2);cursor:pointer;border-radius:8px;align-items:flex-start;gap:10px;padding:10px 12px;display:flex}.Zd8ifG_choice:hover{background:var(--dsw-alias-interactive-bg-hover)}.Zd8ifG_choice:focus-within{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.Zd8ifG_choice input{accent-color:var(--dsw-alias-brand-primary);flex:none;margin:4px 0 0}.Zd8ifG_choice span,.Zd8ifG_field{flex-direction:column;display:flex}.Zd8ifG_choice span{gap:2px}.Zd8ifG_choice strong,.Zd8ifG_field>span{font-size:14px;font-weight:500;line-height:22px}.Zd8ifG_choice small{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.Zd8ifG_choices:disabled .Zd8ifG_choice,.Zd8ifG_choiceDisabled,.Zd8ifG_field select:disabled{cursor:default;opacity:.5}.Zd8ifG_choiceDisabled:hover{background:0 0}.Zd8ifG_fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;display:grid}.Zd8ifG_field{color:var(--dsw-alias-label-secondary);gap:6px}.Zd8ifG_field select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.Zd8ifG_field select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Zd8ifG_catalogError,.Zd8ifG_writeError{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:10px;font-size:12px;line-height:18px;display:flex}.Zd8ifG_profileSection{gap:14px}.Zd8ifG_profileSectionHeader,.Zd8ifG_profileRowHeader,.Zd8ifG_profileSaveBar,.Zd8ifG_profileIdentity,.Zd8ifG_profileIdentityActions{justify-content:space-between;align-items:center;gap:10px;display:flex}.Zd8ifG_profileSectionHeader{align-items:flex-start}.Zd8ifG_profileMarker,.Zd8ifG_profileBadge{border:1px solid var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary);letter-spacing:.08em;border-radius:999px;flex:none;padding:2px 7px;font-size:10px;font-weight:600;line-height:16px}.Zd8ifG_profileBadge{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);letter-spacing:normal}.Zd8ifG_profileToolbar{grid-template-columns:minmax(180px,.8fr) minmax(0,1.2fr);align-items:start;gap:12px;display:grid}.Zd8ifG_profileList,.Zd8ifG_profileActions,.Zd8ifG_profileForm,.Zd8ifG_profileSubsection,.Zd8ifG_profileDetails,.Zd8ifG_profileFallback{flex-direction:column;gap:8px;display:flex}.Zd8ifG_profileList{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;max-height:220px;padding:4px;overflow:auto}.Zd8ifG_profileListItem{min-height:34px;color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;background:0 0;border:1px solid #0000;border-radius:6px;justify-content:space-between;align-items:center;gap:8px;padding:6px 9px;display:flex}.Zd8ifG_profileListItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.Zd8ifG_profileListItem:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Zd8ifG_profileListItemSelected{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-interactive-bg-hover)}.Zd8ifG_profileListItem:disabled{cursor:default;opacity:.5}.Zd8ifG_profileListItem:disabled:hover{background:0 0}.Zd8ifG_profileListItem small{color:var(--dsw-alias-label-tertiary);flex:none;font-size:11px}.Zd8ifG_profileActions{flex-flow:wrap;justify-content:flex-end}.Zd8ifG_profileIdentity{align-items:flex-end}.Zd8ifG_profileIdentity>.Zd8ifG_field{flex:1}.Zd8ifG_profileIdentityActions{flex-wrap:wrap;justify-content:flex-end}.Zd8ifG_profileInput,.Zd8ifG_profileSelect,.Zd8ifG_profileTextarea{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.Zd8ifG_profileTextarea{resize:vertical;min-height:72px}.Zd8ifG_profileInput:focus-visible,.Zd8ifG_profileSelect:focus-visible,.Zd8ifG_profileTextarea:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Zd8ifG_profileInput:disabled,.Zd8ifG_profileSelect:disabled,.Zd8ifG_profileTextarea:disabled{cursor:default;opacity:.5}.Zd8ifG_profileWideField{grid-column:1/-1}.Zd8ifG_profileFieldset{border:0;gap:8px;margin:0;padding:0;display:grid}.Zd8ifG_profileLegend,.Zd8ifG_profileSubsectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:500;line-height:22px}.Zd8ifG_profileSubsection{padding-top:4px}.Zd8ifG_profileSubsection+.Zd8ifG_profileSubsection,.Zd8ifG_profileSubsection+.Zd8ifG_profileDetails,.Zd8ifG_profileDetails+.Zd8ifG_profileSubsection,.Zd8ifG_profileDetails+.Zd8ifG_profileDetails{border-top:1px solid var(--dsw-alias-border-l2);padding-top:12px}.Zd8ifG_profileMember,.Zd8ifG_profileTask{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:10px;padding:12px;display:flex}.Zd8ifG_profileMember .Zd8ifG_fields,.Zd8ifG_profileTask .Zd8ifG_fields{gap:10px}.Zd8ifG_profileRowHeader{align-items:flex-start}.Zd8ifG_profileDetails{gap:10px}.Zd8ifG_profileDetails summary{color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:13px;line-height:20px}.Zd8ifG_profileDetails summary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.Zd8ifG_profileFallback{grid-template-columns:repeat(2,minmax(0,1fr));padding-top:4px;display:grid}.Zd8ifG_profileHint,.Zd8ifG_profileDirty,.Zd8ifG_profileSaved,.Zd8ifG_profileError{margin:0;font-size:12px;line-height:18px}.Zd8ifG_profileHint,.Zd8ifG_profileDirty{color:var(--dsw-alias-label-tertiary)}.Zd8ifG_profileSaved{color:var(--dsw-alias-state-success-primary)}.Zd8ifG_profileError{color:var(--dsw-alias-state-error-primary)}.Zd8ifG_profileSaveBar{justify-content:flex-end;padding-top:4px}.Zd8ifG_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;border:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}@media (width<=560px){.Zd8ifG_fields,.Zd8ifG_profileToolbar,.Zd8ifG_profileFallback{grid-template-columns:1fr}.Zd8ifG_section{padding:14px}.Zd8ifG_profileSectionHeader,.Zd8ifG_profileIdentity{flex-direction:column;align-items:stretch}.Zd8ifG_profileIdentityActions,.Zd8ifG_profileActions{justify-content:flex-start}}";
+		const tagId = "@nanmicoder/dsh-agent-teams/AgentTeamsSettingsSection.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@nanmicoder/dsh-agent-teams";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var AgentTeamsSettingsSection_module_css_default = {
+			"catalogError": "Zd8ifG_catalogError",
+			"catalogStatus": "Zd8ifG_catalogStatus",
+			"choice": "Zd8ifG_choice",
+			"choiceDisabled": "Zd8ifG_choiceDisabled",
+			"choices": "Zd8ifG_choices",
+			"field": "Zd8ifG_field",
+			"fields": "Zd8ifG_fields",
+			"header": "Zd8ifG_header",
+			"help": "Zd8ifG_help",
+			"intro": "Zd8ifG_intro",
+			"pageTitle": "Zd8ifG_pageTitle",
+			"profileActions": "Zd8ifG_profileActions",
+			"profileBadge": "Zd8ifG_profileBadge",
+			"profileDetails": "Zd8ifG_profileDetails",
+			"profileDirty": "Zd8ifG_profileDirty",
+			"profileError": "Zd8ifG_profileError",
+			"profileFallback": "Zd8ifG_profileFallback",
+			"profileFieldset": "Zd8ifG_profileFieldset",
+			"profileForm": "Zd8ifG_profileForm",
+			"profileHint": "Zd8ifG_profileHint",
+			"profileIdentity": "Zd8ifG_profileIdentity",
+			"profileIdentityActions": "Zd8ifG_profileIdentityActions",
+			"profileInput": "Zd8ifG_profileInput",
+			"profileLegend": "Zd8ifG_profileLegend",
+			"profileList": "Zd8ifG_profileList",
+			"profileListItem": "Zd8ifG_profileListItem",
+			"profileListItemSelected": "Zd8ifG_profileListItemSelected",
+			"profileMarker": "Zd8ifG_profileMarker",
+			"profileMember": "Zd8ifG_profileMember",
+			"profileRowHeader": "Zd8ifG_profileRowHeader",
+			"profileSaveBar": "Zd8ifG_profileSaveBar",
+			"profileSaved": "Zd8ifG_profileSaved",
+			"profileSection": "Zd8ifG_profileSection",
+			"profileSectionHeader": "Zd8ifG_profileSectionHeader",
+			"profileSelect": "Zd8ifG_profileSelect",
+			"profileSubsection": "Zd8ifG_profileSubsection",
+			"profileSubsectionTitle": "Zd8ifG_profileSubsectionTitle",
+			"profileTask": "Zd8ifG_profileTask",
+			"profileTextarea": "Zd8ifG_profileTextarea",
+			"profileToolbar": "Zd8ifG_profileToolbar",
+			"profileWideField": "Zd8ifG_profileWideField",
+			"root": "Zd8ifG_root",
+			"section": "Zd8ifG_section",
+			"sectionTitle": "Zd8ifG_sectionTitle",
+			"settingsStatus": "Zd8ifG_settingsStatus",
+			"visuallyHidden": "Zd8ifG_visuallyHidden",
+			"writeError": "Zd8ifG_writeError"
+		};
+		//#endregion
+		//#region lib/client/TeamProfilesEditor.js
+		function uniqueName(existing, base) {
+			const occupied = new Set(existing);
+			if (!occupied.has(base)) return base;
+			for (let index = 2; index < 1e3; index += 1) {
+				const candidate = `${base}-${index}`;
+				if (!occupied.has(candidate)) return candidate;
+			}
+			return `${base}-${Date.now()}`;
+		}
+		function updateProfileMap(profiles, name, update) {
+			const current = profiles[name];
+			if (current === void 0) return profiles;
+			const next = cloneProfileMap(profiles);
+			next[name] = update(next[name] ?? current);
+			return next;
+		}
+		function setMemberField(member, field, value) {
+			const next = { ...member };
+			if (value === "") delete next[field];
+			else next[field] = value;
+			return next;
+		}
+		function setRouteField(current, field, value) {
+			const next = {
+				provider: current?.provider ?? "",
+				model: current?.model ?? ""
+			};
+			next[field] = value;
+			return next.provider === "" && next.model === "" ? void 0 : next;
+		}
+		function formatDependencies(task) {
+			return task.dependencies?.join(", ") ?? "";
+		}
+		function parseDependencies(value) {
+			const dependencies = value.split(",").map((dependency) => dependency.trim()).filter((dependency) => dependency !== "");
+			return dependencies.length === 0 ? void 0 : [...new Set(dependencies)];
+		}
+		function FallbackFields({ disabled, fallback, onChange, t }) {
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: AgentTeamsSettingsSection_module_css_default.profileFallback,
+				children: [(0, react_jsx_runtime.jsxs)("label", {
+					className: AgentTeamsSettingsSection_module_css_default.field,
+					children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.fallbackProvider") }), (0, react_jsx_runtime.jsx)("input", {
+						className: AgentTeamsSettingsSection_module_css_default.profileInput,
+						value: fallback?.provider ?? "",
+						disabled,
+						onChange: (event) => onChange(setRouteField(fallback, "provider", event.currentTarget.value))
+					})]
+				}), (0, react_jsx_runtime.jsxs)("label", {
+					className: AgentTeamsSettingsSection_module_css_default.field,
+					children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.fallbackModel") }), (0, react_jsx_runtime.jsx)("input", {
+						className: AgentTeamsSettingsSection_module_css_default.profileInput,
+						value: fallback?.model ?? "",
+						disabled,
+						onChange: (event) => onChange(setRouteField(fallback, "model", event.currentTarget.value))
+					})]
+				})]
+			});
+		}
+		function MemberEditor({ catalog, disabled, index, member, onChange, onRemove, t }) {
+			const providers = (0, react.useMemo)(() => [...new Set(catalog.map((model) => model.provider))], [catalog]);
+			const provider = member.provider ?? "";
+			const model = member.model ?? "";
+			const providerModels = catalog.filter((entry) => entry.provider === provider);
+			const selectedModel = providerModels.find((entry) => entry.id === model);
+			const modelListId = `agent-teams-profile-member-${index}-models`;
+			const update = (field, value) => {
+				onChange(setMemberField(member, field, value));
+			};
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: AgentTeamsSettingsSection_module_css_default.profileMember,
+				children: [
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.profileRowHeader,
+						children: [(0, react_jsx_runtime.jsx)("strong", { children: t("settings.profiles.member", { index: index + 1 }) }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							type: "button",
+							variant: "outline",
+							size: "sm",
+							disabled,
+							onClick: onRemove,
+							children: t("settings.profiles.remove")
+						})]
+					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.fields,
+						children: [
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberName") }), (0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									value: member.name,
+									disabled,
+									onChange: (event) => onChange({
+										...member,
+										name: event.currentTarget.value
+									})
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberRole") }), (0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									value: member.role ?? "",
+									disabled,
+									onChange: (event) => update("role", event.currentTarget.value)
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberProvider") }), (0, react_jsx_runtime.jsxs)("select", {
+									className: AgentTeamsSettingsSection_module_css_default.profileSelect,
+									value: provider,
+									disabled,
+									onChange: (event) => update("provider", event.currentTarget.value),
+									children: [
+										(0, react_jsx_runtime.jsx)("option", {
+											value: "",
+											children: t("settings.profiles.followCaptain")
+										}),
+										provider !== "" && !providers.includes(provider) && (0, react_jsx_runtime.jsx)("option", {
+											value: provider,
+											children: t("settings.profiles.unavailable", { value: provider })
+										}),
+										providers.map((entry) => (0, react_jsx_runtime.jsx)("option", {
+											value: entry,
+											children: entry
+										}, entry))
+									]
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberModel") }), provider === "" ? (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									list: modelListId,
+									value: model,
+									disabled,
+									placeholder: t("settings.profiles.followCaptain"),
+									onChange: (event) => update("model", event.currentTarget.value)
+								}), (0, react_jsx_runtime.jsx)("datalist", {
+									id: modelListId,
+									children: catalog.map((entry) => (0, react_jsx_runtime.jsx)("option", {
+										value: entry.id,
+										children: entry.provider
+									}, `${entry.provider}/${entry.id}`))
+								})] }) : (0, react_jsx_runtime.jsxs)("select", {
+									className: AgentTeamsSettingsSection_module_css_default.profileSelect,
+									value: model,
+									disabled,
+									onChange: (event) => update("model", event.currentTarget.value),
+									children: [
+										(0, react_jsx_runtime.jsx)("option", {
+											value: "",
+											children: t("settings.profiles.chooseModel")
+										}),
+										model !== "" && selectedModel === void 0 && (0, react_jsx_runtime.jsx)("option", {
+											value: model,
+											children: t("settings.profiles.unavailable", { value: model })
+										}),
+										providerModels.map((entry) => (0, react_jsx_runtime.jsx)("option", {
+											value: entry.id,
+											children: entry.name || entry.id
+										}, entry.id))
+									]
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberReasoning") }), selectedModel !== void 0 && selectedModel.efforts.length > 0 ? (0, react_jsx_runtime.jsxs)("select", {
+									className: AgentTeamsSettingsSection_module_css_default.profileSelect,
+									value: member.reasoning_effort ?? "",
+									disabled,
+									onChange: (event) => update("reasoning_effort", event.currentTarget.value),
+									children: [
+										(0, react_jsx_runtime.jsx)("option", {
+											value: "",
+											children: t("settings.profiles.defaultValue")
+										}),
+										member.reasoning_effort !== void 0 && !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort) && (0, react_jsx_runtime.jsx)("option", {
+											value: member.reasoning_effort,
+											children: t("settings.profiles.unavailable", { value: member.reasoning_effort })
+										}),
+										selectedModel.efforts.map((effort) => (0, react_jsx_runtime.jsx)("option", {
+											value: effort.id,
+											children: effort.name
+										}, effort.id))
+									]
+								}) : (0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									value: member.reasoning_effort ?? "",
+									disabled,
+									placeholder: t("settings.profiles.defaultValue"),
+									onChange: (event) => update("reasoning_effort", event.currentTarget.value)
+								})]
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("label", {
+						className: AgentTeamsSettingsSection_module_css_default.field,
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberPrompt") }), (0, react_jsx_runtime.jsx)("textarea", {
+							className: AgentTeamsSettingsSection_module_css_default.profileTextarea,
+							value: member.executionPrompt ?? "",
+							disabled,
+							rows: 3,
+							onChange: (event) => update("executionPrompt", event.currentTarget.value)
+						})]
+					}),
+					(0, react_jsx_runtime.jsxs)("details", {
+						className: AgentTeamsSettingsSection_module_css_default.profileDetails,
+						children: [(0, react_jsx_runtime.jsx)("summary", { children: t("settings.profiles.memberFallback") }), (0, react_jsx_runtime.jsx)(FallbackFields, {
+							disabled,
+							fallback: member.fallback,
+							onChange: (fallback) => onChange({
+								...member,
+								...fallback === void 0 ? { fallback: void 0 } : { fallback }
+							}),
+							t
+						})]
+					})
+				]
+			});
+		}
+		function TaskEditor({ disabled, members, onChange, onRemove, task, t }) {
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: AgentTeamsSettingsSection_module_css_default.profileTask,
+				children: [
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.profileRowHeader,
+						children: [(0, react_jsx_runtime.jsx)("strong", { children: task.id || t("settings.profiles.newTask") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							type: "button",
+							variant: "outline",
+							size: "sm",
+							disabled,
+							onClick: onRemove,
+							children: t("settings.profiles.remove")
+						})]
+					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.fields,
+						children: [(0, react_jsx_runtime.jsxs)("label", {
+							className: AgentTeamsSettingsSection_module_css_default.field,
+							children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.taskId") }), (0, react_jsx_runtime.jsx)("input", {
+								className: AgentTeamsSettingsSection_module_css_default.profileInput,
+								value: task.id,
+								disabled,
+								onChange: (event) => onChange({
+									...task,
+									id: event.currentTarget.value
+								})
+							})]
+						}), (0, react_jsx_runtime.jsxs)("label", {
+							className: AgentTeamsSettingsSection_module_css_default.field,
+							children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.taskAssignee") }), (0, react_jsx_runtime.jsxs)("select", {
+								className: AgentTeamsSettingsSection_module_css_default.profileSelect,
+								value: task.assignee ?? "",
+								disabled,
+								onChange: (event) => onChange({
+									...task,
+									assignee: event.currentTarget.value || void 0
+								}),
+								children: [(0, react_jsx_runtime.jsx)("option", {
+									value: "",
+									children: t("settings.profiles.chooseAssignee")
+								}), members.map((member) => (0, react_jsx_runtime.jsx)("option", {
+									value: member.name,
+									children: member.name
+								}, member.name))]
+							})]
+						})]
+					}),
+					(0, react_jsx_runtime.jsxs)("label", {
+						className: AgentTeamsSettingsSection_module_css_default.field,
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.taskSubject") }), (0, react_jsx_runtime.jsx)("input", {
+							className: AgentTeamsSettingsSection_module_css_default.profileInput,
+							value: task.subject,
+							disabled,
+							onChange: (event) => onChange({
+								...task,
+								subject: event.currentTarget.value
+							})
+						})]
+					}),
+					(0, react_jsx_runtime.jsxs)("label", {
+						className: AgentTeamsSettingsSection_module_css_default.field,
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.taskDescription") }), (0, react_jsx_runtime.jsx)("textarea", {
+							className: AgentTeamsSettingsSection_module_css_default.profileTextarea,
+							value: task.description ?? "",
+							disabled,
+							rows: 2,
+							onChange: (event) => onChange({
+								...task,
+								description: event.currentTarget.value
+							})
+						})]
+					}),
+					(0, react_jsx_runtime.jsxs)("label", {
+						className: AgentTeamsSettingsSection_module_css_default.field,
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.taskDependencies") }), (0, react_jsx_runtime.jsx)("input", {
+							className: AgentTeamsSettingsSection_module_css_default.profileInput,
+							value: formatDependencies(task),
+							disabled,
+							placeholder: t("settings.profiles.commaSeparated"),
+							onChange: (event) => onChange({
+								...task,
+								dependencies: parseDependencies(event.currentTarget.value)
+							})
+						})]
+					})
+				]
+			});
+		}
+		function ProfileForm({ catalog, disabled, onChange, profile, t }) {
+			const members = profile.members;
+			const tasks = profile.tasks ?? [];
+			const updateMember = (index, next) => {
+				onChange({
+					...profile,
+					members: members.map((member, memberIndex) => memberIndex === index ? next : member)
+				});
+			};
+			const removeMember = (index) => {
+				onChange({
+					...profile,
+					members: members.filter((_member, memberIndex) => memberIndex !== index)
+				});
+			};
+			const addMember = () => {
+				const name = uniqueName(members.map((member) => member.name), "member");
+				onChange({
+					...profile,
+					members: [...members, { name }]
+				});
+			};
+			const updateTask = (index, next) => {
+				onChange({
+					...profile,
+					tasks: tasks.map((task, taskIndex) => taskIndex === index ? next : task)
+				});
+			};
+			const removeTask = (index) => {
+				const next = tasks.filter((_task, taskIndex) => taskIndex !== index);
+				onChange({
+					...profile,
+					...next.length === 0 ? { tasks: void 0 } : { tasks: next }
+				});
+			};
+			const addTask = () => {
+				const id = uniqueName(tasks.map((task) => task.id), "task");
+				onChange({
+					...profile,
+					taskPlanning: "seed",
+					tasks: [...tasks, {
+						id,
+						subject: "",
+						assignee: members[0]?.name
+					}]
+				});
+			};
+			const setOptionalText = (field, value) => {
+				onChange({
+					...profile,
+					[field]: value
+				});
+			};
+			const setPolicyField = (field, value) => {
+				const policy = { ...profile.reviewPolicy ?? {} };
+				if (value.trim() === "") delete policy[field];
+				else policy[field] = Number(value);
+				onChange({
+					...profile,
+					...Object.keys(policy).length === 0 ? { reviewPolicy: void 0 } : { reviewPolicy: policy }
+				});
+			};
+			const requiredReviewers = profile.reviewPolicy?.requiredReviewers?.join(", ") ?? "";
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: AgentTeamsSettingsSection_module_css_default.profileForm,
+				children: [
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.fields,
+						children: [
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: `${AgentTeamsSettingsSection_module_css_default.field} ${AgentTeamsSettingsSection_module_css_default.profileWideField}`,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.description") }), (0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									value: profile.description ?? "",
+									disabled,
+									onChange: (event) => setOptionalText("description", event.currentTarget.value)
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: `${AgentTeamsSettingsSection_module_css_default.field} ${AgentTeamsSettingsSection_module_css_default.profileWideField}`,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.protocol") }), (0, react_jsx_runtime.jsx)("textarea", {
+									className: AgentTeamsSettingsSection_module_css_default.profileTextarea,
+									value: profile.protocol ?? "",
+									disabled,
+									rows: 3,
+									onChange: (event) => setOptionalText("protocol", event.currentTarget.value)
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: `${AgentTeamsSettingsSection_module_css_default.field} ${AgentTeamsSettingsSection_module_css_default.profileWideField}`,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.executionPrompt") }), (0, react_jsx_runtime.jsx)("textarea", {
+									className: AgentTeamsSettingsSection_module_css_default.profileTextarea,
+									value: profile.executionPrompt ?? "",
+									disabled,
+									rows: 4,
+									onChange: (event) => setOptionalText("executionPrompt", event.currentTarget.value)
+								})]
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("fieldset", {
+						className: AgentTeamsSettingsSection_module_css_default.profileFieldset,
+						disabled,
+						children: [
+							(0, react_jsx_runtime.jsx)("legend", {
+								className: AgentTeamsSettingsSection_module_css_default.profileLegend,
+								children: t("settings.profiles.taskPlanning")
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.choice,
+								children: [(0, react_jsx_runtime.jsx)("input", {
+									type: "radio",
+									name: "agent-teams-profile-task-planning",
+									value: "captain",
+									checked: (profile.taskPlanning ?? "seed") === "captain",
+									onChange: () => onChange({
+										...profile,
+										taskPlanning: "captain"
+									})
+								}), (0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("strong", { children: t("settings.profiles.captain") }), (0, react_jsx_runtime.jsx)("small", { children: t("settings.profiles.captainHelp") })] })]
+							}),
+							(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.choice,
+								children: [(0, react_jsx_runtime.jsx)("input", {
+									type: "radio",
+									name: "agent-teams-profile-task-planning",
+									value: "seed",
+									checked: (profile.taskPlanning ?? "seed") === "seed",
+									onChange: () => onChange({
+										...profile,
+										taskPlanning: "seed"
+									})
+								}), (0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("strong", { children: t("settings.profiles.seed") }), (0, react_jsx_runtime.jsx)("small", { children: t("settings.profiles.seedHelp") })] })]
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.profileSubsection,
+						children: [(0, react_jsx_runtime.jsxs)("div", {
+							className: AgentTeamsSettingsSection_module_css_default.profileRowHeader,
+							children: [(0, react_jsx_runtime.jsx)("h4", {
+								className: AgentTeamsSettingsSection_module_css_default.profileSubsectionTitle,
+								children: t("settings.profiles.members")
+							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								type: "button",
+								variant: "outline",
+								size: "sm",
+								disabled: disabled || members.length >= 8,
+								onClick: addMember,
+								children: t("settings.profiles.addMember")
+							})]
+						}), members.map((member, index) => (0, react_jsx_runtime.jsx)(MemberEditor, {
+							catalog,
+							disabled,
+							index,
+							member,
+							onChange: (next) => updateMember(index, next),
+							onRemove: () => removeMember(index),
+							t
+						}, `${index}-${member.name}`))]
+					}),
+					(0, react_jsx_runtime.jsxs)("details", {
+						className: AgentTeamsSettingsSection_module_css_default.profileDetails,
+						children: [(0, react_jsx_runtime.jsx)("summary", { children: t("settings.profiles.profileFallback") }), (0, react_jsx_runtime.jsx)(FallbackFields, {
+							disabled,
+							fallback: profile.fallback,
+							onChange: (fallback) => onChange({
+								...profile,
+								...fallback === void 0 ? { fallback: void 0 } : { fallback }
+							}),
+							t
+						})]
+					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.profileSubsection,
+						children: [(0, react_jsx_runtime.jsxs)("div", {
+							className: AgentTeamsSettingsSection_module_css_default.profileRowHeader,
+							children: [(0, react_jsx_runtime.jsxs)("div", { children: [(0, react_jsx_runtime.jsx)("h4", {
+								className: AgentTeamsSettingsSection_module_css_default.profileSubsectionTitle,
+								children: t("settings.profiles.tasks")
+							}), (profile.taskPlanning ?? "seed") === "captain" && (0, react_jsx_runtime.jsx)("p", {
+								className: AgentTeamsSettingsSection_module_css_default.profileHint,
+								children: t("settings.profiles.captainTasksHint")
+							})] }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								type: "button",
+								variant: "outline",
+								size: "sm",
+								disabled: disabled || tasks.length >= 32,
+								onClick: addTask,
+								children: t("settings.profiles.addTask")
+							})]
+						}), (profile.taskPlanning ?? "seed") === "seed" && tasks.map((task, index) => (0, react_jsx_runtime.jsx)(TaskEditor, {
+							disabled,
+							members,
+							onChange: (next) => updateTask(index, next),
+							onRemove: () => removeTask(index),
+							task,
+							t
+						}, `${index}-${task.id}`))]
+					}),
+					(0, react_jsx_runtime.jsxs)("details", {
+						className: AgentTeamsSettingsSection_module_css_default.profileDetails,
+						children: [(0, react_jsx_runtime.jsx)("summary", { children: t("settings.profiles.reviewPolicy") }), (0, react_jsx_runtime.jsxs)("div", {
+							className: AgentTeamsSettingsSection_module_css_default.fields,
+							children: [[
+								["requirementsMinRounds", "settings.profiles.requirementsMinRounds"],
+								["requirementsMaxRounds", "settings.profiles.requirementsMaxRounds"],
+								["codeMaxRounds", "settings.profiles.codeMaxRounds"],
+								["maxRepairAttempts", "settings.profiles.maxRepairAttempts"]
+							].map(([field, label]) => (0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t(label) }), (0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									type: "number",
+									min: 1,
+									value: profile.reviewPolicy?.[field] ?? "",
+									disabled,
+									onChange: (event) => setPolicyField(field, event.currentTarget.value)
+								})]
+							}, field)), (0, react_jsx_runtime.jsxs)("label", {
+								className: `${AgentTeamsSettingsSection_module_css_default.field} ${AgentTeamsSettingsSection_module_css_default.profileWideField}`,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.requiredReviewers") }), (0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									value: requiredReviewers,
+									disabled,
+									placeholder: t("settings.profiles.commaSeparated"),
+									onChange: (event) => onChange({
+										...profile,
+										reviewPolicy: {
+											...profile.reviewPolicy ?? {},
+											requiredReviewers: event.currentTarget.value.split(",").map((reviewer) => reviewer.trim()).filter(Boolean)
+										}
+									})
+								})]
+							})]
+						})]
+					})
+				]
+			});
+		}
+		function TeamProfilesEditor({ catalog, t, writable }) {
+			const bridge = (0, react.useMemo)(() => getAgentTeamsDesktopBridge(), []);
+			const [snapshot, setSnapshot] = (0, react.useState)(null);
+			const [profiles, setProfiles] = (0, react.useState)({});
+			const [committedProfiles, setCommittedProfiles] = (0, react.useState)({});
+			const [selectedName, setSelectedName] = (0, react.useState)("");
+			const [nameDraft, setNameDraft] = (0, react.useState)("");
+			const [loading, setLoading] = (0, react.useState)(true);
+			const [saving, setSaving] = (0, react.useState)(false);
+			const [message, setMessage] = (0, react.useState)(null);
+			const [error, setError] = (0, react.useState)(null);
+			const loadProfiles = (0, react.useCallback)(() => {
+				if (bridge?.getAgentTeamsProfiles === void 0) {
+					setLoading(false);
+					setError(t("settings.profiles.bridgeUnavailable"));
+					return;
+				}
+				setLoading(true);
+				setError(null);
+				let active = true;
+				bridge.getAgentTeamsProfiles().then((next) => {
+					if (!active) return;
+					const normalized = normalizeProfileSnapshot(next);
+					setSnapshot(normalized);
+					setProfiles(normalized.profiles);
+					setCommittedProfiles(cloneProfileMap(normalized.profiles));
+					setSelectedName(Object.keys(normalized.profiles)[0] ?? "");
+					setMessage(null);
+					setLoading(false);
+				}).catch((reason) => {
+					if (!active) return;
+					setLoading(false);
+					setError(reason instanceof Error ? reason.message : String(reason));
+				});
+				return () => {
+					active = false;
+				};
+			}, [bridge, t]);
+			(0, react.useEffect)(() => loadProfiles(), [loadProfiles]);
+			(0, react.useEffect)(() => {
+				setNameDraft(selectedName);
+			}, [selectedName]);
+			(0, react.useEffect)(() => {
+				if (selectedName !== "" && profiles[selectedName] !== void 0) return;
+				setSelectedName(Object.keys(profiles)[0] ?? "");
+			}, [profiles, selectedName]);
+			const selectedProfile = selectedName === "" ? void 0 : profiles[selectedName];
+			const builtInNames = snapshot?.builtInNames ?? [];
+			const builtInProfiles = snapshot?.builtInProfiles ?? {};
+			const selectedIsBuiltIn = selectedName !== "" && builtInNames.includes(selectedName);
+			const dirty = JSON.stringify(profiles) !== JSON.stringify(committedProfiles);
+			const controlsDisabled = !writable || loading || saving;
+			const updateSelectedProfile = (next) => {
+				setProfiles((current) => updateProfileMap(current, selectedName, () => next));
+				setMessage(null);
+				setError(null);
+			};
+			const addProfile = () => {
+				const name = uniqueName(Object.keys(profiles), "custom-profile");
+				const next = cloneProfileMap(profiles);
+				next[name] = createEmptyTeamProfile(name);
+				setProfiles(next);
+				setSelectedName(name);
+				setMessage(null);
+				setError(null);
+			};
+			const copyProfile = () => {
+				if (selectedProfile === void 0) return;
+				const name = uniqueName(Object.keys(profiles), `${selectedName}-copy`);
+				const next = cloneProfileMap(profiles);
+				next[name] = cloneProfileMap({ [name]: selectedProfile })[name] ?? createEmptyTeamProfile(name);
+				setProfiles(next);
+				setSelectedName(name);
+				setMessage(null);
+				setError(null);
+			};
+			const removeProfile = () => {
+				if (selectedProfile === void 0 || selectedIsBuiltIn) return;
+				const next = cloneProfileMap(profiles);
+				delete next[selectedName];
+				const nextName = Object.keys(next)[0] ?? "";
+				setProfiles(next);
+				setSelectedName(nextName);
+				setMessage(null);
+				setError(null);
+			};
+			const restoreProfile = () => {
+				const original = builtInProfiles[selectedName];
+				if (!selectedIsBuiltIn || original === void 0) return;
+				setProfiles((current) => updateProfileMap(current, selectedName, () => cloneProfileMap({ [selectedName]: original })[selectedName] ?? original));
+				setMessage(null);
+				setError(null);
+			};
+			const renamedProfiles = () => {
+				if (selectedProfile === void 0 || selectedIsBuiltIn) return profiles;
+				const nextName = nameDraft.trim();
+				if (nextName === selectedName) return profiles;
+				if (nextName === "" || nextName.toLowerCase() === "captain" || !/^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u.test(nextName)) {
+					setError(t("settings.profiles.invalidName"));
+					return;
+				}
+				if (profiles[nextName] !== void 0) {
+					setError(t("settings.profiles.duplicateName"));
+					return;
+				}
+				const next = cloneProfileMap(profiles);
+				const profile = next[selectedName];
+				if (profile === void 0) return void 0;
+				delete next[selectedName];
+				next[nextName] = profile;
+				return next;
+			};
+			const renameProfile = () => {
+				const next = renamedProfiles();
+				if (next === void 0) return false;
+				if (next === profiles) return true;
+				const nextName = nameDraft.trim();
+				setProfiles(next);
+				setSelectedName(nextName);
+				setNameDraft(nextName);
+				setMessage(null);
+				setError(null);
+				return true;
+			};
+			const saveProfiles = async () => {
+				if (bridge?.setAgentTeamsProfiles === void 0 || saving) return;
+				const nextProfiles = renamedProfiles();
+				if (nextProfiles === void 0) return;
+				if (nextProfiles !== profiles) setProfiles(nextProfiles);
+				setError(null);
+				const prepared = prepareProfileMapForSave(nextProfiles);
+				if (!prepared.ok) {
+					setError(prepared.error);
+					return;
+				}
+				setSaving(true);
+				setMessage(null);
+				try {
+					const next = normalizeProfileSnapshot(await bridge.setAgentTeamsProfiles(prepared.profiles));
+					setSnapshot(next);
+					setProfiles(next.profiles);
+					setCommittedProfiles(cloneProfileMap(next.profiles));
+					setSelectedName((current) => next.profiles[current] === void 0 ? Object.keys(next.profiles)[0] ?? "" : current);
+					setMessage(t("settings.profiles.saved"));
+				} catch (reason) {
+					setError(reason instanceof Error ? reason.message : String(reason));
+				} finally {
+					setSaving(false);
+				}
+			};
+			return (0, react_jsx_runtime.jsxs)("section", {
+				className: `${AgentTeamsSettingsSection_module_css_default.section} ${AgentTeamsSettingsSection_module_css_default.profileSection}`,
+				"aria-labelledby": "agent-teams-profiles-title",
+				children: [
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.profileSectionHeader,
+						children: [(0, react_jsx_runtime.jsxs)("div", { children: [(0, react_jsx_runtime.jsx)("h3", {
+							id: "agent-teams-profiles-title",
+							className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
+							children: t("settings.profiles.title")
+						}), (0, react_jsx_runtime.jsx)("p", {
+							className: AgentTeamsSettingsSection_module_css_default.help,
+							children: t("settings.profiles.help")
+						})] }), (0, react_jsx_runtime.jsx)("span", {
+							className: AgentTeamsSettingsSection_module_css_default.profileMarker,
+							children: "PROFILE"
+						})]
+					}),
+					loading && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.catalogStatus,
+						role: "status",
+						children: t("settings.profiles.loading")
+					}),
+					error !== null && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.profileError,
+						role: "alert",
+						children: t("settings.profiles.error", { message: error })
+					}),
+					message !== null && (0, react_jsx_runtime.jsxs)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.profileSaved,
+						role: "status",
+						children: [
+							message,
+							" ",
+							t("settings.profiles.restart")
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.profileToolbar,
+						children: [(0, react_jsx_runtime.jsx)("div", {
+							className: AgentTeamsSettingsSection_module_css_default.profileList,
+							role: "listbox",
+							"aria-label": t("settings.profiles.listAria"),
+							children: Object.keys(profiles).map((name) => (0, react_jsx_runtime.jsxs)("button", {
+								type: "button",
+								role: "option",
+								"aria-selected": name === selectedName,
+								disabled: controlsDisabled || nameDraft !== selectedName && name !== selectedName,
+								className: `${AgentTeamsSettingsSection_module_css_default.profileListItem} ${name === selectedName ? AgentTeamsSettingsSection_module_css_default.profileListItemSelected : ""}`,
+								onClick: () => {
+									setSelectedName(name);
+									setMessage(null);
+									setError(null);
+								},
+								children: [(0, react_jsx_runtime.jsx)("span", { children: name }), (0, react_jsx_runtime.jsx)("small", { children: builtInNames.includes(name) ? t("settings.profiles.builtIn") : t("settings.profiles.custom") })]
+							}, name))
+						}), (0, react_jsx_runtime.jsxs)("div", {
+							className: AgentTeamsSettingsSection_module_css_default.profileActions,
+							children: [
+								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									type: "button",
+									variant: "outline",
+									size: "sm",
+									disabled: controlsDisabled,
+									onClick: addProfile,
+									children: t("settings.profiles.new")
+								}),
+								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									type: "button",
+									variant: "outline",
+									size: "sm",
+									disabled: controlsDisabled || selectedProfile === void 0,
+									onClick: copyProfile,
+									children: t("settings.profiles.copy")
+								}),
+								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									type: "button",
+									variant: "outline",
+									size: "sm",
+									disabled: controlsDisabled || selectedProfile === void 0 || selectedIsBuiltIn,
+									onClick: removeProfile,
+									children: t("settings.profiles.delete")
+								})
+							]
+						})]
+					}),
+					selectedProfile !== void 0 && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+						(0, react_jsx_runtime.jsxs)("div", {
+							className: AgentTeamsSettingsSection_module_css_default.profileIdentity,
+							children: [(0, react_jsx_runtime.jsxs)("label", {
+								className: AgentTeamsSettingsSection_module_css_default.field,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.name") }), (0, react_jsx_runtime.jsx)("input", {
+									className: AgentTeamsSettingsSection_module_css_default.profileInput,
+									value: nameDraft,
+									disabled: controlsDisabled || selectedIsBuiltIn,
+									onChange: (event) => setNameDraft(event.currentTarget.value)
+								})]
+							}), (0, react_jsx_runtime.jsxs)("div", {
+								className: AgentTeamsSettingsSection_module_css_default.profileIdentityActions,
+								children: [
+									(0, react_jsx_runtime.jsx)("span", {
+										className: AgentTeamsSettingsSection_module_css_default.profileBadge,
+										children: selectedIsBuiltIn ? t("settings.profiles.builtIn") : t("settings.profiles.custom")
+									}),
+									!selectedIsBuiltIn && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+										type: "button",
+										variant: "outline",
+										size: "sm",
+										disabled: controlsDisabled,
+										onClick: renameProfile,
+										children: t("settings.profiles.rename")
+									}),
+									selectedIsBuiltIn && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+										type: "button",
+										variant: "outline",
+										size: "sm",
+										disabled: controlsDisabled || !dirty,
+										onClick: restoreProfile,
+										children: t("settings.profiles.restore")
+									})
+								]
+							})]
+						}),
+						(0, react_jsx_runtime.jsx)(ProfileForm, {
+							catalog,
+							disabled: controlsDisabled,
+							onChange: updateSelectedProfile,
+							profile: selectedProfile,
+							t
+						}),
+						(0, react_jsx_runtime.jsxs)("div", {
+							className: AgentTeamsSettingsSection_module_css_default.profileSaveBar,
+							children: [dirty && (0, react_jsx_runtime.jsx)("span", {
+								className: AgentTeamsSettingsSection_module_css_default.profileDirty,
+								children: t("settings.profiles.unsaved")
+							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								type: "button",
+								variant: "outline",
+								size: "sm",
+								disabled: controlsDisabled || !dirty,
+								onClick: () => {
+									saveProfiles();
+								},
+								children: saving ? t("settings.profiles.saving") : t("settings.profiles.save")
+							})]
+						})
+					] }),
+					selectedProfile === void 0 && !loading && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.profileHint,
+						children: t("settings.profiles.empty")
+					})
+				]
+			});
+		}
+		//#endregion
 		//#region lib/client/settings-write.js
 		const SETTINGS_NAMESPACE = "agent-teams";
 		var BoundedCallError = class extends Error {
@@ -3424,36 +4739,6 @@ window.__ModuleLoader__.load({
 			}
 			return result;
 		}
-		//#endregion
-		//#region \0dsh-css:src/client/AgentTeamsSettingsSection.module.css.mjs
-		const css = ".Zd8ifG_root{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;padding:4px 0 24px;display:flex}.Zd8ifG_header,.Zd8ifG_section{flex-direction:column;display:flex}.Zd8ifG_header{gap:4px}.Zd8ifG_pageTitle,.Zd8ifG_sectionTitle,.Zd8ifG_intro,.Zd8ifG_help,.Zd8ifG_settingsStatus,.Zd8ifG_catalogStatus{margin:0}.Zd8ifG_pageTitle{font-size:20px;font-weight:500;line-height:28px}.Zd8ifG_intro,.Zd8ifG_help{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.Zd8ifG_settingsStatus,.Zd8ifG_catalogStatus{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.Zd8ifG_section{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:12px;gap:10px;padding:16px}.Zd8ifG_sectionTitle{font-size:16px;font-weight:500;line-height:24px}.Zd8ifG_choices{border:0;gap:8px;margin:0;padding:0;display:grid}.Zd8ifG_choice{border:1px solid var(--dsw-alias-border-l2);cursor:pointer;border-radius:8px;align-items:flex-start;gap:10px;padding:10px 12px;display:flex}.Zd8ifG_choice:hover{background:var(--dsw-alias-interactive-bg-hover)}.Zd8ifG_choice:focus-within{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.Zd8ifG_choice input{accent-color:var(--dsw-alias-brand-primary);flex:none;margin:4px 0 0}.Zd8ifG_choice span,.Zd8ifG_field{flex-direction:column;display:flex}.Zd8ifG_choice span{gap:2px}.Zd8ifG_choice strong,.Zd8ifG_field>span{font-size:14px;font-weight:500;line-height:22px}.Zd8ifG_choice small{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.Zd8ifG_choices:disabled .Zd8ifG_choice,.Zd8ifG_choiceDisabled,.Zd8ifG_field select:disabled{cursor:default;opacity:.5}.Zd8ifG_choiceDisabled:hover{background:0 0}.Zd8ifG_fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;display:grid}.Zd8ifG_field{color:var(--dsw-alias-label-secondary);gap:6px}.Zd8ifG_field select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.Zd8ifG_field select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Zd8ifG_catalogError,.Zd8ifG_writeError{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:10px;font-size:12px;line-height:18px;display:flex}.Zd8ifG_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;border:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}@media (width<=560px){.Zd8ifG_fields{grid-template-columns:1fr}.Zd8ifG_section{padding:14px}}";
-		const tagId = "@nanmicoder/dsh-agent-teams/AgentTeamsSettingsSection.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@nanmicoder/dsh-agent-teams";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
-			document.head.appendChild(tag);
-		}
-		var AgentTeamsSettingsSection_module_css_default = {
-			"catalogError": "Zd8ifG_catalogError",
-			"catalogStatus": "Zd8ifG_catalogStatus",
-			"choice": "Zd8ifG_choice",
-			"choiceDisabled": "Zd8ifG_choiceDisabled",
-			"choices": "Zd8ifG_choices",
-			"field": "Zd8ifG_field",
-			"fields": "Zd8ifG_fields",
-			"header": "Zd8ifG_header",
-			"help": "Zd8ifG_help",
-			"intro": "Zd8ifG_intro",
-			"pageTitle": "Zd8ifG_pageTitle",
-			"root": "Zd8ifG_root",
-			"section": "Zd8ifG_section",
-			"sectionTitle": "Zd8ifG_sectionTitle",
-			"settingsStatus": "Zd8ifG_settingsStatus",
-			"visuallyHidden": "Zd8ifG_visuallyHidden",
-			"writeError": "Zd8ifG_writeError"
-		};
 		//#endregion
 		//#region lib/client/AgentTeamsSettingsSection.js
 		const SETTINGS_PLAN_ERROR_KEY = {
@@ -3769,6 +5054,11 @@ window.__ModuleLoader__.load({
 								})]
 							})
 						]
+					}),
+					(0, react_jsx_runtime.jsx)(TeamProfilesEditor, {
+						catalog: catalog.models,
+						t,
+						writable
 					}),
 					(0, react_jsx_runtime.jsxs)("section", {
 						className: AgentTeamsSettingsSection_module_css_default.section,
@@ -4104,7 +5394,72 @@ window.__ModuleLoader__.load({
 			"settings.reasoning.noEfforts": "选定模型未提供可选强度",
 			"settings.reasoning.unsupportedEffort": "{effort}（当前模型不支持）",
 			"settings.scope.title": "生效范围",
-			"settings.scope.description": "现有成员保留创建时的模型路由和推理强度；以后创建的成员使用这里的当前值。"
+			"settings.scope.description": "现有成员保留创建时的模型路由和推理强度；以后创建的成员使用这里的当前值。",
+			"settings.profiles.title": "Profile 配置",
+			"settings.profiles.help": "按上游 profile 结构编辑成员、路由、任务与审查策略。保存后重启 Harness，配置才会用于新团队。",
+			"settings.profiles.loading": "正在加载 profile…",
+			"settings.profiles.bridgeUnavailable": "当前客户端无法访问 profile 配置。",
+			"settings.profiles.error": "Profile 保存失败：{message}",
+			"settings.profiles.saved": "Profile 已保存。",
+			"settings.profiles.restart": "重启后用于新团队。",
+			"settings.profiles.listAria": "AgentTeams profile 列表",
+			"settings.profiles.new": "新建",
+			"settings.profiles.copy": "复制",
+			"settings.profiles.delete": "删除",
+			"settings.profiles.builtIn": "内置",
+			"settings.profiles.custom": "自定义",
+			"settings.profiles.name": "Profile 名称",
+			"settings.profiles.rename": "应用名称",
+			"settings.profiles.invalidName": "名称必须以字母或数字开头，只能包含字母、数字、点、下划线和短横线，且不能使用 captain。",
+			"settings.profiles.duplicateName": "该 profile 名称已经存在。",
+			"settings.profiles.restore": "恢复内置",
+			"settings.profiles.unsaved": "有未保存更改",
+			"settings.profiles.save": "保存 Profile",
+			"settings.profiles.saving": "正在保存 Profile…",
+			"settings.profiles.empty": "暂无 profile。",
+			"settings.profiles.description": "描述",
+			"settings.profiles.protocol": "协作协议",
+			"settings.profiles.executionPrompt": "执行提示",
+			"settings.profiles.taskPlanning": "任务规划方式",
+			"settings.profiles.captain": "队长规划",
+			"settings.profiles.captainHelp": "由队长根据当前目标动态拆解任务（推荐）。",
+			"settings.profiles.seed": "固定任务模板",
+			"settings.profiles.seedHelp": "使用下方预先配置的任务、负责人和依赖图。",
+			"settings.profiles.captainTasksHint": "当前为队长规划；任务模板仅在切换到固定任务模板后编辑。",
+			"settings.profiles.members": "成员",
+			"settings.profiles.member": "成员 {index}",
+			"settings.profiles.memberName": "成员名称",
+			"settings.profiles.memberRole": "角色",
+			"settings.profiles.memberProvider": "Provider",
+			"settings.profiles.memberModel": "模型",
+			"settings.profiles.followCaptain": "跟随队长",
+			"settings.profiles.chooseModel": "选择模型",
+			"settings.profiles.defaultValue": "默认值",
+			"settings.profiles.memberReasoning": "推理强度",
+			"settings.profiles.memberPrompt": "成员执行提示",
+			"settings.profiles.memberFallback": "成员备用路由",
+			"settings.profiles.profileFallback": "Profile 备用路由",
+			"settings.profiles.fallbackProvider": "备用 Provider",
+			"settings.profiles.fallbackModel": "备用模型",
+			"settings.profiles.unavailable": "{value}（当前目录不可用）",
+			"settings.profiles.addMember": "添加成员",
+			"settings.profiles.remove": "移除",
+			"settings.profiles.tasks": "任务模板",
+			"settings.profiles.newTask": "新任务",
+			"settings.profiles.taskId": "任务 ID",
+			"settings.profiles.taskSubject": "任务主题",
+			"settings.profiles.taskDescription": "任务描述",
+			"settings.profiles.taskAssignee": "负责人",
+			"settings.profiles.chooseAssignee": "选择负责人",
+			"settings.profiles.taskDependencies": "依赖任务 ID",
+			"settings.profiles.commaSeparated": "用逗号分隔",
+			"settings.profiles.addTask": "添加任务",
+			"settings.profiles.reviewPolicy": "审查策略",
+			"settings.profiles.requirementsMinRounds": "需求最少轮次",
+			"settings.profiles.requirementsMaxRounds": "需求最多轮次",
+			"settings.profiles.codeMaxRounds": "代码最多轮次",
+			"settings.profiles.maxRepairAttempts": "最多修复次数",
+			"settings.profiles.requiredReviewers": "必需审查者"
 		};
 		/** English dictionary, checked complete against the Chinese source key set. */
 		const en = {
@@ -4337,7 +5692,72 @@ window.__ModuleLoader__.load({
 			"settings.reasoning.noEfforts": "The selected model exposes no selectable efforts",
 			"settings.reasoning.unsupportedEffort": "{effort} (not supported by the current model)",
 			"settings.scope.title": "Effective scope",
-			"settings.scope.description": "Existing members retain the model route and reasoning effort captured at creation; future members use the current values here."
+			"settings.scope.description": "Existing members retain the model route and reasoning effort captured at creation; future members use the current values here.",
+			"settings.profiles.title": "Profile configuration",
+			"settings.profiles.help": "Edit members, routes, tasks, and review policy using the upstream profile shape. Restart Harness after saving before new teams use it.",
+			"settings.profiles.loading": "Loading profiles…",
+			"settings.profiles.bridgeUnavailable": "Profile configuration is unavailable in this client.",
+			"settings.profiles.error": "Could not save profiles: {message}",
+			"settings.profiles.saved": "Profiles saved.",
+			"settings.profiles.restart": "Restart to use them for new teams.",
+			"settings.profiles.listAria": "AgentTeams profile list",
+			"settings.profiles.new": "New",
+			"settings.profiles.copy": "Copy",
+			"settings.profiles.delete": "Delete",
+			"settings.profiles.builtIn": "Built-in",
+			"settings.profiles.custom": "Custom",
+			"settings.profiles.name": "Profile name",
+			"settings.profiles.rename": "Apply name",
+			"settings.profiles.invalidName": "Use a name starting with a letter or number and containing only letters, numbers, dots, underscores, or hyphens; captain is reserved.",
+			"settings.profiles.duplicateName": "That profile name already exists.",
+			"settings.profiles.restore": "Restore built-in",
+			"settings.profiles.unsaved": "Unsaved changes",
+			"settings.profiles.save": "Save profile",
+			"settings.profiles.saving": "Saving profile…",
+			"settings.profiles.empty": "No profiles are available.",
+			"settings.profiles.description": "Description",
+			"settings.profiles.protocol": "Collaboration protocol",
+			"settings.profiles.executionPrompt": "Execution prompt",
+			"settings.profiles.taskPlanning": "Task planning",
+			"settings.profiles.captain": "Captain planning",
+			"settings.profiles.captainHelp": "The captain derives tasks from the current goal (recommended).",
+			"settings.profiles.seed": "Fixed task template",
+			"settings.profiles.seedHelp": "Use the preconfigured tasks, assignees, and dependency graph below.",
+			"settings.profiles.captainTasksHint": "Captain planning is active; switch to a fixed task template to edit seed tasks.",
+			"settings.profiles.members": "Members",
+			"settings.profiles.member": "Member {index}",
+			"settings.profiles.memberName": "Member name",
+			"settings.profiles.memberRole": "Role",
+			"settings.profiles.memberProvider": "Provider",
+			"settings.profiles.memberModel": "Model",
+			"settings.profiles.followCaptain": "Follow captain",
+			"settings.profiles.chooseModel": "Choose a model",
+			"settings.profiles.defaultValue": "Default value",
+			"settings.profiles.memberReasoning": "Reasoning effort",
+			"settings.profiles.memberPrompt": "Member execution prompt",
+			"settings.profiles.memberFallback": "Member fallback route",
+			"settings.profiles.profileFallback": "Profile fallback route",
+			"settings.profiles.fallbackProvider": "Fallback provider",
+			"settings.profiles.fallbackModel": "Fallback model",
+			"settings.profiles.unavailable": "{value} (currently unavailable)",
+			"settings.profiles.addMember": "Add member",
+			"settings.profiles.remove": "Remove",
+			"settings.profiles.tasks": "Task template",
+			"settings.profiles.newTask": "New task",
+			"settings.profiles.taskId": "Task ID",
+			"settings.profiles.taskSubject": "Task subject",
+			"settings.profiles.taskDescription": "Task description",
+			"settings.profiles.taskAssignee": "Assignee",
+			"settings.profiles.chooseAssignee": "Choose an assignee",
+			"settings.profiles.taskDependencies": "Dependency task IDs",
+			"settings.profiles.commaSeparated": "Comma-separated",
+			"settings.profiles.addTask": "Add task",
+			"settings.profiles.reviewPolicy": "Review policy",
+			"settings.profiles.requirementsMinRounds": "Minimum requirements rounds",
+			"settings.profiles.requirementsMaxRounds": "Maximum requirements rounds",
+			"settings.profiles.codeMaxRounds": "Maximum code rounds",
+			"settings.profiles.maxRepairAttempts": "Maximum repair attempts",
+			"settings.profiles.requiredReviewers": "Required reviewers"
 		};
 		//#endregion
 		//#region lib/client/session-navigation.js

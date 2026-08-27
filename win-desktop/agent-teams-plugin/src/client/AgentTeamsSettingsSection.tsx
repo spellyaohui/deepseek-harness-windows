@@ -5,6 +5,7 @@ import type { SettingsPathOpView } from '@deepseek-ai/dsh-client-connection/clie
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AgentTeamsSettings, DelegationMode, MemberReasoningMode } from '../settings.ts'
 import { loadModelCatalog, type ModelCatalogEntry, type ModelCatalogState } from './model-catalog.ts'
+import { TeamProfilesEditor } from './TeamProfilesEditor.tsx'
 import {
   planDelegationModeChange,
   planModelChange,
@@ -327,6 +328,8 @@ export function AgentTeamsSettingsSection({
           </select>
         </label>
       </section>
+
+      <TeamProfilesEditor catalog={catalog.models} t={t} writable={writable} />
 
       <section className={css.section} aria-labelledby="agent-teams-scope-title">
         <h3 id="agent-teams-scope-title" className={css.sectionTitle}>{t('settings.scope.title')}</h3>
