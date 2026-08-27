@@ -33,8 +33,8 @@ export function installSettingsIpc() {
     return next
   })
   ipcMain.handle('agent-teams-profiles:get', () => getAgentTeamsProfiles())
-  ipcMain.handle('agent-teams-profiles:set', (_event, profiles) => {
-    const snapshot = setAgentTeamsProfiles(profiles)
+  ipcMain.handle('agent-teams-profiles:set', (_event, profileDocument) => {
+    const snapshot = setAgentTeamsProfiles(profileDocument)
     broadcastSettings(getDesktopSettings())
     return snapshot
   })

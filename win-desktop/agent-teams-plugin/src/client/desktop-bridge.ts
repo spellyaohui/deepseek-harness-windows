@@ -3,10 +3,15 @@ import type {
   TeamProfileConfig,
 } from './profile-editor.ts'
 
+export interface AgentTeamsProfileDocument {
+  schemaVersion: 2
+  profiles: Record<string, TeamProfileConfig>
+}
+
 export interface AgentTeamsDesktopBridge {
   getAgentTeamsProfiles?: () => Promise<AgentTeamsProfilesSnapshot | unknown>
   setAgentTeamsProfiles?: (
-    profiles: Record<string, TeamProfileConfig>,
+    profileDocument: AgentTeamsProfileDocument,
   ) => Promise<AgentTeamsProfilesSnapshot | unknown>
 }
 

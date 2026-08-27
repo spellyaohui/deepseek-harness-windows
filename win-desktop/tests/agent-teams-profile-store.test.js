@@ -131,6 +131,49 @@ test('explicit role policy requires a complete route and effort', () => {
   }, { load: () => ({}), flush: () => undefined }), /provider.*model.*reasoning_effort/i)
 })
 
+test('profile members require reasoning_mode', () => {
+  assert.throws(() => writeAgentTeamsProfiles({
+    schemaVersion: 2,
+    profiles: { custom: { members: [{ name: 'reviewer' }] } },
+  }, { load: () => ({}), flush: () => undefined }), /reasoning_mode.*must not be empty/i)
+})
+
+test('profile members reject invalid reasoning_mode', () => {
+  assert.throws(() => writeAgentTeamsProfiles({
+    schemaVersion: 2,
+    profiles: { custom: { members: [{ name: 'reviewer', reasoning_mode: 'automatic' }] } },
+  }, { load: () => ({}), flush: () => undefined }), /reasoning_mode.*invalid/i)
+})
+
+test('profile members reject provider without model', () => {
+  assert.throws(() => writeAgentTeamsProfiles({
+    schemaVersion: 2,
+    profiles: {
+      custom: { members: [{ name: 'reviewer', provider: 'cpa', reasoning_mode: 'route-aware' }] },
+    },
+  }, { load: () => ({}), flush: () => undefined }), /provider.*model.*set together/i)
+})
+
+test('profile members reject model without provider', () => {
+  assert.throws(() => writeAgentTeamsProfiles({
+    schemaVersion: 2,
+    profiles: {
+      custom: { members: [{ name: 'reviewer', model: 'gpt-5.6-sol', reasoning_mode: 'route-aware' }] },
+    },
+  }, { load: () => ({}), flush: () => undefined }), /provider.*model.*set together/i)
+})
+
+for (const reasoning_mode of ['target-default', 'route-aware']) {
+  test(`profile members reject reasoning_effort for ${reasoning_mode}`, () => {
+    assert.throws(() => writeAgentTeamsProfiles({
+      schemaVersion: 2,
+      profiles: {
+        custom: { members: [{ name: 'reviewer', reasoning_mode, reasoning_effort: 'low' }] },
+      },
+    }, { load: () => ({}), flush: () => undefined }), /reasoning_effort.*only for explicit/i)
+  })
+}
+
 test('the static software-delivery patch is V2-complete', () => {
   const patch = readFileSync(new URL('../config/agent-teams.patch.yml', import.meta.url), 'utf8')
   assert.equal((patch.match(/reasoning_mode: target-default/g) ?? []).length, 4)

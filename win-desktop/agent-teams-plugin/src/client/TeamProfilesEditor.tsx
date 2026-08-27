@@ -702,7 +702,10 @@ export function TeamProfilesEditor({ catalog, t, writable }: TeamProfilesEditorP
     setSaving(true)
     setMessage(null)
     try {
-      const next = normalizeProfileSnapshot(await bridge.setAgentTeamsProfiles(prepared.profiles))
+      const next = normalizeProfileSnapshot(await bridge.setAgentTeamsProfiles({
+        schemaVersion: 2,
+        profiles: prepared.profiles,
+      }))
       setSnapshot(next)
       setProfiles(next.profiles)
       setCommittedProfiles(cloneProfileMap(next.profiles))

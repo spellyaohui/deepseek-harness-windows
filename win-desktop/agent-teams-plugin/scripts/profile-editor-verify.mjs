@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 
 import {
   createEmptyTeamProfile,
   normalizeProfileSnapshot,
   prepareProfileMapForSave,
 } from '../lib/client/profile-editor.js'
+
+const editorSource = await readFile(new URL('../src/client/TeamProfilesEditor.tsx', import.meta.url), 'utf8')
+assert.match(
+  editorSource,
+  /setAgentTeamsProfiles\(\{\s*schemaVersion: 2,\s*profiles: prepared\.profiles,\s*\}\)/,
+)
 
 const defaults = createEmptyTeamProfile('custom-profile')
 assert.deepEqual(defaults.members, [{ name: 'member' }])
