@@ -11,6 +11,11 @@ assert.deepEqual(selectMemberCandidate({
 
 assert.deepEqual(selectMemberCandidate({
   captain,
+  role: { provider: 'opencode-go', model: 'review-model', reasoningMode: 'target-default' },
+}), { provider: 'opencode-go', model: 'review-model' })
+
+assert.deepEqual(selectMemberCandidate({
+  captain,
   role: { provider: 'opencode-go', model: 'review-model', reasoningMode: 'route-aware' },
 }), { provider: 'opencode-go', model: 'review-model' })
 
@@ -28,6 +33,19 @@ assert.deepEqual(selectMemberCandidate({
     reasoningEffort: 'max',
   },
 }), { provider: 'opencode-go', model: 'review-model', reasoningEffort: 'max' })
+
+assert.throws(
+  () => selectMemberCandidate({ captain, role: { reasoningMode: 'invalid-mode' } }),
+  /reasoning mode/i,
+)
+assert.throws(
+  () => selectMemberCandidate({ captain, role: { provider: 'opencode-go', reasoningMode: 'target-default' } }),
+  /provider.*model|route/i,
+)
+assert.throws(
+  () => selectMemberCandidate({ captain, role: { model: 'review-model', reasoningMode: 'route-aware' } }),
+  /provider.*model|route/i,
+)
 
 const profileWith = (member) => ({ demo: { members: [member] } })
 assert.throws(

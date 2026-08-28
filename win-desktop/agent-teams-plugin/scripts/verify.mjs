@@ -1462,6 +1462,49 @@ try {
       && coldRoute.reasoningEffort !== updatedSettingsFallback.reasoningEffort,
   )
   disposeCold()
+
+  const invalidColdPolicies = [
+    { label: 'target-effort', expected: /reasoning effort|explicit/i, reasoningMode: 'target-default', reasoningEffort: 'stale-effort' },
+    { label: 'route-aware-effort', expected: /reasoning effort|explicit/i, reasoningMode: 'route-aware', reasoningEffort: 'stale-effort' },
+    { label: 'explicit-missing-effort', expected: /explicit.*reasoning.*effort/i, reasoningMode: 'explicit' },
+    { label: 'provider-only', expected: /provider.*model|route/i, provider: 'provider-a', model: undefined, reasoningMode: 'target-default' },
+  ]
+  for (const [index, policy] of invalidColdPolicies.entries()) {
+    const { label, expected, ...rolePolicy } = policy
+    const teamId = `invalid-cold-${index}`
+    await createTeamDir(restoreStateRoot, {
+      name: teamId,
+      id: teamId,
+      captainSessionId: 'captain-session',
+      createdAt: Date.now(),
+      members: [{
+        id: `cold-invalid-${index}`,
+        name: 'alpha',
+        provider: 'provider-a',
+        model: 'model-a',
+        ...rolePolicy,
+        joinedAt: Date.now(),
+        status: 'idle',
+      }],
+      tasks: [],
+      taskSeq: 0,
+    })
+    const invalidChild = fakeChildContext({
+      label: `agent-teams:${teamId}:alpha`,
+      parentSessionId: 'captain-session',
+      cwd: restoreWorkspace,
+      agentProvider: 'provider-a',
+      agentModel: 'model-a',
+    })
+    let rejected = false
+    try {
+      setupMemberSelection(invalidChild.context)
+    } catch (error) {
+      rejected = expected.test(String(error?.message ?? error))
+    }
+    check(`cold recovery rejects invalid durable role policy: ${label}`, rejected)
+    await removeTeamDir(restoreStateRoot, teamId)
+  }
 } finally {
   await rm(restoreWorkspace, { recursive: true, force: true })
 }

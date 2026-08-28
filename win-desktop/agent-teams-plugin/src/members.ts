@@ -21,7 +21,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { join } from 'node:path'
 import { readRetiredMemberIds, readTeamSync, readTeam, withTeamLock, writeTeam } from './state.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState } from './types.ts'
-import { selectMemberCandidate, type RoleReasoningMode } from './selection-policy.ts'
+import { selectMemberCandidate, validateMemberRolePolicy, type RoleReasoningMode } from './selection-policy.ts'
 import {
   resolveAndInstallDelegationPolicy,
   type DelegationPolicyRuntime,
@@ -187,7 +187,14 @@ function pendingSelectionKey(parentSessionId: string, label: string): string {
 }
 
 function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection | undefined {
-  if (member?.provider === undefined || member.model === undefined) return undefined
+  if (member === undefined) return undefined
+  validateMemberRolePolicy({
+    provider: member.provider,
+    model: member.model,
+    reasoningMode: member.reasoningMode,
+    reasoningEffort: member.reasoningEffort,
+  })
+  if (member.provider === undefined || member.model === undefined) return undefined
   const provider = (member.activeProvider ?? member.provider).trim()
   const model = (member.activeModel ?? member.model).trim()
   if (provider === '' || model === '') return undefined
@@ -311,7 +318,12 @@ export function installMemberSelectionRuntime(
       const team = readTeamSync(join(workspace, stateDir), teamId)
       if (team?.captainSessionId !== parentSessionId) return disposePolicy
       const durableMember = team.members.find(member => member.name === memberName)
-      selection = selectionFromMember(durableMember)
+      try {
+        selection = selectionFromMember(durableMember)
+      } catch (error: unknown) {
+        disposePolicy()
+        throw error
+      }
       if (selection === undefined) {
         disposePolicy()
         throw new Error(`agent-teams: saved member "${memberName}" is missing a complete role model policy`)

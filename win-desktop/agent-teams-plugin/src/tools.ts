@@ -89,6 +89,10 @@ export interface ToolsConfig {
   delegationPolicy?: DelegationPolicyRuntime
   /** Named team profiles from the active DSH profile. */
   profiles: Record<string, import('./profiles.ts').TeamProfileConfig>
+  /** Synchronous test-only observation of profile initialization persistence calls. */
+  testObserver?: {
+    onInitializeProfileTeamPersistence?: (operation: 'createTeamDir' | 'writeTeam') => void
+  }
 }
 
 /** Browser/UI mutations allowed while a plan is waiting for approval. */
@@ -469,7 +473,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           const selection = await resolveMemberLlmSelection(ctx, captain, {
             provider: mutation.provider,
             model: mutation.model,
-            reasoningMode: mutation.reasoningMode ?? member.reasoningMode ?? 'target-default',
+            reasoningMode: mutation.reasoningMode ?? member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`) })(),
             reasoningEffort: trimmedOptional(mutation.reasoningEffort),
             fallback: member.fallback,
           }, signal)
@@ -1058,7 +1062,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (fresh.members.filter((candidate) => candidate.status !== 'removed').length >= config.maxMembers) {
           throw new Error(`team "${fresh.name}" is at its member cap (${config.maxMembers})`)
         }
-          const selection = await resolveMemberLlmSelection(ctx, captain, {
+        const selection = await resolveMemberLlmSelection(ctx, captain, {
           provider: args.provider,
           model: args.model,
           reasoningMode: args.reasoning_mode ?? 'target-default',
@@ -2185,6 +2189,7 @@ async function initializeProfileTeam(input: {
   // shape as the transient on-disk draft, then publish `running` only after the
   // complete roster has been spawned.
   if (!input.staged) draft.phase = 'staged'
+  input.config.testObserver?.onInitializeProfileTeamPersistence?.('createTeamDir')
   await createTeamDir(input.stateRoot, draft)
   if (input.staged) {
     return { committed: true, state: draft }
@@ -2210,6 +2215,7 @@ async function initializeProfileTeam(input: {
       throw new Error(`failed to initialize profile "${profile.name}": a spawned member is missing its child id`)
     }
     draft.phase = 'running'
+    input.config.testObserver?.onInitializeProfileTeamPersistence?.('writeTeam')
     await writeTeam(input.stateRoot, draft)
     return { committed: true, state: draft }
   } catch (error: unknown) {

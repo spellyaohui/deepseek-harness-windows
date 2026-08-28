@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { haltTeamWork, registerAgentTeamsTools } from '../lib/tools.js'
 import { buildActivationDirective, invokedAgentTeamsGoal, invokedAgentTeamsInvocation, installAgentTeamsGestureBoundary, profileCommandName, registerAgentTeamsCommand } from '../lib/command.js'
-import { readArchivedTeam, readTeam, readUnreadMailbox } from '../lib/state.js'
+import { readArchivedTeam, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
 import { collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
 import {
   NATIVE_DELEGATION_TOOLS,
@@ -264,6 +264,7 @@ captain.session.events.push({
 liveAgents.set(captain.id, captain)
 let advertisedModels = []
 const modelResolutionCalls = []
+const profilePersistenceCalls = { createTeamDir: 0, writeTeam: 0 }
 // A non-AgentTeams continuable sibling must survive every team lifecycle
 // operation untouched.
 children.push({ id: 'foreign-session', label: 'unrelated continuable', mode: 'continuable' })
@@ -383,6 +384,11 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
     order: 117,
     text: policy => `${policyMarker(policy)}\n\nmember policy usage`,
   },
+  testObserver: {
+    onInitializeProfileTeamPersistence(operation) {
+      profilePersistenceCalls[operation] += 1
+    },
+  },
   profiles: {
     'demo-delivery': {
       description: 'tiny delivery team',
@@ -465,10 +471,13 @@ check('profile members resolve from their own role policies',
     && rolePolicyCalls[1]?.provider === 'opencode-go'
     && rolePolicyCalls[1]?.model === 'review-model'
     && rolePolicyCalls[1]?.reasoningEffort === 'max'
-    && rolePolicyTeam?.members.find(member => member.name === 'reviewer')?.provider === 'opencode-go')
+    && rolePolicyTeam?.members.find(member => member.name === 'reviewer')?.provider === 'opencode-go'
+    && profilePersistenceCalls.createTeamDir === 1
+    && profilePersistenceCalls.writeTeam === 1)
 await call('agent_teams_delete', {})
 const stateEntriesBeforeInvalidProfile = (await readdir(stateRoot)).sort()
 const childrenBeforeInvalidProfile = children.length
+const profilePersistenceBeforeInvalid = { ...profilePersistenceCalls }
 advertisedModels = ['fake-model']
 let invalidProfileRejected = false
 try {
@@ -486,7 +495,9 @@ check('unavailable profile reviewer rejects before directory write or spawn',
   invalidProfileRejected
     && stateWrites === 0
     && spawnCalls === 0
-    && JSON.stringify((await readdir(stateRoot)).sort()) === JSON.stringify(stateEntriesBeforeInvalidProfile))
+    && JSON.stringify((await readdir(stateRoot)).sort()) === JSON.stringify(stateEntriesBeforeInvalidProfile)
+    && profilePersistenceCalls.createTeamDir === profilePersistenceBeforeInvalid.createTeamDir
+    && profilePersistenceCalls.writeTeam === profilePersistenceBeforeInvalid.writeTeam)
 advertisedModels = []
 
 // ── /agent-teams slash command and gesture boundary ───────────────────
@@ -770,6 +781,59 @@ try {
       && editedDynamic.tasks[1]?.dependencies.join(',') === dynamicFirst.task_id
       && editedDynamic.tasks.every(item => item.status === 'pending')
       && deliveries.length === deliveriesBeforePlan)
+
+  const preservedPolicyBeforeEdit = editedDynamic?.members.find(member => member.name === 'implementer')
+  const preservedPolicyEdit = await call('agent_teams_edit_plan', {
+    operations: [{ action: 'update_member', member_name: 'implementer', role: 'implementation engineer' }],
+  })
+  const preservedPolicyAfterEdit = (await readTeam(stateRoot, 'dynamic-demo'))?.members.find(member => member.name === 'implementer')
+  check('model-facing staged member edit preserves an existing V2 role policy when omitted',
+    preservedPolicyEdit.status === 'staged'
+      && preservedPolicyBeforeEdit?.reasoningMode === 'target-default'
+      && preservedPolicyAfterEdit?.reasoningMode === preservedPolicyBeforeEdit.reasoningMode
+      && preservedPolicyAfterEdit?.reasoningEffort === preservedPolicyBeforeEdit.reasoningEffort)
+
+  const legacyStaged = await readTeam(stateRoot, 'dynamic-demo')
+  const legacyMember = legacyStaged?.members.find(member => member.name === 'implementer')
+  const legacyReasoningMode = legacyMember?.reasoningMode
+  if (legacyStaged !== undefined && legacyMember !== undefined) {
+    delete legacyMember.reasoningMode
+    await writeTeam(stateRoot, legacyStaged)
+  }
+  let directLegacyPolicyRejected = false
+  try {
+    await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', {
+      action: 'update_member',
+      memberName: 'implementer',
+      role: 'implementation engineer',
+      provider: legacyMember?.provider ?? '',
+      model: legacyMember?.model ?? '',
+    })
+  } catch (error) {
+    directLegacyPolicyRejected = /missing reasoningMode/i.test(String(error?.message ?? error))
+  }
+  check('direct staged-plan update rejects a legacy member missing reasoningMode', directLegacyPolicyRejected)
+  if (legacyStaged !== undefined && legacyMember !== undefined) {
+    legacyMember.reasoningMode = legacyReasoningMode
+    await writeTeam(stateRoot, legacyStaged)
+  }
+  if (legacyStaged !== undefined && legacyMember !== undefined) {
+    delete legacyMember.reasoningMode
+    await writeTeam(stateRoot, legacyStaged)
+  }
+  let modelLegacyPolicyRejected = false
+  try {
+    await call('agent_teams_edit_plan', {
+      operations: [{ action: 'update_member', member_name: 'implementer', role: 'implementation engineer' }],
+    })
+  } catch (error) {
+    modelLegacyPolicyRejected = /missing reasoningMode/i.test(String(error?.message ?? error))
+  }
+  check('model-facing staged-plan update rejects a legacy member missing reasoningMode', modelLegacyPolicyRejected)
+  if (legacyStaged !== undefined && legacyMember !== undefined) {
+    legacyMember.reasoningMode = legacyReasoningMode
+    await writeTeam(stateRoot, legacyStaged)
+  }
   const obsoleteReview = await call('agent_teams_create_task', {
     subject: 'obsolete review',
     assignee: 'reviewer',
