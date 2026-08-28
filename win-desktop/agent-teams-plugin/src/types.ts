@@ -153,6 +153,8 @@ export interface TeamMember {
   provider?: string
   /** Resolved model captured when this member was created. */
   model?: string
+  /** Role-level reasoning policy captured with the route for cold recovery. */
+  reasoningMode?: import('./selection-policy.ts').RoleReasoningMode
   /** Resolved reasoning effort captured from the captain or target model default. */
   reasoningEffort?: string
   /** Prompt specific to this member's execution turns. */

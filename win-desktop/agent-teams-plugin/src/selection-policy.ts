@@ -1,9 +1,10 @@
-import type { AgentTeamsSettings } from './settings.ts'
+export type RoleReasoningMode = 'target-default' | 'route-aware' | 'explicit'
 
-export interface MemberRouteInput {
+export interface MemberRolePolicy {
   provider?: string
   model?: string
   reasoningEffort?: string
+  reasoningMode: RoleReasoningMode
 }
 
 export interface MemberSelectionCandidate {
@@ -19,30 +20,36 @@ function optionalNonBlank(value: string | undefined): string | undefined {
 
 export function selectMemberCandidate(input: {
   captain: MemberSelectionCandidate
-  settings: AgentTeamsSettings
-  explicit: MemberRouteInput
+  role: MemberRolePolicy
 }): MemberSelectionCandidate {
-  if (input.settings.memberReasoningMode === 'explicit') {
-    return {
-      provider: input.settings.memberLlmProvider || input.captain.provider,
-      model: input.settings.memberModel || input.captain.model,
-      reasoningEffort: input.settings.memberReasoningEffort,
-    }
+  if (input.role.reasoningMode !== 'target-default'
+    && input.role.reasoningMode !== 'route-aware'
+    && input.role.reasoningMode !== 'explicit') {
+    throw new Error('member reasoning mode must be target-default, route-aware, or explicit')
   }
-
-  const explicitProvider = optionalNonBlank(input.explicit.provider)
-  const explicitModel = optionalNonBlank(input.explicit.model)
-  const explicitEffort = optionalNonBlank(input.explicit.reasoningEffort)
-  if (explicitProvider !== undefined && explicitModel === undefined) {
+  const provider = optionalNonBlank(input.role.provider)
+  const model = optionalNonBlank(input.role.model)
+  const effort = optionalNonBlank(input.role.reasoningEffort)
+  if ((provider === undefined) !== (model === undefined)) {
     throw new Error('an explicit member LLM provider requires an explicit member model')
   }
-  const provider = explicitProvider ?? (input.settings.memberLlmProvider || input.captain.provider)
-  const model = explicitModel ?? (input.settings.memberModel || input.captain.model)
-  const sameRoute = provider === input.captain.provider && model === input.captain.model
-  const reasoningEffort = explicitEffort === 'default'
-    ? undefined
-    : explicitEffort ?? (input.settings.memberReasoningMode === 'route-aware' && sameRoute
+  if (input.role.reasoningMode !== 'explicit' && effort !== undefined) {
+    throw new Error(`reasoning effort is only valid in explicit member policy mode`)
+  }
+  if (input.role.reasoningMode === 'explicit' && (provider === undefined || model === undefined || effort === undefined)) {
+    throw new Error('explicit member policy requires provider, model, and reasoning effort')
+  }
+  const targetProvider = provider ?? input.captain.provider
+  const targetModel = model ?? input.captain.model
+  const sameRoute = targetProvider === input.captain.provider && targetModel === input.captain.model
+  const reasoningEffort = input.role.reasoningMode === 'explicit'
+    ? effort
+    : input.role.reasoningMode === 'route-aware' && sameRoute
       ? input.captain.reasoningEffort
-      : undefined)
-  return { provider, model, ...(reasoningEffort === undefined ? {} : { reasoningEffort }) }
+      : undefined
+  return {
+    provider: targetProvider,
+    model: targetModel,
+    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+  }
 }

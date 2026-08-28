@@ -8,7 +8,7 @@
  * rounds, removal recovery, mailbox fallback and concurrent claims.
  */
 
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { haltTeamWork, registerAgentTeamsTools } from '../lib/tools.js'
@@ -263,6 +263,7 @@ captain.session.events.push({
 })
 liveAgents.set(captain.id, captain)
 let advertisedModels = []
+const modelResolutionCalls = []
 // A non-AgentTeams continuable sibling must survive every team lifecycle
 // operation untouched.
 children.push({ id: 'foreign-session', label: 'unrelated continuable', mode: 'continuable' })
@@ -287,6 +288,7 @@ const ctx = {
   },
   llm: {
     async resolveCallConfig(config) {
+      modelResolutionCalls.push(config)
       return config
     },
     async listModels(provider) {
@@ -386,8 +388,8 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
       description: 'tiny delivery team',
       protocol: 'Discuss, then implement. Do not invent unanswered questions.',
       members: [
-        { name: 'analyst', role: 'requirements', model: 'fake-analyst' },
-        { name: 'implementer', role: 'builder', model: 'fake-implementer' },
+        { name: 'analyst', role: 'requirements', provider: 'fake', model: 'fake-analyst', reasoning_mode: 'target-default' },
+        { name: 'implementer', role: 'builder', provider: 'fake', model: 'fake-implementer', reasoning_mode: 'target-default' },
       ],
       tasks: [
         { id: 'requirements', subject: 'Requirements', assignee: 'analyst', description: 'Write the first cut.' },
@@ -399,13 +401,27 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
       protocol: 'Plan from the goal. Do not invent unanswered questions.',
       taskPlanning: 'captain',
       members: [
-        { name: 'analyst', role: 'requirements analyst', model: 'fake-analyst' },
-        { name: 'implementer', role: 'implementer', model: 'fake-implementer' },
-        { name: 'tester', role: 'test engineer', model: 'fake-tester' },
-        { name: 'reviewer', role: 'code reviewer', model: 'fake-reviewer' },
-        { name: 'release', role: 'release engineer', model: 'fake-release' },
+        { name: 'analyst', role: 'requirements analyst', provider: 'fake', model: 'fake-analyst', reasoning_mode: 'target-default' },
+        { name: 'implementer', role: 'implementer', provider: 'fake', model: 'fake-implementer', reasoning_mode: 'target-default' },
+        { name: 'tester', role: 'test engineer', provider: 'fake', model: 'fake-tester', reasoning_mode: 'target-default' },
+        { name: 'reviewer', role: 'code reviewer', provider: 'fake', model: 'fake-reviewer', reasoning_mode: 'target-default' },
+        { name: 'release', role: 'release engineer', provider: 'fake', model: 'fake-release', reasoning_mode: 'target-default' },
       ],
       tasks: [],
+    },
+    'role-policy': {
+      taskPlanning: 'captain',
+      members: [
+        { name: 'implementer', role: 'builder', reasoning_mode: 'target-default' },
+        { name: 'reviewer', role: 'reviewer', provider: 'opencode-go', model: 'review-model', reasoning_mode: 'explicit', reasoning_effort: 'max' },
+      ],
+    },
+    'role-policy-invalid': {
+      taskPlanning: 'captain',
+      members: [
+        { name: 'implementer', role: 'builder', reasoning_mode: 'target-default' },
+        { name: 'reviewer', role: 'reviewer', provider: 'opencode-go', model: 'unavailable-review-model', reasoning_mode: 'explicit', reasoning_effort: 'max' },
+      ],
     },
   },})
 
@@ -432,6 +448,47 @@ const task = async id => (await state())?.tasks.find(candidate => candidate.id =
 
 console.log('dsh-agent-teams lifecycle verification')
 
+const modelResolutionCallsBeforeRolePolicy = modelResolutionCalls.length
+const rolePolicyCreation = await call('agent_teams_create', {
+  name: 'Role Policy',
+  description: 'role policy preflight',
+  profile: 'role-policy',
+})
+const rolePolicyTeam = await readTeam(stateRoot, 'role-policy')
+const rolePolicyCalls = modelResolutionCalls.slice(modelResolutionCallsBeforeRolePolicy)
+check('profile members resolve from their own role policies',
+  rolePolicyCreation.profile === 'role-policy'
+    && rolePolicyCalls.length === 2
+    && rolePolicyCalls[0]?.provider === 'fake'
+    && rolePolicyCalls[0]?.model === 'fake-model'
+    && rolePolicyCalls[0]?.reasoningEffort === undefined
+    && rolePolicyCalls[1]?.provider === 'opencode-go'
+    && rolePolicyCalls[1]?.model === 'review-model'
+    && rolePolicyCalls[1]?.reasoningEffort === 'max'
+    && rolePolicyTeam?.members.find(member => member.name === 'reviewer')?.provider === 'opencode-go')
+await call('agent_teams_delete', {})
+const stateEntriesBeforeInvalidProfile = (await readdir(stateRoot)).sort()
+const childrenBeforeInvalidProfile = children.length
+advertisedModels = ['fake-model']
+let invalidProfileRejected = false
+try {
+  await call('agent_teams_create', {
+    name: 'Role Policy Invalid',
+    description: 'unavailable reviewer must not create durable state',
+    profile: 'role-policy-invalid',
+  })
+} catch (error) {
+  invalidProfileRejected = /unknown member model.*unavailable-review-model/i.test(String(error?.message ?? error))
+}
+const stateWrites = (await readdir(stateRoot)).filter((entry) => entry === 'role-policy-invalid').length
+const spawnCalls = children.length - childrenBeforeInvalidProfile
+check('unavailable profile reviewer rejects before directory write or spawn',
+  invalidProfileRejected
+    && stateWrites === 0
+    && spawnCalls === 0
+    && JSON.stringify((await readdir(stateRoot)).sort()) === JSON.stringify(stateEntriesBeforeInvalidProfile))
+advertisedModels = []
+
 // ── /agent-teams slash command and gesture boundary ───────────────────
 const commandDefinitions = new Map()
 ctx.commands = {
@@ -444,8 +501,8 @@ const liveProfiles = {
     description: 'tiny delivery team',
     protocol: 'Discuss, then implement. Do not invent unanswered questions.',
     members: [
-      { name: 'analyst', role: 'requirements', model: 'fake-analyst' },
-      { name: 'implementer', role: 'builder', model: 'fake-implementer' },
+      { name: 'analyst', role: 'requirements', provider: 'fake', model: 'fake-analyst', reasoning_mode: 'target-default' },
+      { name: 'implementer', role: 'builder', provider: 'fake', model: 'fake-implementer', reasoning_mode: 'target-default' },
     ],
     tasks: [
       { id: 'requirements', subject: 'Requirements', assignee: 'analyst' },
@@ -536,7 +593,7 @@ check('unknown slash profile reports error and does not followup',
 check('leading ordinary token is never treated as a profile',
   invokedAgentTeamsInvocation([userMessage('/agent-teams research this bug')])?.goal === 'research this bug'
     && invokedAgentTeamsInvocation([userMessage('/agent-teams research this bug')])?.profile === undefined)
-liveProfiles['hot-reload'] = { members: [{ name: 'solo', model: 'fake' }] }
+liveProfiles['hot-reload'] = { members: [{ name: 'solo', provider: 'fake', model: 'fake', reasoning_mode: 'target-default' }] }
 check('command getter sees HMR profile names',
   command.handler({
     agent: captain, rawInput: '--profile hot-reload', signal: new AbortController().signal, commandId: 'cmd-hmr',
@@ -653,10 +710,7 @@ try {
       && /Wait for a later explicit user request/.test(discardControlText)
       && captain.lastCancel?.options?.keepInbox === true)
 
-  // The local fork deliberately keeps explicit AgentTeams settings authoritative
-  // for member routes. Exercise the upstream staged-plan editing contract with
-  // the provider-neutral target-default mode, while the explicit-route contract
-  // remains covered by the model-selection verification above.
+  // Exercise the staged-plan editing contract with role-local policies.
   const memberDefaultsBeforeDynamicPlan = memberDefaults
   memberDefaults = {
     ...memberDefaultsBeforeDynamicPlan,
@@ -696,6 +750,7 @@ try {
     role: 'security reviewer',
     provider: 'fake-provider',
     model: 'fake-reviewer-updated',
+    reasoningMode: 'explicit',
     reasoningEffort: 'high',
     executionPrompt: 'Review security-sensitive changes only.',
   })
@@ -947,16 +1002,16 @@ try {
   }
   const addedBeta = await call('agent_teams_add_member', { name: 'beta', role: 'researcher' })
   const persistedAlpha = (await state()).members.find(member => member.name === 'alpha')
-  check('future members read the newest settings without mutating existing snapshots',
-    addedAlpha.provider === 'provider-a'
-      && addedAlpha.model === 'model-a'
-      && addedAlpha.reasoning_effort === 'effort-a'
-      && addedBeta.provider === 'provider-b'
-      && addedBeta.model === 'model-b'
-      && addedBeta.reasoning_effort === 'effort-b'
-      && persistedAlpha?.provider === 'provider-a'
-      && persistedAlpha.model === 'model-a'
-      && persistedAlpha.reasoningEffort === 'effort-a')
+  check('member additions ignore global route settings and persist the role policy',
+    addedAlpha.provider === 'fake'
+      && addedAlpha.model === 'fake-model'
+      && addedAlpha.reasoning_effort === undefined
+      && addedBeta.provider === 'fake'
+      && addedBeta.model === 'fake-model'
+      && addedBeta.reasoning_effort === undefined
+      && persistedAlpha?.provider === 'fake'
+      && persistedAlpha.model === 'fake-model'
+      && persistedAlpha.reasoningMode === 'target-default')
   const addedGamma = await call('agent_teams_add_member', { name: 'gamma', role: 'reviewer' })
   const alpha = liveAgents.get(addedAlpha.member_id)
   const beta = liveAgents.get(addedBeta.member_id)
@@ -1325,9 +1380,9 @@ try {
       && ['alpha', 'beta', 'gamma'].every(name => archivedSnapshot.members.some(member => member.name === name))
       && archivedSnapshot.members.every(member => member.activity === 'idle'))
   const expectedArchivedRoutes = new Map([
-    ['alpha', 'provider-a/model-a'],
-    ['beta', 'provider-b/model-b'],
-    ['gamma', 'provider-b/model-b'],
+    ['alpha', 'fake/fake-model'],
+    ['beta', 'fake/fake-model'],
+    ['gamma', 'fake/fake-model'],
   ])
   check('archived activity projects each member model onto assigned tasks',
     archivedSnapshot?.members.every(member => memberModelRoute(member) === expectedArchivedRoutes.get(member.name))

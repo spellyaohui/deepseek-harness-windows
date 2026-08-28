@@ -671,6 +671,7 @@ function isTeamMember(value: unknown): value is TeamMember {
     && isOptionalString(value['role'])
     && isOptionalString(value['provider'])
     && isOptionalString(value['model'])
+    && (value['reasoningMode'] === undefined || value['reasoningMode'] === 'target-default' || value['reasoningMode'] === 'route-aware' || value['reasoningMode'] === 'explicit')
     && isOptionalString(value['reasoningEffort'])
     && isOptionalString(value['activeProvider'])
     && isOptionalString(value['activeModel'])

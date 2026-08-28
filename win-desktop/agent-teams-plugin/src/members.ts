@@ -21,8 +21,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { join } from 'node:path'
 import { readRetiredMemberIds, readTeamSync, readTeam, withTeamLock, writeTeam } from './state.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState } from './types.ts'
-import { selectMemberCandidate } from './selection-policy.ts'
-import type { AgentTeamsSettings } from './settings.ts'
+import { selectMemberCandidate, type RoleReasoningMode } from './selection-policy.ts'
 import {
   resolveAndInstallDelegationPolicy,
   type DelegationPolicyRuntime,
@@ -72,24 +71,24 @@ export interface MemberLlmSelection {
   model: string
   /** Adapter-owned reasoning effort, absent when the target has no explicit/default effort. */
   reasoningEffort?: string
+  /** Role policy used to select and restore this route. */
+  reasoningMode: RoleReasoningMode
   /** Configured second-choice route. */
   fallback?: { provider: string; model: string }
 }
 
 /** Optional member-level route requested by the captain. */
 export interface MemberLlmSelectionRequest {
-  /** Explicit LLM provider route; requires an explicit model. */
+  /** Optional LLM provider route; must be paired with model. */
   provider?: string
-  /** Explicit model id; otherwise the plugin default or captain model is used. */
+  /** Optional model id; otherwise the captain route is used. */
   model?: string
-  /** Plugin-level member model default. */
-  defaultModel?: string
-  /** Explicit reasoning effort; "default" selects the target model's default effort. */
+  /** Role-level reasoning policy. */
+  reasoningMode: RoleReasoningMode
+  /** Explicit reasoning effort, required only for explicit mode. */
   reasoningEffort?: string
   /** Configured fallback route. */
   fallback?: { provider: string; model: string }
-  /** Current AgentTeams settings, read immediately before member selection. */
-  defaults: AgentTeamsSettings
 }
 
 /** Process-local bridge between spawn admission and synchronous child setup. */
@@ -147,7 +146,7 @@ function memberSelectionError(error: unknown, providerIds: readonly string[]): E
   const base = message.endsWith('.') ? message : `${message}.`
   const validProviders = [...new Set(providerIds.map((provider) => provider.trim()).filter(Boolean))].sort()
   const valid = validProviders.length === 0 ? '' : ` Valid providers: ${validProviders.join(', ')}.`
-  return new Error(`${base}${valid} Omit provider/model to inherit AgentTeams settings.`, { cause: error })
+  return new Error(`${base}${valid} Omit provider/model to use the captain route.`, { cause: error })
 }
 
 /** Pure state transition used by the request-error handler and TDD tests. */
@@ -193,9 +192,11 @@ function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection
   const model = (member.activeModel ?? member.model).trim()
   if (provider === '' || model === '') return undefined
   const reasoningEffort = member.reasoningEffort?.trim()
+  if (member.reasoningMode === undefined) return undefined
   return {
     provider,
     model,
+    reasoningMode: member.reasoningMode,
     ...reasoningEffort === undefined || reasoningEffort === '' ? {} : { reasoningEffort },
     ...member.fallback === undefined ? {} : { fallback: member.fallback },
   }
@@ -212,13 +213,10 @@ function modelSelection(selection: MemberLlmSelection): ModelSelection {
 }
 
 /**
- * Resolve one member's complete model selection. Ordinary members snapshot the
- * captain's current request route and reasoning effort. When provider or model
- * changes, effort is intentionally omitted so the target model materializes
- * its own default instead of receiving an adapter-owned id from another route.
- * An explicit effort overrides either policy; the sentinel "default" also
- * selects the target model's default. The final effort is validated against
- * the target model before a child is created.
+ * Resolve one member's complete role-specific model selection. The captain
+ * route is the only implicit route; there is no plugin/global member route.
+ * `resolveCallConfig` remains the final authority for provider/model/effort
+ * supportability before a child can be created.
  */
 export async function resolveMemberLlmSelection(
   ctx: Context,
@@ -226,18 +224,8 @@ export async function resolveMemberLlmSelection(
   request: MemberLlmSelectionRequest,
   signal?: AbortSignal,
 ): Promise<MemberLlmSelection> {
-  const explicitProvider = request.provider?.trim()
-  const explicitModel = request.model?.trim()
-  // Schemastery uses an empty string for the optional config default. Treat
-  // that sentinel (and whitespace-only values) as omitted so ordinary members
-  // inherit the captain's current route.
-  const defaultModel = request.defaultModel?.trim() || undefined
-  if (request.provider !== undefined && explicitProvider === '') {
-    throw new Error('member LLM provider must not be empty')
-  }
-  if (request.model !== undefined && explicitModel === '') {
-    throw new Error('member model must not be empty')
-  }
+  const explicitProvider = request.provider?.trim() || undefined
+  const explicitModel = request.model?.trim() || undefined
   const current = captain.session.requestHeader()?.config
   const provider = current?.provider ?? captain.options.provider
   const model = current?.model ?? captain.options.model
@@ -249,10 +237,12 @@ export async function resolveMemberLlmSelection(
     model,
     ...(current?.reasoningEffort === undefined ? {} : { reasoningEffort: String(current.reasoningEffort) }),
   }
-  const defaults = defaultModel !== undefined && request.defaults.memberModel === ''
-    ? { ...request.defaults, memberModel: defaultModel }
-    : request.defaults
-  const candidate = selectMemberCandidate({ captain: captainSelection, settings: defaults, explicit: request })
+  const candidate = selectMemberCandidate({ captain: captainSelection, role: {
+    provider: explicitProvider,
+    model: explicitModel,
+    reasoningMode: request.reasoningMode,
+    reasoningEffort: request.reasoningEffort,
+  } })
   const resolved = await ctx.llm.resolveCallConfig({
     provider: candidate.provider,
     model: candidate.model,
@@ -261,7 +251,7 @@ export async function resolveMemberLlmSelection(
       : { reasoningEffort: ReasoningEffortId(candidate.reasoningEffort) }),
   }, signal).catch((error: unknown): never => {
     const hasRouteOverride = hasNonBlank(request.provider) || hasNonBlank(request.model)
-    if (request.defaults.memberReasoningMode !== 'explicit' && hasRouteOverride) {
+    if (hasRouteOverride) {
       throw memberSelectionError(error, ctx.llm.listProviders().map((provider) => provider.id))
     }
     throw error
@@ -269,6 +259,7 @@ export async function resolveMemberLlmSelection(
   return {
     provider: resolved.provider,
     model: resolved.model,
+    reasoningMode: request.reasoningMode,
     ...resolved.reasoningEffort === undefined
       ? {}
       : { reasoningEffort: String(resolved.reasoningEffort) },
@@ -280,8 +271,8 @@ export async function resolveMemberLlmSelection(
  * Install the member selection bridge for every fresh or cold-resumed
  * continuable child. Fresh creation reads the pending in-memory selection;
  * cold resume restores the same selection from the owning team's durable
- * record. Legacy members without a complete saved route retain Harness's
- * descriptor provider/model behavior.
+ * record. Members without a complete saved role policy are rejected instead of
+ * falling back to an untracked Harness descriptor route.
  */
 export function installMemberSelectionRuntime(
   ctx: Context,
@@ -321,9 +312,10 @@ export function installMemberSelectionRuntime(
       if (team?.captainSessionId !== parentSessionId) return disposePolicy
       const durableMember = team.members.find(member => member.name === memberName)
       selection = selectionFromMember(durableMember)
-      // An old team record has no provider/reasoning snapshot. Its durable
-      // Harness descriptor still restores provider/model, so leave it alone.
-      if (selection === undefined) return disposePolicy
+      if (selection === undefined) {
+        disposePolicy()
+        throw new Error(`agent-teams: saved member "${memberName}" is missing a complete role model policy`)
+      }
       if (descriptor.agentProvider !== durableMember?.provider || descriptor.agentModel !== durableMember?.model) {
         disposePolicy()
         throw new Error(

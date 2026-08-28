@@ -24,7 +24,7 @@ const config = {
   demo: {
     executionPrompt: 'PROFILE_PROMPT',
     fallback: fallbackProfile,
-    members: [{ name: 'worker', model: 'primary', executionPrompt: 'MEMBER_PROMPT', fallback: fallbackMember }],
+    members: [{ name: 'worker', provider: 'primary-provider', model: 'primary', reasoning_mode: 'target-default', executionPrompt: 'MEMBER_PROMPT', fallback: fallbackMember }],
     tasks: [{ id: 'work', subject: 'Work', assignee: 'worker' }],
   },
 }
@@ -32,8 +32,8 @@ const profile = resolveTeamProfile({ demo: config.demo }, 'demo', 8)
 check('member fallback config is normalized', profile.members[0].fallback?.model === 'backup-member')
 check('profile fallback config is normalized', profile.fallback?.model === 'backup-profile')
 check('member prompt config is normalized', profile.members[0].executionPrompt === 'MEMBER_PROMPT')
-throws('fallback requires provider', () => resolveTeamProfile({ bad: { members: [{ name: 'w', fallback: { model: 'x' } }] } }, 'bad', 8))
-throws('fallback requires model', () => resolveTeamProfile({ bad: { members: [{ name: 'w', fallback: { provider: 'x' } }] } }, 'bad', 8))
+throws('fallback requires provider', () => resolveTeamProfile({ bad: { members: [{ name: 'w', reasoning_mode: 'target-default', fallback: { model: 'x' } }] } }, 'bad', 8))
+throws('fallback requires model', () => resolveTeamProfile({ bad: { members: [{ name: 'w', reasoning_mode: 'target-default', fallback: { provider: 'x' } }] } }, 'bad', 8))
 
 const assignment = assignmentPrompt({ taskId: 't1', memberName: 'worker', memberId: 'm', attempt: 1, attemptId: 'a', subject: 'Work', dependencyOutputs: [], executionPrompt: prompt }, '.agent-teams', 'demo')
 const persona = memberPersona({ name: 'Demo', id: 'demo', description: 'goal', captainSessionId: 'c', createdAt: 0, profile: { name: 'demo' }, members: [], tasks: [], taskSeq: 0 }, { name: 'worker', id: 'm', executionPrompt: prompt, joinedAt: 0, status: 'idle' }, '.agent-teams')

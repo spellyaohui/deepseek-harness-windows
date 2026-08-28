@@ -10,6 +10,7 @@
  */
 
 import { CAPTAIN_KEY, sanitizeKey } from './state.ts'
+import type { RoleReasoningMode } from './selection-policy.ts'
 
 /** Hard cap on named profiles so the usage prompt cannot grow without bound. */
 export const MAX_TEAM_PROFILES = 16
@@ -20,7 +21,7 @@ export const PROFILE_PROTOCOL_PROMPT_LIMIT = 240
 
 const PROFILE_KEYS = ['description', 'protocol', 'executionPrompt', 'fallback', 'members', 'tasks', 'taskPlanning', 'reviewPolicy'] as const
 const REVIEW_POLICY_KEYS = ['requirementsMinRounds', 'requirementsMaxRounds', 'codeMaxRounds', 'maxRepairAttempts', 'requiredReviewers'] as const
-const MEMBER_KEYS = ['name', 'role', 'provider', 'model', 'reasoning_effort', 'executionPrompt', 'fallback'] as const
+const MEMBER_KEYS = ['name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback'] as const
 const FALLBACK_KEYS = ['provider', 'model'] as const
 const TASK_KEYS = ['id', 'subject', 'description', 'assignee', 'dependencies'] as const
 
@@ -35,6 +36,7 @@ export interface TeamProfileMemberConfig {
   role?: string
   provider?: string
   model?: string
+  reasoning_mode: RoleReasoningMode
   reasoning_effort?: string
   executionPrompt?: string
   fallback?: TeamModelFallbackConfig
@@ -72,6 +74,7 @@ export interface NormalizedProfileMember {
   role?: string
   provider?: string
   model?: string
+  reasoningMode: RoleReasoningMode
   reasoningEffort?: string
   executionPrompt?: string
   fallback?: TeamModelFallbackConfig
@@ -457,13 +460,25 @@ function normalizeMember(
   const role = optionalNonEmptyString(raw['role'], `${path}.role`)
   const provider = optionalNonEmptyString(raw['provider'], `${path}.provider`)
   const model = optionalNonEmptyString(raw['model'], `${path}.model`)
+  const reasoningMode = normalizeReasoningMode(raw['reasoning_mode'], `${path}.reasoning_mode`)
   const reasoningEffort = optionalNonEmptyString(raw['reasoning_effort'], `${path}.reasoning_effort`)
   const executionPrompt = optionalNonEmptyString(raw['executionPrompt'], `${path}.executionPrompt`)
   const fallback = normalizeFallback(raw['fallback'], `${path}.fallback`)
-  if (provider !== undefined && model === undefined) {
-    throw new Error(`profile member "${name}" sets provider without model`)
+  if ((provider === undefined) !== (model === undefined)) {
+    throw new Error(`profile member "${name}" must set provider and model together`)
   }
-  return omitUndefined({ name, role, provider, model, reasoningEffort, executionPrompt, fallback })
+  if (reasoningMode === 'explicit' && (provider === undefined || model === undefined || reasoningEffort === undefined)) {
+    throw new Error(`profile member "${name}" explicit policy requires provider, model, and reasoning_effort`)
+  }
+  if (reasoningMode !== 'explicit' && reasoningEffort !== undefined) {
+    throw new Error(`profile member "${name}" reasoning_effort is valid only in explicit mode`)
+  }
+  return omitUndefined({ name, role, provider, model, reasoningMode, reasoningEffort, executionPrompt, fallback })
+}
+
+function normalizeReasoningMode(value: unknown, path: string): RoleReasoningMode {
+  if (value === 'target-default' || value === 'route-aware' || value === 'explicit') return value
+  throw new Error(`${path} must be "target-default", "route-aware", or "explicit"`)
 }
 
 function normalizeFallback(value: unknown, path: string): TeamModelFallbackConfig | undefined {

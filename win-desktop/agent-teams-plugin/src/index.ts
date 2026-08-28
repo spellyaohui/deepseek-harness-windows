@@ -148,6 +148,7 @@ export const Config: z<Config> = z.object({
       role: z.string(),
       provider: z.string(),
       model: z.string(),
+      reasoning_mode: z.union(['target-default', 'route-aware', 'explicit']).required(),
       reasoning_effort: z.string(),
       executionPrompt: z.string(),
       fallback: fallbackRouteConfig,
@@ -190,7 +191,7 @@ export function usageSectionText(
 
 ${delegationPolicyUsagePreamble(policy)} Follow this protocol:
 1. Call agent_teams_create with a team name and the goal as description. The default approval is "automatic" for this desktop fork, so ordinary AgentTeams requests keep the existing immediate-execution behavior. Use approval="required" only when the user explicitly asks to review a staged plan before any member starts.
-2. Call agent_teams_add_member once per role the goal needs (researcher, engineer, reviewer, ...). Members are durable subagents: they wait for your messages, then work a full turn. Provider, model, and reasoning defaults come from AgentTeams settings: target-default uses the selected target model's default effort; route-aware inherits the captain's effort only on the exact same provider/model route; explicit locks the configured route and effort. In explicit mode, omit provider/model/reasoning_effort; the plugin enforces the configured settings route. In target-default and route-aware modes, omit these fields for ordinary members and pass them only when the user explicitly requests a heterogeneous route for that role. Blank optional values are treated as omitted, and reasoning_effort="default" selects the target default.
+2. Call agent_teams_add_member once per role the goal needs (researcher, engineer, reviewer, ...). Members are durable subagents: they wait for your messages, then work a full turn. Each member has a role-level reasoning policy: target-default uses the role route or captain route and sends no effort; route-aware inherits the captain effort only on the exact same provider/model route; explicit requires the role provider, model, and reasoning effort. In target-default and route-aware modes, omit provider/model for the captain route or provide both for a heterogeneous role route.
 3. For an automatic team, add members and tasks normally; the scheduler starts ready work. For approval="required", build the complete editable roster and DAG while staged, then wait for the user or the Web Approve & Run control; never approve that plan in the same turn. Return-to-chat and discard messages are authoritative and must not create a replacement team. Never inspect or edit .agent-teams state files or plugin source code to revise a staged plan.
 4. Break the goal into tasks with agent_teams_create_task and wire dependencies. Assign role-specific work when useful; unassigned ready work belongs to the shared pool. The scheduler automatically claims one ready task for each truly idle member and wakes it, including across later rounds.
 5. Lead by delegation: monitor with agent_teams_status, send guidance with agent_teams_send_message, and let idle teammates execute ready work. Do not duplicate a teammate's work merely because its turn is slow. If the user requires every member to contribute or report, create one task per required contribution (or message each member directly); never wait for an unassigned member to produce work it was never given.
@@ -217,7 +218,6 @@ export function apply(ctx: Context, config: Config): void {
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',
     memberProvider: config.memberProvider ?? 'spawn',
-    memberModel: config.memberModel,
     executionPrompt: config.executionPrompt,
     fallback: config.fallback,
     memberMaxDepth: config.memberMaxDepth ?? 1,

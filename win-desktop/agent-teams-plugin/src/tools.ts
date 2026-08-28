@@ -63,6 +63,7 @@ import {
   type MemberRuntimeConfig,
 } from './members.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
+import type { RoleReasoningMode } from './selection-policy.ts'
 import { installTeamScheduler } from './scheduler.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
 import type { DelegationPolicyRuntime } from './routing-policy.ts'
@@ -74,8 +75,6 @@ export interface ToolsConfig {
   stateDir: string
   /** Member subagent provider name. */
   memberProvider: string
-  /** Optional member model override. */
-  memberModel?: string
   /** Prompt injected into member personas and assignments. */
   executionPrompt?: string
   /** Plugin fallback route. */
@@ -84,7 +83,7 @@ export interface ToolsConfig {
   memberMaxDepth?: number
   /** Team size cap (members). */
   maxMembers: number
-  /** Live AgentTeams settings runtime. */
+  /** Live AgentTeams settings runtime retained for non-routing settings. */
   settings: AgentTeamsSettingsRuntime
   /** Durable Team/Native policy installed into captains and member children. */
   delegationPolicy?: DelegationPolicyRuntime
@@ -100,6 +99,7 @@ export type StagedPlanMutation =
       role?: string | null
       provider: string
       model: string
+      reasoningMode?: RoleReasoningMode
       reasoningEffort?: string | null
       executionPrompt?: string | null
     }
@@ -469,13 +469,14 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           const selection = await resolveMemberLlmSelection(ctx, captain, {
             provider: mutation.provider,
             model: mutation.model,
+            reasoningMode: mutation.reasoningMode ?? member.reasoningMode ?? 'target-default',
             reasoningEffort: trimmedOptional(mutation.reasoningEffort),
             fallback: member.fallback,
-            defaults: config.settings.get(),
           }, signal)
           member.role = trimmedOptional(mutation.role)
           member.provider = selection.provider
           member.model = selection.model
+          member.reasoningMode = selection.reasoningMode
           member.reasoningEffort = selection.reasoningEffort
           member.executionPrompt = trimmedOptional(mutation.executionPrompt)
         } else if (mutation.action === 'update_task') {
@@ -554,13 +555,16 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           const selection = await resolveMemberLlmSelection(ctx, captain, {
             provider: member.provider,
             model: member.model,
-            reasoningEffort: member.reasoningEffort,
+            reasoningMode: member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`) })(),
+            ...member.reasoningMode === 'explicit' && member.reasoningEffort !== undefined
+              ? { reasoningEffort: member.reasoningEffort }
+              : {},
             fallback: member.fallback,
-            defaults: config.settings.get(),
           }, runSignal)
           selections.set(member, selection)
           member.provider = selection.provider
           member.model = selection.model
+          member.reasoningMode = selection.reasoningMode
           member.reasoningEffort = selection.reasoningEffort
         }
         // This is the approval commit barrier: resolve and validate the whole
@@ -874,6 +878,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             role: { type: 'string', description: 'Optional member role.' },
             provider: { type: 'string', description: 'Optional member provider; defaults to the current staged route.' },
             model: { type: 'string', description: 'Optional member model; defaults to the current staged route.' },
+            reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy; defaults to the member\'s saved policy.' },
             reasoning_effort: { type: 'string', description: 'Optional member reasoning effort.' },
             execution_prompt: { type: 'string', description: 'Optional member-specific execution prompt.' },
           },
@@ -918,6 +923,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             role: operation.role ?? member.role,
             provider: operation.provider?.trim() || member.provider || '',
             model: operation.model?.trim() || member.model || '',
+            reasoningMode: operation.reasoning_mode ?? member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`) })(),
             reasoningEffort: operation.reasoning_effort ?? member.reasoningEffort,
             executionPrompt: operation.execution_prompt ?? member.executionPrompt,
           }
@@ -1002,13 +1008,14 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_add_member',
-    description: 'Add a durable continuable member. AgentTeams settings choose the ordinary member route. Provider/model/reasoning_effort arguments are ignored while AgentTeams settings use explicit mode, which enforces the configured route. In target-default or route-aware mode, supply provider/model only when the user explicitly requests a heterogeneous role-specific route; blank optional route fields are treated as omitted. In a staged team this only adds an editable plan row and does not spawn a child; approval spawns the final configuration. In a running team it creates the durable continuable member immediately.',
+    description: 'Add a durable continuable member. The role policy chooses its route: target-default and route-aware use the captain route unless a paired provider/model is supplied; explicit requires provider/model/reasoning_effort. In a staged team this only adds an editable plan row and does not spawn a child; approval spawns the final configuration. In a running team it creates the durable continuable member immediately.',
     parameters: {
       name: { type: 'string', required: true, description: 'Unique member name inside the team.' },
       role: { type: 'string', description: 'Role of the member (e.g. researcher, engineer, reviewer).' },
       provider: { type: 'string', description: 'Optional LLM provider route. Use only when the user explicitly requests a different provider; requires model.' },
-      model: { type: 'string', description: 'Optional model override. Omit for the captain\'s current model (or the configured memberModel default).' },
-      reasoning_effort: { type: 'string', description: 'Optional reasoning effort override: one of the target model\'s supported effort ids, or "default" to force its default. When omitted, the captain\'s effort is inherited only for the same provider/model; a changed route uses the target default.' },
+      model: { type: 'string', description: 'Optional model override. Omit to use the captain route.' },
+      reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], default: 'target-default', description: 'Role reasoning policy.' },
+      reasoning_effort: { type: 'string', description: 'Required with explicit reasoning_mode; otherwise omit.' },
       executionPrompt: { type: 'string', description: 'Optional member-specific execution prompt. It remains editable while staged.' },
     },
     output: {
@@ -1054,10 +1061,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           const selection = await resolveMemberLlmSelection(ctx, captain, {
           provider: args.provider,
           model: args.model,
-          defaultModel: config.memberModel,
+          reasoningMode: args.reasoning_mode ?? 'target-default',
           reasoningEffort: args.reasoning_effort,
           fallback: config.fallback,
-          defaults: config.settings.get(),
         }, exec.signal)
         const member: TeamMember = {
           id: '',
@@ -1065,6 +1071,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           role: args.role,
           provider: selection.provider,
           model: selection.model,
+          reasoningMode: selection.reasoningMode,
           reasoningEffort: selection.reasoningEffort,
           executionPrompt: trimmedOptional(args.executionPrompt),
           ...selection.fallback === undefined ? {} : { fallback: selection.fallback },
@@ -2118,10 +2125,9 @@ async function initializeProfileTeam(input: {
     selections.push(await resolveMemberLlmSelection(input.ctx, input.captain, {
       provider: template.provider,
       model: template.model,
-      defaultModel: input.config.memberModel,
+      reasoningMode: template.reasoningMode,
       reasoningEffort: template.reasoningEffort,
       fallback: template.fallback ?? profile.fallback ?? input.config.fallback,
-      defaults: input.config.settings.get(),
     }, input.exec.signal))
   }
   await validateMemberLlmSelections(input.ctx, selections, input.exec.signal)
@@ -2152,6 +2158,7 @@ async function initializeProfileTeam(input: {
         role: template.role,
         provider: selection.provider,
         model: selection.model,
+        reasoningMode: selection.reasoningMode,
         reasoningEffort: selection.reasoningEffort,
         executionPrompt: template.executionPrompt ?? profile.executionPrompt ?? input.config.executionPrompt,
         ...selection.fallback === undefined ? {} : { fallback: selection.fallback },
@@ -2173,8 +2180,13 @@ async function initializeProfileTeam(input: {
     })),
     taskSeq: profile.tasks.length,
   }
+  // A running team requires durable child ids, but the atomic create contract
+  // places the directory barrier before spawning. Use the existing staged
+  // shape as the transient on-disk draft, then publish `running` only after the
+  // complete roster has been spawned.
+  if (!input.staged) draft.phase = 'staged'
+  await createTeamDir(input.stateRoot, draft)
   if (input.staged) {
-    await createTeamDir(input.stateRoot, draft)
     return { committed: true, state: draft }
   }
   const spawned: TeamMember[] = []
@@ -2197,7 +2209,8 @@ async function initializeProfileTeam(input: {
     if (draft.members.some((member) => member.id === '')) {
       throw new Error(`failed to initialize profile "${profile.name}": a spawned member is missing its child id`)
     }
-    await createTeamDir(input.stateRoot, draft)
+    draft.phase = 'running'
+    await writeTeam(input.stateRoot, draft)
     return { committed: true, state: draft }
   } catch (error: unknown) {
     const cleanupErrors: unknown[] = []

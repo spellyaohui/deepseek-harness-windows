@@ -1,61 +1,54 @@
 import assert from 'node:assert/strict'
+import { resolveTeamProfile } from '../lib/profiles.js'
 import { selectMemberCandidate } from '../lib/selection-policy.js'
 
-const captain = { provider: 'captain-p', model: 'captain-m', reasoningEffort: 'high' }
-const settings = {
-  delegationMode: 'teams',
-  memberLlmProvider: 'settings-p',
-  memberModel: 'settings-m',
-  memberReasoningMode: 'explicit',
-  memberReasoningEffort: 'low',
-  migrationVersion: 1,
-}
+const captain = { provider: 'cpa', model: 'cheap-captain', reasoningEffort: 'high' }
 
-assert.deepEqual(selectMemberCandidate({ captain, settings, explicit: {} }), {
-  provider: 'settings-p', model: 'settings-m', reasoningEffort: 'low',
-})
-assert.deepEqual(selectMemberCandidate({
-  captain, settings, explicit: { provider: 'role-p', model: 'role-m', reasoningEffort: 'max' },
-}), { provider: 'settings-p', model: 'settings-m', reasoningEffort: 'low' })
-assert.deepEqual(selectMemberCandidate({
-  captain, settings, explicit: { provider: '', model: '', reasoningEffort: '' },
-}), { provider: 'settings-p', model: 'settings-m', reasoningEffort: 'low' })
 assert.deepEqual(selectMemberCandidate({
   captain,
-  settings,
-  explicit: { provider: 'guessed-provider', model: 'guessed-model', reasoningEffort: 'max' },
-}), { provider: 'settings-p', model: 'settings-m', reasoningEffort: 'low' })
+  role: { reasoningMode: 'target-default' },
+}), { provider: 'cpa', model: 'cheap-captain' })
 
-const targetDefaultSettings = {
-  ...settings,
-  memberLlmProvider: '',
-  memberModel: '',
-  memberReasoningMode: 'target-default',
-  memberReasoningEffort: '',
-}
 assert.deepEqual(selectMemberCandidate({
   captain,
-  settings: targetDefaultSettings,
-  explicit: { provider: '  ', model: '', reasoningEffort: ' ' },
-}), { provider: 'captain-p', model: 'captain-m' })
+  role: { provider: 'opencode-go', model: 'review-model', reasoningMode: 'route-aware' },
+}), { provider: 'opencode-go', model: 'review-model' })
+
 assert.deepEqual(selectMemberCandidate({
   captain,
-  settings: targetDefaultSettings,
-  explicit: { provider: 'role-p', model: 'role-m', reasoningEffort: 'max' },
-}), { provider: 'role-p', model: 'role-m', reasoningEffort: 'max' })
-assert.equal(selectMemberCandidate({
+  role: { provider: 'cpa', model: 'cheap-captain', reasoningMode: 'route-aware' },
+}), { provider: 'cpa', model: 'cheap-captain', reasoningEffort: 'high' })
+
+assert.deepEqual(selectMemberCandidate({
   captain,
-  settings: targetDefaultSettings,
-  explicit: {},
-}).reasoningEffort, undefined)
-assert.equal(selectMemberCandidate({
-  captain,
-  settings: { ...settings, memberLlmProvider: '', memberModel: '', memberReasoningMode: 'route-aware', memberReasoningEffort: '' },
-  explicit: { provider: '', model: ' ', reasoningEffort: '  ' },
-}).reasoningEffort, 'high')
-assert.equal(selectMemberCandidate({
-  captain,
-  settings: { ...settings, memberLlmProvider: 'other-p', memberModel: 'other-m', memberReasoningMode: 'route-aware', memberReasoningEffort: '' },
-  explicit: {},
-}).reasoningEffort, undefined)
+  role: {
+    provider: 'opencode-go',
+    model: 'review-model',
+    reasoningMode: 'explicit',
+    reasoningEffort: 'max',
+  },
+}), { provider: 'opencode-go', model: 'review-model', reasoningEffort: 'max' })
+
+const profileWith = (member) => ({ demo: { members: [member] } })
+assert.throws(
+  () => resolveTeamProfile(profileWith({ name: 'member' }), 'demo', 8),
+  /reasoning_mode/i,
+)
+assert.throws(
+  () => resolveTeamProfile(profileWith({ name: 'member', provider: 'cpa', reasoning_mode: 'target-default' }), 'demo', 8),
+  /provider.*model|route/i,
+)
+assert.throws(
+  () => resolveTeamProfile(profileWith({ name: 'member', model: 'm', reasoning_mode: 'route-aware' }), 'demo', 8),
+  /provider.*model|route/i,
+)
+assert.throws(
+  () => resolveTeamProfile(profileWith({ name: 'member', reasoning_mode: 'target-default', reasoning_effort: 'low' }), 'demo', 8),
+  /reasoning_effort|explicit/i,
+)
+assert.throws(
+  () => resolveTeamProfile(profileWith({ name: 'member', provider: 'cpa', model: 'm', reasoning_mode: 'explicit' }), 'demo', 8),
+  /reasoning_effort|explicit/i,
+)
+
 console.log('agent-teams selection policy verification passed')

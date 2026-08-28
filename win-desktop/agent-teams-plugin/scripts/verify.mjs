@@ -101,12 +101,12 @@ console.log('dsh-agent-teams offline verification')
 const builtTools = await readFile(new URL('../lib/tools.js', import.meta.url), 'utf8')
 const builtIndex = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')
 check(
-  'tool schema says explicit mode ignores route arguments',
-  builtTools.includes('ignored while AgentTeams settings use explicit mode'),
+  'tool schema exposes role reasoning policy',
+  builtTools.includes('Role reasoning policy') && builtTools.includes('explicit requires provider/model/reasoning_effort'),
 )
 check(
-  'usage prompt says explicit mode is settings-enforced',
-  builtIndex.includes('In explicit mode, omit provider/model/reasoning_effort; the plugin enforces the configured settings route.'),
+  'usage prompt says model policy is role-specific',
+  builtIndex.includes('target-default') && builtIndex.includes('route-aware') && builtIndex.includes('explicit'),
 )
 check(
   'usage prompt omits profile when no profile is configured',
@@ -114,7 +114,7 @@ check(
 )
 
 // Named multi-role profile rules
-const demoProfiles = { ' demo ': { protocol: 'a'.repeat(300), members: [{ name: ' Implementer ', role: 'builder', model: 'm' }, { name: 'Reviewer', model: 'r' }], tasks: [{ id: 'design', subject: 'Design', assignee: 'implementer' }, { id: 'review', subject: 'Review', assignee: ' reviewer ', dependencies: ['design'] }] } }
+const demoProfiles = { ' demo ': { protocol: 'a'.repeat(300), members: [{ name: ' Implementer ', role: 'builder', provider: 'p', model: 'm', reasoning_mode: 'target-default' }, { name: 'Reviewer', provider: 'p', model: 'r', reasoning_mode: 'target-default' }], tasks: [{ id: 'design', subject: 'Design', assignee: 'implementer' }, { id: 'review', subject: 'Review', assignee: ' reviewer ', dependencies: ['design'] }] } }
 const normalizedDemo = resolveTeamProfile(demoProfiles, 'demo', 8)
 check('profile keys trim and assignees canonicalize', normalizedDemo.members[0].name === 'Implementer' && normalizedDemo.tasks[1].assignee === 'Reviewer')
 check('profile tasks are stable topological order', normalizedDemo.tasks[0].id === 'design' && normalizedDemo.tasks[1].id === 'review')
@@ -125,7 +125,7 @@ check('seed planning remains the default', normalizedDemo.taskPlanning === 'seed
 const captainPlanned = resolveTeamProfile({
   dynamic: {
     taskPlanning: 'captain',
-    members: [{ name: 'analyst', model: 'a' }, { name: 'reviewer', model: 'r' }],
+    members: [{ name: 'analyst', provider: 'p', model: 'a', reasoning_mode: 'target-default' }, { name: 'reviewer', provider: 'p', model: 'r', reasoning_mode: 'target-default' }],
     tasks: [
       { id: 'requirements', subject: 'Requirements', assignee: 'analyst' },
       { id: 'review', subject: 'Review', assignee: 'reviewer', dependencies: ['requirements'] },
@@ -133,7 +133,7 @@ const captainPlanned = resolveTeamProfile({
   },
 }, 'dynamic', 8)
 check('captain planning keeps the roster and drops seed tasks', captainPlanned.taskPlanning === 'captain' && captainPlanned.members.length === 2 && captainPlanned.tasks.length === 0)
-check('profile prompt marks captain planning instead of unused seed counts', formatProfilesForPrompt({ dynamic: { taskPlanning: 'captain', members: [{ name: 'solo', model: 'm' }], tasks: [{ id: 'work', subject: 'Work', assignee: 'solo' }] } }).includes('captain planning'))
+check('profile prompt marks captain planning instead of unused seed counts', formatProfilesForPrompt({ dynamic: { taskPlanning: 'captain', members: [{ name: 'solo', provider: 'p', model: 'm', reasoning_mode: 'target-default' }], tasks: [{ id: 'work', subject: 'Work', assignee: 'solo' }] } }).includes('captain planning'))
 const profilePersona = memberPersona({ name: 'Demo', id: 'demo', description: 'goal', profile: { name: 'demo', protocol: 'p'.repeat(600) }, captainSessionId: 'c', createdAt: 0, members: [], tasks: [], taskSeq: 0 }, { name: 'Implementer', id: 'm', role: 'builder', joinedAt: 0, status: 'idle' }, '.agent-teams')
 check('member persona includes completed/failed and claimed transition rules', profilePersona.includes('status=completed') && profilePersona.includes('status=failed') && profilePersona.includes('claimed') && profilePersona.includes('in_progress'))
 const welcome = memberWelcome({ name: 'Demo', id: 'demo', captainSessionId: 'c', createdAt: 0, members: [], tasks: [{ id: 't1', subject: 'x', status: 'pending', assignee: 'Implementer', dependencies: [], createdAt: 0, updatedAt: 0 }], taskSeq: 1 }, 'Implementer')
@@ -1094,6 +1094,53 @@ check(
 )
 
 console.log('7/8 member model selection and continuation restore')
+const rolePolicyCaptain = {
+  id: 'role-policy-captain',
+  options: { provider: 'birth-provider', model: 'birth-model' },
+  session: {
+    requestHeader: () => ({
+      config: {
+        provider: 'cpa',
+        model: 'cheap-captain',
+        reasoningEffort: 'high',
+      },
+    }),
+  },
+}
+const rolePolicyCalls = []
+const rolePolicyContext = {
+  llm: {
+    resolveCallConfig: async (config) => {
+      rolePolicyCalls.push(config)
+      return config
+    },
+  },
+}
+const rolePolicyMembers = [
+  { provider: undefined, model: undefined, reasoningMode: 'target-default' },
+  { provider: 'opencode-go', model: 'review-model', reasoningMode: 'explicit', reasoningEffort: 'max' },
+]
+const rolePolicySelections = await Promise.all(rolePolicyMembers.map((role) => (
+  resolveMemberLlmSelection(rolePolicyContext, rolePolicyCaptain, role)
+    .catch(() => undefined)
+)))
+check(
+  'mixed-provider role policy resolves without global settings and preserves exact call inputs',
+  rolePolicySelections[0]?.provider === 'cpa'
+    && rolePolicySelections[0]?.model === 'cheap-captain'
+    && rolePolicySelections[0]?.reasoningEffort === undefined
+    && rolePolicySelections[1]?.provider === 'opencode-go'
+    && rolePolicySelections[1]?.model === 'review-model'
+    && rolePolicySelections[1]?.reasoningEffort === 'max'
+    && rolePolicyCalls.length === 2
+    && rolePolicyCalls[0]?.provider === 'cpa'
+    && rolePolicyCalls[0]?.model === 'cheap-captain'
+    && rolePolicyCalls[0]?.reasoningEffort === undefined
+    && rolePolicyCalls[1]?.provider === 'opencode-go'
+    && rolePolicyCalls[1]?.model === 'review-model'
+    && rolePolicyCalls[1]?.reasoningEffort === 'max',
+)
+
 const captain = {
   id: 'captain-session',
   options: { provider: 'birth-provider', model: 'birth-model' },
@@ -1137,42 +1184,29 @@ const selectionContext = {
     },
   },
 }
-const routeAwareSettings = {
-  delegationMode: 'teams',
-  memberLlmProvider: '',
-  memberModel: '',
-  memberReasoningMode: 'route-aware',
-  memberReasoningEffort: '',
-  migrationVersion: 1,
-}
-const inheritedSelection = await resolveMemberLlmSelection(selectionContext, captain, { defaults: routeAwareSettings })
+const inheritedSelection = await resolveMemberLlmSelection(selectionContext, captain, { reasoningMode: 'route-aware' })
 check(
   'ordinary member snapshots the captain current route and effort',
   inheritedSelection.provider === 'captain-provider'
     && inheritedSelection.model === 'captain-model'
     && inheritedSelection.reasoningEffort === 'max',
 )
-const schemaDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, {
-  defaultModel: '',
-  defaults: routeAwareSettings,
-})
-const whitespaceSchemaDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, {
-  defaultModel: '  ',
-  defaults: routeAwareSettings,
-})
+const schemaDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, { reasoningMode: 'target-default' })
+const whitespaceSchemaDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, { reasoningMode: 'target-default' })
 check(
-  'blank configured memberModel is treated as omitted and inherits the captain route',
+  'target-default uses the captain route without sending an effort',
   schemaDefaultSelection.provider === 'captain-provider'
     && schemaDefaultSelection.model === 'captain-model'
-    && schemaDefaultSelection.reasoningEffort === 'max'
+    && schemaDefaultSelection.reasoningEffort === 'high'
     && whitespaceSchemaDefaultSelection.provider === 'captain-provider'
     && whitespaceSchemaDefaultSelection.model === 'captain-model'
-    && whitespaceSchemaDefaultSelection.reasoningEffort === 'max',
+    && whitespaceSchemaDefaultSelection.reasoningEffort === 'high'
+    && resolvedCalls.at(-1)?.reasoningEffort === undefined,
 )
 const overriddenSelection = await resolveMemberLlmSelection(selectionContext, captain, {
   provider: 'other-provider',
   model: 'other-model',
-  defaults: routeAwareSettings,
+  reasoningMode: 'route-aware',
 })
 check(
   'cross-provider route uses the target model default instead of captain effort',
@@ -1181,89 +1215,49 @@ check(
     && overriddenSelection.reasoningEffort === 'low'
     && resolvedCalls.at(-1)?.reasoningEffort === undefined,
 )
-const defaultedSelection = await resolveMemberLlmSelection(selectionContext, captain, {
-  defaults: { ...routeAwareSettings, memberModel: 'configured-member-model' },
-})
-check(
-  'plugin memberModel route uses that target model default effort',
-  defaultedSelection.provider === 'captain-provider'
-    && defaultedSelection.model === 'configured-member-model'
-    && defaultedSelection.reasoningEffort === 'medium'
-    && resolvedCalls.at(-1)?.reasoningEffort === undefined,
-)
 const explicitEffortSelection = await resolveMemberLlmSelection(selectionContext, captain, {
   provider: 'other-provider',
   model: 'other-model',
+  reasoningMode: 'explicit',
   reasoningEffort: 'high',
-  defaults: routeAwareSettings,
 })
 check(
   'explicit member effort overrides cross-provider target default',
   explicitEffortSelection.reasoningEffort === 'high'
     && resolvedCalls.at(-1)?.reasoningEffort === 'high',
 )
-const forcedDefaultSelection = await resolveMemberLlmSelection(selectionContext, captain, {
-  reasoningEffort: 'default',
-  defaults: routeAwareSettings,
-})
-check(
-  'default sentinel opts out of same-route captain effort inheritance',
-  forcedDefaultSelection.provider === 'captain-provider'
-    && forcedDefaultSelection.model === 'captain-model'
-    && forcedDefaultSelection.reasoningEffort === 'high'
-    && resolvedCalls.at(-1)?.reasoningEffort === undefined,
-)
 let invalidRouteMessage = ''
 try {
   await resolveMemberLlmSelection(selectionContext, captain, {
     provider: 'guessed-provider',
     model: 'guessed-model',
-    defaults: routeAwareSettings,
+    reasoningMode: 'target-default',
   })
 } catch (error) {
   invalidRouteMessage = error instanceof Error ? error.message : String(error)
 }
 check(
-  'invalid heterogeneous route explains valid providers and settings inheritance',
+  'invalid heterogeneous route explains valid providers and captain-route inheritance',
   invalidRouteMessage.includes('Valid providers: captain-provider, other-provider')
-    && invalidRouteMessage.includes('Omit provider/model to inherit AgentTeams settings'),
+    && invalidRouteMessage.includes('Omit provider/model to use the captain route'),
   invalidRouteMessage,
-)
-const lockedExplicitSelection = await resolveMemberLlmSelection(selectionContext, captain, {
-  provider: 'guessed-provider',
-  model: 'guessed-model',
-  defaultModel: 'config-only-fallback-model',
-  reasoningEffort: 'max',
-  defaults: {
-    ...routeAwareSettings,
-    memberLlmProvider: 'other-provider',
-    memberModel: 'other-model',
-    memberReasoningMode: 'explicit',
-    memberReasoningEffort: 'high',
-  },
-})
-check(
-  'explicit settings prevent guessed route arguments and plugin defaults from reaching target resolution',
-  lockedExplicitSelection.provider === 'other-provider'
-    && lockedExplicitSelection.model === 'other-model'
-    && lockedExplicitSelection.reasoningEffort === 'high'
-    && resolvedCalls.at(-1)?.provider === 'other-provider',
 )
 let providerWithoutModelRejected = false
 try {
-  await resolveMemberLlmSelection(selectionContext, captain, { provider: 'other-provider', defaults: routeAwareSettings })
+  await resolveMemberLlmSelection(selectionContext, captain, { provider: 'other-provider', reasoningMode: 'target-default' })
 } catch {
   providerWithoutModelRejected = true
 }
 check('explicit provider without model is rejected', providerWithoutModelRejected)
-const blankEffortSelection = await resolveMemberLlmSelection(selectionContext, captain, {
-  reasoningEffort: '  ',
-  defaults: routeAwareSettings,
-})
-check(
-  'blank member reasoning effort is treated as omitted',
-  blankEffortSelection.reasoningEffort === 'max',
-)
+let incompleteExplicitRejected = false
+try {
+  await resolveMemberLlmSelection(selectionContext, captain, {
+    provider: 'other-provider', model: 'other-model', reasoningMode: 'explicit',
+  })
+} catch {
+  incompleteExplicitRejected = true
+}
+check('incomplete explicit role policy is rejected before model resolution', incompleteExplicitRejected)
 
 let catalogCalls = 0
 await validateMemberLlmSelections({
@@ -1426,6 +1420,7 @@ try {
   const alphaSnapshot = {
     provider: 'provider-a',
     model: 'model-a',
+    reasoningMode: 'explicit',
     reasoningEffort: 'effort-a',
   }
   await createTeamDir(restoreStateRoot, {
