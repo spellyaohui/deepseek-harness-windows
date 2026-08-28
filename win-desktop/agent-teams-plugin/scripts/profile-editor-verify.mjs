@@ -85,6 +85,20 @@ assert.deepEqual(prepared, {
   },
 })
 
+const explicitRole = prepareProfileMapForSave({
+  custom: {
+    members: [{
+      name: 'reviewer',
+      provider: 'opencode-go',
+      model: 'review-model',
+      reasoning_mode: 'explicit',
+      reasoning_effort: 'max',
+    }],
+  },
+})
+assert.equal(explicitRole.ok, true)
+assert.equal(explicitRole.profiles.custom.members[0].reasoning_mode, 'explicit')
+
 for (const member of [
   { name: 'member' },
   { name: 'member', reasoning_mode: 'automatic' },

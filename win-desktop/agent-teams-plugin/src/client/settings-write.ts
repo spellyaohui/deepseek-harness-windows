@@ -3,8 +3,7 @@ import type {
 } from '@deepseek-ai/dsh-client-connection/client'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SettingsDescribeFace } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { AgentTeamsSettings, DelegationMode, MemberReasoningMode } from '../settings.ts'
-import type { ModelCatalogEntry } from './model-catalog.ts'
+import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
 
 const SETTINGS_NAMESPACE = 'agent-teams'
 
@@ -17,11 +16,8 @@ export type SettingsWriteView =
   | { status: 'busy'; ops: readonly SettingsPathOpView[]; error: null }
   | { status: 'error'; ops: readonly SettingsPathOpView[] | null; error: string }
 
-export type SettingsPlanError = 'model-unavailable' | 'no-efforts' | 'no-models' | 'unsupported-effort'
-
 export type SettingsWritePlan =
   | { ok: true; ops: readonly SettingsPathOpView[] }
-  | { ok: false; error: SettingsPlanError }
 
 type SettingsApi = Pick<IApiClient, 'settings'>
 type SettingsReadScope = Pick<SettingsScope<AgentTeamsSettings>, 'getSnapshot'>
@@ -190,110 +186,12 @@ export function createAgentTeamsSettingsWriter(options: WriterOptions): AgentTea
   return new SerializedAgentTeamsSettingsWriter(options)
 }
 
-function set(field: keyof AgentTeamsSettings, value: unknown): SettingsPathOpView {
+function set(field: keyof Pick<AgentTeamsSettings, 'delegationMode'>, value: unknown): SettingsPathOpView {
   return { op: 'set', path: [field], value }
-}
-
-function compareIds(left: { id: string }, right: { id: string }): number {
-  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0
-}
-
-function supportsEffort(model: ModelCatalogEntry | undefined, effort: string): boolean {
-  return effort !== '' && model?.efforts.some((candidate) => candidate.id === effort) === true
-}
-
-function explicitReset(settings: AgentTeamsSettings, model: ModelCatalogEntry): SettingsPathOpView[] {
-  return settings.memberReasoningMode === 'explicit'
-    && !supportsEffort(model, settings.memberReasoningEffort)
-    ? [
-        set('memberReasoningEffort', ''),
-        set('memberReasoningMode', 'target-default'),
-      ]
-    : []
 }
 
 export function planDelegationModeChange(mode: DelegationMode): SettingsWritePlan {
   return { ok: true, ops: [set('delegationMode', mode)] }
-}
-
-export function planProviderChange(
-  settings: AgentTeamsSettings,
-  provider: string,
-  catalog: readonly ModelCatalogEntry[],
-): SettingsWritePlan {
-  if (provider === '') {
-    const reset = settings.memberReasoningMode === 'explicit'
-      ? [set('memberReasoningEffort', ''), set('memberReasoningMode', 'target-default')]
-      : []
-    return {
-      ok: true,
-      ops: [...reset, set('memberModel', ''), set('memberLlmProvider', '')],
-    }
-  }
-
-  const models = catalog.filter((candidate) => candidate.provider === provider).sort(compareIds)
-  const model = models.find((candidate) => candidate.id === settings.memberModel) ?? models[0]
-  if (model === undefined) return { ok: false, error: 'no-models' }
-
-  return {
-    ok: true,
-    ops: [
-      ...explicitReset(settings, model),
-      set('memberModel', model.id),
-      set('memberLlmProvider', provider),
-    ],
-  }
-}
-
-export function planModelChange(
-  settings: AgentTeamsSettings,
-  provider: string,
-  modelId: string,
-  catalog: readonly ModelCatalogEntry[],
-): SettingsWritePlan {
-  const model = catalog.find((candidate) => candidate.provider === provider && candidate.id === modelId)
-  if (model === undefined) return { ok: false, error: 'model-unavailable' }
-  return {
-    ok: true,
-    ops: [
-      ...explicitReset(settings, model),
-      set('memberModel', model.id),
-      set('memberLlmProvider', provider),
-    ],
-  }
-}
-
-export function planReasoningModeChange(
-  settings: AgentTeamsSettings,
-  mode: MemberReasoningMode,
-  model: ModelCatalogEntry | undefined,
-): SettingsWritePlan {
-  if (mode === 'explicit') {
-    if (model === undefined || model.efforts.length === 0) return { ok: false, error: 'no-efforts' }
-    const effort = model.efforts.find((candidate) => candidate.id === settings.memberReasoningEffort)
-      ?? model.efforts.find((candidate) => candidate.id === model.defaultEffort)
-      ?? [...model.efforts].sort(compareIds)[0]
-    if (effort === undefined) return { ok: false, error: 'no-efforts' }
-    return {
-      ok: true,
-      ops: [set('memberReasoningEffort', effort.id), set('memberReasoningMode', 'explicit')],
-    }
-  }
-  return {
-    ok: true,
-    ops: [set('memberReasoningEffort', ''), set('memberReasoningMode', mode)],
-  }
-}
-
-export function planReasoningEffortChange(
-  effort: string,
-  model: ModelCatalogEntry | undefined,
-): SettingsWritePlan {
-  if (!supportsEffort(model, effort)) return { ok: false, error: 'unsupported-effort' }
-  return {
-    ok: true,
-    ops: [set('memberReasoningEffort', effort), set('memberReasoningMode', 'explicit')],
-  }
 }
 
 export async function runAgentTeamsSettingsAction(

@@ -255,13 +255,13 @@ export function normalizeProfileSnapshot(value: unknown): AgentTeamsProfilesSnap
   }
   const unsupportedPersistedVersion = value.unsupportedPersistedVersion === true
   const source = value
-  const profiles = normalizeMapForEditor(source.profiles)
   const suppliedBuiltIns = normalizeMapForEditor(source.builtInProfiles)
+  const profiles = unsupportedPersistedVersion ? {} : normalizeMapForEditor(source.profiles)
   const requestedNames = Array.isArray(source.builtInNames)
     ? source.builtInNames.map(normalizeName).filter((name): name is string => name !== undefined)
     : []
   const builtInNames = [...new Set(requestedNames.filter((name) => (
-    suppliedBuiltIns[name] !== undefined || profiles[name] !== undefined
+    suppliedBuiltIns[name] !== undefined || (!unsupportedPersistedVersion && profiles[name] !== undefined)
   )))]
   const builtInProfiles: Record<string, TeamProfileConfig> = {}
   for (const name of builtInNames) {

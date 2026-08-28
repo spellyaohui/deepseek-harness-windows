@@ -5,10 +5,7 @@ import { performance } from 'node:perf_hooks'
 import { loadModelCatalog } from '../lib/client/model-catalog.js'
 import {
   createAgentTeamsSettingsWriter,
-  planModelChange,
-  planProviderChange,
-  planReasoningEffortChange,
-  planReasoningModeChange,
+  planDelegationModeChange,
   runAgentTeamsSettingsAction,
 } from '../lib/client/settings-write.js'
 
@@ -61,14 +58,14 @@ assert.match(clientBundle, /setAgentTeamsProfiles/)
 assert.match(clientBundle, /Profile configuration|Profile 配置/)
 assert.match(clientBundle, /taskPlanning/)
 assert.match(clientBundle, /reviewPolicy/)
+assert.match(clientBundle, /agent-teams-profile-member-.*reasoning-mode/)
+assert.match(clientBundle, /settings\.profiles\.reasoning\.target-default/)
+assert.doesNotMatch(clientBundle, /agent-teams-member-provider/)
+assert.doesNotMatch(clientBundle, /agent-teams-member-model/)
+assert.doesNotMatch(clientBundle, /agent-teams-member-effort/)
 assert.doesNotMatch(clientBundle, /node:(?:crypto|fs|path|child_process)/)
 
-const orderedOps = [
-  { op: 'set', path: ['memberReasoningEffort'], value: '' },
-  { op: 'set', path: ['memberReasoningMode'], value: 'target-default' },
-  { op: 'set', path: ['memberModel'], value: 'model-b' },
-  { op: 'set', path: ['memberLlmProvider'], value: 'provider-b' },
-]
+const orderedOps = planDelegationModeChange('native').ops
 
 function view(revision, value = {}) {
   return {
@@ -295,88 +292,6 @@ assert.equal(failedRecoveryMutates, 1)
 assert.deepEqual(await failedRecoveryWriter.write(orderedOps), { status: 'ready', error: null })
 assert.equal(failedRecoveryDescribeCalls, 2, 'Retry recovers before it mutates again')
 assert.equal(failedRecoveryMutates, 2)
-
-const currentSettings = {
-  delegationMode: 'teams',
-  memberLlmProvider: 'provider-a',
-  memberModel: 'model-a',
-  memberReasoningMode: 'explicit',
-  memberReasoningEffort: 'high',
-  migrationVersion: 0,
-}
-const catalog = [
-  model,
-  { provider: 'provider-b', id: 'z-model', name: 'Z', efforts: [] },
-  { provider: 'provider-b', id: 'a-model', name: 'A', efforts: [{ id: 'low', name: 'Low' }], defaultEffort: 'low' },
-]
-assert.deepEqual(planProviderChange(currentSettings, 'provider-b', catalog), {
-  ok: true,
-  ops: [
-    { op: 'set', path: ['memberReasoningEffort'], value: '' },
-    { op: 'set', path: ['memberReasoningMode'], value: 'target-default' },
-    { op: 'set', path: ['memberModel'], value: 'a-model' },
-    { op: 'set', path: ['memberLlmProvider'], value: 'provider-b' },
-  ],
-})
-assert.deepEqual(planProviderChange(currentSettings, '', catalog), {
-  ok: true,
-  ops: [
-    { op: 'set', path: ['memberReasoningEffort'], value: '' },
-    { op: 'set', path: ['memberReasoningMode'], value: 'target-default' },
-    { op: 'set', path: ['memberModel'], value: '' },
-    { op: 'set', path: ['memberLlmProvider'], value: '' },
-  ],
-})
-assert.deepEqual(planProviderChange(currentSettings, 'provider-empty', catalog), { ok: false, error: 'no-models' })
-assert.equal(
-  planProviderChange({ ...currentSettings, memberModel: 'z-model', memberReasoningMode: 'target-default', memberReasoningEffort: '' }, 'provider-b', catalog).ops[0].value,
-  'z-model',
-  'provider changes preserve the current model id when that route still exposes it',
-)
-assert.deepEqual(planModelChange(currentSettings, 'provider-b', 'a-model', catalog), {
-  ok: true,
-  ops: [
-    { op: 'set', path: ['memberReasoningEffort'], value: '' },
-    { op: 'set', path: ['memberReasoningMode'], value: 'target-default' },
-    { op: 'set', path: ['memberModel'], value: 'a-model' },
-    { op: 'set', path: ['memberLlmProvider'], value: 'provider-b' },
-  ],
-})
-
-const nonExplicit = { ...currentSettings, memberReasoningMode: 'target-default', memberReasoningEffort: '' }
-assert.deepEqual(planReasoningModeChange(nonExplicit, 'explicit', catalog[2]), {
-  ok: true,
-  ops: [
-    { op: 'set', path: ['memberReasoningEffort'], value: 'low' },
-    { op: 'set', path: ['memberReasoningMode'], value: 'explicit' },
-  ],
-})
-assert.deepEqual(planReasoningModeChange(nonExplicit, 'explicit', catalog[1]), { ok: false, error: 'no-efforts' })
-assert.deepEqual(planReasoningModeChange(currentSettings, 'route-aware', model), {
-  ok: true,
-  ops: [
-    { op: 'set', path: ['memberReasoningEffort'], value: '' },
-    { op: 'set', path: ['memberReasoningMode'], value: 'route-aware' },
-  ],
-})
-assert.deepEqual(planReasoningModeChange(currentSettings, 'explicit', {
-  ...model,
-  efforts: [{ id: 'low', name: 'Low' }, ...model.efforts],
-  defaultEffort: 'low',
-}), {
-  ok: true,
-  ops: [
-    { op: 'set', path: ['memberReasoningEffort'], value: 'high' },
-    { op: 'set', path: ['memberReasoningMode'], value: 'explicit' },
-  ],
-}, 'a still-supported current effort wins over the model default')
-assert.deepEqual(planReasoningEffortChange('low', catalog[2]), {
-  ok: true,
-  ops: [
-    { op: 'set', path: ['memberReasoningEffort'], value: 'low' },
-    { op: 'set', path: ['memberReasoningMode'], value: 'explicit' },
-  ],
-})
 
 const actionStates = []
 const actionResult = await runAgentTeamsSettingsAction(

@@ -379,6 +379,21 @@
   gap: 10px;
 }
 
+.profileReasoning {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.profileReasoningChoices {
+  display: grid;
+  gap: 6px;
+}
+
 .profileRowHeader {
   align-items: flex-start;
 }
@@ -421,6 +436,13 @@
 
 .profileSaved {
   color: var(--dsw-alias-state-success-primary);
+}
+
+.profileWarning {
+  margin: 0;
+  color: var(--dsw-alias-state-warning-primary, var(--dsw-alias-label-secondary));
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .profileError {

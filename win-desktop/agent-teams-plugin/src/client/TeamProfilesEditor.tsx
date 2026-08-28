@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AgentTeamsTranslate } from './locales.ts'
-import type { ModelCatalogEntry } from './model-catalog.ts'
+import type { ModelCatalogEntry, ModelCatalogState } from './model-catalog.ts'
 import {
   cloneProfileMap,
   createEmptyTeamProfile,
@@ -17,12 +17,13 @@ import { getAgentTeamsDesktopBridge } from './desktop-bridge.ts'
 import css from './AgentTeamsSettingsSection.module.css'
 
 interface TeamProfilesEditorProps {
-  catalog: readonly ModelCatalogEntry[]
+  catalog: ModelCatalogState | { status: 'loading'; models: readonly ModelCatalogEntry[]; error: null }
+  onRetryCatalog: () => void
   t: AgentTeamsTranslate
   writable: boolean
 }
 
-type MemberField = 'role' | 'provider' | 'model' | 'reasoning_effort' | 'executionPrompt'
+type MemberField = 'role' | 'reasoning_effort' | 'executionPrompt'
 type ReviewPolicyField = 'requirementsMinRounds' | 'requirementsMaxRounds' | 'codeMaxRounds' | 'maxRepairAttempts'
 
 function uniqueName(existing: readonly string[], base: string): string {
@@ -56,6 +57,32 @@ function setMemberField(
   if (value === '') delete next[field]
   else next[field] = value
   return next
+}
+
+function setMemberProvider(
+  member: TeamProfileMemberConfig,
+  provider: string,
+  catalog: readonly ModelCatalogEntry[],
+): TeamProfileMemberConfig {
+  if (provider === '') return { ...member, provider: undefined, model: undefined }
+  const models = catalog.filter((entry) => entry.provider === provider)
+  const currentModel = member.provider === provider && models.some((entry) => entry.id === member.model)
+    ? member.model
+    : models[0]?.id
+  return {
+    ...member,
+    provider,
+    ...(currentModel === undefined ? { model: undefined } : { model: currentModel }),
+  }
+}
+
+function setMemberModel(
+  member: TeamProfileMemberConfig,
+  provider: string,
+  model: string,
+): TeamProfileMemberConfig {
+  if (provider === '' || model === '') return { ...member, provider: undefined, model: undefined }
+  return { ...member, provider, model }
 }
 
 function setRouteField(
@@ -120,6 +147,7 @@ function FallbackFields({
 
 function MemberEditor({
   catalog,
+  catalogReady,
   disabled,
   index,
   member,
@@ -128,6 +156,7 @@ function MemberEditor({
   t,
 }: {
   catalog: readonly ModelCatalogEntry[]
+  catalogReady: boolean
   disabled: boolean
   index: number
   member: TeamProfileMemberConfig
@@ -143,7 +172,6 @@ function MemberEditor({
   const model = member.model ?? ''
   const providerModels = catalog.filter((entry) => entry.provider === provider)
   const selectedModel = providerModels.find((entry) => entry.id === model)
-  const modelListId = `agent-teams-profile-member-${index}-models`
   const update = (field: MemberField, value: string): void => {
     onChange(setMemberField(member, field, value))
   }
@@ -180,8 +208,8 @@ function MemberEditor({
           <select
             className={css.profileSelect}
             value={provider}
-            disabled={disabled}
-            onChange={(event) => update('provider', event.currentTarget.value)}
+            disabled={disabled || !catalogReady}
+            onChange={(event) => onChange(setMemberProvider(member, event.currentTarget.value, catalog))}
           >
             <option value="">{t('settings.profiles.followCaptain')}</option>
             {provider !== '' && !providers.includes(provider) && (
@@ -192,60 +220,64 @@ function MemberEditor({
         </label>
         <label className={css.field}>
           <span>{t('settings.profiles.memberModel')}</span>
-          {provider === '' ? (
-            <>
-              <input
-                className={css.profileInput}
-                list={modelListId}
-                value={model}
-                disabled={disabled}
-                placeholder={t('settings.profiles.followCaptain')}
-                onChange={(event) => update('model', event.currentTarget.value)}
-              />
-              <datalist id={modelListId}>
-                {catalog.map((entry) => <option key={`${entry.provider}/${entry.id}`} value={entry.id}>{entry.provider}</option>)}
-              </datalist>
-            </>
-          ) : (
-            <select
-              className={css.profileSelect}
-              value={model}
-              disabled={disabled}
-              onChange={(event) => update('model', event.currentTarget.value)}
-            >
-              <option value="">{t('settings.profiles.chooseModel')}</option>
-              {model !== '' && selectedModel === undefined && (
-                <option value={model}>{t('settings.profiles.unavailable', { value: model })}</option>
-              )}
-              {providerModels.map((entry) => <option key={entry.id} value={entry.id}>{entry.name || entry.id}</option>)}
-            </select>
-          )}
+          <select
+            className={css.profileSelect}
+            value={model}
+            disabled={disabled || !catalogReady || provider === ''}
+            onChange={(event) => onChange(setMemberModel(member, provider, event.currentTarget.value))}
+          >
+            <option value="">{provider === '' ? t('settings.profiles.followCaptain') : t('settings.profiles.chooseModel')}</option>
+            {model !== '' && selectedModel === undefined && (
+              <option value={model}>{t('settings.profiles.unavailable', { value: model })}</option>
+            )}
+            {providerModels.map((entry) => <option key={entry.id} value={entry.id}>{entry.name || entry.id}</option>)}
+          </select>
         </label>
-        <label className={css.field}>
-          <span>{t('settings.profiles.memberReasoning')}</span>
-          {selectedModel !== undefined && selectedModel.efforts.length > 0 ? (
-            <select
-              className={css.profileSelect}
-              value={member.reasoning_effort ?? ''}
-              disabled={disabled}
-              onChange={(event) => update('reasoning_effort', event.currentTarget.value)}
-            >
-              <option value="">{t('settings.profiles.defaultValue')}</option>
-              {member.reasoning_effort !== undefined
-                && !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort)
-                && <option value={member.reasoning_effort}>{t('settings.profiles.unavailable', { value: member.reasoning_effort })}</option>}
-              {selectedModel.efforts.map((effort) => <option key={effort.id} value={effort.id}>{effort.name}</option>)}
-            </select>
-          ) : (
-            <input
-              className={css.profileInput}
-              value={member.reasoning_effort ?? ''}
-              disabled={disabled}
-              placeholder={t('settings.profiles.defaultValue')}
-              onChange={(event) => update('reasoning_effort', event.currentTarget.value)}
-            />
+        <fieldset className={css.profileReasoning} disabled={disabled}>
+          <legend className={css.profileLegend}>{t('settings.profiles.reasoning.title')}</legend>
+          <div className={css.profileReasoningChoices}>
+            {(['target-default', 'route-aware', 'explicit'] as const).map((mode) => (
+              <label
+                className={`${css.choice} ${mode === 'explicit' && (!catalogReady || (selectedModel?.efforts.length ?? 0) === 0) ? css.choiceDisabled : ''}`}
+                key={mode}
+              >
+                <input
+                  type="radio"
+                  name={`agent-teams-profile-member-${index}-reasoning-mode`}
+                  value={mode}
+                  checked={member.reasoning_mode === mode}
+                  disabled={mode === 'explicit' && (!catalogReady || (selectedModel?.efforts.length ?? 0) === 0)}
+                  onChange={() => onChange({
+                    ...member,
+                    reasoning_mode: mode,
+                    ...(mode === 'explicit' ? {} : { reasoning_effort: undefined }),
+                  })}
+                />
+                <span>{t(`settings.profiles.reasoning.${mode}.label`)}</span>
+              </label>
+            ))}
+          </div>
+          {member.reasoning_mode === 'explicit' && (
+            <label className={css.field}>
+              <span>{t('settings.profiles.reasoning.effort')}</span>
+              <select
+                className={css.profileSelect}
+                value={member.reasoning_effort ?? ''}
+                disabled={disabled || !catalogReady || (selectedModel?.efforts.length ?? 0) === 0}
+                onChange={(event) => update('reasoning_effort', event.currentTarget.value)}
+              >
+                {selectedModel?.efforts.length
+                  ? <>
+                    {member.reasoning_effort !== undefined
+                      && !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort)
+                      && <option value={member.reasoning_effort}>{t('settings.profiles.unavailable', { value: member.reasoning_effort })}</option>}
+                    {selectedModel.efforts.map((effort) => <option key={effort.id} value={effort.id}>{effort.name}</option>)}
+                  </>
+                  : <option value="">{t('settings.profiles.reasoning.noEfforts')}</option>}
+              </select>
+            </label>
           )}
-        </label>
+        </fieldset>
       </div>
       <label className={css.field}>
         <span>{t('settings.profiles.memberPrompt')}</span>
@@ -351,12 +383,14 @@ function TaskEditor({
 
 function ProfileForm({
   catalog,
+  catalogReady,
   disabled,
   onChange,
   profile,
   t,
 }: {
   catalog: readonly ModelCatalogEntry[]
+  catalogReady: boolean
   disabled: boolean
   onChange: (next: TeamProfileConfig) => void
   profile: TeamProfileConfig
@@ -469,6 +503,7 @@ function ProfileForm({
           <MemberEditor
             key={`${index}-${member.name}`}
             catalog={catalog}
+            catalogReady={catalogReady}
             disabled={disabled}
             index={index}
             member={member}
@@ -555,7 +590,7 @@ function ProfileForm({
   )
 }
 
-export function TeamProfilesEditor({ catalog, t, writable }: TeamProfilesEditorProps) {
+export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: TeamProfilesEditorProps) {
   const bridge = useMemo(() => getAgentTeamsDesktopBridge(), [])
   const [snapshot, setSnapshot] = useState<AgentTeamsProfilesSnapshot | null>(null)
   const [profiles, setProfiles] = useState<Record<string, TeamProfileConfig>>({})
@@ -581,14 +616,14 @@ export function TeamProfilesEditor({ catalog, t, writable }: TeamProfilesEditorP
       const normalized = normalizeProfileSnapshot(next)
       setSnapshot(normalized)
       setProfiles(normalized.profiles)
-      setCommittedProfiles(cloneProfileMap(normalized.profiles))
-      setSelectedName(Object.keys(normalized.profiles)[0] ?? '')
-      setMessage(null)
-      setLoading(false)
+       setCommittedProfiles(cloneProfileMap(normalized.profiles))
+       setSelectedName(Object.keys(normalized.profiles)[0] ?? '')
+       setMessage(null)
+       setLoading(false)
     }).catch((reason: unknown) => {
-      if (!active) return
-      setLoading(false)
-      setError(reason instanceof Error ? reason.message : String(reason))
+       if (!active) return
+       setLoading(false)
+       setError(reason instanceof Error ? reason.message : String(reason))
     })
     return () => { active = false }
   }, [bridge, t])
@@ -606,6 +641,22 @@ export function TeamProfilesEditor({ catalog, t, writable }: TeamProfilesEditorP
   const selectedIsBuiltIn = selectedName !== '' && builtInNames.includes(selectedName)
   const dirty = JSON.stringify(profiles) !== JSON.stringify(committedProfiles)
   const controlsDisabled = !writable || loading || saving
+  const catalogReady = catalog.status === 'ready'
+  const committedProfile = committedProfiles[selectedName]
+  const explicitRouteBlocked = selectedProfile?.members.some((member, index) => {
+    if (member.reasoning_mode !== 'explicit') return false
+    const committedMember = committedProfile?.members.find((candidate) => candidate.name === member.name)
+      ?? committedProfile?.members[index]
+    const routeChanged = committedMember?.reasoning_mode !== 'explicit'
+      || committedMember.provider !== member.provider
+      || committedMember.model !== member.model
+      || committedMember.reasoning_effort !== member.reasoning_effort
+    if (!routeChanged) return false
+    if (member.provider === undefined || member.model === undefined || member.reasoning_effort === undefined) return true
+    if (!catalogReady) return true
+    const selectedModel = catalog.models.find((entry) => entry.provider === member.provider && entry.id === member.model)
+    return selectedModel === undefined || !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort)
+  }) ?? false
 
   const updateSelectedProfile = (next: TeamProfileConfig): void => {
     setProfiles((current) => updateProfileMap(current, selectedName, () => next))
@@ -729,8 +780,20 @@ export function TeamProfilesEditor({ catalog, t, writable }: TeamProfilesEditorP
       </div>
 
       {loading && <p className={css.catalogStatus} role="status">{t('settings.profiles.loading')}</p>}
+      {catalog.status === 'loading' && <p className={css.catalogStatus} role="status" aria-live="polite">{t('settings.catalog.loading')}</p>}
+      {catalog.status === 'empty' && <p className={css.catalogStatus} role="status">{t('settings.catalog.empty')}</p>}
+      {catalog.status === 'error' && (
+        <div className={css.catalogError} role="alert">
+          <span>{t('settings.catalog.error', { message: catalog.error })}</span>
+          <Button type="button" variant="outline" size="sm" onClick={onRetryCatalog}>{t('settings.catalog.retry')}</Button>
+        </div>
+      )}
+      {snapshot?.unsupportedPersistedVersion === true && (
+        <p className={css.profileWarning} role="status">{t('settings.profiles.unsupportedPersistedVersion')}</p>
+      )}
       {error !== null && <p className={css.profileError} role="alert">{t('settings.profiles.error', { message: error })}</p>}
       {message !== null && <p className={css.profileSaved} role="status">{message} {t('settings.profiles.restart')}</p>}
+      {explicitRouteBlocked && <p className={css.profileWarning} role="status">{t('settings.profiles.explicitCatalogRequired')}</p>}
 
       <div className={css.profileToolbar}>
         <div className={css.profileList} role="listbox" aria-label={t('settings.profiles.listAria')}>
@@ -789,7 +852,8 @@ export function TeamProfilesEditor({ catalog, t, writable }: TeamProfilesEditorP
             </div>
           </div>
           <ProfileForm
-            catalog={catalog}
+             catalog={catalog.models}
+             catalogReady={catalogReady}
             disabled={controlsDisabled}
             onChange={updateSelectedProfile}
             profile={selectedProfile}
@@ -797,7 +861,7 @@ export function TeamProfilesEditor({ catalog, t, writable }: TeamProfilesEditorP
           />
           <div className={css.profileSaveBar}>
             {dirty && <span className={css.profileDirty}>{t('settings.profiles.unsaved')}</span>}
-            <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !dirty} onClick={() => { void saveProfiles() }}>
+             <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !dirty || explicitRouteBlocked} onClick={() => { void saveProfiles() }}>
               {saving ? t('settings.profiles.saving') : t('settings.profiles.save')}
             </Button>
           </div>
