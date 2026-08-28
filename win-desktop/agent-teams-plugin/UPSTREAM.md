@@ -10,16 +10,16 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.4`.
+- Desktop fork version is `0.1.14-desktop.5`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
 
 - Harness settings namespace and browser settings section.
-- Live member provider/model/reasoning defaults.
+- Role-level member provider/model/reasoning policy and Profile role-card editor.
 - Versioned Team/Native routing policy persisted in `request/header.system`.
 - Agent-scoped suppression of native delegation tools in Team mode.
-- One-time migration from legacy Electron settings.
+- Strict Profile and Team `schemaVersion: 2` validation; older data remains on disk but is rejected and never migrated.
 - Desktop integration and regression verification.
 - Path-stable virtual CSS module ids with generated-artifact verification.
 - Windows PowerShell lock-fixture timing uses `[Threading.Thread]::Sleep(140)`.
@@ -30,14 +30,11 @@
   members are instructed to send only `task_id`, while blank, whitespace, or
   self `assignee` values remain idempotent and attempts to claim as another
   actor are still rejected.
-- `.desktop.3` treats the Schemastery empty-string sentinel for the optional
-  `memberModel` default as omitted, preserving captain-route inheritance for
-  ordinary members; `scripts/verify.mjs` covers the desktop integration shape.
-- `.desktop.4` normalizes only upstream/legacy omitted-value sentinels for
-  optional task quality fields at the durable read boundary (`round: 0` and
-  blank `objective`, `reviewedTaskId`, or `sourceTaskId`). Meaningful quality
-  metadata remains strict, and the cold-resume regression prevents a usable
-  running team from failing with `invalid AgentTeams state`.
+- `.desktop.5` makes each Profile role the authority for Provider, model, and
+  reasoning policy, removes global member-model/reasoning settings, and
+  requires strict Profile/Team `schemaVersion: 2`. Older persisted documents
+  are retained for user inspection but are rejected rather than loaded or
+  migrated; the user must create a new Profile and Team.
 - The v0.1.14 staged-plan, named-profile, fallback, quality-gate, atomic
   approval, halt/resume, and activity-panel improvements are imported. The
   desktop fork keeps immediate execution as the default for ordinary
@@ -46,12 +43,15 @@
 - The v0.1.14 model-directory injection is combined with the local
   `connection` and `settings` injections so the staged editor uses Harness's
   catalog without moving CPA-specific behavior into this plugin.
-- The Windows wrapper owns a persisted `software-delivery` built-in and a
-  browser settings editor for the complete upstream profile shape. The editor
-  uses a narrow host IPC bridge; the host validates and stores JSON-safe maps,
-  injects them into the startup patch after a restart, and falls back to the
-  built-in map when stored entries are malformed. This local editor/persistence
-  seam is `REAPPLY`; upstream profile execution remains the semantic authority.
+- The Windows wrapper owns a persisted `software-delivery` built-in with
+  `analyst`, `implementer`, `tester`, and `reviewer` role cards, plus a browser
+  settings editor for the complete upstream profile shape. The editor uses a
+  narrow host IPC bridge; the host validates and stores JSON-safe V2 documents,
+  injects them into the startup patch after a restart, and rejects unsupported
+  old documents without migration. This local editor/persistence seam is
+  `REAPPLY`; upstream profile execution remains the semantic authority.
+- CPA and OpenCode role routes continue to resolve from the shared Harness
+  Provider/model catalog; this fork does not maintain a second catalog.
 - `scripts/clean-build.mjs` validates the package-local `lib` path by path
   component, which keeps the upstream clean-build guard working on Windows.
 

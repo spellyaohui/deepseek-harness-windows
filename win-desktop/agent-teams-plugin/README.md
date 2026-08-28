@@ -26,6 +26,13 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.14-desktop.5
+
+- Configure each member's Provider, model, and reasoning policy in its Profile role card.
+- Global member-model and reasoning settings are no longer supported.
+- Profile documents and Team state require `schemaVersion: 2`. Older data remains on disk but is rejected rather than loaded or migrated; create a new Profile and Team.
+- CPA and OpenCode models continue to use the shared Harness catalog.
+
 ## Why AgentTeams?
 
 | Capability | What it changes |
@@ -84,7 +91,7 @@ Then ask for a team directly:
 
 Team state is stored under `<workspace>/.agent-teams/`; the Web panel reads that disk truth and combines it with live sub-agent activity.
 
-Member creation is zero-interaction by default: a member on the captain's current LLM route snapshots that provider, model, and reasoning effort, while a member on a requested alternative route snapshots the target model's default effort; later continuations restore the resolved snapshot. Only an explicit heterogeneous-team request (for example, “backend on provider A/model X, frontend on provider B/model Y”) supplies a member-specific `provider` + `model`; there is no per-member model or reasoning prompt.
+Member creation follows the role policy resolved from the active Profile. Each role card carries its own `provider`, `model`, `reasoning_mode`, and optional `reasoning_effort`; the resolved route and effort are snapshotted for later continuations. The built-in `software-delivery` Profile provides `analyst`, `implementer`, `tester`, and `reviewer` roles with `reasoning_mode: target-default`. Profile changes are injected before startup and require a restart before they apply to new teams.
 
 ## Slash command
 
@@ -110,19 +117,34 @@ the text. Mid-sentence mentions stay ordinary prose.
 
 ## Configuration
 
-Defaults work without extra setup. A trusted profile can override member behavior:
+Defaults work without extra setup. A trusted Profile can define role-level member behavior:
 
 ```yaml
 - id: agent-teams
   config:
     stateDir: .agent-teams
     memberProvider: spawn
-    memberModel: deepseek-v4
     memberMaxDepth: 1
     maxMembers: 8
+    profiles:
+      software-delivery:
+        schemaVersion: 2
+        members:
+          - name: analyst
+            role: Requirements analyst
+            reasoning_mode: target-default
+          - name: implementer
+            role: Implementation engineer
+            reasoning_mode: target-default
+          - name: tester
+            role: Verification engineer
+            reasoning_mode: target-default
+          - name: reviewer
+            role: Code and risk reviewer
+            reasoning_mode: target-default
 ```
 
-`memberProvider` is the sub-agent runtime backend (`spawn` / `fork`), not an LLM provider. Cross-LLM-provider routing uses the optional `provider` + `model` fields of `agent_teams_add_member`; `memberModel` is only a model default for all members. A member on the captain's current provider/model inherits the captain's reasoning effort, while a changed provider or model automatically uses the target model's default. To request a particular effort, pass the optional `reasoning_effort` field — one of the target model's supported effort ids, or `"default"` to force the model's own default.
+`memberProvider` is the sub-agent runtime backend (`spawn` / `fork`), not an LLM provider. For each Profile role, set a paired `provider` + `model` when routing to a specific catalog entry, then choose `reasoning_mode` as `target-default`, `route-aware`, or `explicit`; `explicit` requires `reasoning_effort`. The role card is the source of truth, and no global member model or reasoning override is available.
 
 `slashCommand: false` disables the deterministic `/agent-teams` activation surfaces (slash command and gesture boundary), leaving the natural-language trigger as the only entry point.
 

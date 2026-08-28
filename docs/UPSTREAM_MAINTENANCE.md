@@ -7,9 +7,9 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.21`
+- Windows desktop wrapper: `0.1.1-rc.22`
 - OpenCode capability validation plugin: `0.1.1`
-- AgentTeams fork: `0.1.14-desktop.4`, based on upstream `0.1.14`
+- AgentTeams fork: `0.1.14-desktop.5`, based on upstream `0.1.14`
 - CPA provider plugin: `0.1.4`
 - Models settings fork: `0.1.1-rc.2-desktop.2`
 - Desktop Settings plugin: `0.1.1`
@@ -19,8 +19,8 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `子智能体` section, shared provider/model catalog including CPA, target-default/route-aware/explicit reasoning, explicit route authority, Team/Native routing markers, native-tool suppression, member claim compatibility and durable task lifecycle | `win-desktop/agent-teams-plugin` | Local fork of `@nanmicoder/dsh-agent-teams@0.1.14`; classify every upstream change before import | `src/index.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/tools.ts`, `src/members.ts`, `src/scheduler.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
-| Persisted named profiles, built-in `software-delivery` roster, profile editor and safe startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local persistence, editor UX, validation boundary, and restart-required injection | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
+| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, Team/Native routing markers, native-tool suppression, member claim compatibility and durable task lifecycle | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract and catalog seam | `src/index.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/tools.ts`, `src/members.ts`, `src/scheduler.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
+| Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
 ## CPA owner
 
@@ -61,7 +61,7 @@ OpenCode 官方客户端在其请求准备代码中会为 `providerID` 以 `open
 
 ## Required classification
 
-### Refresh classification — 2026-08-27
+### Refresh classification — 2026-08-28
 
 The live upstream check found AgentTeams `v0.1.14` at source commit
 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`. Official Harness remains pinned at
@@ -70,7 +70,7 @@ classified as follows:
 
 | Registered owner row | Result | Refresh action |
 | --- | --- | --- |
-| AgentTeams | `REAPPLY` | Imported upstream v0.1.14, then reapplied the local settings/catalog, route policy, Team/Native tool boundary, claim compatibility, and Windows verification seams. |
+| AgentTeams | `REAPPLY` | Imported upstream v0.1.14, then reapplied role-level Provider/model/reasoning policy, strict Profile/Team V2, shared catalog, route policy, Team/Native tool boundary, claim compatibility, and Windows verification seams. |
 | CPA | `REAPPLY` | No upstream owner change; retained the independent CPA plugin and its migration, modality, capacity, and native-row regressions. |
 | Models settings | `REAPPLY` | No upstream owner change; retained the provider-neutral native editor and additive slot seam without adding CPA rules. |
 | Desktop Settings | `REAPPLY` | No upstream owner change; retained the Harness-native desktop section and immediate-save IPC bridge. |
@@ -84,9 +84,8 @@ fork's settings contract:
 | AgentTeams capability | Result | Evidence/action |
 | --- | --- | --- |
 | v0.1.14 staged plans, atomic approval, halt/resume, profiles, quality gates, fallback, and activity controls | `UPSTREAM_EQUIVALENT` | Imported the upstream implementation and retained its offline, lifecycle, quality-gate, and stress regressions. |
-| Durable task-state compatibility with upstream/legacy omitted-value sentinels | `REAPPLY` | Kept strict quality validation, but normalize only `round: 0` and blank optional quality identifiers at the cold-read boundary; the on-disk recovery regression reproduces and prevents `invalid AgentTeams state`. |
-| Local persisted profile editor, built-in roster, host IPC and restart-time injection | `REAPPLY` | Reapplied the smallest wrapper seam around the upstream profile schema; host validation is fail-closed, the editor preserves all upstream fields, and profile/store/YAML regressions pass. |
-| Local `子智能体` settings, shared catalog including CPA, target-default/route-aware/explicit reasoning, and explicit route authority | `REAPPLY` | Kept the local settings runtime, model catalog, selection policy, and settings-client regressions. |
+| Strict Profile/Team `schemaVersion: 2`, required role routes, and rejection of older on-disk data without migration | `REAPPLY` | Kept V2-only validation, explicit role cards, old-data error handling, restart-required injection, and profile/store/YAML regressions. |
+| Local `子智能体` settings, shared catalog including CPA/OpenCode, role-level `target-default`/`route-aware`/`explicit` reasoning, and explicit route authority | `REAPPLY` | Kept the local settings runtime, shared Harness catalog, role selection policy, and settings-client regressions; global member-model/reasoning controls are absent. |
 | Team/Native durable markers, native-tool suppression, member claim compatibility, and local desktop mounting | `REAPPLY` | Kept the routing policy, tolerant claim behavior, client injection, and wrapper integration regressions. |
 | Durable task/member/attempt recovery core | `UPSTREAM_EQUIVALENT` | Reconciled the v0.1.14 lifecycle implementation and passed the lifecycle and complex stress suites; local claim/policy seams remain reapplied. |
 

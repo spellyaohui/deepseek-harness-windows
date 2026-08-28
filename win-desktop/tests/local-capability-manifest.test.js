@@ -10,6 +10,7 @@ const wrapperRoot = dirname(fileURLToPath(new URL('../package.json', import.meta
 const repositoryRoot = dirname(wrapperRoot)
 const packageJson = require('../package.json')
 const packageLock = require('../package-lock.json')
+const agentTeamsPackage = require('../agent-teams-plugin/package.json')
 
 const localDependencies = {
   '@deepseek-ai/dsh-client-ui-settings-models': 'models-settings-plugin',
@@ -40,6 +41,15 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
+  assert.equal(packageJson.version, '0.1.1-rc.22')
+  assert.equal(packageLock.version, '0.1.1-rc.22')
+  assert.equal(packageLock.packages[''].version, '0.1.1-rc.22')
+  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.5')
+  assert.equal(
+    packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
+    '0.1.14-desktop.5',
+  )
+
   for (const [dependency, directory] of Object.entries(localDependencies)) {
     const fileReference = `file:${directory}`
     assert.equal(packageJson.dependencies[dependency], fileReference, `${dependency} must use its local owner`)
@@ -121,14 +131,21 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('cpa-provider-plugin/src/client/capacity.ts', /maxTokens/)
 
   assertContains('agent-teams-plugin/src/host-model-catalog.ts', /buildHostModelCatalog/)
-  assertContains('agent-teams-plugin/src/selection-policy.ts', /memberReasoningMode === 'explicit'/)
-  assertContains('agent-teams-plugin/src/selection-policy.ts', /memberReasoningMode === 'route-aware'/)
+  assertContains('agent-teams-plugin/src/selection-policy.ts', /input\.reasoningMode === 'explicit'/)
+  assertContains('agent-teams-plugin/src/selection-policy.ts', /input\.role\.reasoningMode === 'route-aware'/)
   assertContains('agent-teams-plugin/src/scheduler.ts', /omit the assignee property entirely/)
   assertContains('agent-teams-plugin/src/tools.ts', /members cannot set assignee when claiming a task/)
   assertContains('agent-teams-plugin/src/tools.ts', /name: 'agent_teams_edit_plan'/)
   assertContains('agent-teams-plugin/src/command.ts', /approval="required"/)
   assertContains('agent-teams-plugin/src/client/ActivityPanel.tsx', /ACTIVITY_HALT_URL/)
   assertContains('agent-teams-plugin/package.json', /@deepseek-ai\/dsh-client-ui-model-selection/)
+  assertContains('agent-teams-plugin/README.md', /reasoning_mode: target-default/)
+  assertContains('agent-teams-plugin/README.md', /schemaVersion: 2/)
+  assertContains('agent-teams-plugin/README.md', /shared Harness catalog/)
+  assert.doesNotMatch(read('agent-teams-plugin/README.md'), /`memberModel` is only a model default for all members/)
+  assert.doesNotMatch(read('agent-teams-plugin/README.md'), /there is no per-member model or reasoning prompt/)
+  assertContains('agent-teams-plugin/UPSTREAM.md', /schemaVersion: 2/)
+  assertContains('agent-teams-plugin/UPSTREAM.md', /rejected rather than loaded or\s+migrated/)
 
   assertContains('desktop-settings-plugin/lib/client.js', /name: 'settings\.section'/)
   assertContains('desktop-settings-plugin/lib/client.js', /id: 'desktop'/)

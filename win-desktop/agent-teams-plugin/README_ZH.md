@@ -26,6 +26,13 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.14-desktop.5
+
+- 每个成员的 Provider、model 和 reasoning policy 都在 Profile 角色卡中配置。
+- 不再支持全局成员模型和推理设置。
+- Profile 文档与 Team 状态严格要求 `schemaVersion: 2`。旧数据保留在磁盘，但拒绝加载、不做迁移；请新建 Profile 和 Team。
+- CPA 与 OpenCode 模型继续使用共享 Harness catalog。
+
 ## 为什么需要 AgentTeams？
 
 | 能力 | 带来的变化 |
@@ -84,7 +91,7 @@ dsh web
 
 团队状态保存在 `<workspace>/.agent-teams/`；Web 面板读取这份磁盘真相，并与实时子 Agent 活动合并展示。
 
-成员创建默认零交互：成员沿用队长当前 LLM 路由时会快照该 provider、model 与思考强度；用户要求改用其他路由时，则快照目标模型的默认强度，成员后续续跑仍使用最终解析出的快照。只有当用户明确提出异构分工（例如“后端用 provider A/model X，前端用 provider B/model Y”）时，队长才会把对应的 `provider` + `model` 传给该成员；不会逐个弹出模型或思考强度选择。
+成员创建遵循当前 Profile 解析出的角色策略。每张角色卡携带自己的 `provider`、`model`、`reasoning_mode` 和可选 `reasoning_effort`，解析出的路由与强度会快照并用于后续续跑。内置 `software-delivery` Profile 提供 `analyst`、`implementer`、`tester`、`reviewer` 四个角色，默认使用 `reasoning_mode: target-default`。Profile 修改会在启动前注入，必须重启后才用于新团队。
 
 ## Slash 命令
 
@@ -100,19 +107,34 @@ dsh web
 
 ## 配置
 
-默认配置可以直接使用。受信任的 Profile 可以覆盖成员行为：
+默认配置可以直接使用。受信任的 Profile 可以按角色定义成员行为：
 
 ```yaml
 - id: agent-teams
   config:
     stateDir: .agent-teams
     memberProvider: spawn
-    memberModel: deepseek-v4
     memberMaxDepth: 1
     maxMembers: 8
+    profiles:
+      software-delivery:
+        schemaVersion: 2
+        members:
+          - name: analyst
+            role: 需求分析
+            reasoning_mode: target-default
+          - name: implementer
+            role: 实现工程
+            reasoning_mode: target-default
+          - name: tester
+            role: 验证工程
+            reasoning_mode: target-default
+          - name: reviewer
+            role: 代码与风险评审
+            reasoning_mode: target-default
 ```
 
-这里的 `memberProvider` 指子 Agent 的运行后端（`spawn` / `fork`），不是 LLM provider。跨 LLM provider 由 `agent_teams_add_member` 的可选 `provider` + `model` 参数表达；`memberModel` 只是所有成员的模型默认覆盖。成员沿用队长当前 provider/model 时会继承队长的思考强度；provider 或 model 任一改变时会自动使用目标模型的默认档。需要指定特定强度时，可传入可选的 `reasoning_effort` 参数（目标模型支持的档位 id，或 `"default"` 表示强制使用模型自身默认档）。
+这里的 `memberProvider` 指子 Agent 的运行后端（`spawn` / `fork`），不是 LLM provider。每个 Profile 角色需要指定成对的 `provider` + `model` 才能路由到具体模型目录项，再选择 `target-default`、`route-aware` 或 `explicit` 作为 `reasoning_mode`；`explicit` 必须同时提供 `reasoning_effort`。角色卡是唯一权威，不再提供全局成员模型或推理覆盖。
 
 `slashCommand: false` 可关闭确定性的 `/agent-teams` 激活面（slash 命令与手势边界），仅保留自然语言触发。
 

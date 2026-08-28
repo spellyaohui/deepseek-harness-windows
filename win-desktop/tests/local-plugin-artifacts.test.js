@@ -3,9 +3,18 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { synchronizeLocalPluginArtifacts } from '../scripts/sync-local-plugin-artifacts.mjs'
+import { LOCAL_PLUGIN_ARTIFACTS, synchronizeLocalPluginArtifacts } from '../scripts/sync-local-plugin-artifacts.mjs'
 
 const testRoot = mkdtempSync(join(tmpdir(), 'dsh-local-plugin-artifacts-'))
+
+test('AgentTeams release identity remains tied to the synchronized local artifact', () => {
+  assert.deepEqual(
+    LOCAL_PLUGIN_ARTIFACTS.find(([sourceName]) => sourceName === 'agent-teams-plugin'),
+    ['agent-teams-plugin', '@nanmicoder/dsh-agent-teams'],
+  )
+  const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
+  assert.equal(packageJson.version, '0.1.14-desktop.5')
+})
 
 after(() => rmSync(testRoot, { recursive: true, force: true }))
 
