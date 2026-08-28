@@ -2165,7 +2165,7 @@ async function initializeProfileTeam(input: {
     captainSessionId: input.captain.id,
     createdAt: now,
     phase: 'staged' as const,
-    ...input.staged ? { planReviewState: 'awaiting_review' as const } : {},
+    planReviewState: 'awaiting_review' as const,
     members: profile.members.map((template, index) => {
       const selection = selections[index]!
       return {
@@ -2227,6 +2227,7 @@ async function initializeProfileTeam(input: {
       throw new Error(`failed to initialize profile "${profile.name}": a spawned member is missing its child id`)
     }
     draft.phase = 'running'
+    delete draft.planReviewState
     input.config.testObserver?.onInitializeProfileTeamPersistence?.('writeTeam')
     await writeTeam(input.stateRoot, draft)
     return { committed: true, state: draft }
