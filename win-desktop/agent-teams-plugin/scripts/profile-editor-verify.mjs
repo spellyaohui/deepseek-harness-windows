@@ -5,6 +5,7 @@ import {
   applyMemberReasoningMode,
   createCommittedProfileNameMap,
   createEmptyTeamProfile,
+  hasUnvalidatedFallbackDraft,
   hasUnvalidatedExplicitRoleDraft,
   normalizeProfileSnapshot,
   prepareProfileMapForSave,
@@ -32,6 +33,21 @@ assert.match(editorSource, /applyMemberReasoningMode\(member, mode, selectedMode
 assert.match(
   editorSource,
   /disabled=\{mode === 'explicit' && \(!catalogReady \|\| \(selectedModel\?\.efforts\.length \?\? 0\) === 0\)\}/,
+)
+assert.match(
+  editorSource,
+  /function FallbackFields\(\{\s*catalog,\s*catalogReady,/,
+  'fallback controls must receive the shared Harness catalog',
+)
+assert.match(
+  editorSource,
+  /<FallbackFields\s+catalog=\{catalog\}\s+catalogReady=\{catalogReady\}/,
+  'Profile and member fallbacks must use the same catalog-aware control',
+)
+assert.doesNotMatch(
+  editorSource,
+  /function FallbackFields[\s\S]*?<input[\s\S]*?fallback\?\.provider/,
+  'fallback Provider must not remain a free-text field',
 )
 
 const defaults = createEmptyTeamProfile('custom-profile')
@@ -123,6 +139,142 @@ const singleEffortModel = {
   efforts: [{ id: 'high', name: 'High' }],
   defaultEffort: 'high',
 }
+const fallbackCatalog = [
+  { provider: 'provider-a', id: 'fallback-a', name: 'Fallback A', efforts: [] },
+  { provider: 'provider-b', id: 'fallback-b', name: 'Fallback B', efforts: [] },
+]
+const committedFallbackProfiles = {
+  hidden: {
+    fallback: { provider: 'provider-a', model: 'fallback-a' },
+    members: [{
+      name: 'reviewer',
+      reasoning_mode: 'target-default',
+      fallback: { provider: 'provider-a', model: 'fallback-a' },
+    }],
+  },
+  visible: {
+    description: 'before',
+    members: [{ name: 'analyst', reasoning_mode: 'target-default' }],
+  },
+}
+const committedFallbackNames = { hidden: 'hidden', visible: 'visible' }
+const profileFallbackChangedProfiles = {
+  hidden: {
+    ...committedFallbackProfiles.hidden,
+    fallback: { provider: 'provider-b', model: 'fallback-b' },
+  },
+  visible: { ...committedFallbackProfiles.visible, description: 'after' },
+}
+const memberFallbackChangedProfiles = {
+  hidden: {
+    ...committedFallbackProfiles.hidden,
+    members: [{
+      ...committedFallbackProfiles.hidden.members[0],
+      fallback: { provider: 'provider-b', model: 'fallback-b' },
+    }],
+  },
+  visible: { ...committedFallbackProfiles.visible, description: 'after' },
+}
+const missingFallbackProfiles = {
+  hidden: {
+    ...committedFallbackProfiles.hidden,
+    fallback: { provider: 'provider-a', model: 'missing-model' },
+  },
+  visible: committedFallbackProfiles.visible,
+}
+assert.equal(
+  hasUnvalidatedFallbackDraft(profileFallbackChangedProfiles, committedFallbackProfiles, [], false, committedFallbackNames),
+  true,
+  'a changed Profile fallback in a non-selected Profile blocks save while the catalog is unavailable',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(memberFallbackChangedProfiles, committedFallbackProfiles, [], false, committedFallbackNames),
+  true,
+  'a changed member fallback in a non-selected Profile blocks save while the catalog is unavailable',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(profileFallbackChangedProfiles, committedFallbackProfiles, fallbackCatalog, true, committedFallbackNames),
+  false,
+  'a changed Profile fallback is saveable when its route exists in the shared catalog',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(memberFallbackChangedProfiles, committedFallbackProfiles, fallbackCatalog, true, committedFallbackNames),
+  false,
+  'a changed member fallback is saveable when its route exists in the shared catalog',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(missingFallbackProfiles, committedFallbackProfiles, fallbackCatalog, true, committedFallbackNames),
+  true,
+  'a changed fallback route that is absent from the shared catalog remains blocked',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(committedFallbackProfiles, committedFallbackProfiles, [], false, committedFallbackNames),
+  false,
+  'an unchanged historical fallback does not block unrelated edits while the catalog is unavailable',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(
+    { renamed: committedFallbackProfiles.hidden },
+    committedFallbackProfiles,
+    [],
+    false,
+    { renamed: 'hidden' },
+  ),
+  false,
+  'renaming preserves the committed source identity of an unchanged fallback',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(
+    { copied: committedFallbackProfiles.hidden },
+    committedFallbackProfiles,
+    [],
+    false,
+    {},
+  ),
+  true,
+  'copying a Profile does not inherit fallback source identity',
+)
+assert.equal(
+  hasUnvalidatedFallbackDraft(
+    { hidden: committedFallbackProfiles.hidden },
+    committedFallbackProfiles,
+    [],
+    false,
+    {},
+  ),
+  true,
+  'a new Profile reusing a removed name does not inherit fallback source identity',
+)
+assert.equal(
+  prepareProfileMapForSave(profileFallbackChangedProfiles, {
+    catalog: [],
+    catalogReady: false,
+    committedProfiles: committedFallbackProfiles,
+    committedProfileNames: committedFallbackNames,
+  }).ok,
+  false,
+  'the save normalizer must reject changed fallback routes when the catalog cannot validate them',
+)
+assert.equal(
+  prepareProfileMapForSave(profileFallbackChangedProfiles, {
+    catalog: fallbackCatalog,
+    catalogReady: true,
+    committedProfiles: committedFallbackProfiles,
+    committedProfileNames: committedFallbackNames,
+  }).ok,
+  true,
+  'the save normalizer accepts a changed Profile fallback only when the catalog contains it',
+)
+assert.equal(
+  prepareProfileMapForSave(missingFallbackProfiles, {
+    catalog: fallbackCatalog,
+    catalogReady: true,
+    committedProfiles: committedFallbackProfiles,
+    committedProfileNames: committedFallbackNames,
+  }).ok,
+  false,
+  'the save normalizer rejects changed fallbacks that are missing from the catalog',
+)
 assert.deepEqual(
   applyMemberReasoningMode({
     name: 'reviewer',

@@ -81,6 +81,13 @@ export type ProfileSaveResult =
 
 export type CommittedProfileNameMap = Record<string, string>
 
+export interface ProfileFallbackValidationContext {
+  catalog: readonly ModelCatalogEntry[]
+  catalogReady: boolean
+  committedProfiles: Readonly<Record<string, TeamProfileConfig>>
+  committedProfileNames: Readonly<CommittedProfileNameMap>
+}
+
 export function createCommittedProfileNameMap(
   profiles: Readonly<Record<string, TeamProfileConfig>>,
 ): CommittedProfileNameMap {
@@ -143,6 +150,43 @@ export function hasUnvalidatedExplicitRoleDraft(
       const selectedModel = catalog.find((entry) => entry.provider === member.provider && entry.id === member.model)
       return selectedModel === undefined
         || !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort)
+    })
+  })
+}
+
+function sameFallback(
+  left: TeamModelFallbackConfig | undefined,
+  right: TeamModelFallbackConfig | undefined,
+): boolean {
+  return left?.provider === right?.provider && left?.model === right?.model
+}
+
+function fallbackNeedsCatalogValidation(
+  fallback: TeamModelFallbackConfig | undefined,
+  committedFallback: TeamModelFallbackConfig | undefined,
+  catalog: readonly ModelCatalogEntry[],
+  catalogReady: boolean,
+): boolean {
+  if (sameFallback(fallback, committedFallback) || fallback === undefined) return false
+  if (fallback.provider === '' || fallback.model === '' || !catalogReady) return true
+  return !catalog.some((entry) => entry.provider === fallback.provider && entry.id === fallback.model)
+}
+
+export function hasUnvalidatedFallbackDraft(
+  nextProfiles: Record<string, TeamProfileConfig>,
+  committedProfiles: Readonly<Record<string, TeamProfileConfig>>,
+  catalog: readonly ModelCatalogEntry[],
+  catalogReady: boolean,
+  committedProfileNames: Readonly<CommittedProfileNameMap>,
+): boolean {
+  return Object.entries(nextProfiles).some(([profileName, profile]) => {
+    const committedName = committedProfileNames[profileName]
+    const committedProfile = committedName === undefined ? undefined : committedProfiles[committedName]
+    if (fallbackNeedsCatalogValidation(profile.fallback, committedProfile?.fallback, catalog, catalogReady)) return true
+    return profile.members.some((member, index) => {
+      const committedMember = committedProfile?.members.find((candidate) => candidate.name === member.name)
+        ?? committedProfile?.members[index]
+      return fallbackNeedsCatalogValidation(member.fallback, committedMember?.fallback, catalog, catalogReady)
     })
   })
 }
@@ -558,7 +602,10 @@ function normalizeProfileForSave(value: unknown, path: string, errors: string[])
 }
 
 /** Validate and normalize the map before handing it to the host IPC boundary. */
-export function prepareProfileMapForSave(value: unknown): ProfileSaveResult {
+export function prepareProfileMapForSave(
+  value: unknown,
+  fallbackValidation?: ProfileFallbackValidationContext,
+): ProfileSaveResult {
   if (!isRecord(value)) return { ok: false, error: 'AgentTeams profiles must be an object map' }
   const names = Object.keys(value)
   if (names.length > MAX_PROFILES) {
@@ -582,5 +629,20 @@ export function prepareProfileMapForSave(value: unknown): ProfileSaveResult {
     if (profile !== undefined) profiles[name] = profile
   }
   if (errors.length > 0) return { ok: false, error: errors.join('; ') }
+  const validation = fallbackValidation ?? {
+    catalog: [],
+    catalogReady: false,
+    committedProfiles: {},
+    committedProfileNames: {},
+  }
+  if (hasUnvalidatedFallbackDraft(
+    profiles,
+    validation.committedProfiles,
+    validation.catalog,
+    validation.catalogReady,
+    validation.committedProfileNames,
+  )) {
+    return { ok: false, error: 'new or changed AgentTeams fallback routes must match the ready shared model catalog' }
+  }
   return { ok: true, profiles }
 }

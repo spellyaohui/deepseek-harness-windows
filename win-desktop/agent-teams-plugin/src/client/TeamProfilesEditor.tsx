@@ -7,6 +7,7 @@ import {
   cloneProfileMap,
   createCommittedProfileNameMap,
   createEmptyTeamProfile,
+  hasUnvalidatedFallbackDraft,
   hasUnvalidatedExplicitRoleDraft,
   normalizeProfileSnapshot,
   prepareProfileMapForSave,
@@ -96,17 +97,25 @@ function setMemberModel(
   return { ...member, provider, model }
 }
 
-function setRouteField(
+function setFallbackProvider(
   current: TeamModelFallbackConfig | undefined,
-  field: keyof TeamModelFallbackConfig,
-  value: string,
+  provider: string,
+  catalog: readonly ModelCatalogEntry[],
 ): TeamModelFallbackConfig | undefined {
-  const next = {
-    provider: current?.provider ?? '',
-    model: current?.model ?? '',
-  }
-  next[field] = value
-  return next.provider === '' && next.model === '' ? undefined : next
+  if (provider === '') return undefined
+  const models = catalog.filter((entry) => entry.provider === provider)
+  const model = current?.provider === provider && models.some((entry) => entry.id === current.model)
+    ? current.model
+    : models[0]?.id
+  return model === undefined ? undefined : { provider, model }
+}
+
+function setFallbackModel(
+  current: TeamModelFallbackConfig | undefined,
+  model: string,
+): TeamModelFallbackConfig | undefined {
+  const provider = current?.provider ?? ''
+  return provider === '' || model === '' ? undefined : { provider, model }
 }
 
 function formatDependencies(task: TeamProfileTaskConfig): string {
@@ -122,35 +131,60 @@ function parseDependencies(value: string): string[] | undefined {
 }
 
 function FallbackFields({
+  catalog,
+  catalogReady,
   disabled,
   fallback,
   onChange,
   t,
 }: {
+  catalog: readonly ModelCatalogEntry[]
+  catalogReady: boolean
   disabled: boolean
   fallback: TeamModelFallbackConfig | undefined
   onChange: (next: TeamModelFallbackConfig | undefined) => void
   t: AgentTeamsTranslate
 }) {
+  const providers = useMemo(
+    () => [...new Set(catalog.map((model) => model.provider))],
+    [catalog],
+  )
+  const provider = fallback?.provider ?? ''
+  const model = fallback?.model ?? ''
+  const providerModels = catalog.filter((entry) => entry.provider === provider)
+  const selectedModel = providerModels.find((entry) => entry.id === model)
+
   return (
     <div className={css.profileFallback}>
       <label className={css.field}>
         <span>{t('settings.profiles.fallbackProvider')}</span>
-        <input
-          className={css.profileInput}
-          value={fallback?.provider ?? ''}
-          disabled={disabled}
-          onChange={(event) => onChange(setRouteField(fallback, 'provider', event.currentTarget.value))}
-        />
+        <select
+          className={css.profileSelect}
+          value={provider}
+          disabled={disabled || !catalogReady}
+          onChange={(event) => onChange(setFallbackProvider(fallback, event.currentTarget.value, catalog))}
+        >
+          <option value="">{t('settings.profiles.noFallback')}</option>
+          {provider !== '' && !providers.includes(provider) && (
+            <option value={provider}>{t('settings.profiles.unavailable', { value: provider })}</option>
+          )}
+          {providers.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
+        </select>
       </label>
       <label className={css.field}>
         <span>{t('settings.profiles.fallbackModel')}</span>
-        <input
-          className={css.profileInput}
-          value={fallback?.model ?? ''}
-          disabled={disabled}
-          onChange={(event) => onChange(setRouteField(fallback, 'model', event.currentTarget.value))}
-        />
+        <select
+          className={css.profileSelect}
+          value={model}
+          disabled={disabled || !catalogReady || provider === ''}
+          onChange={(event) => onChange(setFallbackModel(fallback, event.currentTarget.value))}
+        >
+          <option value="">{provider === '' ? t('settings.profiles.noFallback') : t('settings.profiles.chooseModel')}</option>
+          {model !== '' && selectedModel === undefined && (
+            <option value={model}>{t('settings.profiles.unavailable', { value: model })}</option>
+          )}
+          {providerModels.map((entry) => <option key={entry.id} value={entry.id}>{entry.name || entry.id}</option>)}
+        </select>
       </label>
     </div>
   )
@@ -302,6 +336,8 @@ function MemberEditor({
       <details className={css.profileDetails}>
         <summary>{t('settings.profiles.memberFallback')}</summary>
         <FallbackFields
+          catalog={catalog}
+          catalogReady={catalogReady}
           disabled={disabled}
           fallback={member.fallback}
           onChange={(fallback) => onChange({ ...member, ...(fallback === undefined ? { fallback: undefined } : { fallback }) })}
@@ -527,6 +563,8 @@ function ProfileForm({
       <details className={css.profileDetails}>
         <summary>{t('settings.profiles.profileFallback')}</summary>
         <FallbackFields
+          catalog={catalog}
+          catalogReady={catalogReady}
           disabled={disabled}
           fallback={profile.fallback}
           onChange={(fallback) => onChange({ ...profile, ...(fallback === undefined ? { fallback: undefined } : { fallback }) })}
@@ -661,6 +699,13 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
     catalogReady,
     committedProfileNames,
   )
+  const fallbackRouteBlocked = hasUnvalidatedFallbackDraft(
+    profiles,
+    committedProfiles,
+    catalog.models,
+    catalogReady,
+    committedProfileNames,
+  )
 
   const updateSelectedProfile = (next: TeamProfileConfig): void => {
     setProfiles((current) => updateProfileMap(current, selectedName, () => next))
@@ -772,7 +817,12 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
       setError(t('settings.profiles.explicitCatalogRequired'))
       return
     }
-    const prepared = prepareProfileMapForSave(nextProfiles)
+    const prepared = prepareProfileMapForSave(nextProfiles, {
+      catalog: catalog.models,
+      catalogReady,
+      committedProfiles,
+      committedProfileNames: renamed.committedProfileNames,
+    })
     if (!prepared.ok) {
       setError(prepared.error)
       return
@@ -822,6 +872,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
       {error !== null && <p className={css.profileError} role="alert">{t('settings.profiles.error', { message: error })}</p>}
       {message !== null && <p className={css.profileSaved} role="status">{message} {t('settings.profiles.restart')}</p>}
       {explicitRouteBlocked && <p className={css.profileWarning} role="status">{t('settings.profiles.explicitCatalogRequired')}</p>}
+      {fallbackRouteBlocked && <p className={css.profileWarning} role="status">{t('settings.profiles.fallbackCatalogRequired')}</p>}
 
       <div className={css.profileToolbar}>
         <div className={css.profileList} role="listbox" aria-label={t('settings.profiles.listAria')}>
@@ -889,7 +940,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
           />
           <div className={css.profileSaveBar}>
             {dirty && <span className={css.profileDirty}>{t('settings.profiles.unsaved')}</span>}
-             <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !dirty || explicitRouteBlocked} onClick={() => { void saveProfiles() }}>
+              <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !dirty || explicitRouteBlocked || fallbackRouteBlocked} onClick={() => { void saveProfiles() }}>
               {saving ? t('settings.profiles.saving') : t('settings.profiles.save')}
             </Button>
           </div>
