@@ -69,4 +69,10 @@ assert.deepEqual(runtime.get(), { delegationMode: 'native' })
 
 const source = await readFile(new URL('../src/settings.ts', import.meta.url), 'utf8')
 assert.doesNotMatch(source, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|migrationVersion|LegacyDesktop|normalizeLegacy|createLegacy|MIGRATION/)
+
+const staleSettingNames = /(?:memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|migrationVersion|migrationStatus)\s*[:(]/
+for (const verifier of ['lifecycle-verify.mjs', 'quality-gates-tdd.mjs', 'stress-verify.mjs']) {
+  const verifierSource = await readFile(new URL(`./${verifier}`, import.meta.url), 'utf8')
+  assert.doesNotMatch(verifierSource, staleSettingNames, `${verifier} contains removed AgentTeams settings`)
+}
 console.log('AgentTeams delegation-only settings verification passed')

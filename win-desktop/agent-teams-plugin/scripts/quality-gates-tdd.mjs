@@ -987,13 +987,7 @@ console.log('quality-gates TDD — tool-level closed loop')
     settings: {
       get: () => ({
         delegationMode: 'teams',
-        memberLlmProvider: '',
-        memberModel: '',
-        memberReasoningMode: 'target-default',
-        memberReasoningEffort: '',
-        migrationVersion: 1,
       }),
-      migrationStatus: () => ({ migrationVersion: 1, complete: true }),
     },
     memberMaxDepth: 1,
     maxMembers: 8,

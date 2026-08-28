@@ -36,11 +36,6 @@ let childSeq = 0
 let messageSeq = 0
 let memberDefaults = {
   delegationMode: 'teams',
-  memberLlmProvider: 'provider-a',
-  memberModel: 'model-a',
-  memberReasoningMode: 'explicit',
-  memberReasoningEffort: 'effort-a',
-  migrationVersion: 1,
 }
 
 function check(label, condition, detail = '') {
@@ -378,7 +373,6 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
   memberProvider: 'spawn',
   settings: {
     get: () => memberDefaults,
-    migrationStatus: () => ({ migrationVersion: 1, complete: true }),
   },
   memberMaxDepth: 1,
   maxMembers: 8,
@@ -725,14 +719,6 @@ try {
       && captain.lastCancel?.options?.keepInbox === true)
 
   // Exercise the staged-plan editing contract with role-local policies.
-  const memberDefaultsBeforeDynamicPlan = memberDefaults
-  memberDefaults = {
-    ...memberDefaultsBeforeDynamicPlan,
-    memberLlmProvider: '',
-    memberModel: '',
-    memberReasoningMode: 'target-default',
-    memberReasoningEffort: '',
-  }
   const createdDynamic = await call('agent_teams_create', {
     name: 'Dynamic Demo',
     description: 'goal only',
@@ -995,8 +981,6 @@ try {
   check('shutdown preserves cancelled task history in the archive',
     haltedArchive?.tasks.length === 2
       && haltedArchive.tasks.every(item => item.status === 'cancelled'))
-  memberDefaults = memberDefaultsBeforeDynamicPlan
-
   await call('agent_teams_create', { name: 'Quality Loop', description: 'review loop' })
   await call('agent_teams_add_member', { name: 'builder', role: 'implementer' })
   await call('agent_teams_add_member', { name: 'critic', role: 'reviewer' })
@@ -1085,12 +1069,6 @@ try {
 
   await call('agent_teams_create', { name: 'Lifecycle', description: 'adversarial DAG' })
   const addedAlpha = await call('agent_teams_add_member', { name: 'alpha', role: 'slow implementer' })
-  memberDefaults = {
-    ...memberDefaults,
-    memberLlmProvider: 'provider-b',
-    memberModel: 'model-b',
-    memberReasoningEffort: 'effort-b',
-  }
   const addedBeta = await call('agent_teams_add_member', { name: 'beta', role: 'researcher' })
   const persistedAlpha = (await state()).members.find(member => member.name === 'alpha')
   check('member additions ignore global route settings and persist the role policy',
@@ -1511,14 +1489,6 @@ try {
   // The invalid-roster assertion needs role-specific route arguments, so use
   // target-default mode here. Explicit mode intentionally ignores guessed
   // provider/model arguments and is covered by the local selection gate.
-  const memberDefaultsBeforeAtomicApproval = memberDefaults
-  memberDefaults = {
-    ...memberDefaultsBeforeAtomicApproval,
-    memberLlmProvider: '',
-    memberModel: '',
-    memberReasoningMode: 'target-default',
-    memberReasoningEffort: '',
-  }
   await call('agent_teams_create', {
     name: 'Atomic Approval',
     description: 'invalid route must not partially start',
@@ -1544,8 +1514,6 @@ try {
       && rejectedApprovalTeam.tasks.every(item => item.status === 'pending'))
   advertisedModels = []
   await call('agent_teams_delete', {})
-  memberDefaults = memberDefaultsBeforeAtomicApproval
-
   await call('agent_teams_create', { name: 'Lifecycle', description: 'second generation' })
   await call('agent_teams_delete', {})
   const replacementArchive = await readArchivedTeam(stateRoot, teamId)
