@@ -1134,6 +1134,31 @@ check(
     && navigationCalls[1]?.[1]?.childSessionId === 'member-session'
     && navigationCalls[1]?.[1]?.mode === 'continuable',
 )
+let retainedOneShotOpenCalls = 0
+const retainedOneShot = await openAgentTeamMember({
+  refreshSubagents: async () => {},
+  subagentAddress: () => ({
+    parentSessionId: 'captain-session',
+    childSessionId: 'member-session',
+    mode: 'one-shot',
+  }),
+  openSubagent: () => { retainedOneShotOpenCalls += 1 },
+}, 'captain-session', 'member-session')
+const mismatchedRetainedOneShot = await openAgentTeamMember({
+  refreshSubagents: async () => {},
+  subagentAddress: () => ({
+    parentSessionId: 'different-captain',
+    childSessionId: 'member-session',
+    mode: 'one-shot',
+  }),
+  openSubagent: () => { retainedOneShotOpenCalls += 1 },
+}, 'captain-session', 'member-session')
+check(
+  'retained one-shot member navigation is rejected without opening',
+  retainedOneShot === undefined
+    && mismatchedRetainedOneShot === undefined
+    && retainedOneShotOpenCalls === 0,
+)
 const legacyNavigationCalls = []
 const legacyNavigation = await openAgentTeamMember({
   open: (id) => { legacyNavigationCalls.push(id) },
@@ -1586,6 +1611,7 @@ try {
 
   const invalidColdPolicies = [
     { label: 'explicit-missing-effort', expected: /explicit.*reasoning.*effort/i, reasoningMode: 'explicit' },
+    { label: 'reasoning-mode-missing', expected: /missing reasoning mode/i },
     { label: 'provider-only', expected: /provider.*model|route|状态无效/i, provider: 'provider-a', model: undefined, reasoningMode: 'target-default' },
     { label: 'model-only', expected: /provider.*model|route|状态无效/i, provider: undefined, model: 'model-a', reasoningMode: 'target-default' },
   ]

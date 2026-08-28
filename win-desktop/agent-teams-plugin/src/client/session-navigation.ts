@@ -30,8 +30,11 @@ export async function openAgentTeamMember(
 
   await sessions.refreshSubagents(parentSessionId)
   const retained = sessions.subagentAddress?.(childSessionId)
-  sessions.openSubagent(retained?.parentSessionId === parentSessionId
+  if (retained?.mode === 'one-shot') return undefined
+  const address: SubagentAddress = retained?.parentSessionId === parentSessionId
     ? retained
-    : { parentSessionId, childSessionId, mode: 'continuable' })
+    : { parentSessionId, childSessionId, mode: 'continuable' }
+  if (address.mode !== 'continuable') return undefined
+  sessions.openSubagent(address)
   return 'subagent'
 }

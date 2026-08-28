@@ -57,9 +57,12 @@ check('unknown request-header marker throws', unknownMarkerRejected)
 check('unmarked established session uses current Team setting', resolveDelegationPolicy({
   events: [event('user/message')], defaultMode: 'teams',
 }) === 'teams-v1')
-check('unmarked request history uses current Native setting', resolveDelegationPolicy({
+check('unmarked request history uses current Team setting', resolveDelegationPolicy({
   events: [header('legacy prompt')], defaultMode: 'teams',
 }) === 'teams-v1')
+check('unmarked request history uses current Native setting', resolveDelegationPolicy({
+  events: [header('legacy prompt')], defaultMode: 'native',
+}) === 'native-v1')
 check('explicit child parent policy wins for an empty child', resolveDelegationPolicy({
   events: [], defaultMode: 'native', parentPolicy: 'teams-v1',
 }) === 'teams-v1')
