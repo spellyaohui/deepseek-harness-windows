@@ -186,27 +186,35 @@ function pendingSelectionKey(parentSessionId: string, label: string): string {
   return `${parentSessionId}\u0000${label}`
 }
 
-function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection | undefined {
-  if (member === undefined) return undefined
+function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection {
+  if (member === undefined) {
+    throw new Error('agent-teams: cold-resumed member is missing from the durable team roster')
+  }
+  const provider = member.provider?.trim()
+  const model = member.model?.trim()
+  if (provider === undefined || provider === '' || model === undefined || model === '') {
+    throw new Error(`agent-teams: cold-resumed member "${member.name}" is missing provider/model`)
+  }
   const reasoningEffort = member.reasoningEffort?.trim()
+  const reasoningMode = member.reasoningMode
+  if (reasoningMode === undefined) {
+    throw new Error(`agent-teams: cold-resumed member "${member.name}" is missing reasoning mode`)
+  }
   validateMemberRolePolicy({
-    provider: member.provider,
-    model: member.model,
-    reasoningMode: member.reasoningMode,
+    provider,
+    model,
+    reasoningMode,
     // Durable effort is often the adapter's materialized effective value. It
     // is policy input only for explicit mode; target-default and route-aware
     // must be validated from their durable role policy alone.
-    reasoningEffort: member.reasoningMode === 'explicit' ? reasoningEffort : undefined,
+    reasoningEffort: reasoningMode === 'explicit' ? reasoningEffort : undefined,
   })
-  if (member.provider === undefined || member.model === undefined) return undefined
-  const provider = (member.activeProvider ?? member.provider).trim()
-  const model = (member.activeModel ?? member.model).trim()
-  if (provider === '' || model === '') return undefined
-  if (member.reasoningMode === undefined) return undefined
+  const routeProvider = (member.activeProvider ?? provider).trim()
+  const routeModel = (member.activeModel ?? model).trim()
   return {
-    provider,
-    model,
-    reasoningMode: member.reasoningMode,
+    provider: routeProvider,
+    model: routeModel,
+    reasoningMode,
     ...reasoningEffort === undefined || reasoningEffort === '' ? {} : { reasoningEffort },
     ...member.fallback === undefined ? {} : { fallback: member.fallback },
   }

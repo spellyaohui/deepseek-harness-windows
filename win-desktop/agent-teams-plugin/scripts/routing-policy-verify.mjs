@@ -54,12 +54,12 @@ try {
   unknownMarkerRejected = /unknown delegation policy marker/.test(String(error))
 }
 check('unknown request-header marker throws', unknownMarkerRejected)
-check('legacy message history without a marker resolves Native', resolveDelegationPolicy({
+check('unmarked established session uses current Team setting', resolveDelegationPolicy({
   events: [event('user/message')], defaultMode: 'teams',
-}) === 'native-v1')
-check('legacy request history without a marker resolves Native', resolveDelegationPolicy({
+}) === 'teams-v1')
+check('unmarked request history uses current Native setting', resolveDelegationPolicy({
   events: [header('legacy prompt')], defaultMode: 'teams',
-}) === 'native-v1')
+}) === 'teams-v1')
 check('explicit child parent policy wins for an empty child', resolveDelegationPolicy({
   events: [], defaultMode: 'native', parentPolicy: 'teams-v1',
 }) === 'teams-v1')

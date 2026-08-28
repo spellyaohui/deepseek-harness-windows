@@ -5,8 +5,7 @@
  * an "activity panel" button that re-activates the top-right floater.
  *
  * The floater and this card share the `agent-teams:open-panel` window event
- * so the card can summon the panel even after it was closed (or when an old
- * session is re-opened for review).
+ * so the card can summon the panel even after it was closed.
  * @module dsh-agent-teams/client/card
  */
 
@@ -36,18 +35,9 @@ export type AgentTeamsCardProps =
   & PropsLocale<'agentTeams'>
   & AgentTeamsCardInjected
 
-/** Re-activate the top-right activity panel, carrying this team's summary
- * so the panel can show it even when the team no longer exists on disk
- * (historical session review). */
-function openActivityPanel(data: AgentTeamsCardData): void {
-  window.dispatchEvent(new CustomEvent(OPEN_PANEL_EVENT, {
-    detail: {
-      teamId: data.teamId,
-      captainSessionId: data.captainSessionId,
-      teamName: data.teamName,
-      members: data.members,
-    },
-  }))
+/** Re-activate the top-right activity panel. */
+function openActivityPanel(): void {
+  window.dispatchEvent(new Event(OPEN_PANEL_EVENT))
 }
 
 /** Render one durable team as a compact conversation card. */
@@ -80,7 +70,7 @@ export function AgentTeamsCard({ node, openMember, sessionId, t }: AgentTeamsCar
         <button
           type="button"
           className={css.panelButton}
-          onClick={() => { openActivityPanel(resolved) }}
+          onClick={() => { openActivityPanel() }}
           aria-label={t('action.openActivityPanel')}
           title={t('action.openActivityPanel')}
         >

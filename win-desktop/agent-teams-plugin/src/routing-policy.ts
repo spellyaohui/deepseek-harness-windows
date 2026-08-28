@@ -43,12 +43,6 @@ export function persistedPolicy(events: readonly SessionEvent[]): DelegationPoli
   return persisted
 }
 
-export function hasEstablishedHistory(events: readonly SessionEvent[]): boolean {
-  return events.some((event) => event.type === 'request/header'
-    || event.type === 'user/message'
-    || event.type === 'assistant/message')
-}
-
 export function resolveDelegationPolicy(input: {
   events: readonly SessionEvent[]
   defaultMode: DelegationMode
@@ -56,9 +50,7 @@ export function resolveDelegationPolicy(input: {
 }): DelegationPolicyId {
   return persistedPolicy(input.events)
     ?? input.parentPolicy
-    ?? (hasEstablishedHistory(input.events)
-      ? 'native-v1'
-      : input.defaultMode === 'teams' ? 'teams-v1' : 'native-v1')
+    ?? (input.defaultMode === 'teams' ? 'teams-v1' : 'native-v1')
 }
 
 const installedPolicies = new WeakMap<Agent, DelegationPolicyId>()

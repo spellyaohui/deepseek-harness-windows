@@ -46,7 +46,7 @@ function HiddenAgentTeamsCommand(): null {
 /**
  * Register the activity monitor in the shell's additive overlay and the
  * in-conversation team card. The card's activity button re-opens a folded
- * monitor via a window event — the recovery path for an old session.
+ * monitor via a window event.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(

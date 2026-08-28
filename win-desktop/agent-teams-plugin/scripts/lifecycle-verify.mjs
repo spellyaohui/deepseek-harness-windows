@@ -170,9 +170,9 @@ check('settings changes do not change a restored durable Team policy',
 defaultDelegationMode = 'teams'
 const legacyCaptain = policyAgent('policy-legacy-captain', [{ type: 'user/message', data: {} }])
 announcePolicyAgent(legacyCaptain)
-check('legacy session without a marker resolves Native',
-  policySections.get(legacyCaptain)?.text.includes(policyMarker('native-v1'))
-    && NATIVE_DELEGATION_TOOLS.every(name => visiblePolicyTools(legacyCaptain).includes(name)))
+check('unmarked session without a marker uses the current default mode',
+  policySections.get(legacyCaptain)?.text.includes(policyMarker('teams-v1'))
+    && NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(legacyCaptain).includes(name)))
 
 function session(parentSession) {
   return {

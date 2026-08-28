@@ -57,7 +57,6 @@ import {
 import { ACTION_ART, LEAD_ART, memberArtUrl } from './artwork.ts'
 import { OPEN_PANEL_EVENT } from './AgentTeamsCard.tsx'
 import { StagingPlanEditor } from './StagingPlanEditor.tsx'
-import type { AgentTeamsCardData } from './agent-teams-card-definition.ts'
 import type { AgentTeamsLocaleKey, AgentTeamsTranslate } from './locales.ts'
 import {
   DEFAULT_PANEL_LAYOUT,
@@ -725,34 +724,7 @@ function TeamSection({ team, modelDirectory, onContinuePlanning, onDiscarded, on
   )
 }
 
-/** Legacy conversation cards may outlive their host archive. Project their
- * durable roster through the same rebuilt panel instead of a second UI. */
-function historicCardTeam(data: AgentTeamsCardData, owner: string): ActivityTeam {
-  return {
-    workspace: '',
-    teamId: data.teamId,
-    name: data.teamName,
-    captainSessionId: data.captainSessionId || owner,
-    phase: 'running',
-    members: data.members.map((member) => ({
-      ...member,
-      status: 'removed',
-      activity: 'idle',
-      progress: 0,
-      done: 0,
-      total: 0,
-      currentTask: '',
-      unread: 0,
-    })),
-    tasks: [],
-    messageCount: 0,
-    captainInbox: [],
-  }
-}
-
-/** The top-right activity floater. Teams follow the current session: live
- * snapshots and historic card summaries are only shown while their captain
- * session is the one currently open. */
+/** The top-right activity floater. Teams follow the current session. */
 export type ActivityPanelProps = {
   readonly sessionsList: ObservableSnapshot<SessionListState>
   readonly modelDirectories: ModelDirectoryResolver
@@ -772,7 +744,6 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }:
   const [openOwner, setOpenOwner] = useState<SessionId | undefined>()
   const [autoOpened, setAutoOpened] = useState(false)
   const [wasActive, setWasActive] = useState(false)
-  const [historic, setHistoric] = useState<ReadonlyMap<string, { data: AgentTeamsCardData; owner: string }>>(new Map())
   const [layout, setLayout] = useState<PanelLayout>(initialPanelLayout)
   const [bounds, setBounds] = useState<PanelBounds>(initialPanelBounds)
   const [interaction, setInteraction] = useState<'dragging' | 'resizing' | null>(null)
@@ -928,23 +899,11 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }:
   }, [current, currentTargets])
 
   useEffect(() => {
-    const onOpenPanel = (event: Event): void => {
+    const onOpenPanel = (): void => {
       const activeSession = currentRef.current
       if (activeSession === undefined) return
       setOpenOwner(activeSession)
       setOpen(true)
-      const detail = (event as CustomEvent<AgentTeamsCardData>).detail
-      if (detail?.teamId !== undefined) {
-        // A card from a log that predates captainSessionId belongs to the
-        // session that activated it (the current one at injection time).
-        const owner = detail.captainSessionId !== '' ? detail.captainSessionId : currentRef.current ?? ''
-        const teamKey = `${owner}:${detail.teamId}`
-        setHistoric((previous) => {
-          const next = new Map(previous)
-          next.set(teamKey, { data: detail, owner })
-          return next
-        })
-      }
     }
     window.addEventListener(OPEN_PANEL_EVENT, onOpenPanel)
     return () => {
@@ -952,23 +911,13 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }:
     }
   }, [])
 
-  // Teams follow the current session: live snapshots and historic card
-  // summaries are visible only while their captain session is current.
+  // Teams follow the current session: only current V2 live/archive snapshots
+  // are visible while their captain session is current.
   const visibleTeams = useMemo(
     // No current session (initial load): show nothing until one is picked,
     // so cross-session teams never leak into the floater.
     () => (current === undefined ? [] : teams.filter((team) => team.captainSessionId === current)),
     [teams, current],
-  )
-  const visibleHistoric = useMemo(
-    () => (current === undefined ? [] : [...historic.values()].filter(({ data, owner }) =>
-      owner === current && !teams.some((live) =>
-        live.captainSessionId === current && live.teamId === data.teamId,
-      ) && !archivedTeams.some((archived) =>
-        archived.captainSessionId === current && archived.teamId === data.teamId,
-      ),
-    )),
-    [historic, current, teams, archivedTeams],
   )
   const visibleArchived = useMemo(
     () => (current === undefined ? [] : archivedTeams.filter((team) =>
@@ -978,7 +927,7 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }:
     )),
     [archivedTeams, current, teams],
   )
-  const visibleCount = visibleTeams.length + visibleArchived.length + visibleHistoric.length
+  const visibleCount = visibleTeams.length + visibleArchived.length
   const visibleLiveTeamIds = useMemo(
     () => visibleTeams.map((team) => team.teamId).sort(),
     [visibleTeams],
@@ -1246,12 +1195,6 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }:
                       <TeamSection team={team} onNavigate={navigateToSession} t={t} historic />
                     </div>
                   ))}
-                  {visibleHistoric.map(({ data: team, owner }) => {
-                    const teamKey = `${owner}:${team.teamId}`
-                    return (
-                      <TeamSection key={teamKey} team={historicCardTeam(team, owner)} onNavigate={navigateToSession} t={t} historic />
-                    )
-                  })}
                 </>
               )}
           </div>

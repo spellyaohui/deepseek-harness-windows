@@ -52,7 +52,6 @@ import {
   ACTIVITY_PROBE_MS,
   getActivityMonitorTargetsSnapshot,
   monitorAgentTeam,
-  settleActivityMonitorTargets,
   startActivityPolling,
   subscribeActivityMonitorTargets,
 } from '../lib/client/activity-monitor.js'
@@ -203,6 +202,8 @@ check(
 )
 const activityPanelCss = await readFile(new URL('../src/client/ActivityPanel.module.css', import.meta.url), 'utf8')
 const activityPanelSource = await readFile(new URL('../src/client/ActivityPanel.tsx', import.meta.url), 'utf8')
+const activityMonitorSource = await readFile(new URL('../src/client/activity-monitor.ts', import.meta.url), 'utf8')
+const sessionNavigationSource = await readFile(new URL('../src/client/session-navigation.ts', import.meta.url), 'utf8')
 const stagingPlanSource = await readFile(new URL('../src/client/StagingPlanEditor.tsx', import.meta.url), 'utf8')
 const clientIndexSource = await readFile(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
 const agentTeamsCardCss = await readFile(new URL('../src/client/AgentTeamsCard.module.css', import.meta.url), 'utf8')
@@ -227,6 +228,28 @@ check(
     && clientIndexSource.includes("'conversationEvents', 'slots', 'sessions', 'locale', 'modelDirectories'")
     && clientIndexSource.includes('ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en })')
     && clientIndexSource.match(/locale:\s*AGENT_TEAMS_LOCALE_NAMESPACE/gu)?.length === 3,
+)
+check(
+  'activity panel renders only current V2 live/archive snapshots',
+  !activityPanelSource.includes('historicCardTeam')
+    && !activityPanelSource.includes('visibleHistoric')
+    && !activityPanelSource.includes('setHistoric'),
+)
+check(
+  'activity-panel summon carries no historic card projection payload',
+  !agentTeamsCardSource.includes('historical session review')
+    && !agentTeamsCardSource.includes('detail:'),
+)
+check(
+  'activity monitor has no archive-driven target retirement path',
+  !activityMonitorSource.includes('settleActivityMonitorTargets')
+    && !activityMonitorSource.includes('settleTargets')
+    && !activityMonitorSource.includes('target.active'),
+)
+check(
+  'member navigation has no ordinary session fallback',
+  !sessionNavigationSource.includes('sessions.open(childSessionId)')
+    && !sessionNavigationSource.includes("return 'session'"),
 )
 check(
   'slash command transcript hides the duplicate pre-message result row',
@@ -904,9 +927,8 @@ check(
 )
 releaseMonitorOne()
 check('one card cleanup keeps another card monitoring', getActivityMonitorTargetsSnapshot().length === 1)
-if (registeredMonitor !== undefined) settleActivityMonitorTargets(new Set([registeredMonitor.key]))
-check('archived targets retire from polling', getActivityMonitorTargetsSnapshot().length === 0)
 releaseMonitorTwo()
+check('target cleanup is controlled by card ownership', getActivityMonitorTargetsSnapshot().length === 0)
 unsubscribeMonitor()
 check('activity monitor publishes lifecycle changes without duplicate-card churn', monitorNotifications === 2)
 
@@ -1075,7 +1097,6 @@ await slowPoller.firstTick
 check('a late response after stop cannot publish snapshots', latePublications === 0)
 
 const fallbackUrls = []
-const settledFallbackKeys = []
 let fallbackResponseIndex = 0
 const fallbackResponses = [
   { ok: true, json: async () => ({ teams: [] }) },
@@ -1089,16 +1110,13 @@ const fallbackPoller = startActivityPolling([pollTarget], {
   schedule: () => 'fallback-timer',
   cancel: () => {},
   publishSnapshots: () => {},
-  settleTargets: (keys) => { settledFallbackKeys.push(...keys) },
 })
 await fallbackPoller.firstTick
 fallbackPoller.stop()
 check(
-  'a live miss checks archive once and retires even an orphaned legacy card',
+  'a live miss refreshes archive without retiring the mounted card target',
   fallbackUrls.length === 2
-    && fallbackUrls[1]?.endsWith('?archived=1')
-    && settledFallbackKeys.length === 1
-    && settledFallbackKeys[0] === pollTarget.key,
+    && fallbackUrls[1]?.endsWith('?archived=1'),
 )
 const navigationCalls = []
 const addressedNavigation = await openAgentTeamMember({
@@ -1121,8 +1139,8 @@ const legacyNavigation = await openAgentTeamMember({
   open: (id) => { legacyNavigationCalls.push(id) },
 }, 'captain-session', 'member-session')
 check(
-  'pre-rc.8 member navigation keeps the ordinary session fallback',
-  legacyNavigation === 'session' && legacyNavigationCalls[0] === 'member-session',
+  'missing addressed member navigation does not open another session',
+  legacyNavigation === undefined && legacyNavigationCalls.length === 0,
 )
 check(
   'agent team cards derive a stable id from the standard create tool call',
