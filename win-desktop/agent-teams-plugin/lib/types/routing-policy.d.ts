@@ -9,7 +9,6 @@ export declare function policyMarker(policy: DelegationPolicyId): string;
 /** Policy-specific activation guidance placed before the shared AgentTeams protocol. */
 export declare function delegationPolicyUsagePreamble(policy: DelegationPolicyId): string;
 export declare function persistedPolicy(events: readonly SessionEvent[]): DelegationPolicyId | undefined;
-export declare function hasEstablishedHistory(events: readonly SessionEvent[]): boolean;
 export declare function resolveDelegationPolicy(input: {
     events: readonly SessionEvent[];
     defaultMode: DelegationMode;

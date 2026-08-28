@@ -14,7 +14,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { type Agent } from '@deepseek-ai/dsh-agent';
 import { type TeamMember, type TeamState } from './types.ts';
-import type { AgentTeamsSettings } from './settings.ts';
+import { type RoleReasoningMode } from './selection-policy.ts';
 import { type DelegationPolicyRuntime } from './routing-policy.ts';
 /** Persona snapshot of a profile protocol; the full text lives on team.json. */
 export declare const PERSONA_PROTOCOL_MAX_CHARS = 400;
@@ -40,6 +40,8 @@ export interface MemberLlmSelection {
     model: string;
     /** Adapter-owned reasoning effort, absent when the target has no explicit/default effort. */
     reasoningEffort?: string;
+    /** Role policy used to select and restore this route. */
+    reasoningMode: RoleReasoningMode;
     /** Configured second-choice route. */
     fallback?: {
         provider: string;
@@ -48,21 +50,19 @@ export interface MemberLlmSelection {
 }
 /** Optional member-level route requested by the captain. */
 export interface MemberLlmSelectionRequest {
-    /** Explicit LLM provider route; requires an explicit model. */
+    /** Optional LLM provider route; must be paired with model. */
     provider?: string;
-    /** Explicit model id; otherwise the plugin default or captain model is used. */
+    /** Optional model id; otherwise the captain route is used. */
     model?: string;
-    /** Plugin-level member model default. */
-    defaultModel?: string;
-    /** Explicit reasoning effort; "default" selects the target model's default effort. */
+    /** Role-level reasoning policy. */
+    reasoningMode: RoleReasoningMode;
+    /** Explicit reasoning effort, required only for explicit mode. */
     reasoningEffort?: string;
     /** Configured fallback route. */
     fallback?: {
         provider: string;
         model: string;
     };
-    /** Current AgentTeams settings, read immediately before member selection. */
-    defaults: AgentTeamsSettings;
 }
 /** Process-local bridge between spawn admission and synchronous child setup. */
 export interface MemberSelectionRuntime {
@@ -93,21 +93,18 @@ export declare function selectFallbackRoute(current: {
     };
 };
 /**
- * Resolve one member's complete model selection. Ordinary members snapshot the
- * captain's current request route and reasoning effort. When provider or model
- * changes, effort is intentionally omitted so the target model materializes
- * its own default instead of receiving an adapter-owned id from another route.
- * An explicit effort overrides either policy; the sentinel "default" also
- * selects the target model's default. The final effort is validated against
- * the target model before a child is created.
+ * Resolve one member's complete role-specific model selection. The captain
+ * route is the only implicit route; there is no plugin/global member route.
+ * `resolveCallConfig` remains the final authority for provider/model/effort
+ * supportability before a child can be created.
  */
 export declare function resolveMemberLlmSelection(ctx: Context, captain: Agent, request: MemberLlmSelectionRequest, signal?: AbortSignal): Promise<MemberLlmSelection>;
 /**
  * Install the member selection bridge for every fresh or cold-resumed
  * continuable child. Fresh creation reads the pending in-memory selection;
  * cold resume restores the same selection from the owning team's durable
- * record. Legacy members without a complete saved route retain Harness's
- * descriptor provider/model behavior.
+ * record. Members without a complete saved role policy are rejected instead of
+ * falling back to an untracked Harness descriptor route.
  */
 export declare function installMemberSelectionRuntime(ctx: Context, stateDir: string, delegationPolicy?: DelegationPolicyRuntime): MemberSelectionRuntime;
 /**

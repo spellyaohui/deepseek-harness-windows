@@ -8,7 +8,8 @@
  * @module dsh-agent-teams/snapshot
  */
 import type { Context } from '@deepseek-ai/cordis';
-import type { MemberStatus, TeamState } from './types.ts';
+import type { MemberStatus, TaskKind, TeamState } from './types.ts';
+import type { RoleReasoningMode } from './selection-policy.ts';
 /** Visual task state for the activity panel. */
 export type VisualTaskState = 'blocked' | 'open' | 'running' | 'completed' | 'failed' | 'cancelled';
 /** One member row of the activity snapshot. */
@@ -18,6 +19,7 @@ export interface TeamActivityMember {
     readonly role: string;
     readonly provider: string;
     readonly model: string;
+    readonly reasoningMode: RoleReasoningMode;
     readonly reasoningEffort: string;
     readonly executionPrompt: string;
     readonly status: MemberStatus;
@@ -39,9 +41,20 @@ export interface TeamActivityTask {
     readonly model: string;
     readonly dependencies: readonly string[];
     readonly depth: number;
-    readonly kind?: string;
+    readonly kind?: TaskKind;
     readonly round?: number;
     readonly verdict?: string;
+    readonly objective?: string;
+    readonly inScope?: readonly string[];
+    readonly outOfScope?: readonly string[];
+    readonly acceptance?: readonly string[];
+    readonly verify?: readonly string[];
+    readonly deliverables?: readonly string[];
+    readonly nonGoals?: readonly string[];
+    readonly reviewedTaskId?: string;
+    readonly sourceTaskId?: string;
+    readonly sourceFindingIds?: readonly string[];
+    readonly coverageOf?: readonly string[];
 }
 /** One captain-inbox preview row. */
 export interface TeamActivityMessage {

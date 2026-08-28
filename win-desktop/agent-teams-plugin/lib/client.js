@@ -187,7 +187,7 @@ window.__ModuleLoader__.load({
 			return `${sessionId}\u0000${teamId}`;
 		}
 		function publishTargets() {
-			targetSnapshot = [...targets.values()].filter((target) => target.active).map(({ key, sessionId, teamId }) => ({
+			targetSnapshot = [...targets.values()].map(({ key, sessionId, teamId }) => ({
 				key,
 				sessionId,
 				teamId
@@ -222,17 +222,10 @@ window.__ModuleLoader__.load({
 					key,
 					sessionId: owner,
 					teamId: id,
-					refs: 1,
-					active: true
+					refs: 1
 				});
 				publishTargets();
-			} else {
-				existing.refs += 1;
-				if (!existing.active) {
-					existing.active = true;
-					publishTargets();
-				}
-			}
+			} else existing.refs += 1;
 			let released = false;
 			return () => {
 				if (released) return;
@@ -242,20 +235,9 @@ window.__ModuleLoader__.load({
 				current.refs -= 1;
 				if (current.refs <= 0) {
 					targets.delete(key);
-					if (current.active) publishTargets();
+					publishTargets();
 				}
 			};
-		}
-		/** Stop polling targets whose final archived snapshot has been captured. */
-		function settleActivityMonitorTargets(keys) {
-			let changed = false;
-			for (const key of keys) {
-				const target = targets.get(key);
-				if (target?.active !== true) continue;
-				target.active = false;
-				changed = true;
-			}
-			if (changed) publishTargets();
 		}
 		/** Subscribe to the shared live/archive snapshot. */
 		function subscribeActivitySnapshots(listener) {
@@ -304,7 +286,8 @@ window.__ModuleLoader__.load({
 		* the rest of its lifetime. The caller — the session view, which stops the
 		* controller when the session is no longer current — bounds the lifetime, and
 		* archive state is refreshed when a target or a previously discovered live
-		* team disappears.
+		* team disappears. Monitor demand remains owned by the mounted card and is
+		* released only when that card unmounts.
 		*/
 		function startActivityPolling(monitorTargets, runtime = {}) {
 			const discoverySessionId = runtime.discoverySessionId?.trim();
@@ -318,7 +301,6 @@ window.__ModuleLoader__.load({
 				clearInterval(timer);
 			});
 			const publishSnapshots = runtime.publishSnapshots ?? updateActivitySnapshots;
-			const settleTargets = runtime.settleTargets ?? settleActivityMonitorTargets;
 			let cancelled = false;
 			let inFlight = false;
 			let hot = monitorTargets.length > 0;
@@ -366,7 +348,6 @@ window.__ModuleLoader__.load({
 					if (cancelled || !Array.isArray(archivedBody.teams)) return;
 					publishSnapshots({ archivedTeams: archivedBody.teams });
 					discoveryComplete = true;
-					settleTargets(new Set(missing.map((target) => target.key)));
 				} catch (error) {
 					if (error?.name === "AbortError") return;
 				} finally {
@@ -429,7 +410,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:src/client/AgentTeamsCard.module.css.mjs
-		const css$2 = ".wR4yvW_root{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:10px;flex-direction:column;gap:8px;width:100%;min-width:0;padding:10px 12px;display:flex}.wR4yvW_head{align-items:center;gap:8px;min-width:0;display:flex}.wR4yvW_leadAvatar{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0;flex:none;width:30px;height:30px}.wR4yvW_teamName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:0 auto;font-size:13px;font-weight:600;line-height:20px;overflow:hidden}.wR4yvW_memberCount{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;margin-left:auto;font-size:11px;line-height:16px}.wR4yvW_panelButton{border:1px solid var(--dsw-alias-line-strong);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;flex:none;padding:2px 8px;font-size:10.5px;font-weight:600;line-height:16px;transition:border-color .12s,color .12s}.wR4yvW_panelButton:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}.wR4yvW_panelButton:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.wR4yvW_members{flex-wrap:wrap;gap:6px;min-width:0;display:flex}.wR4yvW_member{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);max-width:160px;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:5px;padding:3px 8px 3px 3px;font-size:11px;font-weight:500;line-height:16px;transition:border-color .12s,background-color .12s;display:inline-flex}.wR4yvW_member:hover{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-fill-neutral)}.wR4yvW_member:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.wR4yvW_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d482e);background:0 0;border:0;border-radius:0;width:24px;height:24px}.wR4yvW_memberInitial{background:var(--dsw-alias-bg-fill-business);width:20px;height:20px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:10px;font-weight:600;line-height:20px;display:inline-flex}.wR4yvW_memberName{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}";
+		const css$2 = ".fq2Ada_root{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:10px;flex-direction:column;gap:8px;width:100%;min-width:0;padding:10px 12px;display:flex}.fq2Ada_head{align-items:center;gap:8px;min-width:0;display:flex}.fq2Ada_leadAvatar{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0;flex:none;width:30px;height:30px}.fq2Ada_teamName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:0 auto;font-size:13px;font-weight:600;line-height:20px;overflow:hidden}.fq2Ada_memberCount{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;margin-left:auto;font-size:11px;line-height:16px}.fq2Ada_panelButton{border:1px solid var(--dsw-alias-line-strong);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;flex:none;padding:2px 8px;font-size:10.5px;font-weight:600;line-height:16px;transition:border-color .12s,color .12s}.fq2Ada_panelButton:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}.fq2Ada_panelButton:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.fq2Ada_members{flex-wrap:wrap;gap:6px;min-width:0;display:flex}.fq2Ada_member{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);max-width:160px;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:5px;padding:3px 8px 3px 3px;font-size:11px;font-weight:500;line-height:16px;transition:border-color .12s,background-color .12s;display:inline-flex}.fq2Ada_member:hover{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-fill-neutral)}.fq2Ada_member:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.fq2Ada_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d482e);background:0 0;border:0;border-radius:0;width:24px;height:24px}.fq2Ada_memberInitial{background:var(--dsw-alias-bg-fill-business);width:20px;height:20px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:10px;font-weight:600;line-height:20px;display:inline-flex}.fq2Ada_memberName{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}";
 		const tagId$2 = "@nanmicoder/dsh-agent-teams/AgentTeamsCard.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
@@ -439,17 +420,17 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var AgentTeamsCard_module_css_default = {
-			"head": "wR4yvW_head",
-			"leadAvatar": "wR4yvW_leadAvatar",
-			"member": "wR4yvW_member",
-			"memberArt": "wR4yvW_memberArt",
-			"memberCount": "wR4yvW_memberCount",
-			"memberInitial": "wR4yvW_memberInitial",
-			"memberName": "wR4yvW_memberName",
-			"members": "wR4yvW_members",
-			"panelButton": "wR4yvW_panelButton",
-			"root": "wR4yvW_root",
-			"teamName": "wR4yvW_teamName"
+			"head": "fq2Ada_head",
+			"leadAvatar": "fq2Ada_leadAvatar",
+			"member": "fq2Ada_member",
+			"memberArt": "fq2Ada_memberArt",
+			"memberCount": "fq2Ada_memberCount",
+			"memberInitial": "fq2Ada_memberInitial",
+			"memberName": "fq2Ada_memberName",
+			"members": "fq2Ada_members",
+			"panelButton": "fq2Ada_panelButton",
+			"root": "fq2Ada_root",
+			"teamName": "fq2Ada_teamName"
 		};
 		//#endregion
 		//#region lib/client/AgentTeamsCard.js
@@ -460,22 +441,14 @@ window.__ModuleLoader__.load({
 		* an "activity panel" button that re-activates the top-right floater.
 		*
 		* The floater and this card share the `agent-teams:open-panel` window event
-		* so the card can summon the panel even after it was closed (or when an old
-		* session is re-opened for review).
+		* so the card can summon the panel even after it was closed.
 		* @module dsh-agent-teams/client/card
 		*/
 		/** Window event name the floater listens for to open itself. */
 		const OPEN_PANEL_EVENT = "agent-teams:open-panel";
-		/** Re-activate the top-right activity panel, carrying this team's summary
-		* so the panel can show it even when the team no longer exists on disk
-		* (historical session review). */
-		function openActivityPanel(data) {
-			window.dispatchEvent(new CustomEvent(OPEN_PANEL_EVENT, { detail: {
-				teamId: data.teamId,
-				captainSessionId: data.captainSessionId,
-				teamName: data.teamName,
-				members: data.members
-			} }));
+		/** Re-activate the top-right activity panel. */
+		function openActivityPanel() {
+			window.dispatchEvent(new Event(OPEN_PANEL_EVENT));
 		}
 		/** Render one durable team as a compact conversation card. */
 		function AgentTeamsCard({ node, openMember, sessionId, t }) {
@@ -526,7 +499,7 @@ window.__ModuleLoader__.load({
 							type: "button",
 							className: AgentTeamsCard_module_css_default.panelButton,
 							onClick: () => {
-								openActivityPanel(resolved);
+								openActivityPanel();
 							},
 							"aria-label": t("action.openActivityPanel"),
 							title: t("action.openActivityPanel"),
@@ -559,8 +532,40 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region lib/client/staged-task-mutation.js
+		/** Browser-side construction of the complete staged-task Host mutation. */
+		function parseLineList(value) {
+			return [...new Set(value.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean))];
+		}
+		/** Build the exact payload submitted by the staged task editor. */
+		function buildStagedTaskMutationPayload(draft) {
+			return {
+				sessionId: draft.sessionId,
+				teamId: draft.teamId,
+				action: "update_task",
+				taskId: draft.taskId,
+				subject: draft.subject,
+				description: draft.description,
+				assignee: draft.assignee,
+				dependencies: draft.dependencies.split(",").map((item) => item.trim()).filter(Boolean),
+				kind: draft.kind,
+				round: draft.round.trim() === "" ? null : Number.parseInt(draft.round, 10),
+				objective: draft.objective,
+				inScope: parseLineList(draft.inScope),
+				outOfScope: parseLineList(draft.outOfScope),
+				acceptance: parseLineList(draft.acceptance),
+				verify: parseLineList(draft.verify),
+				deliverables: parseLineList(draft.deliverables),
+				nonGoals: parseLineList(draft.nonGoals),
+				reviewedTaskId: draft.reviewedTaskId,
+				sourceTaskId: draft.sourceTaskId,
+				sourceFindingIds: parseLineList(draft.sourceFindingIds),
+				coverageOf: parseLineList(draft.coverageOf)
+			};
+		}
+		//#endregion
 		//#region \0dsh-css:src/client/ActivityPanel.module.css.mjs
-		const css$1 = "html{--agent-teams-panel-shift:420px}html[data-agent-teams-panel-open] [data-phase=active]{box-sizing:border-box;padding-right:var(--agent-teams-panel-shift)}.FzGTMa_badge,.FzGTMa_panel{--dsw-alias-line-normal:var(--dsw-static-neutral-bluish-150,#e7e9ee);--dsw-alias-line-strong:color-mix(in srgb, var(--dsw-static-neutral-bluish-200,#e1e5ee) 50%, var(--dsw-static-neutral-bluish-300,#cfd3d6));--dsw-alias-bg-module:var(--dsw-alias-bg-layer-1,#fff);--dsw-alias-bg-fill-neutral:var(--dsw-static-neutral-bluish-100,#eef0f4);--dsw-alias-bg-fill-business:var(--dsw-alias-state-business-primary,#4d6bfe);--dsw-alias-bg-fill-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-bg-fill-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-bg-fill-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-state-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-state-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-state-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-label-on-fill:var(--dsw-alias-label-primary-inverted,#fff)}.FzGTMa_badge{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 92%, transparent);backdrop-filter:blur(16px);height:34px;box-shadow:0 8px 28px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:7px;padding:0 12px;font-size:12px;font-weight:600;line-height:20px;transition:border-color .15s,transform .12s;display:inline-flex;position:absolute;top:64px;right:18px}.FzGTMa_badge:hover{border-color:var(--dsw-alias-line-strong);transform:translateY(-1px)}.FzGTMa_badge:active{transform:translateY(0)scale(.98)}.FzGTMa_badge:focus-visible,.FzGTMa_iconButton:focus-visible,.FzGTMa_memberRow:focus-visible,.FzGTMa_membersToggle:focus-visible,.FzGTMa_sectionToggleTitle:focus-visible,.FzGTMa_dagNode:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}.FzGTMa_badgeDot,.FzGTMa_panelDot{background:var(--dsw-alias-label-tertiary);border-radius:50%;width:7px;height:7px}.FzGTMa_badgeDot[data-busy=true],.FzGTMa_panelDot[data-busy=true]{background:var(--dsw-alias-state-business-primary);animation:1.25s ease-in-out infinite FzGTMa_agentTeamsPulse}.FzGTMa_badgeCount,.FzGTMa_memberCount,.FzGTMa_teamStats,.FzGTMa_stageLabel,.FzGTMa_taskId{font-variant-numeric:tabular-nums}.FzGTMa_panel{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-line-strong) 58%, transparent);background:color-mix(in srgb, var(--dsw-alias-bg-module) 95%, transparent);backdrop-filter:blur(20px)saturate(1.08);box-shadow:0 12px 32px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent), 0 32px 72px color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);will-change:transform;border-radius:16px;flex-direction:column;animation:.16s ease-out FzGTMa_agentTeamsPanelIn;display:flex;position:absolute;top:0;left:0;overflow:hidden}.FzGTMa_panel[data-dragging],.FzGTMa_panel[data-resizing]{user-select:none;box-shadow:0 16px 38px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent), 0 36px 78px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent)}@keyframes FzGTMa_agentTeamsPanelIn{0%{opacity:0}to{opacity:1}}@keyframes FzGTMa_agentTeamsPulse{0%,to{opacity:.42}50%{opacity:1}}.FzGTMa_panelHead{border-bottom:1px solid var(--dsw-alias-line-normal);cursor:grab;touch-action:none;flex:none;justify-content:space-between;align-items:center;min-height:44px;padding:0 14px 0 16px;display:flex}.FzGTMa_panelHead:active,.FzGTMa_panel[data-dragging] .FzGTMa_panelHead{cursor:grabbing}.FzGTMa_panel[data-compact] .FzGTMa_panelHead{cursor:default;touch-action:auto}.FzGTMa_panelTitle{color:var(--dsw-alias-label-primary);align-items:center;gap:8px;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.FzGTMa_panelControls{flex:none;align-items:center;gap:2px;display:inline-flex}.FzGTMa_iconButton{width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:7px;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,transform .12s;display:inline-flex}.FzGTMa_iconButton:hover{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.FzGTMa_iconButton:active{transform:scale(.94)}.FzGTMa_iconButton[data-control=dock][data-mode=docked] svg{transform:scaleX(-1)}.FzGTMa_resizeHandle{z-index:1;touch-action:none;position:absolute}.FzGTMa_resizeHandle[data-resize-edge=left]{cursor:ew-resize;width:8px;top:44px;bottom:8px;left:0}.FzGTMa_resizeHandle[data-resize-edge=bottom]{cursor:ns-resize;height:8px;bottom:0;left:12px;right:12px}.FzGTMa_resizeHandle[data-resize-edge=corner]{cursor:nwse-resize;width:18px;height:18px;bottom:0;right:0}.FzGTMa_resizeHandle[data-resize-edge=corner]:after{border-right:1px solid var(--dsw-alias-label-tertiary);border-bottom:1px solid var(--dsw-alias-label-tertiary);content:\"\";opacity:.52;width:7px;height:7px;position:absolute;bottom:4px;right:4px}.FzGTMa_teams{overscroll-behavior:contain;scrollbar-color:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent) transparent;scrollbar-width:thin;flex-direction:column;min-height:0;display:flex;overflow-y:auto}.FzGTMa_teams::-webkit-scrollbar{width:6px}.FzGTMa_teams::-webkit-scrollbar-track{background:0 0}.FzGTMa_teams::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent);background-clip:padding-box;border:2px solid #0000;border-radius:999px}.FzGTMa_teams:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 44%, transparent);background-clip:padding-box}.FzGTMa_team{border-bottom:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:12px;padding:12px 14px 16px;display:flex;container:FzGTMa_agent-team/inline-size}.FzGTMa_team:last-child{border-bottom:0}.FzGTMa_teamHead{align-items:center;gap:10px;min-width:0;display:flex}.FzGTMa_teamName{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;font-weight:600;line-height:18px;overflow:hidden}.FzGTMa_teamStats{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;gap:8px;font-size:10.5px;line-height:16px;display:inline-flex}.FzGTMa_teamStopButton{border:1px solid var(--dsw-alias-line-normal);width:26px;height:26px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border-radius:7px;flex:none;place-items:center;padding:0;transition:border-color .15s,background .15s,color .15s;display:grid}.FzGTMa_teamStopButton:hover{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 42%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-danger) 7%, transparent);color:var(--dsw-alias-state-danger)}.FzGTMa_teamStopButton:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}.FzGTMa_stopModalActions{justify-content:flex-end;gap:8px;display:flex}.FzGTMa_stopModalActions button{border:1px solid var(--dsw-alias-line-normal,#e7e9ee);background:var(--dsw-alias-bg-fill-neutral,#eef0f4);min-height:34px;color:var(--dsw-alias-label-primary,#1c1c1e);cursor:pointer;font:inherit;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 13px;font-size:12px;font-weight:600;display:inline-flex}.FzGTMa_stopModalActions button[data-danger]{border-color:var(--dsw-alias-state-danger,#e5484d);background:var(--dsw-alias-state-danger,#e5484d);color:var(--dsw-alias-label-on-fill,#fff)}.FzGTMa_stopModalActions button:disabled{cursor:wait;opacity:.58}.FzGTMa_stopModalError{background:color-mix(in srgb, var(--dsw-alias-state-danger,#e5484d) 8%, transparent);color:var(--dsw-alias-state-danger,#e5484d);border-radius:8px;align-items:flex-start;gap:7px;margin:0;padding:9px 10px;font-size:12px;line-height:18px;display:flex}.FzGTMa_stopModalError svg{flex:none;margin-top:1px}.FzGTMa_sectionHead{justify-content:space-between;align-items:center;gap:8px;min-width:0;display:flex}.FzGTMa_sectionTitle{color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.FzGTMa_sectionHint{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.FzGTMa_delegationSection{min-width:0}.FzGTMa_captainNode{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));border-radius:10px;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:9px;min-height:56px;padding:6px 10px;display:grid}.FzGTMa_captainAvatar,.FzGTMa_memberAvatar{flex:none;justify-content:center;align-items:center;display:inline-flex;position:relative}.FzGTMa_captainAvatar{width:46px;height:46px}.FzGTMa_leadAvatar,.FzGTMa_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0}.FzGTMa_leadAvatar{width:44px;height:44px}.FzGTMa_memberArt{width:40px;height:40px}.FzGTMa_captainInfo,.FzGTMa_memberInfo{flex-direction:column;min-width:0;display:flex}.FzGTMa_captainInfo{gap:2px}.FzGTMa_captainLine,.FzGTMa_memberLine{align-items:center;gap:6px;min-width:0;display:flex}.FzGTMa_captainName,.FzGTMa_memberName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600;line-height:18px;overflow:hidden}.FzGTMa_captainRole,.FzGTMa_memberRole{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.FzGTMa_captainSummary,.FzGTMa_memberStatusLine{color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:15px;overflow:hidden}.FzGTMa_memberModel,.FzGTMa_taskDetailModel{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;line-height:14px;overflow:hidden}.FzGTMa_captainState,.FzGTMa_memberState{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;align-items:center;gap:5px;font-size:10px;font-weight:500;line-height:15px;display:inline-flex}.FzGTMa_captainState[data-busy=true],.FzGTMa_memberState[data-activity=working]{color:var(--dsw-alias-state-business-primary)}.FzGTMa_workGlyph rect{opacity:.5}.FzGTMa_workGlyph[data-active=true] rect{animation:1.1s ease-in-out infinite FzGTMa_agentTeamsDot}@keyframes FzGTMa_agentTeamsDot{0%,to{opacity:.25}50%{opacity:1}}.FzGTMa_progressOverview{flex-direction:column;gap:7px;display:flex}.FzGTMa_progressTitle{color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600;line-height:16px}.FzGTMa_progressSegments{gap:3px;display:flex}.FzGTMa_progressSegments>span,.FzGTMa_progressEmpty{background:var(--dsw-alias-line-strong);border-radius:2px;flex:1;height:5px}.FzGTMa_progressEmpty{width:100%;display:block}.FzGTMa_progressSegments>span[data-state=running]{background:var(--dsw-alias-state-business-primary)}.FzGTMa_progressSegments>span[data-state=blocked]{background:var(--dsw-alias-state-warning)}.FzGTMa_progressSegments>span[data-state=completed]{background:var(--dsw-alias-state-success)}.FzGTMa_progressSegments>span[data-state=failed]{background:var(--dsw-alias-state-danger)}.FzGTMa_progressSegments>span[data-state=cancelled]{opacity:.55}.FzGTMa_progressLegend{color:var(--dsw-alias-label-tertiary);gap:10px;font-size:9.5px;line-height:14px;display:flex}.FzGTMa_progressLegend>span[data-state=running]{color:var(--dsw-alias-state-business-primary)}.FzGTMa_progressLegend>span[data-state=blocked]{color:var(--dsw-alias-state-warning)}.FzGTMa_progressLegend>span[data-state=completed]{color:var(--dsw-alias-state-success)}.FzGTMa_progressSummary{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));min-width:0;color:var(--dsw-alias-label-secondary);border-radius:8px;align-items:center;gap:6px;padding:5px 8px;font-size:10px;font-weight:600;line-height:15px;display:flex}.FzGTMa_progressSummary[data-state=warning]{background:color-mix(in srgb, var(--dsw-alias-state-warning) 8%, var(--dsw-alias-bg-module))}.FzGTMa_progressSummary[data-state=completed]{background:color-mix(in srgb, var(--dsw-alias-state-success) 8%, var(--dsw-alias-bg-module))}.FzGTMa_progressSummary[data-state=discarded]{background:var(--dsw-alias-bg-fill-neutral)}.FzGTMa_progressSummary>span:last-child{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.FzGTMa_progressSummaryDot{background:var(--dsw-alias-state-business-primary);border-radius:50%;flex:none;width:5px;height:5px}.FzGTMa_progressSummary[data-state=warning] .FzGTMa_progressSummaryDot{background:var(--dsw-alias-state-warning)}.FzGTMa_progressSummary[data-state=completed] .FzGTMa_progressSummaryDot{background:var(--dsw-alias-state-success)}.FzGTMa_progressSummary[data-state=discarded] .FzGTMa_progressSummaryDot{background:var(--dsw-alias-label-tertiary)}.FzGTMa_membersToggle{background:var(--dsw-alias-bg-module-platform);width:100%;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border:0;border-radius:8px;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;font-size:10.5px;font-weight:600;line-height:15px;display:flex}.FzGTMa_membersToggle:hover{background:var(--dsw-alias-bg-fill-neutral)}.FzGTMa_membersToggle>span{align-items:center;gap:5px;display:inline-flex}.FzGTMa_membersToggle>span:last-child{color:var(--dsw-alias-state-business-primary)}.FzGTMa_chevron{flex:none;transition:transform .14s}.FzGTMa_chevron[data-open=true]{transform:rotate(90deg)}.FzGTMa_delegationTree{flex-direction:column;gap:2px;margin-left:18px;padding:9px 0 0 20px;display:flex;position:relative}.FzGTMa_delegationTree:before{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));content:\"\";width:1px;position:absolute;top:0;bottom:22px;left:0}.FzGTMa_memberBlock{flex-direction:column;min-width:0;padding:3px 0 7px;display:flex;position:relative}.FzGTMa_memberBranch{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));width:20px;height:1px;display:block;position:absolute;top:27px;right:100%}.FzGTMa_memberBranch:before{background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:5px;height:5px;position:absolute;top:-2px;right:-1px}.FzGTMa_memberRow{box-sizing:border-box;width:100%;min-width:0;min-height:48px;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:8px;padding:4px 6px;transition:background-color .12s,transform .12s;display:grid}.FzGTMa_memberRow:hover,.FzGTMa_memberRow[data-activity=working]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.FzGTMa_memberRow:active{transform:scale(.995)}.FzGTMa_memberAvatar{width:42px;height:42px}.FzGTMa_memberAvatar[data-unread=true]:after{box-sizing:border-box;border:1px solid var(--dsw-alias-bg-module);background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:6px;height:6px;animation:1.8s ease-in-out infinite FzGTMa_agentTeamsUnreadPulse;position:absolute;top:0;right:-1px}@keyframes FzGTMa_agentTeamsUnreadPulse{0%,to{opacity:.78;transform:scale(.92)}50%{opacity:1;transform:scale(1.16)}}.FzGTMa_memberInitial{background:var(--dsw-alias-bg-fill-business);width:34px;height:34px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.FzGTMa_stateArt{box-sizing:border-box;object-fit:contain;width:22px;height:22px;filter:drop-shadow(0 0 1px var(--dsw-alias-bg-module)) drop-shadow(0 1px 1px #122d483d);background:0 0;border:0;border-radius:0;position:absolute;bottom:-3px;right:-5px}.FzGTMa_stateArt[data-activity=working]{animation:2.4s ease-in-out infinite FzGTMa_agentTeamsFloat}.FzGTMa_stateArt[data-activity=idle]{animation:4.2s ease-in-out infinite FzGTMa_agentTeamsBreathe}.FzGTMa_stateArt[data-activity=unknown]{animation:2.8s ease-in-out infinite FzGTMa_agentTeamsThink}@keyframes FzGTMa_agentTeamsFloat{0%,to{transform:translateY(0)rotate(-4deg)}50%{transform:translateY(-2px)rotate(4deg)}}@keyframes FzGTMa_agentTeamsBreathe{0%,to{opacity:.82;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}@keyframes FzGTMa_agentTeamsThink{0%,to{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}.FzGTMa_memberState{margin-left:auto}.FzGTMa_memberCount{color:var(--dsw-alias-label-tertiary);font-size:10.5px;line-height:16px}.FzGTMa_assignmentLine{align-items:center;gap:7px;min-width:0;padding:0 6px 0 60px;display:flex}.FzGTMa_assignmentLabel{color:var(--dsw-alias-label-tertiary);flex:none;font-size:9.5px;line-height:14px}.FzGTMa_assignmentTasks{flex-wrap:wrap;flex:1;gap:4px;min-width:0;display:flex}.FzGTMa_assignmentChip{background:var(--dsw-alias-bg-fill-neutral);max-width:100%;min-height:16px;color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;border-radius:4px;align-items:center;padding:0 5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;font-weight:600;line-height:14px;display:inline-flex;overflow:hidden}.FzGTMa_assignmentChip[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.FzGTMa_assignmentChip[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.FzGTMa_assignmentChip[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.FzGTMa_assignmentChip[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.FzGTMa_assignmentChip[data-state=cancelled]{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}.FzGTMa_unreadPill{color:var(--dsw-alias-state-business-primary);white-space:nowrap;flex:none;font-size:9.5px;font-weight:600;line-height:14px}.FzGTMa_taskEmpty{color:var(--dsw-alias-label-tertiary);font-size:9.5px;line-height:14px}.FzGTMa_dependencySection{border-top:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:7px;min-width:0;padding-top:10px;display:flex}.FzGTMa_sectionToggleTitle{color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.FzGTMa_dagViewport{scrollbar-width:thin;min-width:0;padding:2px 0 4px;overflow-x:auto}.FzGTMa_dagCanvas{min-width:100%;position:relative}.FzGTMa_dagCanvas[data-layout=parallel]{flex-wrap:wrap;gap:8px;display:flex}.FzGTMa_dagCanvas[data-layout=parallel] .FzGTMa_dagNode{flex:92px;min-width:92px;position:relative}.FzGTMa_dagEdges{pointer-events:none;position:absolute;inset:0;overflow:visible}.FzGTMa_dagEdges path{fill:none;stroke:var(--dsw-alias-line-strong);stroke-width:1px;transition:opacity .14s,stroke .14s,stroke-width .14s}.FzGTMa_dagEdges path[data-active=true]{stroke:var(--dsw-alias-state-business-primary);stroke-width:1.6px}.FzGTMa_dagEdges path[data-dimmed=true]{opacity:.24}.FzGTMa_dagNode{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;border-radius:6px;flex-direction:column;justify-content:center;gap:1px;padding:0 6px;transition:border-color .14s,background-color .14s,opacity .14s;display:flex;position:absolute}.FzGTMa_dagNode:hover,.FzGTMa_dagNode[data-focused=true]{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.FzGTMa_dagNode[data-dimmed=true]{opacity:.3}.FzGTMa_dagNode[data-state=running][data-dimmed=true]{opacity:.58}.FzGTMa_dagNode[data-state=completed]{border-color:color-mix(in srgb, var(--dsw-alias-state-success) 48%, var(--dsw-alias-line-normal))}.FzGTMa_dagNode[data-state=blocked]{border-color:color-mix(in srgb, var(--dsw-alias-state-warning) 52%, var(--dsw-alias-line-normal))}.FzGTMa_dagNode[data-state=failed]{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 56%, var(--dsw-alias-line-normal))}.FzGTMa_dagNodeHead{color:var(--dsw-alias-label-primary);align-items:center;gap:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;font-weight:700;display:flex}.FzGTMa_dagNodeDot{background:var(--dsw-alias-line-strong);border-radius:1.5px;flex:none;width:5px;height:5px}.FzGTMa_dagNode[data-state=running] .FzGTMa_dagNodeDot{background:var(--dsw-alias-state-business-primary)}.FzGTMa_dagNode[data-state=running] .FzGTMa_dagNodeHead{padding-right:12px}.FzGTMa_dagRunningState{width:9px;height:9px;color:var(--dsw-alias-state-business-primary);pointer-events:none;justify-content:center;align-items:center;display:inline-flex;position:absolute;top:4px;right:5px}.FzGTMa_dagRunningState .FzGTMa_workGlyph{width:9px;height:9px}.FzGTMa_dagNode[data-state=blocked] .FzGTMa_dagNodeDot{background:var(--dsw-alias-state-warning)}.FzGTMa_dagNode[data-state=completed] .FzGTMa_dagNodeDot{background:var(--dsw-alias-state-success)}.FzGTMa_dagNode[data-state=failed] .FzGTMa_dagNodeDot{background:var(--dsw-alias-state-danger)}.FzGTMa_dagNodeLabel{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:11px;overflow:hidden}.FzGTMa_taskDetail{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:9px;flex-direction:column;gap:3px;min-width:0;padding:7px 9px;display:flex}.FzGTMa_taskDetailHead{align-items:center;gap:6px;min-width:0;display:flex}.FzGTMa_taskDetailId{color:var(--dsw-alias-state-business-primary);flex:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-weight:700}.FzGTMa_taskDetailSubject{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:16px;overflow:hidden}.FzGTMa_taskDetailBadge{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-secondary);border-radius:4px;flex:none;padding:0 5px;font-size:8.5px;font-weight:600;line-height:14px}.FzGTMa_taskDetailBadge[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.FzGTMa_taskDetailBadge[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.FzGTMa_taskDetailBadge[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.FzGTMa_taskDetailBadge[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.FzGTMa_taskDetailLine,.FzGTMa_taskDetailMeta{color:var(--dsw-alias-label-secondary);font-size:9.5px;line-height:14px}.FzGTMa_taskDetailMeta{color:var(--dsw-alias-label-tertiary)}.FzGTMa_emptyHint{color:var(--dsw-alias-label-tertiary);padding:10px 12px;font-size:11px;line-height:16px}.FzGTMa_planEditor{border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 30%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 94%, var(--dsw-alias-state-business-primary));box-shadow:inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent);border-radius:10px;flex-direction:column;gap:12px;margin:0 10px 12px;padding:12px;display:flex}.FzGTMa_planHeader>span{justify-content:space-between;align-items:center;gap:8px;display:flex}.FzGTMa_planHeader>span>span{flex-direction:column;gap:2px;min-width:0;display:flex}.FzGTMa_planHeader strong{color:var(--dsw-alias-label-primary);font-size:12px}.FzGTMa_planHeader small{color:var(--dsw-alias-label-secondary);font-size:9px;font-weight:500;line-height:13px}.FzGTMa_planHeader em{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill);border-radius:999px;flex:none;padding:1px 7px;font-size:9px;font-style:normal;line-height:16px}.FzGTMa_planHeader p{color:var(--dsw-alias-label-secondary);margin:5px 0 0;font-size:10px;line-height:15px}.FzGTMa_planFlow{grid-template-columns:repeat(3,minmax(0,1fr));margin:0;padding:0;list-style:none;display:grid}.FzGTMa_planFlow li{min-width:0;color:var(--dsw-alias-label-tertiary);align-items:center;gap:5px;font-size:9px;font-weight:600;line-height:14px;display:flex;position:relative}.FzGTMa_planFlow li:not(:last-child):after{background:var(--dsw-alias-line-normal);content:\"\";flex:1;min-width:8px;height:1px;margin-right:5px}.FzGTMa_planFlow li>span{border:1px solid var(--dsw-alias-line-normal);border-radius:50%;flex:none;place-items:center;width:18px;height:18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;display:grid}.FzGTMa_planFlow li[data-active]{color:var(--dsw-alias-state-business-primary)}.FzGTMa_planFlow li[data-active]>span{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)}.FzGTMa_planSection{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:8px;overflow:hidden}.FzGTMa_planSectionToggle,.FzGTMa_planCardHeader{box-sizing:border-box;width:100%;color:var(--dsw-alias-label-primary);cursor:pointer;text-align:left;background:0 0;border:0}.FzGTMa_planSectionToggle{justify-content:space-between;align-items:center;gap:8px;min-height:42px;padding:7px 9px;display:flex}.FzGTMa_planSectionToggle:hover,.FzGTMa_planCardHeader:hover{background:color-mix(in srgb, var(--dsw-alias-bg-fill-neutral) 46%, transparent)}.FzGTMa_planSectionToggle>span{align-items:baseline;gap:7px;min-width:0;display:flex}.FzGTMa_planSectionToggle strong{font-size:10.5px}.FzGTMa_planSectionToggle small{color:var(--dsw-alias-label-tertiary);font-size:9px}.FzGTMa_planList{border-top:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:0;display:flex}.FzGTMa_planEmpty{color:var(--dsw-alias-label-tertiary);text-align:center;margin:0;padding:12px;font-size:10px}.FzGTMa_planCard{background:0 0;border:0;border-radius:0;min-width:0;margin:0;padding:0;display:block;position:relative}.FzGTMa_planCard+.FzGTMa_planCard{border-top:1px solid var(--dsw-alias-line-normal)}.FzGTMa_planCard[data-open=true]{background:color-mix(in srgb, var(--dsw-alias-bg-base) 62%, transparent)}.FzGTMa_planCardHeader{grid-template-columns:minmax(80px,.9fr) minmax(72px,1.15fr) auto 12px;align-items:center;gap:7px;min-height:40px;padding:6px 9px;display:grid}.FzGTMa_planCardIdentity{flex-direction:column;gap:1px;min-width:0;display:flex}.FzGTMa_planCardIdentity strong,.FzGTMa_planTaskSummary{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:650;line-height:14px;overflow:hidden}.FzGTMa_planCardIdentity>span,.FzGTMa_planCardMeta{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:12px;overflow:hidden}.FzGTMa_planTaskId{background:var(--dsw-alias-bg-fill-neutral);width:max-content;color:var(--dsw-alias-label-secondary);border-radius:4px;padding:1px 5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:8.5px;font-weight:700;line-height:14px}.FzGTMa_planDirty{background:color-mix(in srgb, var(--dsw-alias-state-warning) 13%, transparent);color:var(--dsw-alias-state-warning);border-radius:999px;justify-self:end;padding:1px 5px;font-size:8px;font-style:normal;font-weight:650;line-height:14px}.FzGTMa_planChevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .18s cubic-bezier(.2,.7,.2,1)}.FzGTMa_planChevron[data-open=true]{transform:rotate(90deg)}.FzGTMa_planCardBody{flex-direction:column;gap:8px;padding:0 9px 9px;display:flex}.FzGTMa_planCardBody fieldset{border:0;flex-direction:column;gap:7px;min-width:0;margin:0;padding:0;display:flex}.FzGTMa_planCardBody label,.FzGTMa_planNewTask label{min-width:0;color:var(--dsw-alias-label-tertiary);flex-direction:column;flex:1;gap:4px;font-size:9px;display:flex}.FzGTMa_planCardBody label small{color:var(--dsw-alias-label-tertiary);font-size:8px;line-height:11px}.FzGTMa_planCard input,.FzGTMa_planCard textarea,.FzGTMa_planCard select,.FzGTMa_planNewTask input{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-base);width:100%;min-width:0;color:var(--dsw-alias-label-primary);font:inherit;border-radius:6px;outline:none;font-size:10.5px;line-height:16px;transition:border-color .16s,box-shadow .16s}.FzGTMa_planCard input,.FzGTMa_planCard select,.FzGTMa_planNewTask input{min-height:32px;padding:6px 8px}.FzGTMa_planCard textarea{resize:vertical;min-height:58px;padding:7px 8px}.FzGTMa_planCard input:focus-visible,.FzGTMa_planCard textarea:focus-visible,.FzGTMa_planCard select:focus-visible,.FzGTMa_planNewTask input:focus-visible{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 16%, transparent)}.FzGTMa_planGrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;display:grid}.FzGTMa_planModelPicker{grid-template-columns:minmax(0,1fr);gap:5px;display:grid}.FzGTMa_planModelMenu{width:100%;display:flex}.FzGTMa_planModelTrigger{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);width:100%;min-height:38px;color:var(--dsw-alias-label-primary);cursor:pointer;text-align:left;border-radius:7px;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;transition:border-color .16s,background-color .16s,transform .12s;display:flex}.FzGTMa_planModelTrigger:hover:not(:disabled){border-color:var(--dsw-alias-border-l3);background:var(--dsw-alias-interactive-bg-hover)}.FzGTMa_planModelTrigger:active:not(:disabled){transform:translateY(1px)}.FzGTMa_planModelTrigger:focus-visible{border-color:var(--dsw-alias-state-business-primary);outline:2px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 16%, transparent);outline-offset:1px}.FzGTMa_planModelTrigger:disabled{cursor:wait;opacity:.64}.FzGTMa_planModelTriggerCopy{align-items:baseline;gap:6px;min-width:0;display:flex}.FzGTMa_planModelTriggerCopy strong,.FzGTMa_planModelTriggerCopy span{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.FzGTMa_planModelTriggerCopy strong{color:var(--dsw-alias-label-primary);font-size:10px;font-weight:650;line-height:15px}.FzGTMa_planModelTriggerCopy span{color:var(--dsw-alias-label-tertiary);font-size:9px;line-height:14px}.FzGTMa_planModelMenuRow{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-width:0;display:grid}.FzGTMa_planModelMenuRow>span:first-child{color:var(--dsw-alias-label-primary)}.FzGTMa_planModelMenuRow strong{color:var(--dsw-alias-label-tertiary);text-align:right;text-overflow:ellipsis;white-space:nowrap;font-weight:450;overflow:hidden}.FzGTMa_planModelMenuBack{align-items:center;gap:7px;display:inline-flex}.FzGTMa_planModelMenuBack svg{transform:rotate(180deg)}.FzGTMa_planModelEffortRow{flex-direction:column;align-items:flex-start;min-width:0;display:flex}.FzGTMa_planModelEffortRow small{width:100%;color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.FzGTMa_planModelHint{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:12px;overflow:hidden}.FzGTMa_planModelNotice{background:color-mix(in srgb, var(--dsw-alias-state-warning) 9%, transparent);color:var(--dsw-alias-label-secondary);border-radius:6px;grid-column:1/-1;justify-content:space-between;align-items:center;gap:8px;padding:6px 7px;font-size:8.5px;line-height:12px;display:flex}.FzGTMa_planModelNotice button{color:var(--dsw-alias-state-business-primary);cursor:pointer;font:inherit;background:0 0;border:0;flex:none;padding:2px 6px;font-weight:650}.FzGTMa_planActions,.FzGTMa_planApproveRow,.FzGTMa_planNewTask,.FzGTMa_planConfirm,.FzGTMa_planApproveActions,.FzGTMa_planSecondaryActions{align-items:center;gap:7px;display:flex}.FzGTMa_planReviewActions{grid-template-columns:minmax(0,1fr);gap:6px;width:100%;display:grid}.FzGTMa_planSecondaryActions{grid-template-columns:minmax(0,1fr) auto;display:grid}.FzGTMa_planActions{justify-content:flex-end}.FzGTMa_planActions button,.FzGTMa_planNewTask button,.FzGTMa_planApproveRow button,.FzGTMa_planConfirm button{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-fill-neutral);min-height:30px;color:var(--dsw-alias-label-primary);cursor:pointer;border-radius:6px;flex:none;padding:5px 10px;font-size:9.5px;font-weight:600;transition:background .16s,border-color .16s,transform .16s}.FzGTMa_planActions button:hover:not(:disabled),.FzGTMa_planNewTask button:hover:not(:disabled),.FzGTMa_planApproveRow button:hover:not(:disabled),.FzGTMa_planConfirm button:hover:not(:disabled){border-color:var(--dsw-alias-label-tertiary)}.FzGTMa_planActions button:active:not(:disabled),.FzGTMa_planNewTask button:active:not(:disabled),.FzGTMa_planApproveRow button:active:not(:disabled),.FzGTMa_planConfirm button:active:not(:disabled){transform:scale(.98)}.FzGTMa_planActions button[data-danger],.FzGTMa_planConfirm button[data-danger]{color:var(--dsw-alias-state-danger)}.FzGTMa_planFeedback{min-width:0;color:var(--dsw-alias-label-secondary);flex:1;align-items:center;gap:5px;font-size:9px;line-height:13px;animation:.18s ease-out FzGTMa_plan-feedback-in;display:inline-flex}.FzGTMa_planFeedback[data-tone=success]{color:var(--dsw-alias-state-success)}.FzGTMa_planFeedback[data-tone=error]{color:var(--dsw-alias-state-danger)}.FzGTMa_planFeedback>span{border:1px solid;border-radius:50%;flex:none;place-items:center;width:15px;height:15px;display:grid}.FzGTMa_planFeedback svg{width:11px;height:11px}@keyframes FzGTMa_plan-feedback-in{0%{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}.FzGTMa_planConfirm{border:1px solid color-mix(in srgb, var(--dsw-alias-state-danger) 30%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-danger) 7%, transparent);border-radius:7px;flex-wrap:wrap;justify-content:flex-end;padding:7px}.FzGTMa_planConfirm>span{min-width:140px;color:var(--dsw-alias-label-secondary);flex:1;font-size:9px;line-height:13px}.FzGTMa_planNewTask{align-items:flex-end}.FzGTMa_planNewTask label{gap:4px}.FzGTMa_planNewTask label>span{line-height:13px}.FzGTMa_planApproveRow{z-index:1;border:1px solid var(--dsw-alias-line-normal);background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 94%, transparent);min-height:50px;box-shadow:0 -5px 16px color-mix(in srgb, var(--dsw-alias-bg-base) 35%, transparent);backdrop-filter:blur(8px);border-radius:8px;flex-direction:column;justify-content:flex-end;align-items:stretch;margin:0 -4px -4px;padding:8px;position:sticky;bottom:0}.FzGTMa_planApproveRow[data-armed=true]{border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, var(--dsw-alias-line-normal))}.FzGTMa_planApproveRow[data-discard=true]{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 45%, var(--dsw-alias-line-normal))}.FzGTMa_planApproveCopy{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.FzGTMa_planApproveCopy strong{color:var(--dsw-alias-label-primary);font-size:9.5px;line-height:13px}.FzGTMa_planApproveCopy small{color:var(--dsw-alias-label-tertiary);font-size:8.5px;line-height:12px}.FzGTMa_planApproveRow button{background:var(--dsw-alias-state-business-primary);min-height:32px;color:var(--dsw-alias-label-on-fill);padding-inline:13px}.FzGTMa_planReviewActions>button[data-plan-approve]{width:100%}.FzGTMa_planApproveActions>button:first-child{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.FzGTMa_planSecondaryActions>button,.FzGTMa_planApproveActions>button[data-danger]{border-color:var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.FzGTMa_planSecondaryActions>button[data-danger],.FzGTMa_planApproveActions>button[data-danger]{color:var(--dsw-alias-state-danger)}.FzGTMa_planSectionToggle:focus-visible,.FzGTMa_planCardHeader:focus-visible,.FzGTMa_planActions button:focus-visible,.FzGTMa_planNewTask button:focus-visible,.FzGTMa_planApproveRow button:focus-visible,.FzGTMa_planConfirm button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}.FzGTMa_planActions button:disabled,.FzGTMa_planNewTask button:disabled,.FzGTMa_planApproveRow button:disabled{cursor:default;opacity:.55}.FzGTMa_historicPill{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-tertiary);border-radius:4px;flex:none;margin-left:auto;padding:1px 7px;font-size:9.5px;font-weight:600;line-height:15px}.FzGTMa_members{flex-direction:column;gap:3px;display:flex}.FzGTMa_archiveLabel{color:var(--dsw-alias-label-tertiary);padding:5px 14px 0;font-size:9.5px;font-weight:600;line-height:14px;display:block}@media (prefers-reduced-motion:reduce){.FzGTMa_panel,.FzGTMa_badge,.FzGTMa_badgeDot,.FzGTMa_panelDot,.FzGTMa_workGlyph rect,.FzGTMa_stateArt,.FzGTMa_memberAvatar[data-unread=true]:after,.FzGTMa_planChevron,.FzGTMa_planFeedback,.FzGTMa_planActions button,.FzGTMa_planNewTask button,.FzGTMa_planApproveRow button,.FzGTMa_planConfirm button,.FzGTMa_planCard input,.FzGTMa_planCard textarea,.FzGTMa_planCard select,.FzGTMa_planNewTask input{transition:none;animation:none}}@media (width<=960px){html[data-agent-teams-panel-open] [data-phase=active]{padding-right:0}}@media (width<=640px){.FzGTMa_badge{top:56px;right:10px}.FzGTMa_teamStats span[data-stat=messages]{display:none}.FzGTMa_captainNode{grid-template-columns:48px minmax(0,1fr)}.FzGTMa_captainState{display:none}.FzGTMa_delegationTree{margin-left:12px;padding-left:15px}.FzGTMa_memberBranch{width:15px}.FzGTMa_assignmentLine{padding-left:53px}.FzGTMa_planFlow li{gap:4px;font-size:8px}.FzGTMa_planFlow li:not(:last-child):after{margin-right:3px}.FzGTMa_planCardHeader{grid-template-columns:auto minmax(0,1fr) auto}.FzGTMa_planCardHeader .FzGTMa_planCardMeta{display:none}.FzGTMa_planGrid,.FzGTMa_planModelPicker{grid-template-columns:minmax(0,1fr)}.FzGTMa_planNewTask,.FzGTMa_planApproveRow{flex-direction:column;align-items:stretch}.FzGTMa_planNewTask button,.FzGTMa_planApproveRow>button,.FzGTMa_planApproveActions,.FzGTMa_planReviewActions{width:100%}.FzGTMa_planApproveActions button,.FzGTMa_planReviewActions button,.FzGTMa_planSecondaryActions button{flex:1}}@container FzGTMa_agent-team (width<=360px){.FzGTMa_planEditor{margin-inline:0;padding-inline:10px}.FzGTMa_planHeader>span{align-items:flex-start}.FzGTMa_planFlow li{gap:3px;font-size:7.5px}.FzGTMa_planFlow li:not(:last-child):after{min-width:4px;margin-right:2px}.FzGTMa_planSecondaryActions,.FzGTMa_planApproveActions{grid-template-columns:minmax(0,1fr);width:100%;display:grid}.FzGTMa_planSecondaryActions button,.FzGTMa_planApproveActions button{width:100%}}";
+		const css$1 = "html{--agent-teams-panel-shift:420px}html[data-agent-teams-panel-open] [data-phase=active]{box-sizing:border-box;padding-right:var(--agent-teams-panel-shift)}.AdyMkG_badge,.AdyMkG_panel{--dsw-alias-line-normal:var(--dsw-static-neutral-bluish-150,#e7e9ee);--dsw-alias-line-strong:color-mix(in srgb, var(--dsw-static-neutral-bluish-200,#e1e5ee) 50%, var(--dsw-static-neutral-bluish-300,#cfd3d6));--dsw-alias-bg-module:var(--dsw-alias-bg-layer-1,#fff);--dsw-alias-bg-fill-neutral:var(--dsw-static-neutral-bluish-100,#eef0f4);--dsw-alias-bg-fill-business:var(--dsw-alias-state-business-primary,#4d6bfe);--dsw-alias-bg-fill-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-bg-fill-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-bg-fill-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-state-success:var(--dsw-alias-state-success-primary,#12a150);--dsw-alias-state-warning:var(--dsw-alias-state-warn-primary,#e08700);--dsw-alias-state-danger:var(--dsw-alias-state-error-primary,#e5484d);--dsw-alias-label-on-fill:var(--dsw-alias-label-primary-inverted,#fff)}.AdyMkG_badge{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 92%, transparent);backdrop-filter:blur(16px);height:34px;box-shadow:0 8px 28px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border-radius:999px;align-items:center;gap:7px;padding:0 12px;font-size:12px;font-weight:600;line-height:20px;transition:border-color .15s,transform .12s;display:inline-flex;position:absolute;top:64px;right:18px}.AdyMkG_badge:hover{border-color:var(--dsw-alias-line-strong);transform:translateY(-1px)}.AdyMkG_badge:active{transform:translateY(0)scale(.98)}.AdyMkG_badge:focus-visible,.AdyMkG_iconButton:focus-visible,.AdyMkG_memberRow:focus-visible,.AdyMkG_membersToggle:focus-visible,.AdyMkG_sectionToggleTitle:focus-visible,.AdyMkG_dagNode:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}.AdyMkG_badgeDot,.AdyMkG_panelDot{background:var(--dsw-alias-label-tertiary);border-radius:50%;width:7px;height:7px}.AdyMkG_badgeDot[data-busy=true],.AdyMkG_panelDot[data-busy=true]{background:var(--dsw-alias-state-business-primary);animation:1.25s ease-in-out infinite AdyMkG_agentTeamsPulse}.AdyMkG_badgeCount,.AdyMkG_memberCount,.AdyMkG_teamStats,.AdyMkG_stageLabel,.AdyMkG_taskId{font-variant-numeric:tabular-nums}.AdyMkG_panel{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-line-strong) 58%, transparent);background:color-mix(in srgb, var(--dsw-alias-bg-module) 95%, transparent);backdrop-filter:blur(20px)saturate(1.08);box-shadow:0 12px 32px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent), 0 32px 72px color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent);will-change:transform;border-radius:16px;flex-direction:column;animation:.16s ease-out AdyMkG_agentTeamsPanelIn;display:flex;position:absolute;top:0;left:0;overflow:hidden}.AdyMkG_panel[data-dragging],.AdyMkG_panel[data-resizing]{user-select:none;box-shadow:0 16px 38px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent), 0 36px 78px color-mix(in srgb, var(--dsw-alias-label-primary) 18%, transparent)}@keyframes AdyMkG_agentTeamsPanelIn{0%{opacity:0}to{opacity:1}}@keyframes AdyMkG_agentTeamsPulse{0%,to{opacity:.42}50%{opacity:1}}.AdyMkG_panelHead{border-bottom:1px solid var(--dsw-alias-line-normal);cursor:grab;touch-action:none;flex:none;justify-content:space-between;align-items:center;min-height:44px;padding:0 14px 0 16px;display:flex}.AdyMkG_panelHead:active,.AdyMkG_panel[data-dragging] .AdyMkG_panelHead{cursor:grabbing}.AdyMkG_panel[data-compact] .AdyMkG_panelHead{cursor:default;touch-action:auto}.AdyMkG_panelTitle{color:var(--dsw-alias-label-primary);align-items:center;gap:8px;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.AdyMkG_panelControls{flex:none;align-items:center;gap:2px;display:inline-flex}.AdyMkG_iconButton{width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:7px;justify-content:center;align-items:center;padding:0;transition:background-color .12s,color .12s,transform .12s;display:inline-flex}.AdyMkG_iconButton:hover{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.AdyMkG_iconButton:active{transform:scale(.94)}.AdyMkG_iconButton[data-control=dock][data-mode=docked] svg{transform:scaleX(-1)}.AdyMkG_resizeHandle{z-index:1;touch-action:none;position:absolute}.AdyMkG_resizeHandle[data-resize-edge=left]{cursor:ew-resize;width:8px;top:44px;bottom:8px;left:0}.AdyMkG_resizeHandle[data-resize-edge=bottom]{cursor:ns-resize;height:8px;bottom:0;left:12px;right:12px}.AdyMkG_resizeHandle[data-resize-edge=corner]{cursor:nwse-resize;width:18px;height:18px;bottom:0;right:0}.AdyMkG_resizeHandle[data-resize-edge=corner]:after{border-right:1px solid var(--dsw-alias-label-tertiary);border-bottom:1px solid var(--dsw-alias-label-tertiary);content:\"\";opacity:.52;width:7px;height:7px;position:absolute;bottom:4px;right:4px}.AdyMkG_teams{overscroll-behavior:contain;scrollbar-color:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent) transparent;scrollbar-width:thin;flex-direction:column;min-height:0;display:flex;overflow-y:auto}.AdyMkG_teams::-webkit-scrollbar{width:6px}.AdyMkG_teams::-webkit-scrollbar-track{background:0 0}.AdyMkG_teams::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 28%, transparent);background-clip:padding-box;border:2px solid #0000;border-radius:999px}.AdyMkG_teams:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--dsw-alias-label-tertiary) 44%, transparent);background-clip:padding-box}.AdyMkG_team{border-bottom:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:12px;padding:12px 14px 16px;display:flex;container:AdyMkG_agent-team/inline-size}.AdyMkG_team:last-child{border-bottom:0}.AdyMkG_teamHead{align-items:center;gap:10px;min-width:0;display:flex}.AdyMkG_teamName{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;font-weight:600;line-height:18px;overflow:hidden}.AdyMkG_teamStats{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;gap:8px;font-size:10.5px;line-height:16px;display:inline-flex}.AdyMkG_teamStopButton{border:1px solid var(--dsw-alias-line-normal);width:26px;height:26px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border-radius:7px;flex:none;place-items:center;padding:0;transition:border-color .15s,background .15s,color .15s;display:grid}.AdyMkG_teamStopButton:hover{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 42%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-danger) 7%, transparent);color:var(--dsw-alias-state-danger)}.AdyMkG_teamStopButton:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}.AdyMkG_stopModalActions{justify-content:flex-end;gap:8px;display:flex}.AdyMkG_stopModalActions button{border:1px solid var(--dsw-alias-line-normal,#e7e9ee);background:var(--dsw-alias-bg-fill-neutral,#eef0f4);min-height:34px;color:var(--dsw-alias-label-primary,#1c1c1e);cursor:pointer;font:inherit;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 13px;font-size:12px;font-weight:600;display:inline-flex}.AdyMkG_stopModalActions button[data-danger]{border-color:var(--dsw-alias-state-danger,#e5484d);background:var(--dsw-alias-state-danger,#e5484d);color:var(--dsw-alias-label-on-fill,#fff)}.AdyMkG_stopModalActions button:disabled{cursor:wait;opacity:.58}.AdyMkG_stopModalError{background:color-mix(in srgb, var(--dsw-alias-state-danger,#e5484d) 8%, transparent);color:var(--dsw-alias-state-danger,#e5484d);border-radius:8px;align-items:flex-start;gap:7px;margin:0;padding:9px 10px;font-size:12px;line-height:18px;display:flex}.AdyMkG_stopModalError svg{flex:none;margin-top:1px}.AdyMkG_sectionHead{justify-content:space-between;align-items:center;gap:8px;min-width:0;display:flex}.AdyMkG_sectionTitle{color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.AdyMkG_sectionHint{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.AdyMkG_delegationSection{min-width:0}.AdyMkG_captainNode{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 32%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));border-radius:10px;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:9px;min-height:56px;padding:6px 10px;display:grid}.AdyMkG_captainAvatar,.AdyMkG_memberAvatar{flex:none;justify-content:center;align-items:center;display:inline-flex;position:relative}.AdyMkG_captainAvatar{width:46px;height:46px}.AdyMkG_leadAvatar,.AdyMkG_memberArt{object-fit:contain;filter:drop-shadow(0 1px 1px #122d4833);background:0 0;border:0;border-radius:0}.AdyMkG_leadAvatar{width:44px;height:44px}.AdyMkG_memberArt{width:40px;height:40px}.AdyMkG_captainInfo,.AdyMkG_memberInfo{flex-direction:column;min-width:0;display:flex}.AdyMkG_captainInfo{gap:2px}.AdyMkG_captainLine,.AdyMkG_memberLine{align-items:center;gap:6px;min-width:0;display:flex}.AdyMkG_captainName,.AdyMkG_memberName{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:600;line-height:18px;overflow:hidden}.AdyMkG_captainRole,.AdyMkG_memberRole{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.AdyMkG_captainSummary,.AdyMkG_memberStatusLine{color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;line-height:15px;overflow:hidden}.AdyMkG_memberModel,.AdyMkG_taskDetailModel{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;line-height:14px;overflow:hidden}.AdyMkG_captainState,.AdyMkG_memberState{color:var(--dsw-alias-label-tertiary);white-space:nowrap;flex:none;align-items:center;gap:5px;font-size:10px;font-weight:500;line-height:15px;display:inline-flex}.AdyMkG_captainState[data-busy=true],.AdyMkG_memberState[data-activity=working]{color:var(--dsw-alias-state-business-primary)}.AdyMkG_workGlyph rect{opacity:.5}.AdyMkG_workGlyph[data-active=true] rect{animation:1.1s ease-in-out infinite AdyMkG_agentTeamsDot}@keyframes AdyMkG_agentTeamsDot{0%,to{opacity:.25}50%{opacity:1}}.AdyMkG_progressOverview{flex-direction:column;gap:7px;display:flex}.AdyMkG_progressTitle{color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600;line-height:16px}.AdyMkG_progressSegments{gap:3px;display:flex}.AdyMkG_progressSegments>span,.AdyMkG_progressEmpty{background:var(--dsw-alias-line-strong);border-radius:2px;flex:1;height:5px}.AdyMkG_progressEmpty{width:100%;display:block}.AdyMkG_progressSegments>span[data-state=running]{background:var(--dsw-alias-state-business-primary)}.AdyMkG_progressSegments>span[data-state=blocked]{background:var(--dsw-alias-state-warning)}.AdyMkG_progressSegments>span[data-state=completed]{background:var(--dsw-alias-state-success)}.AdyMkG_progressSegments>span[data-state=failed]{background:var(--dsw-alias-state-danger)}.AdyMkG_progressSegments>span[data-state=cancelled]{opacity:.55}.AdyMkG_progressLegend{color:var(--dsw-alias-label-tertiary);gap:10px;font-size:9.5px;line-height:14px;display:flex}.AdyMkG_progressLegend>span[data-state=running]{color:var(--dsw-alias-state-business-primary)}.AdyMkG_progressLegend>span[data-state=blocked]{color:var(--dsw-alias-state-warning)}.AdyMkG_progressLegend>span[data-state=completed]{color:var(--dsw-alias-state-success)}.AdyMkG_progressSummary{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 7%, var(--dsw-alias-bg-module));min-width:0;color:var(--dsw-alias-label-secondary);border-radius:8px;align-items:center;gap:6px;padding:5px 8px;font-size:10px;font-weight:600;line-height:15px;display:flex}.AdyMkG_progressSummary[data-state=warning]{background:color-mix(in srgb, var(--dsw-alias-state-warning) 8%, var(--dsw-alias-bg-module))}.AdyMkG_progressSummary[data-state=completed]{background:color-mix(in srgb, var(--dsw-alias-state-success) 8%, var(--dsw-alias-bg-module))}.AdyMkG_progressSummary[data-state=discarded]{background:var(--dsw-alias-bg-fill-neutral)}.AdyMkG_progressSummary>span:last-child{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.AdyMkG_progressSummaryDot{background:var(--dsw-alias-state-business-primary);border-radius:50%;flex:none;width:5px;height:5px}.AdyMkG_progressSummary[data-state=warning] .AdyMkG_progressSummaryDot{background:var(--dsw-alias-state-warning)}.AdyMkG_progressSummary[data-state=completed] .AdyMkG_progressSummaryDot{background:var(--dsw-alias-state-success)}.AdyMkG_progressSummary[data-state=discarded] .AdyMkG_progressSummaryDot{background:var(--dsw-alias-label-tertiary)}.AdyMkG_membersToggle{background:var(--dsw-alias-bg-module-platform);width:100%;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;border:0;border-radius:8px;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;font-size:10.5px;font-weight:600;line-height:15px;display:flex}.AdyMkG_membersToggle:hover{background:var(--dsw-alias-bg-fill-neutral)}.AdyMkG_membersToggle>span{align-items:center;gap:5px;display:inline-flex}.AdyMkG_membersToggle>span:last-child{color:var(--dsw-alias-state-business-primary)}.AdyMkG_chevron{flex:none;transition:transform .14s}.AdyMkG_chevron[data-open=true]{transform:rotate(90deg)}.AdyMkG_delegationTree{flex-direction:column;gap:2px;margin-left:18px;padding:9px 0 0 20px;display:flex;position:relative}.AdyMkG_delegationTree:before{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));content:\"\";width:1px;position:absolute;top:0;bottom:22px;left:0}.AdyMkG_memberBlock{flex-direction:column;min-width:0;padding:3px 0 7px;display:flex;position:relative}.AdyMkG_memberBranch{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 48%, var(--dsw-alias-line-normal));width:20px;height:1px;display:block;position:absolute;top:27px;right:100%}.AdyMkG_memberBranch:before{background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:5px;height:5px;position:absolute;top:-2px;right:-1px}.AdyMkG_memberRow{box-sizing:border-box;width:100%;min-width:0;min-height:48px;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;border-radius:8px;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:8px;padding:4px 6px;transition:background-color .12s,transform .12s;display:grid}.AdyMkG_memberRow:hover,.AdyMkG_memberRow[data-activity=working]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.AdyMkG_memberRow:active{transform:scale(.995)}.AdyMkG_memberAvatar{width:42px;height:42px}.AdyMkG_memberAvatar[data-unread=true]:after{box-sizing:border-box;border:1px solid var(--dsw-alias-bg-module);background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:50%;width:6px;height:6px;animation:1.8s ease-in-out infinite AdyMkG_agentTeamsUnreadPulse;position:absolute;top:0;right:-1px}@keyframes AdyMkG_agentTeamsUnreadPulse{0%,to{opacity:.78;transform:scale(.92)}50%{opacity:1;transform:scale(1.16)}}.AdyMkG_memberInitial{background:var(--dsw-alias-bg-fill-business);width:34px;height:34px;color:var(--dsw-alias-label-on-fill);border-radius:50%;justify-content:center;align-items:center;font-size:14px;font-weight:600;line-height:20px;display:inline-flex}.AdyMkG_stateArt{box-sizing:border-box;object-fit:contain;width:22px;height:22px;filter:drop-shadow(0 0 1px var(--dsw-alias-bg-module)) drop-shadow(0 1px 1px #122d483d);background:0 0;border:0;border-radius:0;position:absolute;bottom:-3px;right:-5px}.AdyMkG_stateArt[data-activity=working]{animation:2.4s ease-in-out infinite AdyMkG_agentTeamsFloat}.AdyMkG_stateArt[data-activity=idle]{animation:4.2s ease-in-out infinite AdyMkG_agentTeamsBreathe}.AdyMkG_stateArt[data-activity=unknown]{animation:2.8s ease-in-out infinite AdyMkG_agentTeamsThink}@keyframes AdyMkG_agentTeamsFloat{0%,to{transform:translateY(0)rotate(-4deg)}50%{transform:translateY(-2px)rotate(4deg)}}@keyframes AdyMkG_agentTeamsBreathe{0%,to{opacity:.82;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}@keyframes AdyMkG_agentTeamsThink{0%,to{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}.AdyMkG_memberState{margin-left:auto}.AdyMkG_memberCount{color:var(--dsw-alias-label-tertiary);font-size:10.5px;line-height:16px}.AdyMkG_assignmentLine{align-items:center;gap:7px;min-width:0;padding:0 6px 0 60px;display:flex}.AdyMkG_assignmentLabel{color:var(--dsw-alias-label-tertiary);flex:none;font-size:9.5px;line-height:14px}.AdyMkG_assignmentTasks{flex-wrap:wrap;flex:1;gap:4px;min-width:0;display:flex}.AdyMkG_assignmentChip{background:var(--dsw-alias-bg-fill-neutral);max-width:100%;min-height:16px;color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;border-radius:4px;align-items:center;padding:0 5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;font-weight:600;line-height:14px;display:inline-flex;overflow:hidden}.AdyMkG_assignmentChip[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.AdyMkG_assignmentChip[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.AdyMkG_assignmentChip[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.AdyMkG_assignmentChip[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.AdyMkG_assignmentChip[data-state=cancelled]{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}.AdyMkG_unreadPill{color:var(--dsw-alias-state-business-primary);white-space:nowrap;flex:none;font-size:9.5px;font-weight:600;line-height:14px}.AdyMkG_taskEmpty{color:var(--dsw-alias-label-tertiary);font-size:9.5px;line-height:14px}.AdyMkG_dependencySection{border-top:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:7px;min-width:0;padding-top:10px;display:flex}.AdyMkG_sectionToggleTitle{color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;font-size:11px;font-weight:600;line-height:16px;display:inline-flex}.AdyMkG_dagViewport{scrollbar-width:thin;min-width:0;padding:2px 0 4px;overflow-x:auto}.AdyMkG_dagCanvas{min-width:100%;position:relative}.AdyMkG_dagCanvas[data-layout=parallel]{flex-wrap:wrap;gap:8px;display:flex}.AdyMkG_dagCanvas[data-layout=parallel] .AdyMkG_dagNode{flex:92px;min-width:92px;position:relative}.AdyMkG_dagEdges{pointer-events:none;position:absolute;inset:0;overflow:visible}.AdyMkG_dagEdges path{fill:none;stroke:var(--dsw-alias-line-strong);stroke-width:1px;transition:opacity .14s,stroke .14s,stroke-width .14s}.AdyMkG_dagEdges path[data-active=true]{stroke:var(--dsw-alias-state-business-primary);stroke-width:1.6px}.AdyMkG_dagEdges path[data-dimmed=true]{opacity:.24}.AdyMkG_dagNode{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module);color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;border-radius:6px;flex-direction:column;justify-content:center;gap:1px;padding:0 6px;transition:border-color .14s,background-color .14s,opacity .14s;display:flex;position:absolute}.AdyMkG_dagNode:hover,.AdyMkG_dagNode[data-focused=true]{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, var(--dsw-alias-bg-module))}.AdyMkG_dagNode[data-dimmed=true]{opacity:.3}.AdyMkG_dagNode[data-state=running][data-dimmed=true]{opacity:.58}.AdyMkG_dagNode[data-state=completed]{border-color:color-mix(in srgb, var(--dsw-alias-state-success) 48%, var(--dsw-alias-line-normal))}.AdyMkG_dagNode[data-state=blocked]{border-color:color-mix(in srgb, var(--dsw-alias-state-warning) 52%, var(--dsw-alias-line-normal))}.AdyMkG_dagNode[data-state=failed]{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 56%, var(--dsw-alias-line-normal))}.AdyMkG_dagNodeHead{color:var(--dsw-alias-label-primary);align-items:center;gap:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;font-weight:700;display:flex}.AdyMkG_dagNodeDot{background:var(--dsw-alias-line-strong);border-radius:1.5px;flex:none;width:5px;height:5px}.AdyMkG_dagNode[data-state=running] .AdyMkG_dagNodeDot{background:var(--dsw-alias-state-business-primary)}.AdyMkG_dagNode[data-state=running] .AdyMkG_dagNodeHead{padding-right:12px}.AdyMkG_dagRunningState{width:9px;height:9px;color:var(--dsw-alias-state-business-primary);pointer-events:none;justify-content:center;align-items:center;display:inline-flex;position:absolute;top:4px;right:5px}.AdyMkG_dagRunningState .AdyMkG_workGlyph{width:9px;height:9px}.AdyMkG_dagNode[data-state=blocked] .AdyMkG_dagNodeDot{background:var(--dsw-alias-state-warning)}.AdyMkG_dagNode[data-state=completed] .AdyMkG_dagNodeDot{background:var(--dsw-alias-state-success)}.AdyMkG_dagNode[data-state=failed] .AdyMkG_dagNodeDot{background:var(--dsw-alias-state-danger)}.AdyMkG_dagNodeLabel{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:11px;overflow:hidden}.AdyMkG_taskDetail{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:9px;flex-direction:column;gap:3px;min-width:0;padding:7px 9px;display:flex}.AdyMkG_taskDetailHead{align-items:center;gap:6px;min-width:0;display:flex}.AdyMkG_taskDetailId{color:var(--dsw-alias-state-business-primary);flex:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-weight:700}.AdyMkG_taskDetailSubject{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:16px;overflow:hidden}.AdyMkG_taskDetailBadge{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-secondary);border-radius:4px;flex:none;padding:0 5px;font-size:8.5px;font-weight:600;line-height:14px}.AdyMkG_taskDetailBadge[data-state=running]{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill)}.AdyMkG_taskDetailBadge[data-state=blocked]{background:var(--dsw-alias-bg-fill-warning);color:var(--dsw-alias-label-on-fill)}.AdyMkG_taskDetailBadge[data-state=completed]{background:var(--dsw-alias-bg-fill-success);color:var(--dsw-alias-label-on-fill)}.AdyMkG_taskDetailBadge[data-state=failed]{background:var(--dsw-alias-bg-fill-danger);color:var(--dsw-alias-label-on-fill)}.AdyMkG_taskDetailLine,.AdyMkG_taskDetailMeta{color:var(--dsw-alias-label-secondary);font-size:9.5px;line-height:14px}.AdyMkG_taskDetailMeta{color:var(--dsw-alias-label-tertiary)}.AdyMkG_emptyHint{color:var(--dsw-alias-label-tertiary);padding:10px 12px;font-size:11px;line-height:16px}.AdyMkG_planEditor{border:1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 30%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 94%, var(--dsw-alias-state-business-primary));box-shadow:inset 0 1px 0 color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent);border-radius:10px;flex-direction:column;gap:12px;margin:0 10px 12px;padding:12px;display:flex}.AdyMkG_planHeader>span{justify-content:space-between;align-items:center;gap:8px;display:flex}.AdyMkG_planHeader>span>span{flex-direction:column;gap:2px;min-width:0;display:flex}.AdyMkG_planHeader strong{color:var(--dsw-alias-label-primary);font-size:12px}.AdyMkG_planHeader small{color:var(--dsw-alias-label-secondary);font-size:9px;font-weight:500;line-height:13px}.AdyMkG_planHeader em{background:var(--dsw-alias-bg-fill-business);color:var(--dsw-alias-label-on-fill);border-radius:999px;flex:none;padding:1px 7px;font-size:9px;font-style:normal;line-height:16px}.AdyMkG_planHeader p{color:var(--dsw-alias-label-secondary);margin:5px 0 0;font-size:10px;line-height:15px}.AdyMkG_planFlow{grid-template-columns:repeat(3,minmax(0,1fr));margin:0;padding:0;list-style:none;display:grid}.AdyMkG_planFlow li{min-width:0;color:var(--dsw-alias-label-tertiary);align-items:center;gap:5px;font-size:9px;font-weight:600;line-height:14px;display:flex;position:relative}.AdyMkG_planFlow li:not(:last-child):after{background:var(--dsw-alias-line-normal);content:\"\";flex:1;min-width:8px;height:1px;margin-right:5px}.AdyMkG_planFlow li>span{border:1px solid var(--dsw-alias-line-normal);border-radius:50%;flex:none;place-items:center;width:18px;height:18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;display:grid}.AdyMkG_planFlow li[data-active]{color:var(--dsw-alias-state-business-primary)}.AdyMkG_planFlow li[data-active]>span{border-color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)}.AdyMkG_planSection{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-module-platform);border-radius:8px;overflow:hidden}.AdyMkG_planSectionToggle,.AdyMkG_planCardHeader{box-sizing:border-box;width:100%;color:var(--dsw-alias-label-primary);cursor:pointer;text-align:left;background:0 0;border:0}.AdyMkG_planSectionToggle{justify-content:space-between;align-items:center;gap:8px;min-height:42px;padding:7px 9px;display:flex}.AdyMkG_planSectionToggle:hover,.AdyMkG_planCardHeader:hover{background:color-mix(in srgb, var(--dsw-alias-bg-fill-neutral) 46%, transparent)}.AdyMkG_planSectionToggle>span{align-items:baseline;gap:7px;min-width:0;display:flex}.AdyMkG_planSectionToggle strong{font-size:10.5px}.AdyMkG_planSectionToggle small{color:var(--dsw-alias-label-tertiary);font-size:9px}.AdyMkG_planList{border-top:1px solid var(--dsw-alias-line-normal);flex-direction:column;gap:0;display:flex}.AdyMkG_planEmpty{color:var(--dsw-alias-label-tertiary);text-align:center;margin:0;padding:12px;font-size:10px}.AdyMkG_planCard{background:0 0;border:0;border-radius:0;min-width:0;margin:0;padding:0;display:block;position:relative}.AdyMkG_planCard+.AdyMkG_planCard{border-top:1px solid var(--dsw-alias-line-normal)}.AdyMkG_planCard[data-open=true]{background:color-mix(in srgb, var(--dsw-alias-bg-base) 62%, transparent)}.AdyMkG_planCardHeader{grid-template-columns:minmax(80px,.9fr) minmax(72px,1.15fr) auto 12px;align-items:center;gap:7px;min-height:40px;padding:6px 9px;display:grid}.AdyMkG_planCardIdentity{flex-direction:column;gap:1px;min-width:0;display:flex}.AdyMkG_planCardIdentity strong,.AdyMkG_planTaskSummary{color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:650;line-height:14px;overflow:hidden}.AdyMkG_planCardIdentity>span,.AdyMkG_planCardMeta{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:12px;overflow:hidden}.AdyMkG_planTaskId{background:var(--dsw-alias-bg-fill-neutral);width:max-content;color:var(--dsw-alias-label-secondary);border-radius:4px;padding:1px 5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:8.5px;font-weight:700;line-height:14px}.AdyMkG_planDirty{background:color-mix(in srgb, var(--dsw-alias-state-warning) 13%, transparent);color:var(--dsw-alias-state-warning);border-radius:999px;justify-self:end;padding:1px 5px;font-size:8px;font-style:normal;font-weight:650;line-height:14px}.AdyMkG_planChevron{color:var(--dsw-alias-label-tertiary);flex:none;transition:transform .18s cubic-bezier(.2,.7,.2,1)}.AdyMkG_planChevron[data-open=true]{transform:rotate(90deg)}.AdyMkG_planCardBody{flex-direction:column;gap:8px;padding:0 9px 9px;display:flex}.AdyMkG_planCardBody fieldset{border:0;flex-direction:column;gap:7px;min-width:0;margin:0;padding:0;display:flex}.AdyMkG_planCardBody label,.AdyMkG_planNewTask label{min-width:0;color:var(--dsw-alias-label-tertiary);flex-direction:column;flex:1;gap:4px;font-size:9px;display:flex}.AdyMkG_planCardBody label small{color:var(--dsw-alias-label-tertiary);font-size:8px;line-height:11px}.AdyMkG_planCard input,.AdyMkG_planCard textarea,.AdyMkG_planCard select,.AdyMkG_planNewTask input{box-sizing:border-box;border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-base);width:100%;min-width:0;color:var(--dsw-alias-label-primary);font:inherit;border-radius:6px;outline:none;font-size:10.5px;line-height:16px;transition:border-color .16s,box-shadow .16s}.AdyMkG_planCard input,.AdyMkG_planCard select,.AdyMkG_planNewTask input{min-height:32px;padding:6px 8px}.AdyMkG_planCard textarea{resize:vertical;min-height:58px;padding:7px 8px}.AdyMkG_planCard input:focus-visible,.AdyMkG_planCard textarea:focus-visible,.AdyMkG_planCard select:focus-visible,.AdyMkG_planNewTask input:focus-visible{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 16%, transparent)}.AdyMkG_planGrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;display:grid}.AdyMkG_planModelPicker{grid-template-columns:minmax(0,1fr);gap:5px;display:grid}.AdyMkG_planModelMenu{width:100%;display:flex}.AdyMkG_planModelTrigger{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);width:100%;min-height:38px;color:var(--dsw-alias-label-primary);cursor:pointer;text-align:left;border-radius:7px;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;transition:border-color .16s,background-color .16s,transform .12s;display:flex}.AdyMkG_planModelTrigger:hover:not(:disabled){border-color:var(--dsw-alias-border-l3);background:var(--dsw-alias-interactive-bg-hover)}.AdyMkG_planModelTrigger:active:not(:disabled){transform:translateY(1px)}.AdyMkG_planModelTrigger:focus-visible{border-color:var(--dsw-alias-state-business-primary);outline:2px solid color-mix(in srgb, var(--dsw-alias-state-business-primary) 16%, transparent);outline-offset:1px}.AdyMkG_planModelTrigger:disabled{cursor:wait;opacity:.64}.AdyMkG_planModelTriggerCopy{align-items:baseline;gap:6px;min-width:0;display:flex}.AdyMkG_planModelTriggerCopy strong,.AdyMkG_planModelTriggerCopy span{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.AdyMkG_planModelTriggerCopy strong{color:var(--dsw-alias-label-primary);font-size:10px;font-weight:650;line-height:15px}.AdyMkG_planModelTriggerCopy span{color:var(--dsw-alias-label-tertiary);font-size:9px;line-height:14px}.AdyMkG_planModelMenuRow{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-width:0;display:grid}.AdyMkG_planModelMenuRow>span:first-child{color:var(--dsw-alias-label-primary)}.AdyMkG_planModelMenuRow strong{color:var(--dsw-alias-label-tertiary);text-align:right;text-overflow:ellipsis;white-space:nowrap;font-weight:450;overflow:hidden}.AdyMkG_planModelMenuBack{align-items:center;gap:7px;display:inline-flex}.AdyMkG_planModelMenuBack svg{transform:rotate(180deg)}.AdyMkG_planModelEffortRow{flex-direction:column;align-items:flex-start;min-width:0;display:flex}.AdyMkG_planModelEffortRow small{width:100%;color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:14px;overflow:hidden}.AdyMkG_planModelHint{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;line-height:12px;overflow:hidden}.AdyMkG_planModelNotice{background:color-mix(in srgb, var(--dsw-alias-state-warning) 9%, transparent);color:var(--dsw-alias-label-secondary);border-radius:6px;grid-column:1/-1;justify-content:space-between;align-items:center;gap:8px;padding:6px 7px;font-size:8.5px;line-height:12px;display:flex}.AdyMkG_planModelNotice button{color:var(--dsw-alias-state-business-primary);cursor:pointer;font:inherit;background:0 0;border:0;flex:none;padding:2px 6px;font-weight:650}.AdyMkG_planActions,.AdyMkG_planApproveRow,.AdyMkG_planNewTask,.AdyMkG_planConfirm,.AdyMkG_planApproveActions,.AdyMkG_planSecondaryActions{align-items:center;gap:7px;display:flex}.AdyMkG_planReviewActions{grid-template-columns:minmax(0,1fr);gap:6px;width:100%;display:grid}.AdyMkG_planSecondaryActions{grid-template-columns:minmax(0,1fr) auto;display:grid}.AdyMkG_planActions{justify-content:flex-end}.AdyMkG_planActions button,.AdyMkG_planNewTask button,.AdyMkG_planApproveRow button,.AdyMkG_planConfirm button{border:1px solid var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-fill-neutral);min-height:30px;color:var(--dsw-alias-label-primary);cursor:pointer;border-radius:6px;flex:none;padding:5px 10px;font-size:9.5px;font-weight:600;transition:background .16s,border-color .16s,transform .16s}.AdyMkG_planActions button:hover:not(:disabled),.AdyMkG_planNewTask button:hover:not(:disabled),.AdyMkG_planApproveRow button:hover:not(:disabled),.AdyMkG_planConfirm button:hover:not(:disabled){border-color:var(--dsw-alias-label-tertiary)}.AdyMkG_planActions button:active:not(:disabled),.AdyMkG_planNewTask button:active:not(:disabled),.AdyMkG_planApproveRow button:active:not(:disabled),.AdyMkG_planConfirm button:active:not(:disabled){transform:scale(.98)}.AdyMkG_planActions button[data-danger],.AdyMkG_planConfirm button[data-danger]{color:var(--dsw-alias-state-danger)}.AdyMkG_planFeedback{min-width:0;color:var(--dsw-alias-label-secondary);flex:1;align-items:center;gap:5px;font-size:9px;line-height:13px;animation:.18s ease-out AdyMkG_plan-feedback-in;display:inline-flex}.AdyMkG_planFeedback[data-tone=success]{color:var(--dsw-alias-state-success)}.AdyMkG_planFeedback[data-tone=error]{color:var(--dsw-alias-state-danger)}.AdyMkG_planFeedback>span{border:1px solid;border-radius:50%;flex:none;place-items:center;width:15px;height:15px;display:grid}.AdyMkG_planFeedback svg{width:11px;height:11px}@keyframes AdyMkG_plan-feedback-in{0%{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}.AdyMkG_planConfirm{border:1px solid color-mix(in srgb, var(--dsw-alias-state-danger) 30%, var(--dsw-alias-line-normal));background:color-mix(in srgb, var(--dsw-alias-state-danger) 7%, transparent);border-radius:7px;flex-wrap:wrap;justify-content:flex-end;padding:7px}.AdyMkG_planConfirm>span{min-width:140px;color:var(--dsw-alias-label-secondary);flex:1;font-size:9px;line-height:13px}.AdyMkG_planNewTask{align-items:flex-end}.AdyMkG_planNewTask label{gap:4px}.AdyMkG_planNewTask label>span{line-height:13px}.AdyMkG_planApproveRow{z-index:1;border:1px solid var(--dsw-alias-line-normal);background:color-mix(in srgb, var(--dsw-alias-bg-module-platform) 94%, transparent);min-height:50px;box-shadow:0 -5px 16px color-mix(in srgb, var(--dsw-alias-bg-base) 35%, transparent);backdrop-filter:blur(8px);border-radius:8px;flex-direction:column;justify-content:flex-end;align-items:stretch;margin:0 -4px -4px;padding:8px;position:sticky;bottom:0}.AdyMkG_planApproveRow[data-armed=true]{border-color:color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, var(--dsw-alias-line-normal))}.AdyMkG_planApproveRow[data-discard=true]{border-color:color-mix(in srgb, var(--dsw-alias-state-danger) 45%, var(--dsw-alias-line-normal))}.AdyMkG_planApproveCopy{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.AdyMkG_planApproveCopy strong{color:var(--dsw-alias-label-primary);font-size:9.5px;line-height:13px}.AdyMkG_planApproveCopy small{color:var(--dsw-alias-label-tertiary);font-size:8.5px;line-height:12px}.AdyMkG_planApproveRow button{background:var(--dsw-alias-state-business-primary);min-height:32px;color:var(--dsw-alias-label-on-fill);padding-inline:13px}.AdyMkG_planReviewActions>button[data-plan-approve]{width:100%}.AdyMkG_planApproveActions>button:first-child{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.AdyMkG_planSecondaryActions>button,.AdyMkG_planApproveActions>button[data-danger]{border-color:var(--dsw-alias-line-normal);background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-primary)}.AdyMkG_planSecondaryActions>button[data-danger],.AdyMkG_planApproveActions>button[data-danger]{color:var(--dsw-alias-state-danger)}.AdyMkG_planSectionToggle:focus-visible,.AdyMkG_planCardHeader:focus-visible,.AdyMkG_planActions button:focus-visible,.AdyMkG_planNewTask button:focus-visible,.AdyMkG_planApproveRow button:focus-visible,.AdyMkG_planConfirm button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}.AdyMkG_planActions button:disabled,.AdyMkG_planNewTask button:disabled,.AdyMkG_planApproveRow button:disabled{cursor:default;opacity:.55}.AdyMkG_historicPill{background:var(--dsw-alias-bg-fill-neutral);color:var(--dsw-alias-label-tertiary);border-radius:4px;flex:none;margin-left:auto;padding:1px 7px;font-size:9.5px;font-weight:600;line-height:15px}.AdyMkG_members{flex-direction:column;gap:3px;display:flex}.AdyMkG_archiveLabel{color:var(--dsw-alias-label-tertiary);padding:5px 14px 0;font-size:9.5px;font-weight:600;line-height:14px;display:block}@media (prefers-reduced-motion:reduce){.AdyMkG_panel,.AdyMkG_badge,.AdyMkG_badgeDot,.AdyMkG_panelDot,.AdyMkG_workGlyph rect,.AdyMkG_stateArt,.AdyMkG_memberAvatar[data-unread=true]:after,.AdyMkG_planChevron,.AdyMkG_planFeedback,.AdyMkG_planActions button,.AdyMkG_planNewTask button,.AdyMkG_planApproveRow button,.AdyMkG_planConfirm button,.AdyMkG_planCard input,.AdyMkG_planCard textarea,.AdyMkG_planCard select,.AdyMkG_planNewTask input{transition:none;animation:none}}@media (width<=960px){html[data-agent-teams-panel-open] [data-phase=active]{padding-right:0}}@media (width<=640px){.AdyMkG_badge{top:56px;right:10px}.AdyMkG_teamStats span[data-stat=messages]{display:none}.AdyMkG_captainNode{grid-template-columns:48px minmax(0,1fr)}.AdyMkG_captainState{display:none}.AdyMkG_delegationTree{margin-left:12px;padding-left:15px}.AdyMkG_memberBranch{width:15px}.AdyMkG_assignmentLine{padding-left:53px}.AdyMkG_planFlow li{gap:4px;font-size:8px}.AdyMkG_planFlow li:not(:last-child):after{margin-right:3px}.AdyMkG_planCardHeader{grid-template-columns:auto minmax(0,1fr) auto}.AdyMkG_planCardHeader .AdyMkG_planCardMeta{display:none}.AdyMkG_planGrid,.AdyMkG_planModelPicker{grid-template-columns:minmax(0,1fr)}.AdyMkG_planNewTask,.AdyMkG_planApproveRow{flex-direction:column;align-items:stretch}.AdyMkG_planNewTask button,.AdyMkG_planApproveRow>button,.AdyMkG_planApproveActions,.AdyMkG_planReviewActions{width:100%}.AdyMkG_planApproveActions button,.AdyMkG_planReviewActions button,.AdyMkG_planSecondaryActions button{flex:1}}@container AdyMkG_agent-team (width<=360px){.AdyMkG_planEditor{margin-inline:0;padding-inline:10px}.AdyMkG_planHeader>span{align-items:flex-start}.AdyMkG_planFlow li{gap:3px;font-size:7.5px}.AdyMkG_planFlow li:not(:last-child):after{min-width:4px;margin-right:2px}.AdyMkG_planSecondaryActions,.AdyMkG_planApproveActions{grid-template-columns:minmax(0,1fr);width:100%;display:grid}.AdyMkG_planSecondaryActions button,.AdyMkG_planApproveActions button{width:100%}}";
 		const tagId$1 = "@nanmicoder/dsh-agent-teams/ActivityPanel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
@@ -570,137 +575,137 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ActivityPanel_module_css_default = {
-			"agent-team": "FzGTMa_agent-team",
-			"agentTeamsBreathe": "FzGTMa_agentTeamsBreathe",
-			"agentTeamsDot": "FzGTMa_agentTeamsDot",
-			"agentTeamsFloat": "FzGTMa_agentTeamsFloat",
-			"agentTeamsPanelIn": "FzGTMa_agentTeamsPanelIn",
-			"agentTeamsPulse": "FzGTMa_agentTeamsPulse",
-			"agentTeamsThink": "FzGTMa_agentTeamsThink",
-			"agentTeamsUnreadPulse": "FzGTMa_agentTeamsUnreadPulse",
-			"archiveLabel": "FzGTMa_archiveLabel",
-			"assignmentChip": "FzGTMa_assignmentChip",
-			"assignmentLabel": "FzGTMa_assignmentLabel",
-			"assignmentLine": "FzGTMa_assignmentLine",
-			"assignmentTasks": "FzGTMa_assignmentTasks",
-			"badge": "FzGTMa_badge",
-			"badgeCount": "FzGTMa_badgeCount",
-			"badgeDot": "FzGTMa_badgeDot",
-			"captainAvatar": "FzGTMa_captainAvatar",
-			"captainInfo": "FzGTMa_captainInfo",
-			"captainLine": "FzGTMa_captainLine",
-			"captainName": "FzGTMa_captainName",
-			"captainNode": "FzGTMa_captainNode",
-			"captainRole": "FzGTMa_captainRole",
-			"captainState": "FzGTMa_captainState",
-			"captainSummary": "FzGTMa_captainSummary",
-			"chevron": "FzGTMa_chevron",
-			"dagCanvas": "FzGTMa_dagCanvas",
-			"dagEdges": "FzGTMa_dagEdges",
-			"dagNode": "FzGTMa_dagNode",
-			"dagNodeDot": "FzGTMa_dagNodeDot",
-			"dagNodeHead": "FzGTMa_dagNodeHead",
-			"dagNodeLabel": "FzGTMa_dagNodeLabel",
-			"dagRunningState": "FzGTMa_dagRunningState",
-			"dagViewport": "FzGTMa_dagViewport",
-			"delegationSection": "FzGTMa_delegationSection",
-			"delegationTree": "FzGTMa_delegationTree",
-			"dependencySection": "FzGTMa_dependencySection",
-			"emptyHint": "FzGTMa_emptyHint",
-			"historicPill": "FzGTMa_historicPill",
-			"iconButton": "FzGTMa_iconButton",
-			"leadAvatar": "FzGTMa_leadAvatar",
-			"memberArt": "FzGTMa_memberArt",
-			"memberAvatar": "FzGTMa_memberAvatar",
-			"memberBlock": "FzGTMa_memberBlock",
-			"memberBranch": "FzGTMa_memberBranch",
-			"memberCount": "FzGTMa_memberCount",
-			"memberInfo": "FzGTMa_memberInfo",
-			"memberInitial": "FzGTMa_memberInitial",
-			"memberLine": "FzGTMa_memberLine",
-			"memberModel": "FzGTMa_memberModel",
-			"memberName": "FzGTMa_memberName",
-			"memberRole": "FzGTMa_memberRole",
-			"memberRow": "FzGTMa_memberRow",
-			"memberState": "FzGTMa_memberState",
-			"memberStatusLine": "FzGTMa_memberStatusLine",
-			"members": "FzGTMa_members",
-			"membersToggle": "FzGTMa_membersToggle",
-			"panel": "FzGTMa_panel",
-			"panelControls": "FzGTMa_panelControls",
-			"panelDot": "FzGTMa_panelDot",
-			"panelHead": "FzGTMa_panelHead",
-			"panelTitle": "FzGTMa_panelTitle",
-			"plan-feedback-in": "FzGTMa_plan-feedback-in",
-			"planActions": "FzGTMa_planActions",
-			"planApproveActions": "FzGTMa_planApproveActions",
-			"planApproveCopy": "FzGTMa_planApproveCopy",
-			"planApproveRow": "FzGTMa_planApproveRow",
-			"planCard": "FzGTMa_planCard",
-			"planCardBody": "FzGTMa_planCardBody",
-			"planCardHeader": "FzGTMa_planCardHeader",
-			"planCardIdentity": "FzGTMa_planCardIdentity",
-			"planCardMeta": "FzGTMa_planCardMeta",
-			"planChevron": "FzGTMa_planChevron",
-			"planConfirm": "FzGTMa_planConfirm",
-			"planDirty": "FzGTMa_planDirty",
-			"planEditor": "FzGTMa_planEditor",
-			"planEmpty": "FzGTMa_planEmpty",
-			"planFeedback": "FzGTMa_planFeedback",
-			"planFlow": "FzGTMa_planFlow",
-			"planGrid": "FzGTMa_planGrid",
-			"planHeader": "FzGTMa_planHeader",
-			"planList": "FzGTMa_planList",
-			"planModelEffortRow": "FzGTMa_planModelEffortRow",
-			"planModelHint": "FzGTMa_planModelHint",
-			"planModelMenu": "FzGTMa_planModelMenu",
-			"planModelMenuBack": "FzGTMa_planModelMenuBack",
-			"planModelMenuRow": "FzGTMa_planModelMenuRow",
-			"planModelNotice": "FzGTMa_planModelNotice",
-			"planModelPicker": "FzGTMa_planModelPicker",
-			"planModelTrigger": "FzGTMa_planModelTrigger",
-			"planModelTriggerCopy": "FzGTMa_planModelTriggerCopy",
-			"planNewTask": "FzGTMa_planNewTask",
-			"planReviewActions": "FzGTMa_planReviewActions",
-			"planSecondaryActions": "FzGTMa_planSecondaryActions",
-			"planSection": "FzGTMa_planSection",
-			"planSectionToggle": "FzGTMa_planSectionToggle",
-			"planTaskId": "FzGTMa_planTaskId",
-			"planTaskSummary": "FzGTMa_planTaskSummary",
-			"progressEmpty": "FzGTMa_progressEmpty",
-			"progressLegend": "FzGTMa_progressLegend",
-			"progressOverview": "FzGTMa_progressOverview",
-			"progressSegments": "FzGTMa_progressSegments",
-			"progressSummary": "FzGTMa_progressSummary",
-			"progressSummaryDot": "FzGTMa_progressSummaryDot",
-			"progressTitle": "FzGTMa_progressTitle",
-			"resizeHandle": "FzGTMa_resizeHandle",
-			"sectionHead": "FzGTMa_sectionHead",
-			"sectionHint": "FzGTMa_sectionHint",
-			"sectionTitle": "FzGTMa_sectionTitle",
-			"sectionToggleTitle": "FzGTMa_sectionToggleTitle",
-			"stageLabel": "FzGTMa_stageLabel",
-			"stateArt": "FzGTMa_stateArt",
-			"stopModalActions": "FzGTMa_stopModalActions",
-			"stopModalError": "FzGTMa_stopModalError",
-			"taskDetail": "FzGTMa_taskDetail",
-			"taskDetailBadge": "FzGTMa_taskDetailBadge",
-			"taskDetailHead": "FzGTMa_taskDetailHead",
-			"taskDetailId": "FzGTMa_taskDetailId",
-			"taskDetailLine": "FzGTMa_taskDetailLine",
-			"taskDetailMeta": "FzGTMa_taskDetailMeta",
-			"taskDetailModel": "FzGTMa_taskDetailModel",
-			"taskDetailSubject": "FzGTMa_taskDetailSubject",
-			"taskEmpty": "FzGTMa_taskEmpty",
-			"taskId": "FzGTMa_taskId",
-			"team": "FzGTMa_team",
-			"teamHead": "FzGTMa_teamHead",
-			"teamName": "FzGTMa_teamName",
-			"teamStats": "FzGTMa_teamStats",
-			"teamStopButton": "FzGTMa_teamStopButton",
-			"teams": "FzGTMa_teams",
-			"unreadPill": "FzGTMa_unreadPill",
-			"workGlyph": "FzGTMa_workGlyph"
+			"agent-team": "AdyMkG_agent-team",
+			"agentTeamsBreathe": "AdyMkG_agentTeamsBreathe",
+			"agentTeamsDot": "AdyMkG_agentTeamsDot",
+			"agentTeamsFloat": "AdyMkG_agentTeamsFloat",
+			"agentTeamsPanelIn": "AdyMkG_agentTeamsPanelIn",
+			"agentTeamsPulse": "AdyMkG_agentTeamsPulse",
+			"agentTeamsThink": "AdyMkG_agentTeamsThink",
+			"agentTeamsUnreadPulse": "AdyMkG_agentTeamsUnreadPulse",
+			"archiveLabel": "AdyMkG_archiveLabel",
+			"assignmentChip": "AdyMkG_assignmentChip",
+			"assignmentLabel": "AdyMkG_assignmentLabel",
+			"assignmentLine": "AdyMkG_assignmentLine",
+			"assignmentTasks": "AdyMkG_assignmentTasks",
+			"badge": "AdyMkG_badge",
+			"badgeCount": "AdyMkG_badgeCount",
+			"badgeDot": "AdyMkG_badgeDot",
+			"captainAvatar": "AdyMkG_captainAvatar",
+			"captainInfo": "AdyMkG_captainInfo",
+			"captainLine": "AdyMkG_captainLine",
+			"captainName": "AdyMkG_captainName",
+			"captainNode": "AdyMkG_captainNode",
+			"captainRole": "AdyMkG_captainRole",
+			"captainState": "AdyMkG_captainState",
+			"captainSummary": "AdyMkG_captainSummary",
+			"chevron": "AdyMkG_chevron",
+			"dagCanvas": "AdyMkG_dagCanvas",
+			"dagEdges": "AdyMkG_dagEdges",
+			"dagNode": "AdyMkG_dagNode",
+			"dagNodeDot": "AdyMkG_dagNodeDot",
+			"dagNodeHead": "AdyMkG_dagNodeHead",
+			"dagNodeLabel": "AdyMkG_dagNodeLabel",
+			"dagRunningState": "AdyMkG_dagRunningState",
+			"dagViewport": "AdyMkG_dagViewport",
+			"delegationSection": "AdyMkG_delegationSection",
+			"delegationTree": "AdyMkG_delegationTree",
+			"dependencySection": "AdyMkG_dependencySection",
+			"emptyHint": "AdyMkG_emptyHint",
+			"historicPill": "AdyMkG_historicPill",
+			"iconButton": "AdyMkG_iconButton",
+			"leadAvatar": "AdyMkG_leadAvatar",
+			"memberArt": "AdyMkG_memberArt",
+			"memberAvatar": "AdyMkG_memberAvatar",
+			"memberBlock": "AdyMkG_memberBlock",
+			"memberBranch": "AdyMkG_memberBranch",
+			"memberCount": "AdyMkG_memberCount",
+			"memberInfo": "AdyMkG_memberInfo",
+			"memberInitial": "AdyMkG_memberInitial",
+			"memberLine": "AdyMkG_memberLine",
+			"memberModel": "AdyMkG_memberModel",
+			"memberName": "AdyMkG_memberName",
+			"memberRole": "AdyMkG_memberRole",
+			"memberRow": "AdyMkG_memberRow",
+			"memberState": "AdyMkG_memberState",
+			"memberStatusLine": "AdyMkG_memberStatusLine",
+			"members": "AdyMkG_members",
+			"membersToggle": "AdyMkG_membersToggle",
+			"panel": "AdyMkG_panel",
+			"panelControls": "AdyMkG_panelControls",
+			"panelDot": "AdyMkG_panelDot",
+			"panelHead": "AdyMkG_panelHead",
+			"panelTitle": "AdyMkG_panelTitle",
+			"plan-feedback-in": "AdyMkG_plan-feedback-in",
+			"planActions": "AdyMkG_planActions",
+			"planApproveActions": "AdyMkG_planApproveActions",
+			"planApproveCopy": "AdyMkG_planApproveCopy",
+			"planApproveRow": "AdyMkG_planApproveRow",
+			"planCard": "AdyMkG_planCard",
+			"planCardBody": "AdyMkG_planCardBody",
+			"planCardHeader": "AdyMkG_planCardHeader",
+			"planCardIdentity": "AdyMkG_planCardIdentity",
+			"planCardMeta": "AdyMkG_planCardMeta",
+			"planChevron": "AdyMkG_planChevron",
+			"planConfirm": "AdyMkG_planConfirm",
+			"planDirty": "AdyMkG_planDirty",
+			"planEditor": "AdyMkG_planEditor",
+			"planEmpty": "AdyMkG_planEmpty",
+			"planFeedback": "AdyMkG_planFeedback",
+			"planFlow": "AdyMkG_planFlow",
+			"planGrid": "AdyMkG_planGrid",
+			"planHeader": "AdyMkG_planHeader",
+			"planList": "AdyMkG_planList",
+			"planModelEffortRow": "AdyMkG_planModelEffortRow",
+			"planModelHint": "AdyMkG_planModelHint",
+			"planModelMenu": "AdyMkG_planModelMenu",
+			"planModelMenuBack": "AdyMkG_planModelMenuBack",
+			"planModelMenuRow": "AdyMkG_planModelMenuRow",
+			"planModelNotice": "AdyMkG_planModelNotice",
+			"planModelPicker": "AdyMkG_planModelPicker",
+			"planModelTrigger": "AdyMkG_planModelTrigger",
+			"planModelTriggerCopy": "AdyMkG_planModelTriggerCopy",
+			"planNewTask": "AdyMkG_planNewTask",
+			"planReviewActions": "AdyMkG_planReviewActions",
+			"planSecondaryActions": "AdyMkG_planSecondaryActions",
+			"planSection": "AdyMkG_planSection",
+			"planSectionToggle": "AdyMkG_planSectionToggle",
+			"planTaskId": "AdyMkG_planTaskId",
+			"planTaskSummary": "AdyMkG_planTaskSummary",
+			"progressEmpty": "AdyMkG_progressEmpty",
+			"progressLegend": "AdyMkG_progressLegend",
+			"progressOverview": "AdyMkG_progressOverview",
+			"progressSegments": "AdyMkG_progressSegments",
+			"progressSummary": "AdyMkG_progressSummary",
+			"progressSummaryDot": "AdyMkG_progressSummaryDot",
+			"progressTitle": "AdyMkG_progressTitle",
+			"resizeHandle": "AdyMkG_resizeHandle",
+			"sectionHead": "AdyMkG_sectionHead",
+			"sectionHint": "AdyMkG_sectionHint",
+			"sectionTitle": "AdyMkG_sectionTitle",
+			"sectionToggleTitle": "AdyMkG_sectionToggleTitle",
+			"stageLabel": "AdyMkG_stageLabel",
+			"stateArt": "AdyMkG_stateArt",
+			"stopModalActions": "AdyMkG_stopModalActions",
+			"stopModalError": "AdyMkG_stopModalError",
+			"taskDetail": "AdyMkG_taskDetail",
+			"taskDetailBadge": "AdyMkG_taskDetailBadge",
+			"taskDetailHead": "AdyMkG_taskDetailHead",
+			"taskDetailId": "AdyMkG_taskDetailId",
+			"taskDetailLine": "AdyMkG_taskDetailLine",
+			"taskDetailMeta": "AdyMkG_taskDetailMeta",
+			"taskDetailModel": "AdyMkG_taskDetailModel",
+			"taskDetailSubject": "AdyMkG_taskDetailSubject",
+			"taskEmpty": "AdyMkG_taskEmpty",
+			"taskId": "AdyMkG_taskId",
+			"team": "AdyMkG_team",
+			"teamHead": "AdyMkG_teamHead",
+			"teamName": "AdyMkG_teamName",
+			"teamStats": "AdyMkG_teamStats",
+			"teamStopButton": "AdyMkG_teamStopButton",
+			"teams": "AdyMkG_teams",
+			"unreadPill": "AdyMkG_unreadPill",
+			"workGlyph": "AdyMkG_workGlyph"
 		};
 		//#endregion
 		//#region lib/client/StagingPlanEditor.js
@@ -712,6 +717,29 @@ window.__ModuleLoader__.load({
 		* @module dsh-agent-teams/client/staging-plan
 		*/
 		const PLAN_URL = "/plugins/dsh-agent-teams/plan";
+		const TASK_KIND_OPTIONS = [
+			"work",
+			"requirements",
+			"implementation",
+			"verification",
+			"review",
+			"repair",
+			"integration"
+		];
+		function formatLineList(values) {
+			return (values ?? []).join("\n");
+		}
+		function taskKindLabel(t, kind) {
+			switch (kind) {
+				case "work": return t("plan.task.kind.work");
+				case "requirements": return t("plan.task.kind.requirements");
+				case "implementation": return t("plan.task.kind.implementation");
+				case "verification": return t("plan.task.kind.verification");
+				case "review": return t("plan.task.kind.review");
+				case "repair": return t("plan.task.kind.repair");
+				case "integration": return t("plan.task.kind.integration");
+			}
+		}
 		function useDismissSuccess(feedback, setFeedback) {
 			(0, react.useEffect)(() => {
 				if (feedback?.tone !== "success") return;
@@ -788,7 +816,6 @@ window.__ModuleLoader__.load({
 		const MODEL_MENU_OPEN_EFFORT = "open:effort";
 		const MODEL_MENU_BACK = "navigate:back";
 		const MODEL_MENU_RETRY = "action:retry";
-		const MODEL_MENU_DEFAULT_EFFORT = "effort:default";
 		function modelMenuId(provider, model) {
 			return `model:${routeKey(provider, model)}`;
 		}
@@ -800,7 +827,7 @@ window.__ModuleLoader__.load({
 		* reads only catalog metadata: choosing a member route must not change the
 		* captain session's composer model.
 		*/
-		function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, onChange, t }) {
+		function StagedModelPicker({ directory, provider, model, reasoningMode, reasoningEffort, busy, onChange, t }) {
 			const state = (0, react.useSyncExternalStore)(directory.store.subscribe, directory.store.getSnapshot);
 			const [open, setOpen] = (0, react.useState)(false);
 			const [pane, setPane] = (0, react.useState)("root");
@@ -815,10 +842,11 @@ window.__ModuleLoader__.load({
 			const efforts = selected?.model.reasoning?.efforts ?? [];
 			const currentMissing = provider !== "" && model !== "" && selected === void 0;
 			const defaultEffort = selected?.model.reasoning?.defaultEffort;
-			const effectiveEffort = reasoningEffort === "" || reasoningEffort === "default" ? defaultEffort : reasoningEffort;
+			const effectiveEffort = reasoningMode === "explicit" ? reasoningEffort : void 0;
 			const selectedEffort = efforts.find((effort) => effort.id === effectiveEffort);
 			const modelLabel = selected?.model.name ?? (model === "" ? t("plan.model.choose") : model);
-			const effortLabel = selectedEffort?.name ?? (effectiveEffort === void 0 ? t("plan.model.providerDefault") : effectiveEffort);
+			const modeLabel = reasoningMode === "target-default" ? t("settings.profiles.reasoning.target-default.label") : reasoningMode === "route-aware" ? t("settings.profiles.reasoning.route-aware.label") : t("settings.profiles.reasoning.explicit.label");
+			const effortLabel = reasoningMode === "explicit" ? selectedEffort?.name ?? reasoningEffort : modeLabel;
 			const unavailable = state.status === "error" || state.failures.length > 0;
 			const close = () => {
 				setOpen(false);
@@ -845,7 +873,7 @@ window.__ModuleLoader__.load({
 						(0, react_jsx_runtime.jsx)(DisclosureChevron, { open: false })
 					]
 				}),
-				disabled: selected?.model.reasoning === void 0
+				disabled: reasoningMode !== "explicit" || efforts.length === 0
 			}];
 			const modelItems = [{
 				id: MODEL_MENU_BACK,
@@ -870,7 +898,8 @@ window.__ModuleLoader__.load({
 				});
 				for (const candidate of group.models) modelItems.push({
 					id: modelMenuId(group.id, candidate.id),
-					label: candidate.name
+					label: candidate.name,
+					disabled: reasoningMode === "explicit" && (candidate.reasoning?.efforts.length ?? 0) === 0
 				});
 			}
 			const effortItems = [
@@ -885,10 +914,6 @@ window.__ModuleLoader__.load({
 					type: "separator",
 					id: "effort:separator"
 				},
-				{
-					id: MODEL_MENU_DEFAULT_EFFORT,
-					label: defaultEffort === void 0 ? t("plan.model.providerDefault") : t("plan.model.modelDefault", { effort: efforts.find((effort) => effort.id === defaultEffort)?.name ?? defaultEffort })
-				},
 				...efforts.map((effort) => ({
 					id: effortMenuId(effort.id),
 					label: (0, react_jsx_runtime.jsxs)("span", {
@@ -898,7 +923,7 @@ window.__ModuleLoader__.load({
 				}))
 			];
 			const items = pane === "models" ? modelItems : pane === "effort" ? effortItems : rootItems;
-			const selectedId = pane === "models" ? modelMenuId(provider, model) : pane === "effort" ? reasoningEffort === "" || reasoningEffort === "default" ? MODEL_MENU_DEFAULT_EFFORT : effortMenuId(reasoningEffort) : void 0;
+			const selectedId = pane === "models" ? modelMenuId(provider, model) : pane === "effort" ? effortMenuId(reasoningEffort) : void 0;
 			const choose = (id) => {
 				if (id === MODEL_MENU_OPEN_MODELS) {
 					setPane("models");
@@ -923,17 +948,8 @@ window.__ModuleLoader__.load({
 					onChange({
 						provider: nextModel.provider,
 						model: nextModel.model.id,
-						reasoningEffort: "default"
-					});
-					return;
-				}
-				if (id === MODEL_MENU_DEFAULT_EFFORT) {
-					close();
-					if (effectiveEffort === defaultEffort) return;
-					onChange({
-						provider,
-						model,
-						reasoningEffort: "default"
+						reasoningMode,
+						reasoningEffort: reasoningMode === "explicit" ? nextModel.model.reasoning?.defaultEffort ?? nextModel.model.reasoning?.efforts[0]?.id ?? "" : ""
 					});
 					return;
 				}
@@ -944,6 +960,7 @@ window.__ModuleLoader__.load({
 				onChange({
 					provider,
 					model,
+					reasoningMode,
 					reasoningEffort: nextEffort.id
 				});
 			};
@@ -951,6 +968,38 @@ window.__ModuleLoader__.load({
 				className: ActivityPanel_module_css_default.planModelPicker,
 				"data-model-directory-status": state.status,
 				children: [
+					(0, react_jsx_runtime.jsxs)("label", { children: [t("settings.profiles.reasoning.title"), (0, react_jsx_runtime.jsxs)("select", {
+						name: "reasoningMode",
+						value: reasoningMode,
+						disabled: busy,
+						onChange: (event) => {
+							const nextMode = event.currentTarget.value;
+							if (nextMode === reasoningMode) return;
+							const nextEffort = nextMode === "explicit" ? defaultEffort ?? efforts[0]?.id ?? "" : "";
+							if (nextMode === "explicit" && nextEffort === "") return;
+							onChange({
+								provider,
+								model,
+								reasoningMode: nextMode,
+								reasoningEffort: nextEffort
+							});
+						},
+						children: [
+							(0, react_jsx_runtime.jsx)("option", {
+								value: "target-default",
+								children: t("settings.profiles.reasoning.target-default.label")
+							}),
+							(0, react_jsx_runtime.jsx)("option", {
+								value: "route-aware",
+								children: t("settings.profiles.reasoning.route-aware.label")
+							}),
+							(0, react_jsx_runtime.jsx)("option", {
+								value: "explicit",
+								disabled: efforts.length === 0 && reasoningMode !== "explicit",
+								children: t("settings.profiles.reasoning.explicit.label")
+							})
+						]
+					})] }),
 					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
 						open,
 						portal: true,
@@ -1021,13 +1070,15 @@ window.__ModuleLoader__.load({
 			const [role, setRole] = (0, react.useState)(member.role);
 			const [provider, setProvider] = (0, react.useState)(member.provider ?? "");
 			const [model, setModel] = (0, react.useState)(member.model ?? "");
-			const [reasoningEffort, setReasoningEffort] = (0, react.useState)(member.reasoningEffort ?? "");
+			const [reasoningMode, setReasoningMode] = (0, react.useState)(member.reasoningMode);
+			const [reasoningEffort, setReasoningEffort] = (0, react.useState)(member.reasoningMode === "explicit" ? member.reasoningEffort ?? "" : "");
 			const [executionPrompt, setExecutionPrompt] = (0, react.useState)(member.executionPrompt ?? "");
 			const remoteSignature = JSON.stringify([
 				member.role,
 				member.provider ?? "",
 				member.model ?? "",
-				member.reasoningEffort ?? "",
+				member.reasoningMode,
+				member.reasoningMode === "explicit" ? member.reasoningEffort ?? "" : "",
 				member.executionPrompt ?? ""
 			]);
 			const [savedSignature, setSavedSignature] = (0, react.useState)(remoteSignature);
@@ -1038,6 +1089,7 @@ window.__ModuleLoader__.load({
 				role,
 				provider,
 				model,
+				reasoningMode,
 				reasoningEffort,
 				executionPrompt
 			]) !== savedSignature;
@@ -1056,13 +1108,15 @@ window.__ModuleLoader__.load({
 				setRole(member.role);
 				setProvider(member.provider ?? "");
 				setModel(member.model ?? "");
-				setReasoningEffort(member.reasoningEffort ?? "");
+				setReasoningMode(member.reasoningMode);
+				setReasoningEffort(member.reasoningMode === "explicit" ? member.reasoningEffort ?? "" : "");
 				setExecutionPrompt(member.executionPrompt ?? "");
 				setSavedSignature(remoteSignature);
 			}, [
 				member.role,
 				member.provider,
 				member.model,
+				member.reasoningMode,
 				member.reasoningEffort,
 				member.executionPrompt,
 				remoteSignature
@@ -1073,17 +1127,20 @@ window.__ModuleLoader__.load({
 			const persist = async (selection = {
 				provider,
 				model,
+				reasoningMode,
 				reasoningEffort
 			}) => {
 				const nextSignature = JSON.stringify([
 					role,
 					selection.provider,
 					selection.model,
+					selection.reasoningMode,
 					selection.reasoningEffort,
 					executionPrompt
 				]);
 				setProvider(selection.provider);
 				setModel(selection.model);
+				setReasoningMode(selection.reasoningMode);
 				setReasoningEffort(selection.reasoningEffort);
 				setBusy(true);
 				setFeedback(void 0);
@@ -1096,7 +1153,8 @@ window.__ModuleLoader__.load({
 						role,
 						provider: selection.provider,
 						model: selection.model,
-						reasoningEffort: selection.reasoningEffort,
+						reasoningMode: selection.reasoningMode,
+						...selection.reasoningMode === "explicit" ? { reasoningEffort: selection.reasoningEffort } : {},
 						executionPrompt
 					});
 					setSavedSignature(nextSignature);
@@ -1167,6 +1225,7 @@ window.__ModuleLoader__.load({
 								directory: modelDirectory,
 								provider,
 								model,
+								reasoningMode,
 								reasoningEffort,
 								busy,
 								onChange: (selection) => {
@@ -1188,7 +1247,7 @@ window.__ModuleLoader__.load({
 						className: ActivityPanel_module_css_default.planActions,
 						children: [(0, react_jsx_runtime.jsx)(Feedback, { value: feedback }), (0, react_jsx_runtime.jsx)("button", {
 							type: "submit",
-							disabled: busy || !dirty || provider.trim() === "" || model.trim() === "",
+							disabled: busy || !dirty || provider.trim() === "" || model.trim() === "" || reasoningMode === "explicit" && reasoningEffort.trim() === "",
 							children: busy ? t("plan.saving") : t("plan.save")
 						})]
 					})]
@@ -1203,11 +1262,40 @@ window.__ModuleLoader__.load({
 			const [description, setDescription] = (0, react.useState)(task.description ?? "");
 			const [assignee, setAssignee] = (0, react.useState)(task.assignee);
 			const [dependencies, setDependencies] = (0, react.useState)(taskDependencies);
+			const [kind, setKind] = (0, react.useState)(task.kind ?? "work");
+			const [round, setRound] = (0, react.useState)(task.round?.toString() ?? "");
+			const [objective, setObjective] = (0, react.useState)(task.objective ?? "");
+			const [inScope, setInScope] = (0, react.useState)(formatLineList(task.inScope));
+			const [outOfScope, setOutOfScope] = (0, react.useState)(formatLineList(task.outOfScope));
+			const [acceptance, setAcceptance] = (0, react.useState)(formatLineList(task.acceptance));
+			const [verify, setVerify] = (0, react.useState)(formatLineList(task.verify));
+			const [deliverables, setDeliverables] = (0, react.useState)(formatLineList(task.deliverables));
+			const [nonGoals, setNonGoals] = (0, react.useState)(formatLineList(task.nonGoals));
+			const [reviewedTaskId, setReviewedTaskId] = (0, react.useState)(task.reviewedTaskId ?? "");
+			const [sourceTaskId, setSourceTaskId] = (0, react.useState)(task.sourceTaskId ?? "");
+			const [sourceFindingIds, setSourceFindingIds] = (0, react.useState)(formatLineList(task.sourceFindingIds));
+			const [coverageOf, setCoverageOf] = (0, react.useState)(formatLineList(task.coverageOf));
+			const taskContractSignature = [
+				task.kind ?? "work",
+				task.round?.toString() ?? "",
+				task.objective ?? "",
+				formatLineList(task.inScope),
+				formatLineList(task.outOfScope),
+				formatLineList(task.acceptance),
+				formatLineList(task.verify),
+				formatLineList(task.deliverables),
+				formatLineList(task.nonGoals),
+				task.reviewedTaskId ?? "",
+				task.sourceTaskId ?? "",
+				formatLineList(task.sourceFindingIds),
+				formatLineList(task.coverageOf)
+			];
 			const remoteSignature = JSON.stringify([
 				task.subject,
 				task.description ?? "",
 				task.assignee,
-				taskDependencies
+				taskDependencies,
+				...taskContractSignature
 			]);
 			const [savedSignature, setSavedSignature] = (0, react.useState)(remoteSignature);
 			const [busy, setBusy] = (0, react.useState)(false);
@@ -1218,7 +1306,20 @@ window.__ModuleLoader__.load({
 				subject,
 				description,
 				assignee,
-				dependencies
+				dependencies,
+				kind,
+				round,
+				objective,
+				inScope,
+				outOfScope,
+				acceptance,
+				verify,
+				deliverables,
+				nonGoals,
+				reviewedTaskId,
+				sourceTaskId,
+				sourceFindingIds,
+				coverageOf
 			]);
 			const dirty = signature !== savedSignature;
 			(0, react.useEffect)(() => {
@@ -1237,14 +1338,21 @@ window.__ModuleLoader__.load({
 				setDescription(task.description ?? "");
 				setAssignee(task.assignee);
 				setDependencies(taskDependencies);
+				setKind(task.kind ?? "work");
+				setRound(task.round?.toString() ?? "");
+				setObjective(task.objective ?? "");
+				setInScope(formatLineList(task.inScope));
+				setOutOfScope(formatLineList(task.outOfScope));
+				setAcceptance(formatLineList(task.acceptance));
+				setVerify(formatLineList(task.verify));
+				setDeliverables(formatLineList(task.deliverables));
+				setNonGoals(formatLineList(task.nonGoals));
+				setReviewedTaskId(task.reviewedTaskId ?? "");
+				setSourceTaskId(task.sourceTaskId ?? "");
+				setSourceFindingIds(formatLineList(task.sourceFindingIds));
+				setCoverageOf(formatLineList(task.coverageOf));
 				setSavedSignature(remoteSignature);
-			}, [
-				task.subject,
-				task.description,
-				task.assignee,
-				taskDependencies,
-				remoteSignature
-			]);
+			}, [remoteSignature]);
 			const markEdited = () => {
 				setFeedback(void 0);
 				setConfirmingRemove(false);
@@ -1254,16 +1362,28 @@ window.__ModuleLoader__.load({
 				setBusy(true);
 				setFeedback(void 0);
 				try {
-					await mutatePlan({
+					await mutatePlan(buildStagedTaskMutationPayload({
 						sessionId: team.captainSessionId,
 						teamId: team.teamId,
-						action: "update_task",
 						taskId: task.id,
 						subject,
 						description,
 						assignee,
-						dependencies: dependencies.split(",").map((item) => item.trim()).filter(Boolean)
-					});
+						dependencies,
+						kind,
+						round,
+						objective,
+						inScope,
+						outOfScope,
+						acceptance,
+						verify,
+						deliverables,
+						nonGoals,
+						reviewedTaskId,
+						sourceTaskId,
+						sourceFindingIds,
+						coverageOf
+					}));
 					setSavedSignature(signature);
 					setFeedback({
 						tone: "success",
@@ -1301,6 +1421,7 @@ window.__ModuleLoader__.load({
 				}
 			};
 			const dependencySummary = task.dependencies.length === 0 ? t("plan.dependencies.none") : t("plan.dependencies.count", { count: task.dependencies.length });
+			const roundValid = round.trim() === "" || /^[1-9]\d*$/u.test(round.trim()) && Number.isSafeInteger(Number(round));
 			return (0, react_jsx_runtime.jsxs)("article", {
 				className: ActivityPanel_module_css_default.planCard,
 				"data-plan-task": task.id,
@@ -1367,6 +1488,31 @@ window.__ModuleLoader__.load({
 								})] }),
 								(0, react_jsx_runtime.jsxs)("span", {
 									className: ActivityPanel_module_css_default.planGrid,
+									children: [(0, react_jsx_runtime.jsxs)("label", { children: [t("plan.task.kind"), (0, react_jsx_runtime.jsx)("select", {
+										name: "kind",
+										value: kind,
+										onChange: (event) => {
+											setKind(event.currentTarget.value);
+											markEdited();
+										},
+										children: TASK_KIND_OPTIONS.map((candidate) => (0, react_jsx_runtime.jsx)("option", {
+											value: candidate,
+											children: taskKindLabel(t, candidate)
+										}, candidate))
+									})] }), (0, react_jsx_runtime.jsxs)("label", { children: [t("plan.task.round"), (0, react_jsx_runtime.jsx)("input", {
+										name: "round",
+										type: "number",
+										min: "1",
+										step: "1",
+										value: round,
+										onChange: (event) => {
+											setRound(event.currentTarget.value);
+											markEdited();
+										}
+									})] })]
+								}),
+								(0, react_jsx_runtime.jsxs)("span", {
+									className: ActivityPanel_module_css_default.planGrid,
 									children: [(0, react_jsx_runtime.jsxs)("label", { children: [t("plan.task.assignee"), (0, react_jsx_runtime.jsxs)("select", {
 										name: "assignee",
 										value: assignee,
@@ -1393,7 +1539,146 @@ window.__ModuleLoader__.load({
 										}),
 										(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.dependenciesHint") })
 									] })]
-								})
+								}),
+								kind !== "work" && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+									(0, react_jsx_runtime.jsxs)("label", { children: [t("plan.task.objective"), (0, react_jsx_runtime.jsx)("textarea", {
+										name: "objective",
+										value: objective,
+										onChange: (event) => {
+											setObjective(event.currentTarget.value);
+											markEdited();
+										},
+										rows: 2
+									})] }),
+									(0, react_jsx_runtime.jsxs)("span", {
+										className: ActivityPanel_module_css_default.planGrid,
+										children: [(0, react_jsx_runtime.jsxs)("label", { children: [
+											t("plan.task.inScope"),
+											(0, react_jsx_runtime.jsx)("textarea", {
+												name: "inScope",
+												value: inScope,
+												onChange: (event) => {
+													setInScope(event.currentTarget.value);
+													markEdited();
+												},
+												rows: 3
+											}),
+											(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+										] }), (0, react_jsx_runtime.jsxs)("label", { children: [
+											t("plan.task.outOfScope"),
+											(0, react_jsx_runtime.jsx)("textarea", {
+												name: "outOfScope",
+												value: outOfScope,
+												onChange: (event) => {
+													setOutOfScope(event.currentTarget.value);
+													markEdited();
+												},
+												rows: 3
+											}),
+											(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+										] })]
+									}),
+									(0, react_jsx_runtime.jsxs)("span", {
+										className: ActivityPanel_module_css_default.planGrid,
+										children: [(0, react_jsx_runtime.jsxs)("label", { children: [
+											t("plan.task.acceptance"),
+											(0, react_jsx_runtime.jsx)("textarea", {
+												name: "acceptance",
+												value: acceptance,
+												onChange: (event) => {
+													setAcceptance(event.currentTarget.value);
+													markEdited();
+												},
+												rows: 3
+											}),
+											(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+										] }), (0, react_jsx_runtime.jsxs)("label", { children: [
+											t("plan.task.verify"),
+											(0, react_jsx_runtime.jsx)("textarea", {
+												name: "verify",
+												value: verify,
+												onChange: (event) => {
+													setVerify(event.currentTarget.value);
+													markEdited();
+												},
+												rows: 3
+											}),
+											(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+										] })]
+									}),
+									(0, react_jsx_runtime.jsxs)("span", {
+										className: ActivityPanel_module_css_default.planGrid,
+										children: [(0, react_jsx_runtime.jsxs)("label", { children: [
+											t("plan.task.deliverables"),
+											(0, react_jsx_runtime.jsx)("textarea", {
+												name: "deliverables",
+												value: deliverables,
+												onChange: (event) => {
+													setDeliverables(event.currentTarget.value);
+													markEdited();
+												},
+												rows: 3
+											}),
+											(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+										] }), (0, react_jsx_runtime.jsxs)("label", { children: [
+											t("plan.task.nonGoals"),
+											(0, react_jsx_runtime.jsx)("textarea", {
+												name: "nonGoals",
+												value: nonGoals,
+												onChange: (event) => {
+													setNonGoals(event.currentTarget.value);
+													markEdited();
+												},
+												rows: 3
+											}),
+											(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+										] })]
+									}),
+									(0, react_jsx_runtime.jsxs)("label", { children: [
+										t("plan.task.coverageOf"),
+										(0, react_jsx_runtime.jsx)("textarea", {
+											name: "coverageOf",
+											value: coverageOf,
+											onChange: (event) => {
+												setCoverageOf(event.currentTarget.value);
+												markEdited();
+											},
+											rows: 2
+										}),
+										(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+									] }),
+									kind === "review" && (0, react_jsx_runtime.jsxs)("label", { children: [t("plan.task.reviewedTaskId"), (0, react_jsx_runtime.jsx)("input", {
+										name: "reviewedTaskId",
+										value: reviewedTaskId,
+										onChange: (event) => {
+											setReviewedTaskId(event.currentTarget.value);
+											markEdited();
+										}
+									})] }),
+									kind === "repair" && (0, react_jsx_runtime.jsxs)("span", {
+										className: ActivityPanel_module_css_default.planGrid,
+										children: [(0, react_jsx_runtime.jsxs)("label", { children: [t("plan.task.sourceTaskId"), (0, react_jsx_runtime.jsx)("input", {
+											name: "sourceTaskId",
+											value: sourceTaskId,
+											onChange: (event) => {
+												setSourceTaskId(event.currentTarget.value);
+												markEdited();
+											}
+										})] }), (0, react_jsx_runtime.jsxs)("label", { children: [
+											t("plan.task.sourceFindingIds"),
+											(0, react_jsx_runtime.jsx)("textarea", {
+												name: "sourceFindingIds",
+												value: sourceFindingIds,
+												onChange: (event) => {
+													setSourceFindingIds(event.currentTarget.value);
+													markEdited();
+												},
+												rows: 3
+											}),
+											(0, react_jsx_runtime.jsx)("small", { children: t("plan.task.listHint") })
+										] })]
+									})
+								] })
 							]
 						}),
 						confirmingRemove && (0, react_jsx_runtime.jsxs)("span", {
@@ -1435,7 +1720,7 @@ window.__ModuleLoader__.load({
 								}),
 								(0, react_jsx_runtime.jsx)("button", {
 									type: "submit",
-									disabled: busy || !dirty || subject.trim() === "",
+									disabled: busy || !dirty || subject.trim() === "" || !roundValid,
 									children: busy ? t("plan.saving") : t("plan.save")
 								})
 							]
@@ -2668,30 +2953,6 @@ window.__ModuleLoader__.load({
 				})
 			})] });
 		}
-		/** Legacy conversation cards may outlive their host archive. Project their
-		* durable roster through the same rebuilt panel instead of a second UI. */
-		function historicCardTeam(data, owner) {
-			return {
-				workspace: "",
-				teamId: data.teamId,
-				name: data.teamName,
-				captainSessionId: data.captainSessionId || owner,
-				phase: "running",
-				members: data.members.map((member) => ({
-					...member,
-					status: "removed",
-					activity: "idle",
-					progress: 0,
-					done: 0,
-					total: 0,
-					currentTask: "",
-					unread: 0
-				})),
-				tasks: [],
-				messageCount: 0,
-				captainInbox: []
-			};
-		}
 		function ActivityPanel({ sessionsList, modelDirectories, openMember, t }) {
 			const navigateToSession = (parentId, childId) => {
 				setOpen(false);
@@ -2702,7 +2963,6 @@ window.__ModuleLoader__.load({
 			const [openOwner, setOpenOwner] = (0, react.useState)();
 			const [autoOpened, setAutoOpened] = (0, react.useState)(false);
 			const [wasActive, setWasActive] = (0, react.useState)(false);
-			const [historic, setHistoric] = (0, react.useState)(/* @__PURE__ */ new Map());
 			const [layout, setLayout] = (0, react.useState)(initialPanelLayout);
 			const [bounds, setBounds] = (0, react.useState)(initialPanelBounds);
 			const [interaction, setInteraction] = (0, react.useState)(null);
@@ -2823,24 +3083,11 @@ window.__ModuleLoader__.load({
 				};
 			}, [current, currentTargets]);
 			(0, react.useEffect)(() => {
-				const onOpenPanel = (event) => {
+				const onOpenPanel = () => {
 					const activeSession = currentRef.current;
 					if (activeSession === void 0) return;
 					setOpenOwner(activeSession);
 					setOpen(true);
-					const detail = event.detail;
-					if (detail?.teamId !== void 0) {
-						const owner = detail.captainSessionId !== "" ? detail.captainSessionId : currentRef.current ?? "";
-						const teamKey = `${owner}:${detail.teamId}`;
-						setHistoric((previous) => {
-							const next = new Map(previous);
-							next.set(teamKey, {
-								data: detail,
-								owner
-							});
-							return next;
-						});
-					}
 				};
 				window.addEventListener(OPEN_PANEL_EVENT, onOpenPanel);
 				return () => {
@@ -2848,18 +3095,12 @@ window.__ModuleLoader__.load({
 				};
 			}, []);
 			const visibleTeams = (0, react.useMemo)(() => current === void 0 ? [] : teams.filter((team) => team.captainSessionId === current), [teams, current]);
-			const visibleHistoric = (0, react.useMemo)(() => current === void 0 ? [] : [...historic.values()].filter(({ data, owner }) => owner === current && !teams.some((live) => live.captainSessionId === current && live.teamId === data.teamId) && !archivedTeams.some((archived) => archived.captainSessionId === current && archived.teamId === data.teamId)), [
-				historic,
-				current,
-				teams,
-				archivedTeams
-			]);
 			const visibleArchived = (0, react.useMemo)(() => current === void 0 ? [] : archivedTeams.filter((team) => team.captainSessionId === current && !teams.some((live) => live.captainSessionId === current && live.teamId === team.teamId)), [
 				archivedTeams,
 				current,
 				teams
 			]);
-			const visibleCount = visibleTeams.length + visibleArchived.length + visibleHistoric.length;
+			const visibleCount = visibleTeams.length + visibleArchived.length;
 			const visibleLiveTeamIds = (0, react.useMemo)(() => visibleTeams.map((team) => team.teamId).sort(), [visibleTeams]);
 			(0, react.useEffect)(() => {
 				const tracker = autoOpenTrackerRef.current;
@@ -3072,39 +3313,27 @@ window.__ModuleLoader__.load({
 						children: visibleCount === 0 ? (0, react_jsx_runtime.jsx)("span", {
 							className: ActivityPanel_module_css_default.emptyHint,
 							children: t("activity.empty")
-						}) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-							visibleTeams.map((team) => (0, react_jsx_runtime.jsx)(TeamSection, {
+						}) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [visibleTeams.map((team) => (0, react_jsx_runtime.jsx)(TeamSection, {
+							team,
+							modelDirectory: team.phase === "staged" ? modelDirectories.directoryFor(team.captainSessionId) : void 0,
+							onContinuePlanning: returnToComposer,
+							onDiscarded: returnToComposer,
+							onNavigate: navigateToSession,
+							t
+						}, team.teamId)), visibleArchived.map((team) => (0, react_jsx_runtime.jsxs)("div", {
+							"data-team-id": team.teamId,
+							"data-historic": true,
+							className: ActivityPanel_module_css_default.archivedWrap,
+							children: [(0, react_jsx_runtime.jsx)("span", {
+								className: ActivityPanel_module_css_default.archiveLabel,
+								children: t(team.phase === "staged" ? "archive.discardedLabel" : "archive.label")
+							}), (0, react_jsx_runtime.jsx)(TeamSection, {
 								team,
-								modelDirectory: team.phase === "staged" ? modelDirectories.directoryFor(team.captainSessionId) : void 0,
-								onContinuePlanning: returnToComposer,
-								onDiscarded: returnToComposer,
 								onNavigate: navigateToSession,
-								t
-							}, team.teamId)),
-							visibleArchived.map((team) => (0, react_jsx_runtime.jsxs)("div", {
-								"data-team-id": team.teamId,
-								"data-historic": true,
-								className: ActivityPanel_module_css_default.archivedWrap,
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: ActivityPanel_module_css_default.archiveLabel,
-									children: t(team.phase === "staged" ? "archive.discardedLabel" : "archive.label")
-								}), (0, react_jsx_runtime.jsx)(TeamSection, {
-									team,
-									onNavigate: navigateToSession,
-									t,
-									historic: true
-								})]
-							}, `${team.captainSessionId}:${team.teamId}`)),
-							visibleHistoric.map(({ data: team, owner }) => {
-								const teamKey = `${owner}:${team.teamId}`;
-								return (0, react_jsx_runtime.jsx)(TeamSection, {
-									team: historicCardTeam(team, owner),
-									onNavigate: navigateToSession,
-									t,
-									historic: true
-								}, teamKey);
-							})
-						] })
+								t,
+								historic: true
+							})]
+						}, `${team.captainSessionId}:${team.teamId}`))] })
 					}),
 					!compact && (0, react_jsx_runtime.jsx)("div", {
 						className: ActivityPanel_module_css_default.resizeHandle,
@@ -3193,6 +3422,7 @@ window.__ModuleLoader__.load({
 			"role",
 			"provider",
 			"model",
+			"reasoning_mode",
 			"reasoning_effort",
 			"executionPrompt",
 			"fallback"
@@ -3212,6 +3442,69 @@ window.__ModuleLoader__.load({
 			"maxRepairAttempts",
 			"requiredReviewers"
 		]);
+		function createCommittedProfileNameMap(profiles) {
+			return Object.fromEntries(Object.keys(profiles).map((name) => [name, name]));
+		}
+		function renameCommittedProfileName(committedProfileNames, previousName, nextName) {
+			if (previousName === nextName) return { ...committedProfileNames };
+			const next = { ...committedProfileNames };
+			const committedName = next[previousName];
+			delete next[previousName];
+			delete next[nextName];
+			if (committedName !== void 0) next[nextName] = committedName;
+			return next;
+		}
+		function applyMemberReasoningMode(member, mode, selectedModel) {
+			if (mode !== "explicit") {
+				const next = {
+					...member,
+					reasoning_mode: mode
+				};
+				delete next.reasoning_effort;
+				return next;
+			}
+			const effort = selectedModel?.efforts.find((candidate) => candidate.id === member.reasoning_effort) ?? selectedModel?.efforts.find((candidate) => candidate.id === selectedModel.defaultEffort) ?? selectedModel?.efforts[0];
+			if (effort === void 0) return void 0;
+			return {
+				...member,
+				reasoning_mode: mode,
+				reasoning_effort: effort.id
+			};
+		}
+		function hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, catalog, catalogReady, committedProfileNames) {
+			return Object.entries(nextProfiles).some(([profileName, profile]) => {
+				const committedName = committedProfileNames[profileName];
+				const committedProfile = committedName === void 0 ? void 0 : committedProfiles[committedName];
+				return profile.members.some((member, index) => {
+					if (member.reasoning_mode !== "explicit") return false;
+					const committedMember = committedProfile?.members.find((candidate) => candidate.name === member.name) ?? committedProfile?.members[index];
+					if (!(committedMember?.reasoning_mode !== "explicit" || committedMember.provider !== member.provider || committedMember.model !== member.model || committedMember.reasoning_effort !== member.reasoning_effort)) return false;
+					if (member.provider === void 0 || member.model === void 0 || member.reasoning_effort === void 0) return true;
+					if (!catalogReady) return true;
+					const selectedModel = catalog.find((entry) => entry.provider === member.provider && entry.id === member.model);
+					return selectedModel === void 0 || !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort);
+				});
+			});
+		}
+		function sameFallback(left, right) {
+			return left?.provider === right?.provider && left?.model === right?.model;
+		}
+		function fallbackNeedsCatalogValidation(fallback, committedFallback, catalog, catalogReady) {
+			if (sameFallback(fallback, committedFallback) || fallback === void 0) return false;
+			if (fallback.provider === "" || fallback.model === "" || !catalogReady) return true;
+			return !catalog.some((entry) => entry.provider === fallback.provider && entry.id === fallback.model);
+		}
+		function hasUnvalidatedFallbackDraft(nextProfiles, committedProfiles, catalog, catalogReady, committedProfileNames) {
+			return Object.entries(nextProfiles).some(([profileName, profile]) => {
+				const committedName = committedProfileNames[profileName];
+				const committedProfile = committedName === void 0 ? void 0 : committedProfiles[committedName];
+				if (fallbackNeedsCatalogValidation(profile.fallback, committedProfile?.fallback, catalog, catalogReady)) return true;
+				return profile.members.some((member, index) => {
+					const committedMember = committedProfile?.members.find((candidate) => candidate.name === member.name) ?? committedProfile?.members[index];
+					return fallbackNeedsCatalogValidation(member.fallback, committedMember?.fallback, catalog, catalogReady);
+				});
+			});
+		}
 		function isRecord(value) {
 			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
 			const prototype = Object.getPrototypeOf(value);
@@ -3240,6 +3533,13 @@ window.__ModuleLoader__.load({
 			}
 			return normalized;
 		}
+		function normalizeReasoningMode(value) {
+			if (value === "target-default" || value === "route-aware" || value === "explicit") return value;
+		}
+		function normalizeOptionalEditorString(value) {
+			const normalized = trimString(value);
+			return normalized === "" ? void 0 : normalized;
+		}
 		function assertKnownKeys(value, allowed, path, errors) {
 			for (const key of Object.keys(value)) if (!allowed.has(key)) errors.push(`${path}.${key} is not supported`);
 		}
@@ -3253,17 +3553,25 @@ window.__ModuleLoader__.load({
 			if (!isRecord(value)) return void 0;
 			const name = trimString(value.name);
 			if (name === void 0 || name === "") return void 0;
-			const member = { name };
-			for (const key of [
-				"role",
-				"provider",
-				"model",
-				"reasoning_effort",
-				"executionPrompt"
-			]) {
+			const reasoning_mode = normalizeReasoningMode(value.reasoning_mode);
+			if (reasoning_mode === void 0) return void 0;
+			const provider = normalizeOptionalEditorString(value.provider);
+			const model = normalizeOptionalEditorString(value.model);
+			const reasoning_effort = normalizeOptionalEditorString(value.reasoning_effort);
+			if (provider === void 0 !== (model === void 0)) return void 0;
+			if (reasoning_mode === "explicit" && (provider === void 0 || model === void 0 || reasoning_effort === void 0)) return;
+			if (reasoning_mode !== "explicit" && reasoning_effort !== void 0) return void 0;
+			const member = {
+				name,
+				reasoning_mode
+			};
+			for (const key of ["role", "executionPrompt"]) {
 				const normalized = trimString(value[key]);
 				if (normalized !== void 0 && normalized !== "") member[key] = normalized;
 			}
+			if (provider !== void 0) member.provider = provider;
+			if (model !== void 0) member.model = model;
+			if (reasoning_effort !== void 0) member.reasoning_effort = reasoning_effort;
 			const fallback = normalizeFallbackForEditor(value.fallback);
 			if (fallback !== void 0) member.fallback = fallback;
 			return member;
@@ -3345,27 +3653,35 @@ window.__ModuleLoader__.load({
 		}
 		/** Normalize the host response into an isolated browser-editable snapshot. */
 		function normalizeProfileSnapshot(value) {
-			const source = isRecord(value) ? value : {};
-			const profiles = normalizeMapForEditor(source.profiles);
+			if (!isRecord(value) || value.schemaVersion !== 2) throw new Error("AgentTeams profile snapshot schemaVersion must be 2");
+			if (!isRecord(value.profiles) || !Array.isArray(value.builtInNames) || !isRecord(value.builtInProfiles) || typeof value.unsupportedPersistedVersion !== "boolean") throw new Error("AgentTeams profile snapshot must be a complete V2 document");
+			const unsupportedPersistedVersion = value.unsupportedPersistedVersion === true;
+			const source = value;
 			const suppliedBuiltIns = normalizeMapForEditor(source.builtInProfiles);
+			const profiles = unsupportedPersistedVersion ? {} : normalizeMapForEditor(source.profiles);
 			const requestedNames = Array.isArray(source.builtInNames) ? source.builtInNames.map(normalizeName).filter((name) => name !== void 0) : [];
-			const builtInNames = [...new Set(requestedNames.filter((name) => suppliedBuiltIns[name] !== void 0 || profiles[name] !== void 0))];
+			const builtInNames = [...new Set(requestedNames.filter((name) => suppliedBuiltIns[name] !== void 0 || !unsupportedPersistedVersion && profiles[name] !== void 0))];
 			const builtInProfiles = {};
 			for (const name of builtInNames) {
 				const profile = suppliedBuiltIns[name] ?? profiles[name];
 				if (profile !== void 0) builtInProfiles[name] = cloneJson(profile);
 			}
 			return {
+				schemaVersion: 2,
 				profiles: cloneJson(profiles),
 				builtInNames,
-				builtInProfiles
+				builtInProfiles,
+				unsupportedPersistedVersion
 			};
 		}
 		/** Create the minimum valid captain-planned profile used by the editor. */
 		function createEmptyTeamProfile(_name) {
 			return {
 				taskPlanning: "captain",
-				members: [{ name: "member" }]
+				members: [{
+					name: "member",
+					reasoning_mode: "target-default"
+				}]
 			};
 		}
 		/** Clone an editable profile map before applying a UI update. */
@@ -3396,18 +3712,30 @@ window.__ModuleLoader__.load({
 			const name = requiredString(value.name, `${path}.name`, errors);
 			if (name === void 0) return void 0;
 			if (name.toLowerCase() === CAPTAIN_NAME) errors.push(`${path}.name is reserved for the captain`);
-			const member = { name };
-			for (const key of [
-				"role",
-				"provider",
-				"model",
-				"reasoning_effort",
-				"executionPrompt"
-			]) {
+			const rawReasoningMode = requiredString(value.reasoning_mode, `${path}.reasoning_mode`, errors);
+			if (rawReasoningMode === void 0) return void 0;
+			const reasoning_mode = normalizeReasoningMode(rawReasoningMode);
+			if (reasoning_mode === void 0) {
+				errors.push(`${path}.reasoning_mode is invalid`);
+				return;
+			}
+			const provider = optionalString(value.provider, `${path}.provider`, errors);
+			const model = optionalString(value.model, `${path}.model`, errors);
+			const reasoning_effort = optionalString(value.reasoning_effort, `${path}.reasoning_effort`, errors);
+			if (provider === void 0 !== (model === void 0)) errors.push(`${path}.provider and ${path}.model must be set together`);
+			if (reasoning_mode === "explicit" && (provider === void 0 || model === void 0 || reasoning_effort === void 0)) errors.push(`${path} explicit policy requires provider, model, and reasoning_effort`);
+			if (reasoning_mode !== "explicit" && reasoning_effort !== void 0) errors.push(`${path}.reasoning_effort is valid only for explicit policy`);
+			const member = {
+				name,
+				reasoning_mode
+			};
+			for (const key of ["role", "executionPrompt"]) {
 				const normalized = optionalString(value[key], `${path}.${key}`, errors);
 				if (normalized !== void 0) member[key] = normalized;
 			}
-			if (member.provider !== void 0 && member.model === void 0) errors.push(`${path}.provider requires model`);
+			if (provider !== void 0) member.provider = provider;
+			if (model !== void 0) member.model = model;
+			if (reasoning_effort !== void 0) member.reasoning_effort = reasoning_effort;
 			const fallback = normalizeFallbackForSave(value.fallback, `${path}.fallback`, errors);
 			if (fallback !== void 0) member.fallback = fallback;
 			return member;
@@ -3523,7 +3851,7 @@ window.__ModuleLoader__.load({
 			return profile;
 		}
 		/** Validate and normalize the map before handing it to the host IPC boundary. */
-		function prepareProfileMapForSave(value) {
+		function prepareProfileMapForSave(value, fallbackValidation) {
 			if (!isRecord(value)) return {
 				ok: false,
 				error: "AgentTeams profiles must be an object map"
@@ -3554,6 +3882,16 @@ window.__ModuleLoader__.load({
 				ok: false,
 				error: errors.join("; ")
 			};
+			const validation = fallbackValidation ?? {
+				catalog: [],
+				catalogReady: false,
+				committedProfiles: {},
+				committedProfileNames: {}
+			};
+			if (hasUnvalidatedFallbackDraft(profiles, validation.committedProfiles, validation.catalog, validation.catalogReady, validation.committedProfileNames)) return {
+				ok: false,
+				error: "new or changed AgentTeams fallback routes must match the ready shared model catalog"
+			};
 			return {
 				ok: true,
 				profiles
@@ -3570,7 +3908,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:src/client/AgentTeamsSettingsSection.module.css.mjs
-		const css = ".Zd8ifG_root{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;padding:4px 0 24px;display:flex}.Zd8ifG_header,.Zd8ifG_section{flex-direction:column;display:flex}.Zd8ifG_header{gap:4px}.Zd8ifG_pageTitle,.Zd8ifG_sectionTitle,.Zd8ifG_intro,.Zd8ifG_help,.Zd8ifG_settingsStatus,.Zd8ifG_catalogStatus{margin:0}.Zd8ifG_pageTitle{font-size:20px;font-weight:500;line-height:28px}.Zd8ifG_intro,.Zd8ifG_help{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.Zd8ifG_settingsStatus,.Zd8ifG_catalogStatus{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.Zd8ifG_section{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:12px;gap:10px;padding:16px}.Zd8ifG_sectionTitle{font-size:16px;font-weight:500;line-height:24px}.Zd8ifG_choices{border:0;gap:8px;margin:0;padding:0;display:grid}.Zd8ifG_choice{border:1px solid var(--dsw-alias-border-l2);cursor:pointer;border-radius:8px;align-items:flex-start;gap:10px;padding:10px 12px;display:flex}.Zd8ifG_choice:hover{background:var(--dsw-alias-interactive-bg-hover)}.Zd8ifG_choice:focus-within{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.Zd8ifG_choice input{accent-color:var(--dsw-alias-brand-primary);flex:none;margin:4px 0 0}.Zd8ifG_choice span,.Zd8ifG_field{flex-direction:column;display:flex}.Zd8ifG_choice span{gap:2px}.Zd8ifG_choice strong,.Zd8ifG_field>span{font-size:14px;font-weight:500;line-height:22px}.Zd8ifG_choice small{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.Zd8ifG_choices:disabled .Zd8ifG_choice,.Zd8ifG_choiceDisabled,.Zd8ifG_field select:disabled{cursor:default;opacity:.5}.Zd8ifG_choiceDisabled:hover{background:0 0}.Zd8ifG_fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;display:grid}.Zd8ifG_field{color:var(--dsw-alias-label-secondary);gap:6px}.Zd8ifG_field select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.Zd8ifG_field select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Zd8ifG_catalogError,.Zd8ifG_writeError{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:10px;font-size:12px;line-height:18px;display:flex}.Zd8ifG_profileSection{gap:14px}.Zd8ifG_profileSectionHeader,.Zd8ifG_profileRowHeader,.Zd8ifG_profileSaveBar,.Zd8ifG_profileIdentity,.Zd8ifG_profileIdentityActions{justify-content:space-between;align-items:center;gap:10px;display:flex}.Zd8ifG_profileSectionHeader{align-items:flex-start}.Zd8ifG_profileMarker,.Zd8ifG_profileBadge{border:1px solid var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary);letter-spacing:.08em;border-radius:999px;flex:none;padding:2px 7px;font-size:10px;font-weight:600;line-height:16px}.Zd8ifG_profileBadge{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);letter-spacing:normal}.Zd8ifG_profileToolbar{grid-template-columns:minmax(180px,.8fr) minmax(0,1.2fr);align-items:start;gap:12px;display:grid}.Zd8ifG_profileList,.Zd8ifG_profileActions,.Zd8ifG_profileForm,.Zd8ifG_profileSubsection,.Zd8ifG_profileDetails,.Zd8ifG_profileFallback{flex-direction:column;gap:8px;display:flex}.Zd8ifG_profileList{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;max-height:220px;padding:4px;overflow:auto}.Zd8ifG_profileListItem{min-height:34px;color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;background:0 0;border:1px solid #0000;border-radius:6px;justify-content:space-between;align-items:center;gap:8px;padding:6px 9px;display:flex}.Zd8ifG_profileListItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.Zd8ifG_profileListItem:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Zd8ifG_profileListItemSelected{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-interactive-bg-hover)}.Zd8ifG_profileListItem:disabled{cursor:default;opacity:.5}.Zd8ifG_profileListItem:disabled:hover{background:0 0}.Zd8ifG_profileListItem small{color:var(--dsw-alias-label-tertiary);flex:none;font-size:11px}.Zd8ifG_profileActions{flex-flow:wrap;justify-content:flex-end}.Zd8ifG_profileIdentity{align-items:flex-end}.Zd8ifG_profileIdentity>.Zd8ifG_field{flex:1}.Zd8ifG_profileIdentityActions{flex-wrap:wrap;justify-content:flex-end}.Zd8ifG_profileInput,.Zd8ifG_profileSelect,.Zd8ifG_profileTextarea{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.Zd8ifG_profileTextarea{resize:vertical;min-height:72px}.Zd8ifG_profileInput:focus-visible,.Zd8ifG_profileSelect:focus-visible,.Zd8ifG_profileTextarea:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.Zd8ifG_profileInput:disabled,.Zd8ifG_profileSelect:disabled,.Zd8ifG_profileTextarea:disabled{cursor:default;opacity:.5}.Zd8ifG_profileWideField{grid-column:1/-1}.Zd8ifG_profileFieldset{border:0;gap:8px;margin:0;padding:0;display:grid}.Zd8ifG_profileLegend,.Zd8ifG_profileSubsectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:500;line-height:22px}.Zd8ifG_profileSubsection{padding-top:4px}.Zd8ifG_profileSubsection+.Zd8ifG_profileSubsection,.Zd8ifG_profileSubsection+.Zd8ifG_profileDetails,.Zd8ifG_profileDetails+.Zd8ifG_profileSubsection,.Zd8ifG_profileDetails+.Zd8ifG_profileDetails{border-top:1px solid var(--dsw-alias-border-l2);padding-top:12px}.Zd8ifG_profileMember,.Zd8ifG_profileTask{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:10px;padding:12px;display:flex}.Zd8ifG_profileMember .Zd8ifG_fields,.Zd8ifG_profileTask .Zd8ifG_fields{gap:10px}.Zd8ifG_profileRowHeader{align-items:flex-start}.Zd8ifG_profileDetails{gap:10px}.Zd8ifG_profileDetails summary{color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:13px;line-height:20px}.Zd8ifG_profileDetails summary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.Zd8ifG_profileFallback{grid-template-columns:repeat(2,minmax(0,1fr));padding-top:4px;display:grid}.Zd8ifG_profileHint,.Zd8ifG_profileDirty,.Zd8ifG_profileSaved,.Zd8ifG_profileError{margin:0;font-size:12px;line-height:18px}.Zd8ifG_profileHint,.Zd8ifG_profileDirty{color:var(--dsw-alias-label-tertiary)}.Zd8ifG_profileSaved{color:var(--dsw-alias-state-success-primary)}.Zd8ifG_profileError{color:var(--dsw-alias-state-error-primary)}.Zd8ifG_profileSaveBar{justify-content:flex-end;padding-top:4px}.Zd8ifG_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;border:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}@media (width<=560px){.Zd8ifG_fields,.Zd8ifG_profileToolbar,.Zd8ifG_profileFallback{grid-template-columns:1fr}.Zd8ifG_section{padding:14px}.Zd8ifG_profileSectionHeader,.Zd8ifG_profileIdentity{flex-direction:column;align-items:stretch}.Zd8ifG_profileIdentityActions,.Zd8ifG_profileActions{justify-content:flex-start}}";
+		const css = ".-XkeNW_root{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;padding:4px 0 24px;display:flex}.-XkeNW_header,.-XkeNW_section{flex-direction:column;display:flex}.-XkeNW_header{gap:4px}.-XkeNW_pageTitle,.-XkeNW_sectionTitle,.-XkeNW_intro,.-XkeNW_help,.-XkeNW_settingsStatus,.-XkeNW_catalogStatus{margin:0}.-XkeNW_pageTitle{font-size:20px;font-weight:500;line-height:28px}.-XkeNW_intro,.-XkeNW_help{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.-XkeNW_settingsStatus,.-XkeNW_catalogStatus{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.-XkeNW_section{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);border-radius:12px;gap:10px;padding:16px}.-XkeNW_sectionTitle{font-size:16px;font-weight:500;line-height:24px}.-XkeNW_choices{border:0;gap:8px;margin:0;padding:0;display:grid}.-XkeNW_choice{border:1px solid var(--dsw-alias-border-l2);cursor:pointer;border-radius:8px;align-items:flex-start;gap:10px;padding:10px 12px;display:flex}.-XkeNW_choice:hover{background:var(--dsw-alias-interactive-bg-hover)}.-XkeNW_choice:focus-within{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.-XkeNW_choice input{accent-color:var(--dsw-alias-brand-primary);flex:none;margin:4px 0 0}.-XkeNW_choice span,.-XkeNW_field{flex-direction:column;display:flex}.-XkeNW_choice span{gap:2px}.-XkeNW_choice strong,.-XkeNW_field>span{font-size:14px;font-weight:500;line-height:22px}.-XkeNW_choice small{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.-XkeNW_choices:disabled .-XkeNW_choice,.-XkeNW_choiceDisabled,.-XkeNW_field select:disabled{cursor:default;opacity:.5}.-XkeNW_choiceDisabled:hover{background:0 0}.-XkeNW_fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;display:grid}.-XkeNW_field{color:var(--dsw-alias-label-secondary);gap:6px}.-XkeNW_field select{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.-XkeNW_field select:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.-XkeNW_catalogError,.-XkeNW_writeError{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:10px;font-size:12px;line-height:18px;display:flex}.-XkeNW_profileSection{gap:14px}.-XkeNW_profileSectionHeader,.-XkeNW_profileRowHeader,.-XkeNW_profileSaveBar,.-XkeNW_profileIdentity,.-XkeNW_profileIdentityActions{justify-content:space-between;align-items:center;gap:10px;display:flex}.-XkeNW_profileSectionHeader{align-items:flex-start}.-XkeNW_profileMarker,.-XkeNW_profileBadge{border:1px solid var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary);letter-spacing:.08em;border-radius:999px;flex:none;padding:2px 7px;font-size:10px;font-weight:600;line-height:16px}.-XkeNW_profileBadge{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);letter-spacing:normal}.-XkeNW_profileToolbar{grid-template-columns:minmax(180px,.8fr) minmax(0,1.2fr);align-items:start;gap:12px;display:grid}.-XkeNW_profileList,.-XkeNW_profileActions,.-XkeNW_profileForm,.-XkeNW_profileSubsection,.-XkeNW_profileDetails,.-XkeNW_profileFallback{flex-direction:column;gap:8px;display:flex}.-XkeNW_profileList{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;max-height:220px;padding:4px;overflow:auto}.-XkeNW_profileListItem{min-height:34px;color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;background:0 0;border:1px solid #0000;border-radius:6px;justify-content:space-between;align-items:center;gap:8px;padding:6px 9px;display:flex}.-XkeNW_profileListItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.-XkeNW_profileListItem:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.-XkeNW_profileListItemSelected{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-interactive-bg-hover)}.-XkeNW_profileListItem:disabled{cursor:default;opacity:.5}.-XkeNW_profileListItem:disabled:hover{background:0 0}.-XkeNW_profileListItem small{color:var(--dsw-alias-label-tertiary);flex:none;font-size:11px}.-XkeNW_profileActions{flex-flow:wrap;justify-content:flex-end}.-XkeNW_profileIdentity{align-items:flex-end}.-XkeNW_profileIdentity>.-XkeNW_field{flex:1}.-XkeNW_profileIdentityActions{flex-wrap:wrap;justify-content:flex-end}.-XkeNW_profileInput,.-XkeNW_profileSelect,.-XkeNW_profileTextarea{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;border-radius:8px;padding:6px 10px}.-XkeNW_profileTextarea{resize:vertical;min-height:72px}.-XkeNW_profileInput:focus-visible,.-XkeNW_profileSelect:focus-visible,.-XkeNW_profileTextarea:focus-visible{border-color:var(--dsw-alias-brand-primary);outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.-XkeNW_profileInput:disabled,.-XkeNW_profileSelect:disabled,.-XkeNW_profileTextarea:disabled{cursor:default;opacity:.5}.-XkeNW_profileWideField{grid-column:1/-1}.-XkeNW_profileFieldset{border:0;gap:8px;margin:0;padding:0;display:grid}.-XkeNW_profileLegend,.-XkeNW_profileSubsectionTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:500;line-height:22px}.-XkeNW_profileSubsection{padding-top:4px}.-XkeNW_profileSubsection+.-XkeNW_profileSubsection,.-XkeNW_profileSubsection+.-XkeNW_profileDetails,.-XkeNW_profileDetails+.-XkeNW_profileSubsection,.-XkeNW_profileDetails+.-XkeNW_profileDetails{border-top:1px solid var(--dsw-alias-border-l2);padding-top:12px}.-XkeNW_profileMember,.-XkeNW_profileTask{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:10px;padding:12px;display:flex}.-XkeNW_profileMember .-XkeNW_fields,.-XkeNW_profileTask .-XkeNW_fields{gap:10px}.-XkeNW_profileReasoning{border:0;flex-direction:column;gap:8px;min-width:0;margin:0;padding:0;display:flex}.-XkeNW_profileReasoningChoices{gap:6px;display:grid}.-XkeNW_profileRowHeader{align-items:flex-start}.-XkeNW_profileDetails{gap:10px}.-XkeNW_profileDetails summary{color:var(--dsw-alias-label-secondary);cursor:pointer;font-size:13px;line-height:20px}.-XkeNW_profileDetails summary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.-XkeNW_profileFallback{grid-template-columns:repeat(2,minmax(0,1fr));padding-top:4px;display:grid}.-XkeNW_profileHint,.-XkeNW_profileDirty,.-XkeNW_profileSaved,.-XkeNW_profileError{margin:0;font-size:12px;line-height:18px}.-XkeNW_profileHint,.-XkeNW_profileDirty{color:var(--dsw-alias-label-tertiary)}.-XkeNW_profileSaved{color:var(--dsw-alias-state-success-primary)}.-XkeNW_profileWarning{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-secondary));margin:0;font-size:12px;line-height:18px}.-XkeNW_profileError{color:var(--dsw-alias-state-error-primary)}.-XkeNW_profileSaveBar{justify-content:flex-end;padding-top:4px}.-XkeNW_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;border:0;width:1px;height:1px;margin:-1px;padding:0;position:absolute;overflow:hidden}@media (width<=560px){.-XkeNW_fields,.-XkeNW_profileToolbar,.-XkeNW_profileFallback{grid-template-columns:1fr}.-XkeNW_section{padding:14px}.-XkeNW_profileSectionHeader,.-XkeNW_profileIdentity{flex-direction:column;align-items:stretch}.-XkeNW_profileIdentityActions,.-XkeNW_profileActions{justify-content:flex-start}}";
 		const tagId = "@nanmicoder/dsh-agent-teams/AgentTeamsSettingsSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -3580,53 +3918,56 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var AgentTeamsSettingsSection_module_css_default = {
-			"catalogError": "Zd8ifG_catalogError",
-			"catalogStatus": "Zd8ifG_catalogStatus",
-			"choice": "Zd8ifG_choice",
-			"choiceDisabled": "Zd8ifG_choiceDisabled",
-			"choices": "Zd8ifG_choices",
-			"field": "Zd8ifG_field",
-			"fields": "Zd8ifG_fields",
-			"header": "Zd8ifG_header",
-			"help": "Zd8ifG_help",
-			"intro": "Zd8ifG_intro",
-			"pageTitle": "Zd8ifG_pageTitle",
-			"profileActions": "Zd8ifG_profileActions",
-			"profileBadge": "Zd8ifG_profileBadge",
-			"profileDetails": "Zd8ifG_profileDetails",
-			"profileDirty": "Zd8ifG_profileDirty",
-			"profileError": "Zd8ifG_profileError",
-			"profileFallback": "Zd8ifG_profileFallback",
-			"profileFieldset": "Zd8ifG_profileFieldset",
-			"profileForm": "Zd8ifG_profileForm",
-			"profileHint": "Zd8ifG_profileHint",
-			"profileIdentity": "Zd8ifG_profileIdentity",
-			"profileIdentityActions": "Zd8ifG_profileIdentityActions",
-			"profileInput": "Zd8ifG_profileInput",
-			"profileLegend": "Zd8ifG_profileLegend",
-			"profileList": "Zd8ifG_profileList",
-			"profileListItem": "Zd8ifG_profileListItem",
-			"profileListItemSelected": "Zd8ifG_profileListItemSelected",
-			"profileMarker": "Zd8ifG_profileMarker",
-			"profileMember": "Zd8ifG_profileMember",
-			"profileRowHeader": "Zd8ifG_profileRowHeader",
-			"profileSaveBar": "Zd8ifG_profileSaveBar",
-			"profileSaved": "Zd8ifG_profileSaved",
-			"profileSection": "Zd8ifG_profileSection",
-			"profileSectionHeader": "Zd8ifG_profileSectionHeader",
-			"profileSelect": "Zd8ifG_profileSelect",
-			"profileSubsection": "Zd8ifG_profileSubsection",
-			"profileSubsectionTitle": "Zd8ifG_profileSubsectionTitle",
-			"profileTask": "Zd8ifG_profileTask",
-			"profileTextarea": "Zd8ifG_profileTextarea",
-			"profileToolbar": "Zd8ifG_profileToolbar",
-			"profileWideField": "Zd8ifG_profileWideField",
-			"root": "Zd8ifG_root",
-			"section": "Zd8ifG_section",
-			"sectionTitle": "Zd8ifG_sectionTitle",
-			"settingsStatus": "Zd8ifG_settingsStatus",
-			"visuallyHidden": "Zd8ifG_visuallyHidden",
-			"writeError": "Zd8ifG_writeError"
+			"catalogError": "-XkeNW_catalogError",
+			"catalogStatus": "-XkeNW_catalogStatus",
+			"choice": "-XkeNW_choice",
+			"choiceDisabled": "-XkeNW_choiceDisabled",
+			"choices": "-XkeNW_choices",
+			"field": "-XkeNW_field",
+			"fields": "-XkeNW_fields",
+			"header": "-XkeNW_header",
+			"help": "-XkeNW_help",
+			"intro": "-XkeNW_intro",
+			"pageTitle": "-XkeNW_pageTitle",
+			"profileActions": "-XkeNW_profileActions",
+			"profileBadge": "-XkeNW_profileBadge",
+			"profileDetails": "-XkeNW_profileDetails",
+			"profileDirty": "-XkeNW_profileDirty",
+			"profileError": "-XkeNW_profileError",
+			"profileFallback": "-XkeNW_profileFallback",
+			"profileFieldset": "-XkeNW_profileFieldset",
+			"profileForm": "-XkeNW_profileForm",
+			"profileHint": "-XkeNW_profileHint",
+			"profileIdentity": "-XkeNW_profileIdentity",
+			"profileIdentityActions": "-XkeNW_profileIdentityActions",
+			"profileInput": "-XkeNW_profileInput",
+			"profileLegend": "-XkeNW_profileLegend",
+			"profileList": "-XkeNW_profileList",
+			"profileListItem": "-XkeNW_profileListItem",
+			"profileListItemSelected": "-XkeNW_profileListItemSelected",
+			"profileMarker": "-XkeNW_profileMarker",
+			"profileMember": "-XkeNW_profileMember",
+			"profileReasoning": "-XkeNW_profileReasoning",
+			"profileReasoningChoices": "-XkeNW_profileReasoningChoices",
+			"profileRowHeader": "-XkeNW_profileRowHeader",
+			"profileSaveBar": "-XkeNW_profileSaveBar",
+			"profileSaved": "-XkeNW_profileSaved",
+			"profileSection": "-XkeNW_profileSection",
+			"profileSectionHeader": "-XkeNW_profileSectionHeader",
+			"profileSelect": "-XkeNW_profileSelect",
+			"profileSubsection": "-XkeNW_profileSubsection",
+			"profileSubsectionTitle": "-XkeNW_profileSubsectionTitle",
+			"profileTask": "-XkeNW_profileTask",
+			"profileTextarea": "-XkeNW_profileTextarea",
+			"profileToolbar": "-XkeNW_profileToolbar",
+			"profileWarning": "-XkeNW_profileWarning",
+			"profileWideField": "-XkeNW_profileWideField",
+			"root": "-XkeNW_root",
+			"section": "-XkeNW_section",
+			"sectionTitle": "-XkeNW_sectionTitle",
+			"settingsStatus": "-XkeNW_settingsStatus",
+			"visuallyHidden": "-XkeNW_visuallyHidden",
+			"writeError": "-XkeNW_writeError"
 		};
 		//#endregion
 		//#region lib/client/TeamProfilesEditor.js
@@ -3652,13 +3993,47 @@ window.__ModuleLoader__.load({
 			else next[field] = value;
 			return next;
 		}
-		function setRouteField(current, field, value) {
-			const next = {
-				provider: current?.provider ?? "",
-				model: current?.model ?? ""
+		function setMemberProvider(member, provider, catalog) {
+			if (provider === "") return {
+				...member,
+				provider: void 0,
+				model: void 0
 			};
-			next[field] = value;
-			return next.provider === "" && next.model === "" ? void 0 : next;
+			const models = catalog.filter((entry) => entry.provider === provider);
+			const currentModel = member.provider === provider && models.some((entry) => entry.id === member.model) ? member.model : models[0]?.id;
+			return {
+				...member,
+				provider,
+				...currentModel === void 0 ? { model: void 0 } : { model: currentModel }
+			};
+		}
+		function setMemberModel(member, provider, model) {
+			if (provider === "" || model === "") return {
+				...member,
+				provider: void 0,
+				model: void 0
+			};
+			return {
+				...member,
+				provider,
+				model
+			};
+		}
+		function setFallbackProvider(current, provider, catalog) {
+			if (provider === "") return void 0;
+			const models = catalog.filter((entry) => entry.provider === provider);
+			const model = current?.provider === provider && models.some((entry) => entry.id === current.model) ? current.model : models[0]?.id;
+			return model === void 0 ? void 0 : {
+				provider,
+				model
+			};
+		}
+		function setFallbackModel(current, model) {
+			const provider = current?.provider ?? "";
+			return provider === "" || model === "" ? void 0 : {
+				provider,
+				model
+			};
 		}
 		function formatDependencies(task) {
 			return task.dependencies?.join(", ") ?? "";
@@ -3667,35 +4042,67 @@ window.__ModuleLoader__.load({
 			const dependencies = value.split(",").map((dependency) => dependency.trim()).filter((dependency) => dependency !== "");
 			return dependencies.length === 0 ? void 0 : [...new Set(dependencies)];
 		}
-		function FallbackFields({ disabled, fallback, onChange, t }) {
+		function FallbackFields({ catalog, catalogReady, disabled, fallback, onChange, t }) {
+			const providers = (0, react.useMemo)(() => [...new Set(catalog.map((model) => model.provider))], [catalog]);
+			const provider = fallback?.provider ?? "";
+			const model = fallback?.model ?? "";
+			const providerModels = catalog.filter((entry) => entry.provider === provider);
+			const selectedModel = providerModels.find((entry) => entry.id === model);
 			return (0, react_jsx_runtime.jsxs)("div", {
 				className: AgentTeamsSettingsSection_module_css_default.profileFallback,
 				children: [(0, react_jsx_runtime.jsxs)("label", {
 					className: AgentTeamsSettingsSection_module_css_default.field,
-					children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.fallbackProvider") }), (0, react_jsx_runtime.jsx)("input", {
-						className: AgentTeamsSettingsSection_module_css_default.profileInput,
-						value: fallback?.provider ?? "",
-						disabled,
-						onChange: (event) => onChange(setRouteField(fallback, "provider", event.currentTarget.value))
+					children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.fallbackProvider") }), (0, react_jsx_runtime.jsxs)("select", {
+						className: AgentTeamsSettingsSection_module_css_default.profileSelect,
+						value: provider,
+						disabled: disabled || !catalogReady,
+						onChange: (event) => onChange(setFallbackProvider(fallback, event.currentTarget.value, catalog)),
+						children: [
+							(0, react_jsx_runtime.jsx)("option", {
+								value: "",
+								children: t("settings.profiles.noFallback")
+							}),
+							provider !== "" && !providers.includes(provider) && (0, react_jsx_runtime.jsx)("option", {
+								value: provider,
+								children: t("settings.profiles.unavailable", { value: provider })
+							}),
+							providers.map((entry) => (0, react_jsx_runtime.jsx)("option", {
+								value: entry,
+								children: entry
+							}, entry))
+						]
 					})]
 				}), (0, react_jsx_runtime.jsxs)("label", {
 					className: AgentTeamsSettingsSection_module_css_default.field,
-					children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.fallbackModel") }), (0, react_jsx_runtime.jsx)("input", {
-						className: AgentTeamsSettingsSection_module_css_default.profileInput,
-						value: fallback?.model ?? "",
-						disabled,
-						onChange: (event) => onChange(setRouteField(fallback, "model", event.currentTarget.value))
+					children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.fallbackModel") }), (0, react_jsx_runtime.jsxs)("select", {
+						className: AgentTeamsSettingsSection_module_css_default.profileSelect,
+						value: model,
+						disabled: disabled || !catalogReady || provider === "",
+						onChange: (event) => onChange(setFallbackModel(fallback, event.currentTarget.value)),
+						children: [
+							(0, react_jsx_runtime.jsx)("option", {
+								value: "",
+								children: provider === "" ? t("settings.profiles.noFallback") : t("settings.profiles.chooseModel")
+							}),
+							model !== "" && selectedModel === void 0 && (0, react_jsx_runtime.jsx)("option", {
+								value: model,
+								children: t("settings.profiles.unavailable", { value: model })
+							}),
+							providerModels.map((entry) => (0, react_jsx_runtime.jsx)("option", {
+								value: entry.id,
+								children: entry.name || entry.id
+							}, entry.id))
+						]
 					})]
 				})]
 			});
 		}
-		function MemberEditor({ catalog, disabled, index, member, onChange, onRemove, t }) {
+		function MemberEditor({ catalog, catalogReady, disabled, index, member, onChange, onRemove, t }) {
 			const providers = (0, react.useMemo)(() => [...new Set(catalog.map((model) => model.provider))], [catalog]);
 			const provider = member.provider ?? "";
 			const model = member.model ?? "";
 			const providerModels = catalog.filter((entry) => entry.provider === provider);
 			const selectedModel = providerModels.find((entry) => entry.id === model);
-			const modelListId = `agent-teams-profile-member-${index}-models`;
 			const update = (field, value) => {
 				onChange(setMemberField(member, field, value));
 			};
@@ -3742,8 +4149,8 @@ window.__ModuleLoader__.load({
 								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberProvider") }), (0, react_jsx_runtime.jsxs)("select", {
 									className: AgentTeamsSettingsSection_module_css_default.profileSelect,
 									value: provider,
-									disabled,
-									onChange: (event) => update("provider", event.currentTarget.value),
+									disabled: disabled || !catalogReady,
+									onChange: (event) => onChange(setMemberProvider(member, event.currentTarget.value, catalog)),
 									children: [
 										(0, react_jsx_runtime.jsx)("option", {
 											value: "",
@@ -3762,28 +4169,15 @@ window.__ModuleLoader__.load({
 							}),
 							(0, react_jsx_runtime.jsxs)("label", {
 								className: AgentTeamsSettingsSection_module_css_default.field,
-								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberModel") }), provider === "" ? (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("input", {
-									className: AgentTeamsSettingsSection_module_css_default.profileInput,
-									list: modelListId,
-									value: model,
-									disabled,
-									placeholder: t("settings.profiles.followCaptain"),
-									onChange: (event) => update("model", event.currentTarget.value)
-								}), (0, react_jsx_runtime.jsx)("datalist", {
-									id: modelListId,
-									children: catalog.map((entry) => (0, react_jsx_runtime.jsx)("option", {
-										value: entry.id,
-										children: entry.provider
-									}, `${entry.provider}/${entry.id}`))
-								})] }) : (0, react_jsx_runtime.jsxs)("select", {
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberModel") }), (0, react_jsx_runtime.jsxs)("select", {
 									className: AgentTeamsSettingsSection_module_css_default.profileSelect,
 									value: model,
-									disabled,
-									onChange: (event) => update("model", event.currentTarget.value),
+									disabled: disabled || !catalogReady || provider === "",
+									onChange: (event) => onChange(setMemberModel(member, provider, event.currentTarget.value)),
 									children: [
 										(0, react_jsx_runtime.jsx)("option", {
 											value: "",
-											children: t("settings.profiles.chooseModel")
+											children: provider === "" ? t("settings.profiles.followCaptain") : t("settings.profiles.chooseModel")
 										}),
 										model !== "" && selectedModel === void 0 && (0, react_jsx_runtime.jsx)("option", {
 											value: model,
@@ -3796,34 +4190,55 @@ window.__ModuleLoader__.load({
 									]
 								})]
 							}),
-							(0, react_jsx_runtime.jsxs)("label", {
-								className: AgentTeamsSettingsSection_module_css_default.field,
-								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.memberReasoning") }), selectedModel !== void 0 && selectedModel.efforts.length > 0 ? (0, react_jsx_runtime.jsxs)("select", {
-									className: AgentTeamsSettingsSection_module_css_default.profileSelect,
-									value: member.reasoning_effort ?? "",
-									disabled,
-									onChange: (event) => update("reasoning_effort", event.currentTarget.value),
-									children: [
-										(0, react_jsx_runtime.jsx)("option", {
-											value: "",
-											children: t("settings.profiles.defaultValue")
-										}),
-										member.reasoning_effort !== void 0 && !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort) && (0, react_jsx_runtime.jsx)("option", {
-											value: member.reasoning_effort,
-											children: t("settings.profiles.unavailable", { value: member.reasoning_effort })
-										}),
-										selectedModel.efforts.map((effort) => (0, react_jsx_runtime.jsx)("option", {
-											value: effort.id,
-											children: effort.name
-										}, effort.id))
-									]
-								}) : (0, react_jsx_runtime.jsx)("input", {
-									className: AgentTeamsSettingsSection_module_css_default.profileInput,
-									value: member.reasoning_effort ?? "",
-									disabled,
-									placeholder: t("settings.profiles.defaultValue"),
-									onChange: (event) => update("reasoning_effort", event.currentTarget.value)
-								})]
+							(0, react_jsx_runtime.jsxs)("fieldset", {
+								className: AgentTeamsSettingsSection_module_css_default.profileReasoning,
+								disabled,
+								children: [
+									(0, react_jsx_runtime.jsx)("legend", {
+										className: AgentTeamsSettingsSection_module_css_default.profileLegend,
+										children: t("settings.profiles.reasoning.title")
+									}),
+									(0, react_jsx_runtime.jsx)("div", {
+										className: AgentTeamsSettingsSection_module_css_default.profileReasoningChoices,
+										children: [
+											"target-default",
+											"route-aware",
+											"explicit"
+										].map((mode) => (0, react_jsx_runtime.jsxs)("label", {
+											className: `${AgentTeamsSettingsSection_module_css_default.choice} ${mode === "explicit" && (!catalogReady || (selectedModel?.efforts.length ?? 0) === 0) ? AgentTeamsSettingsSection_module_css_default.choiceDisabled : ""}`,
+											children: [(0, react_jsx_runtime.jsx)("input", {
+												type: "radio",
+												name: `agent-teams-profile-member-${index}-reasoning-mode`,
+												value: mode,
+												checked: member.reasoning_mode === mode,
+												disabled: mode === "explicit" && (!catalogReady || (selectedModel?.efforts.length ?? 0) === 0),
+												onChange: () => {
+													const next = applyMemberReasoningMode(member, mode, selectedModel);
+													if (next !== void 0) onChange(next);
+												}
+											}), (0, react_jsx_runtime.jsx)("span", { children: t(`settings.profiles.reasoning.${mode}.label`) })]
+										}, mode))
+									}),
+									member.reasoning_mode === "explicit" && (0, react_jsx_runtime.jsxs)("label", {
+										className: AgentTeamsSettingsSection_module_css_default.field,
+										children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.profiles.reasoning.effort") }), (0, react_jsx_runtime.jsx)("select", {
+											className: AgentTeamsSettingsSection_module_css_default.profileSelect,
+											value: member.reasoning_effort ?? "",
+											disabled: disabled || !catalogReady || (selectedModel?.efforts.length ?? 0) === 0,
+											onChange: (event) => update("reasoning_effort", event.currentTarget.value),
+											children: selectedModel?.efforts.length ? (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [member.reasoning_effort !== void 0 && !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort) && (0, react_jsx_runtime.jsx)("option", {
+												value: member.reasoning_effort,
+												children: t("settings.profiles.unavailable", { value: member.reasoning_effort })
+											}), selectedModel.efforts.map((effort) => (0, react_jsx_runtime.jsx)("option", {
+												value: effort.id,
+												children: effort.name
+											}, effort.id))] }) : (0, react_jsx_runtime.jsx)("option", {
+												value: "",
+												children: t("settings.profiles.reasoning.noEfforts")
+											})
+										})]
+									})
+								]
 							})
 						]
 					}),
@@ -3840,6 +4255,8 @@ window.__ModuleLoader__.load({
 					(0, react_jsx_runtime.jsxs)("details", {
 						className: AgentTeamsSettingsSection_module_css_default.profileDetails,
 						children: [(0, react_jsx_runtime.jsx)("summary", { children: t("settings.profiles.memberFallback") }), (0, react_jsx_runtime.jsx)(FallbackFields, {
+							catalog,
+							catalogReady,
 							disabled,
 							fallback: member.fallback,
 							onChange: (fallback) => onChange({
@@ -3941,7 +4358,7 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
-		function ProfileForm({ catalog, disabled, onChange, profile, t }) {
+		function ProfileForm({ catalog, catalogReady, disabled, onChange, profile, t }) {
 			const members = profile.members;
 			const tasks = profile.tasks ?? [];
 			const updateMember = (index, next) => {
@@ -3960,7 +4377,10 @@ window.__ModuleLoader__.load({
 				const name = uniqueName(members.map((member) => member.name), "member");
 				onChange({
 					...profile,
-					members: [...members, { name }]
+					members: [...members, {
+						name,
+						reasoning_mode: "target-default"
+					}]
 				});
 			};
 			const updateTask = (index, next) => {
@@ -4094,6 +4514,7 @@ window.__ModuleLoader__.load({
 							})]
 						}), members.map((member, index) => (0, react_jsx_runtime.jsx)(MemberEditor, {
 							catalog,
+							catalogReady,
 							disabled,
 							index,
 							member,
@@ -4105,6 +4526,8 @@ window.__ModuleLoader__.load({
 					(0, react_jsx_runtime.jsxs)("details", {
 						className: AgentTeamsSettingsSection_module_css_default.profileDetails,
 						children: [(0, react_jsx_runtime.jsx)("summary", { children: t("settings.profiles.profileFallback") }), (0, react_jsx_runtime.jsx)(FallbackFields, {
+							catalog,
+							catalogReady,
 							disabled,
 							fallback: profile.fallback,
 							onChange: (fallback) => onChange({
@@ -4181,11 +4604,12 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
-		function TeamProfilesEditor({ catalog, t, writable }) {
+		function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }) {
 			const bridge = (0, react.useMemo)(() => getAgentTeamsDesktopBridge(), []);
 			const [snapshot, setSnapshot] = (0, react.useState)(null);
 			const [profiles, setProfiles] = (0, react.useState)({});
 			const [committedProfiles, setCommittedProfiles] = (0, react.useState)({});
+			const [committedProfileNames, setCommittedProfileNames] = (0, react.useState)({});
 			const [selectedName, setSelectedName] = (0, react.useState)("");
 			const [nameDraft, setNameDraft] = (0, react.useState)("");
 			const [loading, setLoading] = (0, react.useState)(true);
@@ -4207,6 +4631,7 @@ window.__ModuleLoader__.load({
 					setSnapshot(normalized);
 					setProfiles(normalized.profiles);
 					setCommittedProfiles(cloneProfileMap(normalized.profiles));
+					setCommittedProfileNames(createCommittedProfileNameMap(normalized.profiles));
 					setSelectedName(Object.keys(normalized.profiles)[0] ?? "");
 					setMessage(null);
 					setLoading(false);
@@ -4233,6 +4658,9 @@ window.__ModuleLoader__.load({
 			const selectedIsBuiltIn = selectedName !== "" && builtInNames.includes(selectedName);
 			const dirty = JSON.stringify(profiles) !== JSON.stringify(committedProfiles);
 			const controlsDisabled = !writable || loading || saving;
+			const catalogReady = catalog.status === "ready";
+			const explicitRouteBlocked = hasUnvalidatedExplicitRoleDraft(profiles, committedProfiles, catalog.models, catalogReady, committedProfileNames);
+			const fallbackRouteBlocked = hasUnvalidatedFallbackDraft(profiles, committedProfiles, catalog.models, catalogReady, committedProfileNames);
 			const updateSelectedProfile = (next) => {
 				setProfiles((current) => updateProfileMap(current, selectedName, () => next));
 				setMessage(null);
@@ -4263,6 +4691,11 @@ window.__ModuleLoader__.load({
 				delete next[selectedName];
 				const nextName = Object.keys(next)[0] ?? "";
 				setProfiles(next);
+				setCommittedProfileNames((current) => {
+					const nextNames = { ...current };
+					delete nextNames[selectedName];
+					return nextNames;
+				});
 				setSelectedName(nextName);
 				setMessage(null);
 				setError(null);
@@ -4275,9 +4708,17 @@ window.__ModuleLoader__.load({
 				setError(null);
 			};
 			const renamedProfiles = () => {
-				if (selectedProfile === void 0 || selectedIsBuiltIn) return profiles;
+				if (selectedProfile === void 0 || selectedIsBuiltIn) return {
+					profiles,
+					committedProfileNames,
+					selectedName
+				};
 				const nextName = nameDraft.trim();
-				if (nextName === selectedName) return profiles;
+				if (nextName === selectedName) return {
+					profiles,
+					committedProfileNames,
+					selectedName
+				};
 				if (nextName === "" || nextName.toLowerCase() === "captain" || !/^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u.test(nextName)) {
 					setError(t("settings.profiles.invalidName"));
 					return;
@@ -4291,27 +4732,44 @@ window.__ModuleLoader__.load({
 				if (profile === void 0) return void 0;
 				delete next[selectedName];
 				next[nextName] = profile;
-				return next;
+				return {
+					profiles: next,
+					committedProfileNames: renameCommittedProfileName(committedProfileNames, selectedName, nextName),
+					selectedName: nextName
+				};
 			};
 			const renameProfile = () => {
-				const next = renamedProfiles();
-				if (next === void 0) return false;
-				if (next === profiles) return true;
-				const nextName = nameDraft.trim();
-				setProfiles(next);
-				setSelectedName(nextName);
-				setNameDraft(nextName);
+				const renamed = renamedProfiles();
+				if (renamed === void 0) return false;
+				if (renamed.profiles === profiles) return true;
+				setProfiles(renamed.profiles);
+				setCommittedProfileNames(renamed.committedProfileNames);
+				setSelectedName(renamed.selectedName);
+				setNameDraft(renamed.selectedName);
 				setMessage(null);
 				setError(null);
 				return true;
 			};
 			const saveProfiles = async () => {
 				if (bridge?.setAgentTeamsProfiles === void 0 || saving) return;
-				const nextProfiles = renamedProfiles();
-				if (nextProfiles === void 0) return;
-				if (nextProfiles !== profiles) setProfiles(nextProfiles);
+				const renamed = renamedProfiles();
+				if (renamed === void 0) return;
+				const nextProfiles = renamed.profiles;
+				if (nextProfiles !== profiles) {
+					setProfiles(nextProfiles);
+					setCommittedProfileNames(renamed.committedProfileNames);
+				}
 				setError(null);
-				const prepared = prepareProfileMapForSave(nextProfiles);
+				if (hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, catalog.models, catalogReady, renamed.committedProfileNames)) {
+					setError(t("settings.profiles.explicitCatalogRequired"));
+					return;
+				}
+				const prepared = prepareProfileMapForSave(nextProfiles, {
+					catalog: catalog.models,
+					catalogReady,
+					committedProfiles,
+					committedProfileNames: renamed.committedProfileNames
+				});
 				if (!prepared.ok) {
 					setError(prepared.error);
 					return;
@@ -4319,10 +4777,14 @@ window.__ModuleLoader__.load({
 				setSaving(true);
 				setMessage(null);
 				try {
-					const next = normalizeProfileSnapshot(await bridge.setAgentTeamsProfiles(prepared.profiles));
+					const next = normalizeProfileSnapshot(await bridge.setAgentTeamsProfiles({
+						schemaVersion: 2,
+						profiles: prepared.profiles
+					}));
 					setSnapshot(next);
 					setProfiles(next.profiles);
 					setCommittedProfiles(cloneProfileMap(next.profiles));
+					setCommittedProfileNames(createCommittedProfileNameMap(next.profiles));
 					setSelectedName((current) => next.profiles[current] === void 0 ? Object.keys(next.profiles)[0] ?? "" : current);
 					setMessage(t("settings.profiles.saved"));
 				} catch (reason) {
@@ -4354,6 +4816,33 @@ window.__ModuleLoader__.load({
 						role: "status",
 						children: t("settings.profiles.loading")
 					}),
+					catalog.status === "loading" && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.catalogStatus,
+						role: "status",
+						"aria-live": "polite",
+						children: t("settings.catalog.loading")
+					}),
+					catalog.status === "empty" && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.catalogStatus,
+						role: "status",
+						children: t("settings.catalog.empty")
+					}),
+					catalog.status === "error" && (0, react_jsx_runtime.jsxs)("div", {
+						className: AgentTeamsSettingsSection_module_css_default.catalogError,
+						role: "alert",
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.catalog.error", { message: catalog.error }) }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							type: "button",
+							variant: "outline",
+							size: "sm",
+							onClick: onRetryCatalog,
+							children: t("settings.catalog.retry")
+						})]
+					}),
+					snapshot?.unsupportedPersistedVersion === true && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.profileWarning,
+						role: "status",
+						children: t("settings.profiles.unsupportedPersistedVersion")
+					}),
 					error !== null && (0, react_jsx_runtime.jsx)("p", {
 						className: AgentTeamsSettingsSection_module_css_default.profileError,
 						role: "alert",
@@ -4367,6 +4856,16 @@ window.__ModuleLoader__.load({
 							" ",
 							t("settings.profiles.restart")
 						]
+					}),
+					explicitRouteBlocked && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.profileWarning,
+						role: "status",
+						children: t("settings.profiles.explicitCatalogRequired")
+					}),
+					fallbackRouteBlocked && (0, react_jsx_runtime.jsx)("p", {
+						className: AgentTeamsSettingsSection_module_css_default.profileWarning,
+						role: "status",
+						children: t("settings.profiles.fallbackCatalogRequired")
 					}),
 					(0, react_jsx_runtime.jsxs)("div", {
 						className: AgentTeamsSettingsSection_module_css_default.profileToolbar,
@@ -4455,7 +4954,8 @@ window.__ModuleLoader__.load({
 							})]
 						}),
 						(0, react_jsx_runtime.jsx)(ProfileForm, {
-							catalog,
+							catalog: catalog.models,
+							catalogReady,
 							disabled: controlsDisabled,
 							onChange: updateSelectedProfile,
 							profile: selectedProfile,
@@ -4470,7 +4970,7 @@ window.__ModuleLoader__.load({
 								type: "button",
 								variant: "outline",
 								size: "sm",
-								disabled: controlsDisabled || !dirty,
+								disabled: controlsDisabled || !dirty || explicitRouteBlocked || fallbackRouteBlocked,
 								onClick: () => {
 									saveProfiles();
 								},
@@ -4622,89 +5122,10 @@ window.__ModuleLoader__.load({
 				value
 			};
 		}
-		function compareIds(left, right) {
-			return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
-		}
-		function supportsEffort$1(model, effort) {
-			return effort !== "" && model?.efforts.some((candidate) => candidate.id === effort) === true;
-		}
-		function explicitReset(settings, model) {
-			return settings.memberReasoningMode === "explicit" && !supportsEffort$1(model, settings.memberReasoningEffort) ? [set("memberReasoningEffort", ""), set("memberReasoningMode", "target-default")] : [];
-		}
 		function planDelegationModeChange(mode) {
 			return {
 				ok: true,
 				ops: [set("delegationMode", mode)]
-			};
-		}
-		function planProviderChange(settings, provider, catalog) {
-			if (provider === "") return {
-				ok: true,
-				ops: [
-					...settings.memberReasoningMode === "explicit" ? [set("memberReasoningEffort", ""), set("memberReasoningMode", "target-default")] : [],
-					set("memberModel", ""),
-					set("memberLlmProvider", "")
-				]
-			};
-			const models = catalog.filter((candidate) => candidate.provider === provider).sort(compareIds);
-			const model = models.find((candidate) => candidate.id === settings.memberModel) ?? models[0];
-			if (model === void 0) return {
-				ok: false,
-				error: "no-models"
-			};
-			return {
-				ok: true,
-				ops: [
-					...explicitReset(settings, model),
-					set("memberModel", model.id),
-					set("memberLlmProvider", provider)
-				]
-			};
-		}
-		function planModelChange(settings, provider, modelId, catalog) {
-			const model = catalog.find((candidate) => candidate.provider === provider && candidate.id === modelId);
-			if (model === void 0) return {
-				ok: false,
-				error: "model-unavailable"
-			};
-			return {
-				ok: true,
-				ops: [
-					...explicitReset(settings, model),
-					set("memberModel", model.id),
-					set("memberLlmProvider", provider)
-				]
-			};
-		}
-		function planReasoningModeChange(settings, mode, model) {
-			if (mode === "explicit") {
-				if (model === void 0 || model.efforts.length === 0) return {
-					ok: false,
-					error: "no-efforts"
-				};
-				const effort = model.efforts.find((candidate) => candidate.id === settings.memberReasoningEffort) ?? model.efforts.find((candidate) => candidate.id === model.defaultEffort) ?? [...model.efforts].sort(compareIds)[0];
-				if (effort === void 0) return {
-					ok: false,
-					error: "no-efforts"
-				};
-				return {
-					ok: true,
-					ops: [set("memberReasoningEffort", effort.id), set("memberReasoningMode", "explicit")]
-				};
-			}
-			return {
-				ok: true,
-				ops: [set("memberReasoningEffort", ""), set("memberReasoningMode", mode)]
-			};
-		}
-		function planReasoningEffortChange(effort, model) {
-			if (!supportsEffort$1(model, effort)) return {
-				ok: false,
-				error: "unsupported-effort"
-			};
-			return {
-				ok: true,
-				ops: [set("memberReasoningEffort", effort), set("memberReasoningMode", "explicit")]
 			};
 		}
 		async function runAgentTeamsSettingsAction(writer, ops, publish) {
@@ -4741,23 +5162,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/client/AgentTeamsSettingsSection.js
-		const SETTINGS_PLAN_ERROR_KEY = {
-			"model-unavailable": "settings.write.modelUnavailable",
-			"no-efforts": "settings.write.noEfforts",
-			"no-models": "settings.write.noModels",
-			"unsupported-effort": "settings.write.unsupportedEffort"
-		};
-		const DEFAULT_SETTINGS = {
-			delegationMode: "teams",
-			memberLlmProvider: "",
-			memberModel: "",
-			memberReasoningMode: "target-default",
-			memberReasoningEffort: "",
-			migrationVersion: 0
-		};
-		function supportsEffort(model, effort) {
-			return effort === "" || model?.efforts.some((candidate) => candidate.id === effort) === true;
-		}
+		const DEFAULT_SETTINGS = { delegationMode: "teams" };
 		function AgentTeamsSettingsSection({ settings, writer, t }) {
 			const subscribe = (0, react.useCallback)((listener) => settings.subscribe(listener), [settings]);
 			const getSnapshot = (0, react.useCallback)(() => settings.getSnapshot(), [settings]);
@@ -4788,44 +5193,16 @@ window.__ModuleLoader__.load({
 					active = false;
 				};
 			}, [catalogAttempt]);
-			const providers = (0, react.useMemo)(() => [...new Set(catalog.models.map((model) => model.provider))], [catalog.models]);
-			const providerModels = (0, react.useMemo)(() => catalog.models.filter((model) => model.provider === value.memberLlmProvider), [catalog.models, value.memberLlmProvider]);
-			const selectedModel = catalog.models.find((model) => model.provider === value.memberLlmProvider && model.id === value.memberModel);
 			const writable = snapshot.status === "ready" && snapshot.writable;
 			const controlsDisabled = !writable || writeView.status === "busy";
-			const catalogReady = catalog.status === "ready";
 			const runWrite = (0, react.useCallback)(async (ops) => {
 				await runAgentTeamsSettingsAction(writer, ops, setWriteView);
 			}, [writer]);
-			const planErrorCopy = (0, react.useCallback)((error) => {
-				return t(SETTINGS_PLAN_ERROR_KEY[error]);
-			}, [t]);
 			const runPlan = (0, react.useCallback)(async (plan) => {
-				if (!plan.ok) {
-					setWriteView({
-						status: "error",
-						ops: null,
-						error: planErrorCopy(plan.error)
-					});
-					return;
-				}
 				await runWrite(plan.ops);
-			}, [planErrorCopy, runWrite]);
+			}, [runWrite]);
 			const setDelegationMode = async (mode) => {
 				await runPlan(planDelegationModeChange(mode));
-			};
-			const setProvider = async (provider) => {
-				await runPlan(planProviderChange(value, provider, catalog.models));
-			};
-			const setModel = async (modelId) => {
-				await runPlan(planModelChange(value, value.memberLlmProvider, modelId, catalog.models));
-			};
-			const setReasoningMode = async (mode) => {
-				if (mode === value.memberReasoningMode) return;
-				await runPlan(planReasoningModeChange(value, mode, selectedModel));
-			};
-			const setReasoningEffort = async (effort) => {
-				await runPlan(planReasoningEffortChange(effort, selectedModel));
 			};
 			const statusCopy = snapshot.status === "loading" ? t("settings.state.loading") : snapshot.status === "unavailable" ? t("settings.state.unavailable") : !snapshot.writable ? t("settings.state.readOnly") : null;
 			const visibleWriteError = writeView.status === "error" && writeView.error === "settings revision is not ready" ? t("settings.write.noRevision") : writeView.status === "error" ? writeView.error : null;
@@ -4906,171 +5283,11 @@ window.__ModuleLoader__.load({
 							})
 						]
 					}),
-					(0, react_jsx_runtime.jsxs)("section", {
-						className: AgentTeamsSettingsSection_module_css_default.section,
-						"aria-labelledby": "agent-teams-model-title",
-						children: [
-							(0, react_jsx_runtime.jsx)("h3", {
-								id: "agent-teams-model-title",
-								className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
-								children: t("settings.model.title")
-							}),
-							(0, react_jsx_runtime.jsx)("p", {
-								className: AgentTeamsSettingsSection_module_css_default.help,
-								children: t("settings.model.help")
-							}),
-							catalog.status === "loading" && (0, react_jsx_runtime.jsx)("p", {
-								className: AgentTeamsSettingsSection_module_css_default.catalogStatus,
-								role: "status",
-								"aria-live": "polite",
-								children: t("settings.catalog.loading")
-							}),
-							catalog.status === "empty" && (0, react_jsx_runtime.jsx)("p", {
-								className: AgentTeamsSettingsSection_module_css_default.catalogStatus,
-								role: "status",
-								children: t("settings.catalog.empty")
-							}),
-							catalog.status === "error" && (0, react_jsx_runtime.jsxs)("div", {
-								className: AgentTeamsSettingsSection_module_css_default.catalogError,
-								role: "alert",
-								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.catalog.error", { message: catalog.error }) }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									type: "button",
-									variant: "outline",
-									size: "sm",
-									onClick: () => setCatalogAttempt((attempt) => attempt + 1),
-									children: t("settings.catalog.retry")
-								})]
-							}),
-							(0, react_jsx_runtime.jsxs)("div", {
-								className: AgentTeamsSettingsSection_module_css_default.fields,
-								children: [(0, react_jsx_runtime.jsxs)("label", {
-									className: AgentTeamsSettingsSection_module_css_default.field,
-									htmlFor: "agent-teams-member-provider",
-									children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.model.provider") }), (0, react_jsx_runtime.jsxs)("select", {
-										id: "agent-teams-member-provider",
-										value: value.memberLlmProvider,
-										disabled: controlsDisabled || !catalogReady,
-										onChange: async (event) => {
-											await setProvider(event.currentTarget.value);
-										},
-										children: [
-											(0, react_jsx_runtime.jsx)("option", {
-												value: "",
-												children: t("settings.model.followCaptain")
-											}),
-											value.memberLlmProvider !== "" && !providers.includes(value.memberLlmProvider) && (0, react_jsx_runtime.jsx)("option", {
-												value: value.memberLlmProvider,
-												children: t("settings.model.unavailable", { value: value.memberLlmProvider })
-											}),
-											providers.map((provider) => (0, react_jsx_runtime.jsx)("option", {
-												value: provider,
-												children: provider
-											}, provider))
-										]
-									})]
-								}), (0, react_jsx_runtime.jsxs)("label", {
-									className: AgentTeamsSettingsSection_module_css_default.field,
-									htmlFor: "agent-teams-member-model",
-									children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.model.model") }), (0, react_jsx_runtime.jsxs)("select", {
-										id: "agent-teams-member-model",
-										value: value.memberModel,
-										disabled: controlsDisabled || !catalogReady || value.memberLlmProvider === "",
-										onChange: async (event) => {
-											await setModel(event.currentTarget.value);
-										},
-										children: [
-											value.memberLlmProvider === "" && (0, react_jsx_runtime.jsx)("option", {
-												value: "",
-												children: t("settings.model.followCaptain")
-											}),
-											value.memberModel !== "" && !providerModels.some((model) => model.id === value.memberModel) && (0, react_jsx_runtime.jsx)("option", {
-												value: value.memberModel,
-												children: t("settings.model.unavailable", { value: value.memberModel })
-											}),
-											providerModels.map((model) => (0, react_jsx_runtime.jsx)("option", {
-												value: model.id,
-												children: model.name || model.id
-											}, model.id))
-										]
-									})]
-								})]
-							})
-						]
-					}),
-					(0, react_jsx_runtime.jsxs)("section", {
-						className: AgentTeamsSettingsSection_module_css_default.section,
-						"aria-labelledby": "agent-teams-reasoning-title",
-						children: [
-							(0, react_jsx_runtime.jsx)("h3", {
-								id: "agent-teams-reasoning-title",
-								className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
-								children: t("settings.reasoning.title")
-							}),
-							(0, react_jsx_runtime.jsxs)("fieldset", {
-								className: AgentTeamsSettingsSection_module_css_default.choices,
-								disabled: controlsDisabled,
-								children: [(0, react_jsx_runtime.jsx)("legend", {
-									className: AgentTeamsSettingsSection_module_css_default.visuallyHidden,
-									children: t("settings.reasoning.title")
-								}), [
-									"target-default",
-									"route-aware",
-									"explicit"
-								].map((mode) => (0, react_jsx_runtime.jsxs)("label", {
-									className: `${AgentTeamsSettingsSection_module_css_default.choice} ${mode === "explicit" && (selectedModel?.efforts.length ?? 0) === 0 ? AgentTeamsSettingsSection_module_css_default.choiceDisabled : ""}`,
-									children: [(0, react_jsx_runtime.jsx)("input", {
-										type: "radio",
-										name: "agent-teams-reasoning-mode",
-										value: mode,
-										checked: value.memberReasoningMode === mode,
-										disabled: mode === "explicit" && (selectedModel?.efforts.length ?? 0) === 0,
-										onChange: async () => {
-											await setReasoningMode(mode);
-										}
-									}), (0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("strong", { children: t(`settings.reasoning.${mode}.label`) }), (0, react_jsx_runtime.jsx)("small", { children: t(`settings.reasoning.${mode}.description`) })] })]
-								}, mode))]
-							}),
-							(0, react_jsx_runtime.jsxs)("label", {
-								className: AgentTeamsSettingsSection_module_css_default.field,
-								htmlFor: "agent-teams-member-effort",
-								children: [(0, react_jsx_runtime.jsx)("span", { children: t("settings.reasoning.effort") }), (0, react_jsx_runtime.jsx)("select", {
-									id: "agent-teams-member-effort",
-									value: value.memberReasoningEffort,
-									disabled: controlsDisabled || value.memberReasoningMode !== "explicit" || (selectedModel?.efforts.length ?? 0) === 0,
-									onChange: async (event) => {
-										await setReasoningEffort(event.currentTarget.value);
-									},
-									children: selectedModel?.efforts.length ? (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [!supportsEffort(selectedModel, value.memberReasoningEffort) && (0, react_jsx_runtime.jsx)("option", {
-										value: value.memberReasoningEffort,
-										disabled: true,
-										children: t("settings.reasoning.unsupportedEffort", { effort: value.memberReasoningEffort })
-									}), selectedModel.efforts.map((effort) => (0, react_jsx_runtime.jsx)("option", {
-										value: effort.id,
-										children: effort.name
-									}, effort.id))] }) : (0, react_jsx_runtime.jsx)("option", {
-										value: "",
-										children: t("settings.reasoning.noEfforts")
-									})
-								})]
-							})
-						]
-					}),
 					(0, react_jsx_runtime.jsx)(TeamProfilesEditor, {
-						catalog: catalog.models,
+						catalog,
+						onRetryCatalog: () => setCatalogAttempt((attempt) => attempt + 1),
 						t,
 						writable
-					}),
-					(0, react_jsx_runtime.jsxs)("section", {
-						className: AgentTeamsSettingsSection_module_css_default.section,
-						"aria-labelledby": "agent-teams-scope-title",
-						children: [(0, react_jsx_runtime.jsx)("h3", {
-							id: "agent-teams-scope-title",
-							className: AgentTeamsSettingsSection_module_css_default.sectionTitle,
-							children: t("settings.scope.title")
-						}), (0, react_jsx_runtime.jsx)("p", {
-							className: AgentTeamsSettingsSection_module_css_default.help,
-							children: t("settings.scope.description")
-						})]
 					})
 				]
 			});
@@ -5279,6 +5496,27 @@ window.__ModuleLoader__.load({
 			"plan.task.assignee": "负责人",
 			"plan.task.dependencies": "依赖任务 ID（逗号分隔）",
 			"plan.task.dependenciesHint": "例如 task-1, task-2；不得形成循环依赖",
+			"plan.task.kind": "任务类型",
+			"plan.task.kind.work": "普通工作",
+			"plan.task.kind.requirements": "需求审查",
+			"plan.task.kind.implementation": "实现",
+			"plan.task.kind.verification": "验证",
+			"plan.task.kind.review": "审核",
+			"plan.task.kind.repair": "修复",
+			"plan.task.kind.integration": "集成",
+			"plan.task.round": "审查轮次",
+			"plan.task.objective": "任务目标",
+			"plan.task.inScope": "范围内路径",
+			"plan.task.outOfScope": "范围外路径",
+			"plan.task.acceptance": "验收标准",
+			"plan.task.verify": "验证命令",
+			"plan.task.deliverables": "交付物",
+			"plan.task.nonGoals": "非目标",
+			"plan.task.reviewedTaskId": "被审核任务 ID",
+			"plan.task.sourceTaskId": "来源任务 ID",
+			"plan.task.sourceFindingIds": "来源问题 ID",
+			"plan.task.coverageOf": "覆盖项",
+			"plan.task.listHint": "每行一项；留空会清除此字段",
 			"plan.task.unassigned": "共享任务池",
 			"plan.unsaved": "未保存",
 			"plan.save": "保存",
@@ -5363,41 +5601,20 @@ window.__ModuleLoader__.load({
 			"settings.write.error": "设置保存失败：{message}",
 			"settings.write.retry": "重试保存",
 			"settings.write.noRevision": "设置修订版本尚未就绪",
-			"settings.write.noModels": "所选 Provider 当前没有可用模型",
-			"settings.write.modelUnavailable": "所选模型当前不可用",
-			"settings.write.noEfforts": "所选模型没有可用的推理强度",
-			"settings.write.unsupportedEffort": "所选推理强度不受当前模型支持",
 			"settings.delegation.title": "委派模式",
 			"settings.delegation.help": "更改会对新会话生效，不会改变已打开会话的委派方式。",
 			"settings.delegation.teams.label": "Team 模式",
 			"settings.delegation.teams.description": "使用 AgentTeams 组建持久成员并协调任务。",
 			"settings.delegation.native.label": "Native 兼容模式",
 			"settings.delegation.native.description": "使用 Harness 原生子智能体委派。",
-			"settings.model.title": "成员模型",
-			"settings.model.help": "选择以后创建的成员所使用的 provider 和模型。",
-			"settings.model.provider": "Provider",
-			"settings.model.model": "模型",
-			"settings.model.followCaptain": "跟随队长",
-			"settings.model.unavailable": "{value}（当前不可用）",
 			"settings.catalog.loading": "正在加载模型目录…",
 			"settings.catalog.empty": "暂无可用模型。可以保持“跟随队长”。",
 			"settings.catalog.error": "模型目录加载失败：{message}",
 			"settings.catalog.retry": "重试",
-			"settings.reasoning.title": "成员推理强度",
-			"settings.reasoning.target-default.label": "目标模型默认值",
-			"settings.reasoning.target-default.description": "不指定强度，由目标模型使用其默认值。",
-			"settings.reasoning.route-aware.label": "路由感知继承",
-			"settings.reasoning.route-aware.description": "与队长路由相同时继承队长强度；路由改变时使用目标默认值。",
-			"settings.reasoning.explicit.label": "明确指定",
-			"settings.reasoning.explicit.description": "为选定模型指定它支持的推理强度。",
-			"settings.reasoning.effort": "推理强度",
-			"settings.reasoning.noEfforts": "选定模型未提供可选强度",
-			"settings.reasoning.unsupportedEffort": "{effort}（当前模型不支持）",
-			"settings.scope.title": "生效范围",
-			"settings.scope.description": "现有成员保留创建时的模型路由和推理强度；以后创建的成员使用这里的当前值。",
 			"settings.profiles.title": "Profile 配置",
 			"settings.profiles.help": "按上游 profile 结构编辑成员、路由、任务与审查策略。保存后重启 Harness，配置才会用于新团队。",
 			"settings.profiles.loading": "正在加载 profile…",
+			"settings.profiles.unsupportedPersistedVersion": "旧 Profile 不导入，保存后创建 V2。",
 			"settings.profiles.bridgeUnavailable": "当前客户端无法访问 profile 配置。",
 			"settings.profiles.error": "Profile 保存失败：{message}",
 			"settings.profiles.saved": "Profile 已保存。",
@@ -5435,12 +5652,20 @@ window.__ModuleLoader__.load({
 			"settings.profiles.followCaptain": "跟随队长",
 			"settings.profiles.chooseModel": "选择模型",
 			"settings.profiles.defaultValue": "默认值",
-			"settings.profiles.memberReasoning": "推理强度",
+			"settings.profiles.reasoning.title": "推理策略",
+			"settings.profiles.reasoning.target-default.label": "目标模型默认",
+			"settings.profiles.reasoning.route-aware.label": "路由感知",
+			"settings.profiles.reasoning.explicit.label": "明确指定",
+			"settings.profiles.reasoning.effort": "思考强度",
+			"settings.profiles.reasoning.noEfforts": "当前模型没有可选思考强度",
+			"settings.profiles.explicitCatalogRequired": "请等待共享模型目录可用，并为明确指定的角色选择完整 Provider、模型和思考强度。",
+			"settings.profiles.fallbackCatalogRequired": "请等待共享模型目录可用，并为新增或修改的备用路由选择目录中的完整 Provider 和模型。",
 			"settings.profiles.memberPrompt": "成员执行提示",
 			"settings.profiles.memberFallback": "成员备用路由",
 			"settings.profiles.profileFallback": "Profile 备用路由",
 			"settings.profiles.fallbackProvider": "备用 Provider",
 			"settings.profiles.fallbackModel": "备用模型",
+			"settings.profiles.noFallback": "不设置备用路由",
 			"settings.profiles.unavailable": "{value}（当前目录不可用）",
 			"settings.profiles.addMember": "添加成员",
 			"settings.profiles.remove": "移除",
@@ -5577,6 +5802,27 @@ window.__ModuleLoader__.load({
 			"plan.task.assignee": "Assignee",
 			"plan.task.dependencies": "Dependency task IDs (comma-separated)",
 			"plan.task.dependenciesHint": "For example task-1, task-2; cycles are rejected",
+			"plan.task.kind": "Task kind",
+			"plan.task.kind.work": "Work",
+			"plan.task.kind.requirements": "Requirements",
+			"plan.task.kind.implementation": "Implementation",
+			"plan.task.kind.verification": "Verification",
+			"plan.task.kind.review": "Review",
+			"plan.task.kind.repair": "Repair",
+			"plan.task.kind.integration": "Integration",
+			"plan.task.round": "Review round",
+			"plan.task.objective": "Objective",
+			"plan.task.inScope": "In-scope paths",
+			"plan.task.outOfScope": "Out-of-scope paths",
+			"plan.task.acceptance": "Acceptance criteria",
+			"plan.task.verify": "Verification commands",
+			"plan.task.deliverables": "Deliverables",
+			"plan.task.nonGoals": "Non-goals",
+			"plan.task.reviewedTaskId": "Reviewed task ID",
+			"plan.task.sourceTaskId": "Source task ID",
+			"plan.task.sourceFindingIds": "Source finding IDs",
+			"plan.task.coverageOf": "Coverage items",
+			"plan.task.listHint": "One item per line; leave blank to clear this field",
 			"plan.task.unassigned": "Shared task pool",
 			"plan.unsaved": "Unsaved",
 			"plan.save": "Save",
@@ -5661,41 +5907,20 @@ window.__ModuleLoader__.load({
 			"settings.write.error": "Could not save settings: {message}",
 			"settings.write.retry": "Retry save",
 			"settings.write.noRevision": "The settings revision is not ready yet",
-			"settings.write.noModels": "The selected provider has no available models",
-			"settings.write.modelUnavailable": "The selected model is unavailable",
-			"settings.write.noEfforts": "The selected model has no available reasoning efforts",
-			"settings.write.unsupportedEffort": "The selected reasoning effort is not supported by this model",
 			"settings.delegation.title": "Delegation mode",
 			"settings.delegation.help": "Changes apply to new sessions and do not alter delegation in sessions that are already open.",
 			"settings.delegation.teams.label": "Team mode",
 			"settings.delegation.teams.description": "Use AgentTeams to assemble durable members and coordinate their tasks.",
 			"settings.delegation.native.label": "Native compatibility mode",
 			"settings.delegation.native.description": "Use Harness native subagent delegation.",
-			"settings.model.title": "Member model",
-			"settings.model.help": "Choose the provider and model used by members created in the future.",
-			"settings.model.provider": "Provider",
-			"settings.model.model": "Model",
-			"settings.model.followCaptain": "Follow captain",
-			"settings.model.unavailable": "{value} (currently unavailable)",
 			"settings.catalog.loading": "Loading the model catalog…",
 			"settings.catalog.empty": "No models are available. You can keep Follow captain selected.",
 			"settings.catalog.error": "Could not load the model catalog: {message}",
 			"settings.catalog.retry": "Retry",
-			"settings.reasoning.title": "Member reasoning effort",
-			"settings.reasoning.target-default.label": "Target model default",
-			"settings.reasoning.target-default.description": "Omit an effort and let the target model use its default.",
-			"settings.reasoning.route-aware.label": "Route-aware inheritance",
-			"settings.reasoning.route-aware.description": "Inherit the captain effort on the same route; use the target default when the route changes.",
-			"settings.reasoning.explicit.label": "Explicit effort",
-			"settings.reasoning.explicit.description": "Choose an effort supported by the selected model.",
-			"settings.reasoning.effort": "Reasoning effort",
-			"settings.reasoning.noEfforts": "The selected model exposes no selectable efforts",
-			"settings.reasoning.unsupportedEffort": "{effort} (not supported by the current model)",
-			"settings.scope.title": "Effective scope",
-			"settings.scope.description": "Existing members retain the model route and reasoning effort captured at creation; future members use the current values here.",
 			"settings.profiles.title": "Profile configuration",
 			"settings.profiles.help": "Edit members, routes, tasks, and review policy using the upstream profile shape. Restart Harness after saving before new teams use it.",
 			"settings.profiles.loading": "Loading profiles…",
+			"settings.profiles.unsupportedPersistedVersion": "Old Profiles are not imported; saving creates a new V2 document.",
 			"settings.profiles.bridgeUnavailable": "Profile configuration is unavailable in this client.",
 			"settings.profiles.error": "Could not save profiles: {message}",
 			"settings.profiles.saved": "Profiles saved.",
@@ -5733,12 +5958,20 @@ window.__ModuleLoader__.load({
 			"settings.profiles.followCaptain": "Follow captain",
 			"settings.profiles.chooseModel": "Choose a model",
 			"settings.profiles.defaultValue": "Default value",
-			"settings.profiles.memberReasoning": "Reasoning effort",
+			"settings.profiles.reasoning.title": "Reasoning policy",
+			"settings.profiles.reasoning.target-default.label": "Target default",
+			"settings.profiles.reasoning.route-aware.label": "Route-aware",
+			"settings.profiles.reasoning.explicit.label": "Explicit",
+			"settings.profiles.reasoning.effort": "Reasoning effort",
+			"settings.profiles.reasoning.noEfforts": "The current model exposes no selectable reasoning efforts",
+			"settings.profiles.explicitCatalogRequired": "Wait for the shared model catalog, then choose a complete provider, model, and reasoning effort for every explicit role.",
+			"settings.profiles.fallbackCatalogRequired": "Wait for the shared model catalog, then choose a complete catalog Provider and model for every new or changed fallback route.",
 			"settings.profiles.memberPrompt": "Member execution prompt",
 			"settings.profiles.memberFallback": "Member fallback route",
 			"settings.profiles.profileFallback": "Profile fallback route",
 			"settings.profiles.fallbackProvider": "Fallback provider",
 			"settings.profiles.fallbackModel": "Fallback model",
+			"settings.profiles.noFallback": "No fallback route",
 			"settings.profiles.unavailable": "{value} (currently unavailable)",
 			"settings.profiles.addMember": "Add member",
 			"settings.profiles.remove": "Remove",
@@ -5761,27 +5994,28 @@ window.__ModuleLoader__.load({
 		};
 		//#endregion
 		//#region lib/client/session-navigation.js
-		/** Version-tolerant navigation into durable AgentTeams member transcripts. */
+		/** Addressed navigation into durable AgentTeams member transcripts. */
 		/**
 		* Open one member's persisted transcript.
 		*
 		* Harness rc.8 intentionally removed cold subagents from the ordinary session
 		* list. They must first be rediscovered in their parent's catalog, then opened
-		* with the exact parent/child/mode address. Older runtimes have only `open()`;
-		* the fallback preserves the plugin's rc.6 peer range.
+		* with the exact parent/child/mode address. There is intentionally no
+		* ordinary-session fallback: opening a different session can silently detach
+		* the user from the requested member transcript.
 		*/
 		async function openAgentTeamMember(sessions, parentSessionId, childSessionId) {
-			if (sessions.openSubagent === void 0 || sessions.refreshSubagents === void 0) {
-				sessions.open(childSessionId);
-				return "session";
-			}
+			if (sessions.openSubagent === void 0 || sessions.refreshSubagents === void 0) return void 0;
 			await sessions.refreshSubagents(parentSessionId);
 			const retained = sessions.subagentAddress?.(childSessionId);
-			sessions.openSubagent(retained?.parentSessionId === parentSessionId ? retained : {
+			if (retained?.mode === "one-shot") return void 0;
+			const address = retained?.parentSessionId === parentSessionId ? retained : {
 				parentSessionId,
 				childSessionId,
 				mode: "continuable"
-			});
+			};
+			if (address.mode !== "continuable") return void 0;
+			sessions.openSubagent(address);
 			return "subagent";
 		}
 		//#endregion
@@ -5803,7 +6037,7 @@ window.__ModuleLoader__.load({
 		/**
 		* Register the activity monitor in the shell's additive overlay and the
 		* in-conversation team card. The card's activity button re-opens a folded
-		* monitor via a window event — the recovery path for an old session.
+		* monitor via a window event.
 		*/
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, {

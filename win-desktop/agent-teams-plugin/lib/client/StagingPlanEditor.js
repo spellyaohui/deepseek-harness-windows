@@ -1,4 +1,4 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 /**
  * Editable pre-run roster and DAG review for staged AgentTeams plans.
  *
@@ -8,8 +8,32 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  */
 import { useCallback, useEffect, useId, useState, useSyncExternalStore } from 'react';
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { buildStagedTaskMutationPayload } from "./staged-task-mutation.js";
 import css from './ActivityPanel.module.css';
 const PLAN_URL = '/plugins/dsh-agent-teams/plan';
+const TASK_KIND_OPTIONS = [
+    'work',
+    'requirements',
+    'implementation',
+    'verification',
+    'review',
+    'repair',
+    'integration',
+];
+function formatLineList(values) {
+    return (values ?? []).join('\n');
+}
+function taskKindLabel(t, kind) {
+    switch (kind) {
+        case 'work': return t('plan.task.kind.work');
+        case 'requirements': return t('plan.task.kind.requirements');
+        case 'implementation': return t('plan.task.kind.implementation');
+        case 'verification': return t('plan.task.kind.verification');
+        case 'review': return t('plan.task.kind.review');
+        case 'repair': return t('plan.task.kind.repair');
+        case 'integration': return t('plan.task.kind.integration');
+    }
+}
 function useDismissSuccess(feedback, setFeedback) {
     useEffect(() => {
         if (feedback?.tone !== 'success')
@@ -56,7 +80,6 @@ const MODEL_MENU_OPEN_MODELS = 'open:models';
 const MODEL_MENU_OPEN_EFFORT = 'open:effort';
 const MODEL_MENU_BACK = 'navigate:back';
 const MODEL_MENU_RETRY = 'action:retry';
-const MODEL_MENU_DEFAULT_EFFORT = 'effort:default';
 function modelMenuId(provider, model) {
     return `model:${routeKey(provider, model)}`;
 }
@@ -68,7 +91,7 @@ function effortMenuId(effort) {
  * reads only catalog metadata: choosing a member route must not change the
  * captain session's composer model.
  */
-function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, onChange, t, }) {
+function StagedModelPicker({ directory, provider, model, reasoningMode, reasoningEffort, busy, onChange, t, }) {
     const state = useSyncExternalStore(directory.store.subscribe, directory.store.getSnapshot);
     const [open, setOpen] = useState(false);
     const [pane, setPane] = useState('root');
@@ -83,14 +106,18 @@ function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, 
     const efforts = selected?.model.reasoning?.efforts ?? [];
     const currentMissing = provider !== '' && model !== '' && selected === undefined;
     const defaultEffort = selected?.model.reasoning?.defaultEffort;
-    const effectiveEffort = reasoningEffort === '' || reasoningEffort === 'default'
-        ? defaultEffort
-        : reasoningEffort;
+    const effectiveEffort = reasoningMode === 'explicit' ? reasoningEffort : undefined;
     const selectedEffort = efforts.find((effort) => effort.id === effectiveEffort);
     const modelLabel = selected?.model.name
         ?? (model === '' ? t('plan.model.choose') : model);
-    const effortLabel = selectedEffort?.name
-        ?? (effectiveEffort === undefined ? t('plan.model.providerDefault') : effectiveEffort);
+    const modeLabel = reasoningMode === 'target-default'
+        ? t('settings.profiles.reasoning.target-default.label')
+        : reasoningMode === 'route-aware'
+            ? t('settings.profiles.reasoning.route-aware.label')
+            : t('settings.profiles.reasoning.explicit.label');
+    const effortLabel = reasoningMode === 'explicit'
+        ? selectedEffort?.name ?? reasoningEffort
+        : modeLabel;
     const unavailable = state.status === 'error' || state.failures.length > 0;
     const close = () => {
         setOpen(false);
@@ -105,7 +132,7 @@ function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, 
         {
             id: MODEL_MENU_OPEN_EFFORT,
             label: (_jsxs("span", { className: css.planModelMenuRow, children: [_jsx("span", { children: t('plan.member.reasoning') }), _jsx("strong", { children: effortLabel }), _jsx(DisclosureChevron, { open: false })] })),
-            disabled: selected?.model.reasoning === undefined,
+            disabled: reasoningMode !== 'explicit' || efforts.length === 0,
         },
     ];
     const modelItems = [
@@ -129,6 +156,7 @@ function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, 
                 modelItems.push({
                     id: modelMenuId(group.id, candidate.id),
                     label: candidate.name,
+                    disabled: reasoningMode === 'explicit' && (candidate.reasoning?.efforts.length ?? 0) === 0,
                 });
             }
         }
@@ -139,14 +167,6 @@ function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, 
             label: (_jsxs("span", { className: css.planModelMenuBack, children: [_jsx(DisclosureChevron, { open: false }), t('plan.model.back')] })),
         },
         { type: 'separator', id: 'effort:separator' },
-        {
-            id: MODEL_MENU_DEFAULT_EFFORT,
-            label: defaultEffort === undefined
-                ? t('plan.model.providerDefault')
-                : t('plan.model.modelDefault', {
-                    effort: efforts.find((effort) => effort.id === defaultEffort)?.name ?? defaultEffort,
-                }),
-        },
         ...efforts.map((effort) => ({
             id: effortMenuId(effort.id),
             label: (_jsxs("span", { className: css.planModelEffortRow, children: [_jsx("span", { children: effort.name }), effort.description !== undefined && _jsx("small", { children: effort.description })] })),
@@ -156,9 +176,7 @@ function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, 
     const selectedId = pane === 'models'
         ? modelMenuId(provider, model)
         : pane === 'effort'
-            ? reasoningEffort === '' || reasoningEffort === 'default'
-                ? MODEL_MENU_DEFAULT_EFFORT
-                : effortMenuId(reasoningEffort)
+            ? effortMenuId(reasoningEffort)
             : undefined;
     const choose = (id) => {
         if (id === MODEL_MENU_OPEN_MODELS) {
@@ -185,15 +203,11 @@ function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, 
             onChange({
                 provider: nextModel.provider,
                 model: nextModel.model.id,
-                reasoningEffort: 'default',
+                reasoningMode,
+                reasoningEffort: reasoningMode === 'explicit'
+                    ? nextModel.model.reasoning?.defaultEffort ?? nextModel.model.reasoning?.efforts[0]?.id ?? ''
+                    : '',
             });
-            return;
-        }
-        if (id === MODEL_MENU_DEFAULT_EFFORT) {
-            close();
-            if (effectiveEffort === defaultEffort)
-                return;
-            onChange({ provider, model, reasoningEffort: 'default' });
             return;
         }
         const nextEffort = efforts.find((effort) => effortMenuId(effort.id) === id);
@@ -202,9 +216,17 @@ function StagedModelPicker({ directory, provider, model, reasoningEffort, busy, 
         close();
         if (nextEffort.id === reasoningEffort)
             return;
-        onChange({ provider, model, reasoningEffort: nextEffort.id });
+        onChange({ provider, model, reasoningMode, reasoningEffort: nextEffort.id });
     };
-    return (_jsxs("div", { className: css.planModelPicker, "data-model-directory-status": state.status, children: [_jsx(Menu, { open: open, portal: true, align: "end", compact: true, className: css.planModelMenu, items: items, footer: unavailable ? [{ id: MODEL_MENU_RETRY, label: t('plan.model.retry') }] : undefined, selectedId: selectedId, onSelect: choose, onClose: close, anchor: (_jsxs("button", { type: "button", className: css.planModelTrigger, "data-plan-model-trigger": true, "aria-label": t('plan.model.triggerAria', { model: modelLabel, effort: effortLabel }), "aria-haspopup": "menu", "aria-expanded": open, disabled: busy, onClick: () => {
+    return (_jsxs("div", { className: css.planModelPicker, "data-model-directory-status": state.status, children: [_jsxs("label", { children: [t('settings.profiles.reasoning.title'), _jsxs("select", { name: "reasoningMode", value: reasoningMode, disabled: busy, onChange: (event) => {
+                            const nextMode = event.currentTarget.value;
+                            if (nextMode === reasoningMode)
+                                return;
+                            const nextEffort = nextMode === 'explicit' ? defaultEffort ?? efforts[0]?.id ?? '' : '';
+                            if (nextMode === 'explicit' && nextEffort === '')
+                                return;
+                            onChange({ provider, model, reasoningMode: nextMode, reasoningEffort: nextEffort });
+                        }, children: [_jsx("option", { value: "target-default", children: t('settings.profiles.reasoning.target-default.label') }), _jsx("option", { value: "route-aware", children: t('settings.profiles.reasoning.route-aware.label') }), _jsx("option", { value: "explicit", disabled: efforts.length === 0 && reasoningMode !== 'explicit', children: t('settings.profiles.reasoning.explicit.label') })] })] }), _jsx(Menu, { open: open, portal: true, align: "end", compact: true, className: css.planModelMenu, items: items, footer: unavailable ? [{ id: MODEL_MENU_RETRY, label: t('plan.model.retry') }] : undefined, selectedId: selectedId, onSelect: choose, onClose: close, anchor: (_jsxs("button", { type: "button", className: css.planModelTrigger, "data-plan-model-trigger": true, "aria-label": t('plan.model.triggerAria', { model: modelLabel, effort: effortLabel }), "aria-haspopup": "menu", "aria-expanded": open, disabled: busy, onClick: () => {
                         if (open)
                             close();
                         else {
@@ -222,20 +244,22 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
     const [role, setRole] = useState(member.role);
     const [provider, setProvider] = useState(member.provider ?? '');
     const [model, setModel] = useState(member.model ?? '');
-    const [reasoningEffort, setReasoningEffort] = useState(member.reasoningEffort ?? '');
+    const [reasoningMode, setReasoningMode] = useState(member.reasoningMode);
+    const [reasoningEffort, setReasoningEffort] = useState(member.reasoningMode === 'explicit' ? member.reasoningEffort ?? '' : '');
     const [executionPrompt, setExecutionPrompt] = useState(member.executionPrompt ?? '');
     const remoteSignature = JSON.stringify([
         member.role,
         member.provider ?? '',
         member.model ?? '',
-        member.reasoningEffort ?? '',
+        member.reasoningMode,
+        member.reasoningMode === 'explicit' ? member.reasoningEffort ?? '' : '',
         member.executionPrompt ?? '',
     ]);
     const [savedSignature, setSavedSignature] = useState(remoteSignature);
     const [busy, setBusy] = useState(false);
     const [feedback, setFeedback] = useState();
     useDismissSuccess(feedback, setFeedback);
-    const signature = JSON.stringify([role, provider, model, reasoningEffort, executionPrompt]);
+    const signature = JSON.stringify([role, provider, model, reasoningMode, reasoningEffort, executionPrompt]);
     const dirty = signature !== savedSignature;
     useEffect(() => {
         onPendingChange(`member:${member.name}`, dirty || busy);
@@ -245,21 +269,24 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
         setRole(member.role);
         setProvider(member.provider ?? '');
         setModel(member.model ?? '');
-        setReasoningEffort(member.reasoningEffort ?? '');
+        setReasoningMode(member.reasoningMode);
+        setReasoningEffort(member.reasoningMode === 'explicit' ? member.reasoningEffort ?? '' : '');
         setExecutionPrompt(member.executionPrompt ?? '');
         setSavedSignature(remoteSignature);
-    }, [member.role, member.provider, member.model, member.reasoningEffort, member.executionPrompt, remoteSignature]);
+    }, [member.role, member.provider, member.model, member.reasoningMode, member.reasoningEffort, member.executionPrompt, remoteSignature]);
     const markEdited = () => { setFeedback(undefined); };
-    const persist = async (selection = { provider, model, reasoningEffort }) => {
+    const persist = async (selection = { provider, model, reasoningMode, reasoningEffort }) => {
         const nextSignature = JSON.stringify([
             role,
             selection.provider,
             selection.model,
+            selection.reasoningMode,
             selection.reasoningEffort,
             executionPrompt,
         ]);
         setProvider(selection.provider);
         setModel(selection.model);
+        setReasoningMode(selection.reasoningMode);
         setReasoningEffort(selection.reasoningEffort);
         setBusy(true);
         setFeedback(undefined);
@@ -272,7 +299,8 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
                 role,
                 provider: selection.provider,
                 model: selection.model,
-                reasoningEffort: selection.reasoningEffort,
+                reasoningMode: selection.reasoningMode,
+                ...selection.reasoningMode === 'explicit' ? { reasoningEffort: selection.reasoningEffort } : {},
                 executionPrompt,
             });
             setSavedSignature(nextSignature);
@@ -290,7 +318,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
         await persist();
     };
     const route = `${provider}/${model}`.replace(/^\//u, '');
-    return (_jsxs("article", { className: css.planCard, "data-plan-member": member.name, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsxs("span", { className: css.planCardIdentity, children: [_jsx("strong", { children: member.name }), _jsx("span", { children: role || t('plan.member.roleFallback') })] }), _jsx("span", { className: css.planCardMeta, title: route, children: route }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: busy, children: [_jsxs("label", { children: [t('plan.member.role'), _jsx("input", { name: "role", value: role, onChange: (event) => { setRole(event.currentTarget.value); markEdited(); } })] }), _jsx(StagedModelPicker, { directory: modelDirectory, provider: provider, model: model, reasoningEffort: reasoningEffort, busy: busy, onChange: (selection) => { void persist(selection); }, t: t }), _jsxs("label", { children: [t('plan.member.prompt'), _jsx("textarea", { name: "executionPrompt", value: executionPrompt, onChange: (event) => { setExecutionPrompt(event.currentTarget.value); markEdited(); }, rows: 3 })] })] }), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "submit", disabled: busy || !dirty || provider.trim() === '' || model.trim() === '', children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
+    return (_jsxs("article", { className: css.planCard, "data-plan-member": member.name, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsxs("span", { className: css.planCardIdentity, children: [_jsx("strong", { children: member.name }), _jsx("span", { children: role || t('plan.member.roleFallback') })] }), _jsx("span", { className: css.planCardMeta, title: route, children: route }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: busy, children: [_jsxs("label", { children: [t('plan.member.role'), _jsx("input", { name: "role", value: role, onChange: (event) => { setRole(event.currentTarget.value); markEdited(); } })] }), _jsx(StagedModelPicker, { directory: modelDirectory, provider: provider, model: model, reasoningMode: reasoningMode, reasoningEffort: reasoningEffort, busy: busy, onChange: (selection) => { void persist(selection); }, t: t }), _jsxs("label", { children: [t('plan.member.prompt'), _jsx("textarea", { name: "executionPrompt", value: executionPrompt, onChange: (event) => { setExecutionPrompt(event.currentTarget.value); markEdited(); }, rows: 3 })] })] }), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "submit", disabled: busy || !dirty || provider.trim() === '' || model.trim() === '' || (reasoningMode === 'explicit' && reasoningEffort.trim() === ''), children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
 }
 function StagedTaskEditor({ team, task, onPendingChange, t }) {
     const bodyId = useId();
@@ -300,13 +328,65 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
     const [description, setDescription] = useState(task.description ?? '');
     const [assignee, setAssignee] = useState(task.assignee);
     const [dependencies, setDependencies] = useState(taskDependencies);
-    const remoteSignature = JSON.stringify([task.subject, task.description ?? '', task.assignee, taskDependencies]);
+    const [kind, setKind] = useState(task.kind ?? 'work');
+    const [round, setRound] = useState(task.round?.toString() ?? '');
+    const [objective, setObjective] = useState(task.objective ?? '');
+    const [inScope, setInScope] = useState(formatLineList(task.inScope));
+    const [outOfScope, setOutOfScope] = useState(formatLineList(task.outOfScope));
+    const [acceptance, setAcceptance] = useState(formatLineList(task.acceptance));
+    const [verify, setVerify] = useState(formatLineList(task.verify));
+    const [deliverables, setDeliverables] = useState(formatLineList(task.deliverables));
+    const [nonGoals, setNonGoals] = useState(formatLineList(task.nonGoals));
+    const [reviewedTaskId, setReviewedTaskId] = useState(task.reviewedTaskId ?? '');
+    const [sourceTaskId, setSourceTaskId] = useState(task.sourceTaskId ?? '');
+    const [sourceFindingIds, setSourceFindingIds] = useState(formatLineList(task.sourceFindingIds));
+    const [coverageOf, setCoverageOf] = useState(formatLineList(task.coverageOf));
+    const taskContractSignature = [
+        task.kind ?? 'work',
+        task.round?.toString() ?? '',
+        task.objective ?? '',
+        formatLineList(task.inScope),
+        formatLineList(task.outOfScope),
+        formatLineList(task.acceptance),
+        formatLineList(task.verify),
+        formatLineList(task.deliverables),
+        formatLineList(task.nonGoals),
+        task.reviewedTaskId ?? '',
+        task.sourceTaskId ?? '',
+        formatLineList(task.sourceFindingIds),
+        formatLineList(task.coverageOf),
+    ];
+    const remoteSignature = JSON.stringify([
+        task.subject,
+        task.description ?? '',
+        task.assignee,
+        taskDependencies,
+        ...taskContractSignature,
+    ]);
     const [savedSignature, setSavedSignature] = useState(remoteSignature);
     const [busy, setBusy] = useState(false);
     const [confirmingRemove, setConfirmingRemove] = useState(false);
     const [feedback, setFeedback] = useState();
     useDismissSuccess(feedback, setFeedback);
-    const signature = JSON.stringify([subject, description, assignee, dependencies]);
+    const signature = JSON.stringify([
+        subject,
+        description,
+        assignee,
+        dependencies,
+        kind,
+        round,
+        objective,
+        inScope,
+        outOfScope,
+        acceptance,
+        verify,
+        deliverables,
+        nonGoals,
+        reviewedTaskId,
+        sourceTaskId,
+        sourceFindingIds,
+        coverageOf,
+    ]);
     const dirty = signature !== savedSignature;
     useEffect(() => {
         onPendingChange(`task:${task.id}`, dirty || busy);
@@ -317,8 +397,21 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
         setDescription(task.description ?? '');
         setAssignee(task.assignee);
         setDependencies(taskDependencies);
+        setKind(task.kind ?? 'work');
+        setRound(task.round?.toString() ?? '');
+        setObjective(task.objective ?? '');
+        setInScope(formatLineList(task.inScope));
+        setOutOfScope(formatLineList(task.outOfScope));
+        setAcceptance(formatLineList(task.acceptance));
+        setVerify(formatLineList(task.verify));
+        setDeliverables(formatLineList(task.deliverables));
+        setNonGoals(formatLineList(task.nonGoals));
+        setReviewedTaskId(task.reviewedTaskId ?? '');
+        setSourceTaskId(task.sourceTaskId ?? '');
+        setSourceFindingIds(formatLineList(task.sourceFindingIds));
+        setCoverageOf(formatLineList(task.coverageOf));
         setSavedSignature(remoteSignature);
-    }, [task.subject, task.description, task.assignee, taskDependencies, remoteSignature]);
+    }, [remoteSignature]);
     const markEdited = () => {
         setFeedback(undefined);
         setConfirmingRemove(false);
@@ -328,16 +421,28 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
         setBusy(true);
         setFeedback(undefined);
         try {
-            await mutatePlan({
+            await mutatePlan(buildStagedTaskMutationPayload({
                 sessionId: team.captainSessionId,
                 teamId: team.teamId,
-                action: 'update_task',
                 taskId: task.id,
                 subject,
                 description,
                 assignee,
-                dependencies: dependencies.split(',').map((item) => item.trim()).filter(Boolean),
-            });
+                dependencies,
+                kind,
+                round,
+                objective,
+                inScope,
+                outOfScope,
+                acceptance,
+                verify,
+                deliverables,
+                nonGoals,
+                reviewedTaskId,
+                sourceTaskId,
+                sourceFindingIds,
+                coverageOf,
+            }));
             setSavedSignature(signature);
             setFeedback({ tone: 'success', message: t('plan.saved') });
         }
@@ -368,7 +473,8 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
     const dependencySummary = task.dependencies.length === 0
         ? t('plan.dependencies.none')
         : t('plan.dependencies.count', { count: task.dependencies.length });
-    return (_jsxs("article", { className: css.planCard, "data-plan-task": task.id, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsx("span", { className: css.planTaskId, children: task.id }), _jsx("span", { className: css.planTaskSummary, title: subject, children: subject }), _jsxs("span", { className: css.planCardMeta, children: [assignee || t('plan.task.unassigned'), " \u00B7 ", dependencySummary] }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: busy, children: [_jsxs("label", { children: [t('plan.task.subject'), _jsx("input", { name: "subject", required: true, value: subject, onChange: (event) => { setSubject(event.currentTarget.value); markEdited(); } })] }), _jsxs("label", { children: [t('plan.task.description'), _jsx("textarea", { name: "description", value: description, onChange: (event) => { setDescription(event.currentTarget.value); markEdited(); }, rows: 3 })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.assignee'), _jsxs("select", { name: "assignee", value: assignee, onChange: (event) => { setAssignee(event.currentTarget.value); markEdited(); }, children: [_jsx("option", { value: "", children: t('plan.task.unassigned') }), team.members.map((member) => _jsx("option", { value: member.name, children: member.name }, member.name))] })] }), _jsxs("label", { children: [t('plan.task.dependencies'), _jsx("input", { name: "dependencies", value: dependencies, onChange: (event) => { setDependencies(event.currentTarget.value); markEdited(); } }), _jsx("small", { children: t('plan.task.dependenciesHint') })] })] })] }), confirmingRemove && (_jsxs("span", { className: css.planConfirm, role: "alert", children: [_jsx("span", { children: t('plan.removeWarning', { task: task.id }) }), _jsx("button", { type: "button", onClick: () => { setConfirmingRemove(false); }, children: t('plan.cancel') }), _jsx("button", { type: "button", "data-danger": true, "data-confirming": true, onClick: () => { void remove(); }, children: t('plan.removeConfirm') })] })), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "button", "data-danger": true, onClick: () => { setConfirmingRemove(true); setFeedback(undefined); }, disabled: busy || confirmingRemove, children: t('plan.remove') }), _jsx("button", { type: "submit", disabled: busy || !dirty || subject.trim() === '', children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
+    const roundValid = round.trim() === '' || (/^[1-9]\d*$/u.test(round.trim()) && Number.isSafeInteger(Number(round)));
+    return (_jsxs("article", { className: css.planCard, "data-plan-task": task.id, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsx("span", { className: css.planTaskId, children: task.id }), _jsx("span", { className: css.planTaskSummary, title: subject, children: subject }), _jsxs("span", { className: css.planCardMeta, children: [assignee || t('plan.task.unassigned'), " \u00B7 ", dependencySummary] }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: busy, children: [_jsxs("label", { children: [t('plan.task.subject'), _jsx("input", { name: "subject", required: true, value: subject, onChange: (event) => { setSubject(event.currentTarget.value); markEdited(); } })] }), _jsxs("label", { children: [t('plan.task.description'), _jsx("textarea", { name: "description", value: description, onChange: (event) => { setDescription(event.currentTarget.value); markEdited(); }, rows: 3 })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.kind'), _jsx("select", { name: "kind", value: kind, onChange: (event) => { setKind(event.currentTarget.value); markEdited(); }, children: TASK_KIND_OPTIONS.map((candidate) => _jsx("option", { value: candidate, children: taskKindLabel(t, candidate) }, candidate)) })] }), _jsxs("label", { children: [t('plan.task.round'), _jsx("input", { name: "round", type: "number", min: "1", step: "1", value: round, onChange: (event) => { setRound(event.currentTarget.value); markEdited(); } })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.assignee'), _jsxs("select", { name: "assignee", value: assignee, onChange: (event) => { setAssignee(event.currentTarget.value); markEdited(); }, children: [_jsx("option", { value: "", children: t('plan.task.unassigned') }), team.members.map((member) => _jsx("option", { value: member.name, children: member.name }, member.name))] })] }), _jsxs("label", { children: [t('plan.task.dependencies'), _jsx("input", { name: "dependencies", value: dependencies, onChange: (event) => { setDependencies(event.currentTarget.value); markEdited(); } }), _jsx("small", { children: t('plan.task.dependenciesHint') })] })] }), kind !== 'work' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: [t('plan.task.objective'), _jsx("textarea", { name: "objective", value: objective, onChange: (event) => { setObjective(event.currentTarget.value); markEdited(); }, rows: 2 })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.inScope'), _jsx("textarea", { name: "inScope", value: inScope, onChange: (event) => { setInScope(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.outOfScope'), _jsx("textarea", { name: "outOfScope", value: outOfScope, onChange: (event) => { setOutOfScope(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.acceptance'), _jsx("textarea", { name: "acceptance", value: acceptance, onChange: (event) => { setAcceptance(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.verify'), _jsx("textarea", { name: "verify", value: verify, onChange: (event) => { setVerify(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.deliverables'), _jsx("textarea", { name: "deliverables", value: deliverables, onChange: (event) => { setDeliverables(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.nonGoals'), _jsx("textarea", { name: "nonGoals", value: nonGoals, onChange: (event) => { setNonGoals(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("label", { children: [t('plan.task.coverageOf'), _jsx("textarea", { name: "coverageOf", value: coverageOf, onChange: (event) => { setCoverageOf(event.currentTarget.value); markEdited(); }, rows: 2 }), _jsx("small", { children: t('plan.task.listHint') })] }), kind === 'review' && (_jsxs("label", { children: [t('plan.task.reviewedTaskId'), _jsx("input", { name: "reviewedTaskId", value: reviewedTaskId, onChange: (event) => { setReviewedTaskId(event.currentTarget.value); markEdited(); } })] })), kind === 'repair' && (_jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.sourceTaskId'), _jsx("input", { name: "sourceTaskId", value: sourceTaskId, onChange: (event) => { setSourceTaskId(event.currentTarget.value); markEdited(); } })] }), _jsxs("label", { children: [t('plan.task.sourceFindingIds'), _jsx("textarea", { name: "sourceFindingIds", value: sourceFindingIds, onChange: (event) => { setSourceFindingIds(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }))] }))] }), confirmingRemove && (_jsxs("span", { className: css.planConfirm, role: "alert", children: [_jsx("span", { children: t('plan.removeWarning', { task: task.id }) }), _jsx("button", { type: "button", onClick: () => { setConfirmingRemove(false); }, children: t('plan.cancel') }), _jsx("button", { type: "button", "data-danger": true, "data-confirming": true, onClick: () => { void remove(); }, children: t('plan.removeConfirm') })] })), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "button", "data-danger": true, onClick: () => { setConfirmingRemove(true); setFeedback(undefined); }, disabled: busy || confirmingRemove, children: t('plan.remove') }), _jsx("button", { type: "submit", disabled: busy || !dirty || subject.trim() === '' || !roundValid, children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
 }
 export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, onDiscarded, t }) {
     const membersId = useId();

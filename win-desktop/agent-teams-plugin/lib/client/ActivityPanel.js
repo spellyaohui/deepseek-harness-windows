@@ -386,30 +386,6 @@ function TeamSection({ team, modelDirectory, onContinuePlanning, onDiscarded, on
                                     })] })] }), _jsx(DependencyMap, { tasks: team.tasks, members: team.members, t: t, discarded: discarded })] }), _jsx(Modal, { open: stopOpen, onClose: () => { if (!stopping)
                     setStopOpen(false); }, title: t('team.stopTitle', { team: team.name }), closeLabel: t('plan.cancel'), description: t('team.stopDescription', { tasks: unfinishedCount, members: busyCount }), footer: (_jsxs("span", { className: css.stopModalActions, children: [_jsx("button", { type: "button", disabled: stopping, onClick: () => { setStopOpen(false); }, children: t('team.stopCancel') }), _jsxs("button", { type: "button", "data-danger": true, disabled: stopping, onClick: () => { void stopTeam(); }, children: [_jsx(IconStopFill16, {}), stopping ? t('team.stopping') : t('team.stopConfirm')] })] })), children: stopError !== '' && _jsxs("p", { className: css.stopModalError, role: "alert", children: [_jsx(IconWarningOutline16, {}), stopError] }) })] }));
 }
-/** Legacy conversation cards may outlive their host archive. Project their
- * durable roster through the same rebuilt panel instead of a second UI. */
-function historicCardTeam(data, owner) {
-    return {
-        workspace: '',
-        teamId: data.teamId,
-        name: data.teamName,
-        captainSessionId: data.captainSessionId || owner,
-        phase: 'running',
-        members: data.members.map((member) => ({
-            ...member,
-            status: 'removed',
-            activity: 'idle',
-            progress: 0,
-            done: 0,
-            total: 0,
-            currentTask: '',
-            unread: 0,
-        })),
-        tasks: [],
-        messageCount: 0,
-        captainInbox: [],
-    };
-}
 export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }) {
     // Navigating to a member's subagent transcript is an explicit departure:
     // hide the floater immediately instead of waiting out the autocollapse
@@ -423,7 +399,6 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t })
     const [openOwner, setOpenOwner] = useState();
     const [autoOpened, setAutoOpened] = useState(false);
     const [wasActive, setWasActive] = useState(false);
-    const [historic, setHistoric] = useState(new Map());
     const [layout, setLayout] = useState(initialPanelLayout);
     const [bounds, setBounds] = useState(initialPanelBounds);
     const [interaction, setInteraction] = useState(null);
@@ -564,39 +539,26 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t })
         };
     }, [current, currentTargets]);
     useEffect(() => {
-        const onOpenPanel = (event) => {
+        const onOpenPanel = () => {
             const activeSession = currentRef.current;
             if (activeSession === undefined)
                 return;
             setOpenOwner(activeSession);
             setOpen(true);
-            const detail = event.detail;
-            if (detail?.teamId !== undefined) {
-                // A card from a log that predates captainSessionId belongs to the
-                // session that activated it (the current one at injection time).
-                const owner = detail.captainSessionId !== '' ? detail.captainSessionId : currentRef.current ?? '';
-                const teamKey = `${owner}:${detail.teamId}`;
-                setHistoric((previous) => {
-                    const next = new Map(previous);
-                    next.set(teamKey, { data: detail, owner });
-                    return next;
-                });
-            }
         };
         window.addEventListener(OPEN_PANEL_EVENT, onOpenPanel);
         return () => {
             window.removeEventListener(OPEN_PANEL_EVENT, onOpenPanel);
         };
     }, []);
-    // Teams follow the current session: live snapshots and historic card
-    // summaries are visible only while their captain session is current.
+    // Teams follow the current session: only current V2 live/archive snapshots
+    // are visible while their captain session is current.
     const visibleTeams = useMemo(
     // No current session (initial load): show nothing until one is picked,
     // so cross-session teams never leak into the floater.
     () => (current === undefined ? [] : teams.filter((team) => team.captainSessionId === current)), [teams, current]);
-    const visibleHistoric = useMemo(() => (current === undefined ? [] : [...historic.values()].filter(({ data, owner }) => owner === current && !teams.some((live) => live.captainSessionId === current && live.teamId === data.teamId) && !archivedTeams.some((archived) => archived.captainSessionId === current && archived.teamId === data.teamId))), [historic, current, teams, archivedTeams]);
     const visibleArchived = useMemo(() => (current === undefined ? [] : archivedTeams.filter((team) => team.captainSessionId === current && !teams.some((live) => live.captainSessionId === current && live.teamId === team.teamId))), [archivedTeams, current, teams]);
-    const visibleCount = visibleTeams.length + visibleArchived.length + visibleHistoric.length;
+    const visibleCount = visibleTeams.length + visibleArchived.length;
     const visibleLiveTeamIds = useMemo(() => visibleTeams.map((team) => team.teamId).sort(), [visibleTeams]);
     const visibleLiveTeamKey = visibleLiveTeamIds.join('\u0000');
     useEffect(() => {
@@ -768,8 +730,5 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t })
                             ? _jsx("span", { className: css.emptyHint, children: t('activity.empty') })
                             : (_jsxs(_Fragment, { children: [visibleTeams.map((team) => (_jsx(TeamSection, { team: team, modelDirectory: team.phase === 'staged'
                                             ? modelDirectories.directoryFor(team.captainSessionId)
-                                            : undefined, onContinuePlanning: returnToComposer, onDiscarded: returnToComposer, onNavigate: navigateToSession, t: t }, team.teamId))), visibleArchived.map((team) => (_jsxs("div", { "data-team-id": team.teamId, "data-historic": true, className: css.archivedWrap, children: [_jsx("span", { className: css.archiveLabel, children: t(team.phase === 'staged' ? 'archive.discardedLabel' : 'archive.label') }), _jsx(TeamSection, { team: team, onNavigate: navigateToSession, t: t, historic: true })] }, `${team.captainSessionId}:${team.teamId}`))), visibleHistoric.map(({ data: team, owner }) => {
-                                        const teamKey = `${owner}:${team.teamId}`;
-                                        return (_jsx(TeamSection, { team: historicCardTeam(team, owner), onNavigate: navigateToSession, t: t, historic: true }, teamKey));
-                                    })] })) }), !compact && (_jsx("div", { className: css.resizeHandle, "data-resize-edge": "left", onPointerDown: (event) => { beginResize('left', event); }, onPointerMove: updateGesture, onPointerUp: endGesture, onPointerCancel: cancelGesture, "aria-hidden": true })), !compact && geometry.mode === 'floating' && (_jsxs(_Fragment, { children: [_jsx("div", { className: css.resizeHandle, "data-resize-edge": "bottom", onPointerDown: (event) => { beginResize('bottom', event); }, onPointerMove: updateGesture, onPointerUp: endGesture, onPointerCancel: cancelGesture, "aria-hidden": true }), _jsx("div", { className: css.resizeHandle, "data-resize-edge": "corner", onPointerDown: (event) => { beginResize('corner', event); }, onPointerMove: updateGesture, onPointerUp: endGesture, onPointerCancel: cancelGesture, "aria-hidden": true })] }))] }))] }));
+                                            : undefined, onContinuePlanning: returnToComposer, onDiscarded: returnToComposer, onNavigate: navigateToSession, t: t }, team.teamId))), visibleArchived.map((team) => (_jsxs("div", { "data-team-id": team.teamId, "data-historic": true, className: css.archivedWrap, children: [_jsx("span", { className: css.archiveLabel, children: t(team.phase === 'staged' ? 'archive.discardedLabel' : 'archive.label') }), _jsx(TeamSection, { team: team, onNavigate: navigateToSession, t: t, historic: true })] }, `${team.captainSessionId}:${team.teamId}`)))] })) }), !compact && (_jsx("div", { className: css.resizeHandle, "data-resize-edge": "left", onPointerDown: (event) => { beginResize('left', event); }, onPointerMove: updateGesture, onPointerUp: endGesture, onPointerCancel: cancelGesture, "aria-hidden": true })), !compact && geometry.mode === 'floating' && (_jsxs(_Fragment, { children: [_jsx("div", { className: css.resizeHandle, "data-resize-edge": "bottom", onPointerDown: (event) => { beginResize('bottom', event); }, onPointerMove: updateGesture, onPointerUp: endGesture, onPointerCancel: cancelGesture, "aria-hidden": true }), _jsx("div", { className: css.resizeHandle, "data-resize-edge": "corner", onPointerDown: (event) => { beginResize('corner', event); }, onPointerMove: updateGesture, onPointerUp: endGesture, onPointerCancel: cancelGesture, "aria-hidden": true })] }))] }))] }));
 }

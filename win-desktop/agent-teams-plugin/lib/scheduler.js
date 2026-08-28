@@ -138,7 +138,7 @@ export function assignmentPrompt(ticket, stateDir, teamId) {
 Structured completion payload (keep these arrays in contract order):
 acceptanceResults: ${JSON.stringify((ticket.acceptance ?? []).map((criterion) => ({ criterion, status: 'passed', evidence: '<what proved it>' })))}
 commandsRun: ${JSON.stringify((ticket.verify ?? []).map((command) => ({ command, status: 'passed', exitCode: 0, evidence: '<observed result>' })))}
-${kind === 'implementation' || kind === 'repair' ? 'changedPaths: list the actual workspace-relative POSIX paths you changed.\n' : ''}`
+${kind === 'implementation' || kind === 'repair' ? 'changedPaths: list the actual workspace-relative POSIX paths you changed. If there were no workspace changes, use changedPaths:[] with a concise noChangesReason; do not use an empty list when the task declares deliverables.\n' : ''}`
         : '';
     return `AgentTeams automatic task assignment from the shared task list.
 
@@ -164,7 +164,7 @@ Attempt: ${ticket.attempt}
 Attempt id: ${ticket.attemptId}
 
 Call agent_teams_claim_task({"task_id":"${ticket.taskId}"}); it will return this same attempt_id. As a member, omit the assignee property entirely. Include attempt_id=${ticket.attemptId} in every agent_teams_update_task call. If it is rejected as stale, stop work because the task was reassigned. claimed cannot jump to completed. Mark in_progress first, then completed or failed. Include attempt_id on every update. Then send_message to captain and become idle.
-When finishing: use status=completed only when the task's success criteria are satisfied; use status=failed when blocking findings or validation failures mean downstream work must not proceed; include a concise output in either case. Quality kinds must submit structured fields: review/requirements need verdict=pass to complete (needs_revision/reject must fail with findings); implementation/repair/verification/integration need acceptanceResults and commandsRun, while implementation/repair also need in-scope changedPaths. Use status values "passed" or "failed" inside those arrays. After the work and verification finish, call agent_teams_update_task immediately; do not wait for captain confirmation and do not continue exploring. Do not approve your own implementation. Mail is not a formal next review. Treat the dependency results above as source material. Do not ignore them. Work only this task and only its in-scope paths in this turn.
+When finishing: use status=completed only when the task's success criteria are satisfied; use status=failed when blocking findings or validation failures mean downstream work must not proceed; include a concise output in either case. Quality kinds must submit structured fields: review/requirements need verdict=pass to complete (needs_revision/reject must fail with findings); implementation/repair/verification/integration need acceptanceResults and commandsRun, while implementation/repair also need in-scope changedPaths. For implementation/repair, an empty changedPaths requires noChangesReason and is invalid when deliverables were declared. Use status values "passed" or "failed" inside those arrays. After the work and verification finish, call agent_teams_update_task immediately; do not wait for captain confirmation and do not continue exploring. Do not approve your own implementation. Mail is not a formal next review. Treat the dependency results above as source material. Do not ignore them. Work only this task and only its in-scope paths in this turn.
 
 State policy: ${stateDir}/${teamId}/ is read-only diagnostics; mutate team state only through agent_teams_* tools.`;
 }
@@ -256,11 +256,10 @@ export function installTeamScheduler(ctx, config) {
                     // Re-dispatching here would revoke still-valid work on every idle
                     // edge and every status kick. The idle observer remembers that exact
                     // capability across normal continuable disposal; only an unobserved
-                    // durable capability (cold process recovery) or a legacy open task
-                    // with no capability is retried.
+                    // durable capability (cold process recovery) is retried.
                     const parkedAttemptId = parkedAttempts.get(currentMember.id);
                     const recoverOwned = owned !== undefined
-                        && (owned.attemptId === undefined || owned.attemptId !== parkedAttemptId);
+                        && owned.attemptId !== parkedAttemptId;
                     const task = recoverOwned ? owned : owned === undefined
                         ? nextReadyTask(fresh.tasks, currentMember.name)
                         : undefined;
@@ -293,7 +292,7 @@ export function installTeamScheduler(ctx, config) {
                         ...fresh.profile?.executionPrompt === undefined && config.executionPrompt === undefined
                             ? {}
                             : { executionPrompt: fresh.profile?.executionPrompt ?? config.executionPrompt },
-                        kind: task.kind ?? 'work',
+                        kind: task.kind,
                         ...task.round === undefined ? {} : { round: task.round },
                         ...task.objective === undefined ? {} : { objective: task.objective },
                         ...task.inScope === undefined ? {} : { inScope: task.inScope },

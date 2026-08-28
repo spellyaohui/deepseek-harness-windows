@@ -321,7 +321,16 @@ function deliverablesScopeError(
   for (const deliverable of deliverables) {
     const classification = classifyChangedPath(deliverable, inScope ?? [], outOfScope ?? [])
     if (classification !== 'in_scope') {
-      return `${kind} deliverable "${deliverable}" is ${classification}; every deliverable path must be covered by inScope`
+      if (classification === 'undeclared') {
+        return `${kind} deliverable "${deliverable}" is undeclared; every deliverable path must be covered by inScope. Use an actual workspace-relative POSIX path, and put prose outcomes in subject, description, or acceptance`
+      }
+      if (classification === 'out_of_scope' && isDefaultExcluded(deliverable)) {
+        return `${kind} deliverable "${deliverable}" is out_of_scope; every deliverable path must be covered by inScope. Protected paths such as .env files, secrets, and .git data cannot be deliverables or inScope`
+      }
+      if (classification === 'out_of_scope') {
+        return `${kind} deliverable "${deliverable}" is out_of_scope; every deliverable path must be covered by inScope. Remove it from deliverables or add the intended workspace-relative path to inScope after checking the task boundary`
+      }
+      return `${kind} deliverable "${deliverable}" is illegal; every deliverable path must be covered by inScope. Deliverables must be workspace-relative POSIX paths without absolute paths or parent-directory escapes`
     }
   }
   return undefined
@@ -347,6 +356,7 @@ function dependencyClosureContains(
 
 export function validateCreateTask(team: TeamState, input: CreateTaskInput): ValidateCreateTaskResult {
   const kind = input.kind ?? 'work'
+  const assignee = omitBlankOptionalString(input.assignee)
   const objective = omitBlankOptionalString(input.objective)
   const reviewedTaskId = omitBlankOptionalString(input.reviewedTaskId)
   const sourceTaskId = omitBlankOptionalString(input.sourceTaskId)
@@ -449,7 +459,7 @@ export function validateCreateTask(team: TeamState, input: CreateTaskInput): Val
       subject: input.subject,
       kind,
       ...input.description === undefined ? {} : { description: input.description },
-      ...input.assignee === undefined ? {} : { assignee: input.assignee },
+      ...assignee === undefined ? {} : { assignee },
       dependencies,
       ...input.round === undefined ? {} : { round: input.round },
       ...objective === undefined ? {} : { objective },
@@ -929,6 +939,8 @@ export function qualityPlanningPrompt(): string {
     'Build that entire DAG while the team is staged: an implementation may be created before requirements finishes when its dependency chain includes that requirements task. This is supported; do not wait for requirements to run and do not inspect plugin source to confirm it.',
     'A staged integration task may depend on review round 1. If that review later returns needs_revision, the system automatically rewires still-pending downstream dependencies to the generated repair + next-review gate, so keep integration in the original plan instead of omitting or manually recreating it.',
     'Derive inScope and verification commands from the actual workspace or explicit profile; never assume src/ or pnpm test.',
+    'Treat implementation/repair deliverables as concrete workspace-relative POSIX paths covered by inScope, not prose labels; put abstract outcomes in subject, description, or acceptance. Never include .env files, secrets, or .git data in inScope or deliverables.',
+    'For task ownership, use an active member name, assignee="captain" for captain-owned work, or omit assignee for the shared pool; an empty assignee is normalized to the shared pool.',
     'Give every quality task a contract. Review acceptance must judge the latest implementation, not whether the gate rejects needs_revision.',
     'Do not write smoke-test scripts into tasks. Do not ask reviewers to submit needs_revision on purpose.',
     'Do not claim implementation or review yourself unless the user asked the captain to take over.',

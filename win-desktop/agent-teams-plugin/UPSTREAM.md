@@ -47,6 +47,13 @@
   round-trips and clears the complete staged quality contract through the
   Web/Host/durable boundary, and requires explicit no-change evidence without
   allowing empty `changedPaths` to hide declared deliverables.
+- The current local follow-up keeps those quality gates strict while making
+  their rejection actionable: prose deliverable labels are directed to
+  subject/description/acceptance, protected `.env`/secret/`.git` paths are
+  explicitly explained as excluded, `captain` is accepted as the reserved
+  captain-owned task alias, and blank assignees are normalized to the shared
+  task pool. The upstream task engine remains the semantic owner; this is a
+  local model-facing boundary and regression seam.
 - `.desktop.5` makes each Profile role the authority for Provider, model, and
   reasoning policy, removes global member-model/reasoning settings, and
   requires strict Profile/Team `schemaVersion: 2`. Older persisted documents

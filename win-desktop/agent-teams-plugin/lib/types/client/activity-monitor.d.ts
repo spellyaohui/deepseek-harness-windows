@@ -1,4 +1,6 @@
 /** Shared, demand-driven state for the AgentTeams browser monitor. */
+import type { RoleReasoningMode } from '../selection-policy.ts';
+import type { TaskKind } from '../types.ts';
 /** One member row of a host snapshot. */
 export interface ActivityMember {
     readonly id: string;
@@ -6,6 +8,7 @@ export interface ActivityMember {
     readonly role: string;
     readonly provider?: string;
     readonly model?: string;
+    readonly reasoningMode: RoleReasoningMode;
     readonly reasoningEffort?: string;
     readonly executionPrompt?: string;
     readonly status?: 'idle' | 'working' | 'removed';
@@ -27,9 +30,20 @@ export interface ActivityTask {
     readonly model?: string;
     readonly dependencies: readonly string[];
     readonly depth: number;
-    readonly kind?: string;
+    readonly kind?: TaskKind;
     readonly round?: number;
     readonly verdict?: string;
+    readonly objective?: string;
+    readonly inScope?: readonly string[];
+    readonly outOfScope?: readonly string[];
+    readonly acceptance?: readonly string[];
+    readonly verify?: readonly string[];
+    readonly deliverables?: readonly string[];
+    readonly nonGoals?: readonly string[];
+    readonly reviewedTaskId?: string;
+    readonly sourceTaskId?: string;
+    readonly sourceFindingIds?: readonly string[];
+    readonly coverageOf?: readonly string[];
 }
 /** One captain-inbox preview row. */
 export interface ActivityMessage {
@@ -73,8 +87,6 @@ export declare function getActivityMonitorTargetsSnapshot(): readonly ActivityMo
  * StrictMode remounts cannot stop another card's monitor.
  */
 export declare function monitorAgentTeam(sessionId: string, teamId: string): () => void;
-/** Stop polling targets whose final archived snapshot has been captured. */
-export declare function settleActivityMonitorTargets(keys: ReadonlySet<string>): void;
 /** Subscribe to the shared live/archive snapshot. */
 export declare function subscribeActivitySnapshots(listener: () => void): () => void;
 /** Read the stable shared live/archive snapshot. */
@@ -99,11 +111,7 @@ interface ActivityFetchResponse {
 }
 /** Injectable browser primitives used by the poll controller and its tests. */
 export interface ActivityPollingRuntime {
-    /**
-     * Current captain session to discover after a cold client/host restart.
-     * This one-time scope restores teams whose older conversation log has no
-     * AgentTeams card capable of registering an explicit monitor target.
-     */
+    /** Current captain session to discover after a cold client/host restart. */
     readonly discoverySessionId?: string;
     readonly fetchState?: (url: string, init: {
         readonly cache: 'no-store';
@@ -112,7 +120,6 @@ export interface ActivityPollingRuntime {
     readonly schedule?: (callback: () => void, intervalMs: number) => unknown;
     readonly cancel?: (timer: unknown) => void;
     readonly publishSnapshots?: (update: Partial<ActivitySnapshots>) => void;
-    readonly settleTargets?: (keys: ReadonlySet<string>) => void;
 }
 /** Handle returned by one current-session polling loop. */
 export interface ActivityPollingController {
@@ -135,7 +142,8 @@ export interface ActivityPollingController {
  * the rest of its lifetime. The caller — the session view, which stops the
  * controller when the session is no longer current — bounds the lifetime, and
  * archive state is refreshed when a target or a previously discovered live
- * team disappears.
+ * team disappears. Monitor demand remains owned by the mounted card and is
+ * released only when that card unmounts.
  */
 export declare function startActivityPolling(monitorTargets: readonly ActivityMonitorTarget[], runtime?: ActivityPollingRuntime): ActivityPollingController;
 export {};

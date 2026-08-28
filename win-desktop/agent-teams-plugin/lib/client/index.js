@@ -17,7 +17,7 @@ function HiddenAgentTeamsCommand() {
 /**
  * Register the activity monitor in the shell's additive overlay and the
  * in-conversation team card. The card's activity button re-opens a folded
- * monitor via a window event — the recovery path for an old session.
+ * monitor via a window event.
  */
 export function apply(ctx) {
     ctx.effect(() => ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en }), 'agent-teams: dictionaries');

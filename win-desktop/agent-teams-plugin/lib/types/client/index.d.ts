@@ -12,6 +12,6 @@ export declare const inject: string[];
 /**
  * Register the activity monitor in the shell's additive overlay and the
  * in-conversation team card. The card's activity button re-opens a folded
- * monitor via a window event — the recovery path for an old session.
+ * monitor via a window event.
  */
 export declare function apply(ctx: ClientContext): void;

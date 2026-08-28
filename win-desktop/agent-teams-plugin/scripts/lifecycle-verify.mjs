@@ -1153,6 +1153,39 @@ try {
   check('shutdown preserves cancelled task history in the archive',
     haltedArchive?.tasks.length === 2
       && haltedArchive.tasks.every(item => item.status === 'cancelled'))
+
+  await call('agent_teams_create', { name: 'Assignee Boundary', description: 'captain and shared-pool task assignment' })
+  let captainOwnedTask
+  let captainOwnedTaskError
+  try {
+    captainOwnedTask = await call('agent_teams_create_task', {
+      subject: 'captain-owned follow-up',
+      assignee: 'captain',
+    })
+  } catch (error) {
+    captainOwnedTaskError = error
+  }
+  let sharedPoolTask
+  let sharedPoolTaskError
+  try {
+    sharedPoolTask = await call('agent_teams_create_task', {
+      subject: 'shared-pool follow-up',
+      assignee: '',
+    })
+  } catch (error) {
+    sharedPoolTaskError = error
+  }
+  const assigneeBoundaryTeam = await readTeam(stateRoot, 'assignee-boundary')
+  check('create_task accepts captain as a captain-owned task alias',
+    captainOwnedTaskError === undefined
+      && captainOwnedTask?.assignee === 'captain'
+      && assigneeBoundaryTeam?.tasks.some(task => task.subject === 'captain-owned follow-up' && task.assignee === 'captain'))
+  check('create_task normalizes an empty assignee into the shared pool',
+    sharedPoolTaskError === undefined
+      && sharedPoolTask?.assignee === undefined
+      && assigneeBoundaryTeam?.tasks.some(task => task.subject === 'shared-pool follow-up' && task.assignee === undefined))
+  await call('agent_teams_delete', {})
+
   await call('agent_teams_create', { name: 'Quality Loop', description: 'review loop' })
   await call('agent_teams_add_member', { name: 'builder', role: 'implementer' })
   await call('agent_teams_add_member', { name: 'critic', role: 'reviewer' })

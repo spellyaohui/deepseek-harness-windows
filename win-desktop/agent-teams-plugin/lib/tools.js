@@ -13,6 +13,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools';
 import { join } from 'node:path';
 import { appendTeamEvent, captainSessionOf } from "./events.js";
 import { acknowledgeMailbox, appendMailbox, archiveTeamDir, beginTaskAttempt, CAPTAIN_KEY, createMessage, createTeamDir, findTeamByCaptain, findTeamByParticipant, cancelUnfinishedTask, invalidateTaskAttempt, readUnreadMailbox, recordRetiredMemberIds, releaseMailboxDelivery, readTeam, sanitizeKey, transitionError, unsatisfiedDependencies, withTeamLock, writeTeam, removeTeamDir, validateCreateTask, evaluateQualityCompletion, planQualityFollowUp, resumeTeamState, buildCoverageMatrix, canDeclareDelivery, describeQualityLoop, sanitizeReviewAcceptance, sanitizeReviewObjective, taskKindOf, } from "./state.js";
+import { AGENT_TEAMS_STATE_SCHEMA_VERSION } from "./types.js";
 import { deliverToMember, installRetiredMemberGuard, installMemberSelectionRuntime, interruptMember, memberActivity, resolveMemberLlmSelection, spawnMember, validateMemberLlmSelections, } from "./members.js";
 import { TERMINAL_TASK_STATUSES } from "./types.js";
 import { installTeamScheduler } from "./scheduler.js";
@@ -113,6 +114,58 @@ function trimmedOptional(value) {
     const trimmed = value?.trim();
     return trimmed === undefined || trimmed === '' ? undefined : trimmed;
 }
+function trimmedStringList(value) {
+    if (value === undefined || value === null)
+        return undefined;
+    return [...new Set(value.map((item) => item.trim()).filter(Boolean))];
+}
+function applyOptionalList(task, key, value) {
+    if (value === undefined)
+        return;
+    const normalized = trimmedStringList(value);
+    if (normalized === undefined || normalized.length === 0)
+        delete task[key];
+    else
+        task[key] = normalized;
+}
+function applyOptionalString(task, key, value) {
+    if (value === undefined)
+        return;
+    const normalized = trimmedOptional(value);
+    if (normalized === undefined)
+        delete task[key];
+    else
+        task[key] = normalized;
+}
+function stagedTaskValidationError(team, task) {
+    // Contract validation should retain dependency/review references while the
+    // staged graph's separate pass owns cross-task write-scope serialization.
+    const otherTasks = team.tasks
+        .filter((candidate) => candidate !== task)
+        .map((candidate) => (taskKindOf(candidate) === 'implementation' || taskKindOf(candidate) === 'repair'
+        ? { ...candidate, kind: 'work' }
+        : candidate));
+    const gate = validateCreateTask({ ...team, tasks: otherTasks }, {
+        subject: task.subject,
+        description: task.description,
+        dependencies: task.dependencies,
+        assignee: task.assignee,
+        kind: task.kind,
+        round: task.round,
+        objective: task.objective,
+        inScope: task.inScope,
+        outOfScope: task.outOfScope,
+        acceptance: task.acceptance,
+        verify: task.verify,
+        deliverables: task.deliverables,
+        nonGoals: task.nonGoals,
+        reviewedTaskId: task.reviewedTaskId,
+        sourceTaskId: task.sourceTaskId,
+        sourceFindingIds: task.sourceFindingIds,
+        coverageOf: task.coverageOf,
+    });
+    return gate.ok ? undefined : gate.error ?? `task "${task.id}" has an invalid contract`;
+}
 /** Validate references and cycles before a staged graph can be saved or run. */
 function validateStagedGraph(team, requireRunnable) {
     const members = team.members.filter((member) => member.status !== 'removed');
@@ -133,6 +186,11 @@ function validateStagedGraph(team, requireRunnable) {
                 throw new Error(`task "${task.id}" cannot depend on itself`);
             if (!taskIds.has(dependency))
                 throw new Error(`task "${task.id}" depends on unknown task "${dependency}"`);
+        }
+        if (requireRunnable || task.kind !== 'work') {
+            const contractError = stagedTaskValidationError(team, task);
+            if (contractError !== undefined)
+                throw new Error(`task "${task.id}" contract is invalid: ${contractError}`);
         }
     }
     const visiting = new Set();
@@ -328,16 +386,23 @@ export function registerAgentTeamsTools(ctx, config) {
                     const member = requireMember(fresh, mutation.memberName);
                     if (member.id !== '')
                         throw new Error(`staged member "${member.name}" was already spawned`);
+                    const reasoningMode = mutation.reasoningMode ?? member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`); })();
+                    const reasoningEffort = mutation.reasoningEffort !== undefined
+                        ? trimmedOptional(mutation.reasoningEffort)
+                        : reasoningMode === 'explicit' && member.reasoningMode === 'explicit'
+                            ? member.reasoningEffort
+                            : undefined;
                     const selection = await resolveMemberLlmSelection(ctx, captain, {
                         provider: mutation.provider,
                         model: mutation.model,
-                        reasoningEffort: trimmedOptional(mutation.reasoningEffort),
+                        reasoningMode,
+                        ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
                         fallback: member.fallback,
-                        defaults: config.settings.get(),
                     }, signal);
                     member.role = trimmedOptional(mutation.role);
                     member.provider = selection.provider;
                     member.model = selection.model;
+                    member.reasoningMode = selection.reasoningMode;
                     member.reasoningEffort = selection.reasoningEffort;
                     member.executionPrompt = trimmedOptional(mutation.executionPrompt);
                 }
@@ -346,13 +411,36 @@ export function registerAgentTeamsTools(ctx, config) {
                     if (task.status !== 'pending' || (task.attempt ?? 0) !== 0) {
                         throw new Error(`task "${task.id}" has already started and cannot be edited`);
                     }
-                    const subject = mutation.subject.trim();
-                    if (subject === '')
-                        throw new Error('task subject must not be empty');
-                    task.subject = subject;
-                    task.description = trimmedOptional(mutation.description);
-                    task.assignee = trimmedOptional(mutation.assignee);
-                    task.dependencies = [...new Set(mutation.dependencies.map((item) => item.trim()).filter(Boolean))];
+                    if (mutation.subject !== undefined) {
+                        const subject = mutation.subject.trim();
+                        if (subject === '')
+                            throw new Error('task subject must not be empty');
+                        task.subject = subject;
+                    }
+                    applyOptionalString(task, 'description', mutation.description);
+                    if (mutation.assignee !== undefined)
+                        task.assignee = trimmedOptional(mutation.assignee);
+                    if (mutation.dependencies !== undefined)
+                        task.dependencies = trimmedStringList(mutation.dependencies) ?? [];
+                    if (mutation.kind !== undefined)
+                        task.kind = mutation.kind;
+                    if (mutation.round !== undefined) {
+                        if (mutation.round === null)
+                            delete task.round;
+                        else
+                            task.round = mutation.round;
+                    }
+                    applyOptionalString(task, 'objective', mutation.objective);
+                    applyOptionalList(task, 'inScope', mutation.inScope);
+                    applyOptionalList(task, 'outOfScope', mutation.outOfScope);
+                    applyOptionalList(task, 'acceptance', mutation.acceptance);
+                    applyOptionalList(task, 'verify', mutation.verify);
+                    applyOptionalList(task, 'deliverables', mutation.deliverables);
+                    applyOptionalList(task, 'nonGoals', mutation.nonGoals);
+                    applyOptionalString(task, 'reviewedTaskId', mutation.reviewedTaskId);
+                    applyOptionalString(task, 'sourceTaskId', mutation.sourceTaskId);
+                    applyOptionalList(task, 'sourceFindingIds', mutation.sourceFindingIds);
+                    applyOptionalList(task, 'coverageOf', mutation.coverageOf);
                     task.updatedAt = Date.now();
                 }
                 else if (mutation.action === 'add_task') {
@@ -361,18 +449,33 @@ export function registerAgentTeamsTools(ctx, config) {
                         throw new Error('task subject must not be empty');
                     fresh.taskSeq += 1;
                     const now = Date.now();
-                    fresh.tasks.push({
+                    const task = {
                         id: `t${fresh.taskSeq}`,
                         subject,
-                        description: trimmedOptional(mutation.description),
                         status: 'pending',
-                        assignee: trimmedOptional(mutation.assignee),
-                        dependencies: [...new Set(mutation.dependencies.map((item) => item.trim()).filter(Boolean))],
+                        dependencies: trimmedStringList(mutation.dependencies) ?? [],
                         attempt: 0,
-                        kind: 'work',
+                        kind: mutation.kind ?? 'work',
                         createdAt: now,
                         updatedAt: now,
-                    });
+                    };
+                    applyOptionalString(task, 'description', mutation.description);
+                    if (mutation.assignee !== undefined)
+                        task.assignee = trimmedOptional(mutation.assignee);
+                    if (mutation.round !== undefined && mutation.round !== null)
+                        task.round = mutation.round;
+                    applyOptionalString(task, 'objective', mutation.objective);
+                    applyOptionalList(task, 'inScope', mutation.inScope);
+                    applyOptionalList(task, 'outOfScope', mutation.outOfScope);
+                    applyOptionalList(task, 'acceptance', mutation.acceptance);
+                    applyOptionalList(task, 'verify', mutation.verify);
+                    applyOptionalList(task, 'deliverables', mutation.deliverables);
+                    applyOptionalList(task, 'nonGoals', mutation.nonGoals);
+                    applyOptionalString(task, 'reviewedTaskId', mutation.reviewedTaskId);
+                    applyOptionalString(task, 'sourceTaskId', mutation.sourceTaskId);
+                    applyOptionalList(task, 'sourceFindingIds', mutation.sourceFindingIds);
+                    applyOptionalList(task, 'coverageOf', mutation.coverageOf);
+                    fresh.tasks.push(task);
                 }
                 else if (mutation.action === 'remove_task') {
                     const task = requireTask(fresh, mutation.taskId);
@@ -420,13 +523,16 @@ export function registerAgentTeamsTools(ctx, config) {
                     const selection = await resolveMemberLlmSelection(ctx, captain, {
                         provider: member.provider,
                         model: member.model,
-                        reasoningEffort: member.reasoningEffort,
+                        reasoningMode: member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`); })(),
+                        ...member.reasoningMode === 'explicit' && member.reasoningEffort !== undefined
+                            ? { reasoningEffort: member.reasoningEffort }
+                            : {},
                         fallback: member.fallback,
-                        defaults: config.settings.get(),
                     }, runSignal);
                     selections.set(member, selection);
                     member.provider = selection.provider;
                     member.model = selection.model;
+                    member.reasoningMode = selection.reasoningMode;
                     member.reasoningEffort = selection.reasoningEffort;
                 }
                 // This is the approval commit barrier: resolve and validate the whole
@@ -605,6 +711,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     }
                     if (profileName === undefined) {
                         const state = {
+                            schemaVersion: AGENT_TEAMS_STATE_SCHEMA_VERSION,
                             name: teamName,
                             id: teamId,
                             description: args.description,
@@ -613,7 +720,8 @@ export function registerAgentTeamsTools(ctx, config) {
                             members: [],
                             tasks: [],
                             taskSeq: 0,
-                            ...staged ? { phase: 'staged', planReviewState: 'awaiting_review' } : {},
+                            phase: staged ? 'staged' : 'running',
+                            ...staged ? { planReviewState: 'awaiting_review' } : {},
                         };
                         await createTeamDir(stateRoot, state);
                         return { committed: true, state };
@@ -677,14 +785,14 @@ export function registerAgentTeamsTools(ctx, config) {
                     team_id: snapshot.id,
                     team_name: snapshot.name,
                     state_dir: join(stateRoot, snapshot.id),
-                    phase: snapshot.phase ?? 'running',
+                    phase: snapshot.phase,
                 };
             }
             return {
                 team_id: snapshot.id,
                 team_name: snapshot.name,
                 state_dir: join(stateRoot, snapshot.id),
-                phase: snapshot.phase ?? 'running',
+                phase: snapshot.phase,
                 profile: snapshot.profile.name,
                 task_planning: snapshot.profile.taskPlanning ?? 'seed',
                 members: snapshot.members.map((member) => ({
@@ -709,7 +817,7 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_edit_plan',
-        description: 'Atomically revise the current staged AgentTeams plan without spawning members or scheduling tasks. Use this when the user continues chatting to change a plan that is waiting for approval. Submit dependent edits in order (update downstream dependencies or assignees, then remove tasks, then remove unused members). Never inspect or edit .agent-teams state files or plugin source code to revise a plan.',
+        description: 'Atomically revise the current staged AgentTeams plan without spawning members or scheduling tasks. This tool is only for a plan waiting for approval; never call it after the Team is running. Submit dependent edits in order (update downstream dependencies or assignees, then remove tasks, then remove unused members). Task edits can replace the complete quality contract, including inScope, deliverables, acceptance, and verify. Never inspect or edit .agent-teams state files or plugin source code to revise a plan.',
         parameters: {
             operations: {
                 type: 'array',
@@ -730,9 +838,23 @@ export function registerAgentTeamsTools(ctx, config) {
                         description: { type: 'string', description: 'Optional task description.' },
                         assignee: { type: 'string', description: 'Optional task assignee; an empty string moves it to the shared pool.' },
                         dependencies: { type: 'array', items: { type: 'string' }, description: 'Complete replacement dependency list for a task.' },
+                        kind: { type: 'string', enum: ['work', 'requirements', 'implementation', 'verification', 'review', 'repair', 'integration'], description: 'Optional task kind for add_task or update_task.' },
+                        round: { type: 'number', description: 'Optional quality-loop round.' },
+                        objective: { type: 'string', description: 'Optional quality-task objective.' },
+                        inScope: { type: 'array', items: { type: 'string' }, description: 'Complete replacement workspace-relative write scope.' },
+                        outOfScope: { type: 'array', items: { type: 'string' }, description: 'Complete replacement excluded scope.' },
+                        acceptance: { type: 'array', items: { type: 'string' }, description: 'Complete replacement acceptance contract.' },
+                        verify: { type: 'array', items: { type: 'string' }, description: 'Complete replacement verification commands.' },
+                        deliverables: { type: 'array', items: { type: 'string' }, description: 'Complete replacement deliverable paths. Implementation/repair deliverables must be covered by inScope.' },
+                        nonGoals: { type: 'array', items: { type: 'string' }, description: 'Complete replacement non-goals.' },
+                        reviewedTaskId: { type: 'string', description: 'Reviewed task id for review tasks.' },
+                        sourceTaskId: { type: 'string', description: 'Source task id for repair tasks.' },
+                        sourceFindingIds: { type: 'array', items: { type: 'string' }, description: 'Finding ids closed by a repair task.' },
+                        coverageOf: { type: 'array', items: { type: 'string' }, description: 'Goal items covered by the task.' },
                         role: { type: 'string', description: 'Optional member role.' },
                         provider: { type: 'string', description: 'Optional member provider; defaults to the current staged route.' },
                         model: { type: 'string', description: 'Optional member model; defaults to the current staged route.' },
+                        reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy; defaults to the member\'s saved policy.' },
                         reasoning_effort: { type: 'string', description: 'Optional member reasoning effort.' },
                         execution_prompt: { type: 'string', description: 'Optional member-specific execution prompt.' },
                     },
@@ -746,22 +868,34 @@ export function registerAgentTeamsTools(ctx, config) {
                 properties: {
                     status: { type: 'string', required: true },
                     team_id: { type: 'string', required: true },
-                    members: { type: 'number', required: true },
-                    tasks: { type: 'number', required: true },
-                    dependencies: { type: 'number', required: true },
-                    roster: { type: 'array', items: { type: 'string' }, required: true },
-                    graph: { type: 'array', items: { type: 'string' }, required: true },
+                    members: { type: 'number' },
+                    tasks: { type: 'number' },
+                    dependencies: { type: 'number' },
+                    roster: { type: 'array', items: { type: 'string' } },
+                    graph: { type: 'array', items: { type: 'string' } },
+                    message: { type: 'string' },
+                    next_step: { type: 'string' },
                 },
             },
             render: (_args, value) => [{
                     type: 'text',
-                    text: `Staged plan updated atomically (${value.members} members, ${value.tasks} tasks, ${value.dependencies} dependencies). No members were spawned and no tasks were scheduled.\n${value.graph.join('\n')}`,
+                    text: value.status === 'already_running'
+                        ? `${value.message}\n${value.next_step}`
+                        : `Staged plan updated atomically (${value.members} members, ${value.tasks} tasks, ${value.dependencies} dependencies). No members were spawned and no tasks were scheduled.\n${value.graph?.join('\n') ?? ''}`,
                 }],
         },
         async execute(args, exec) {
             const captain = requireCaptain(exec);
             const workspace = workspaceOf(captain);
             const team = await requireCaptainTeam(workspace, config, captain);
+            if (team.phase !== 'staged') {
+                return {
+                    status: 'already_running',
+                    team_id: team.id,
+                    message: `Team "${team.name}" is already running; its approved plan is immutable. No changes were made.`,
+                    next_step: 'Use agent_teams_create_task for additional future work, agent_teams_send_message to guide an active member, agent_teams_reassign_task to change ownership, or agent_teams_status to inspect progress. Do not retry agent_teams_edit_plan for this Team.',
+                };
+            }
             requireStagedTeam(team);
             if (args.operations.length === 0)
                 throw new Error('at least one staged plan operation is required');
@@ -772,13 +906,17 @@ export function registerAgentTeamsTools(ctx, config) {
                     if (memberName === '')
                         throw new Error(`${label} requires member_name`);
                     const member = requireMember(team, memberName);
+                    const reasoningMode = operation.reasoning_mode ?? member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`); })();
                     return {
                         action: 'update_member',
                         memberName,
                         role: operation.role ?? member.role,
                         provider: operation.provider?.trim() || member.provider || '',
                         model: operation.model?.trim() || member.model || '',
-                        reasoningEffort: operation.reasoning_effort ?? member.reasoningEffort,
+                        reasoningMode,
+                        ...operation.reasoning_effort !== undefined
+                            ? { reasoningEffort: operation.reasoning_effort }
+                            : {},
                         executionPrompt: operation.execution_prompt ?? member.executionPrompt,
                     };
                 }
@@ -794,6 +932,19 @@ export function registerAgentTeamsTools(ctx, config) {
                         description: operation.description ?? task.description,
                         assignee: operation.assignee ?? task.assignee,
                         dependencies: operation.dependencies ?? task.dependencies,
+                        kind: operation.kind ?? task.kind,
+                        round: operation.round ?? task.round,
+                        objective: operation.objective ?? task.objective,
+                        inScope: operation.inScope ?? task.inScope,
+                        outOfScope: operation.outOfScope ?? task.outOfScope,
+                        acceptance: operation.acceptance ?? task.acceptance,
+                        verify: operation.verify ?? task.verify,
+                        deliverables: operation.deliverables ?? task.deliverables,
+                        nonGoals: operation.nonGoals ?? task.nonGoals,
+                        reviewedTaskId: operation.reviewedTaskId ?? task.reviewedTaskId,
+                        sourceTaskId: operation.sourceTaskId ?? task.sourceTaskId,
+                        sourceFindingIds: operation.sourceFindingIds ?? task.sourceFindingIds,
+                        coverageOf: operation.coverageOf ?? task.coverageOf,
                     };
                 }
                 if (operation.action === 'add_task') {
@@ -806,6 +957,19 @@ export function registerAgentTeamsTools(ctx, config) {
                         description: operation.description,
                         assignee: operation.assignee,
                         dependencies: operation.dependencies ?? [],
+                        kind: operation.kind,
+                        round: operation.round,
+                        objective: operation.objective,
+                        inScope: operation.inScope,
+                        outOfScope: operation.outOfScope,
+                        acceptance: operation.acceptance,
+                        verify: operation.verify,
+                        deliverables: operation.deliverables,
+                        nonGoals: operation.nonGoals,
+                        reviewedTaskId: operation.reviewedTaskId,
+                        sourceTaskId: operation.sourceTaskId,
+                        sourceFindingIds: operation.sourceFindingIds,
+                        coverageOf: operation.coverageOf,
                     };
                 }
                 if (operation.action === 'remove_task') {
@@ -865,13 +1029,14 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_add_member',
-        description: 'Add a durable continuable member. AgentTeams settings choose the ordinary member route. Provider/model/reasoning_effort arguments are ignored while AgentTeams settings use explicit mode, which enforces the configured route. In target-default or route-aware mode, supply provider/model only when the user explicitly requests a heterogeneous role-specific route; blank optional route fields are treated as omitted. In a staged team this only adds an editable plan row and does not spawn a child; approval spawns the final configuration. In a running team it creates the durable continuable member immediately.',
+        description: 'Add a durable continuable member. The role policy chooses its route: target-default and route-aware use the captain route unless a paired provider/model is supplied; explicit requires provider/model/reasoning_effort. In a staged team this only adds an editable plan row and does not spawn a child; approval spawns the final configuration. In a running team it creates the durable continuable member immediately.',
         parameters: {
             name: { type: 'string', required: true, description: 'Unique member name inside the team.' },
             role: { type: 'string', description: 'Role of the member (e.g. researcher, engineer, reviewer).' },
             provider: { type: 'string', description: 'Optional LLM provider route. Use only when the user explicitly requests a different provider; requires model.' },
-            model: { type: 'string', description: 'Optional model override. Omit for the captain\'s current model (or the configured memberModel default).' },
-            reasoning_effort: { type: 'string', description: 'Optional reasoning effort override: one of the target model\'s supported effort ids, or "default" to force its default. When omitted, the captain\'s effort is inherited only for the same provider/model; a changed route uses the target default.' },
+            model: { type: 'string', description: 'Optional model override. Omit to use the captain route.' },
+            reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], default: 'target-default', description: 'Role reasoning policy.' },
+            reasoning_effort: { type: 'string', description: 'Required with explicit reasoning_mode; otherwise omit.' },
             executionPrompt: { type: 'string', description: 'Optional member-specific execution prompt. It remains editable while staged.' },
         },
         output: {
@@ -918,10 +1083,9 @@ export function registerAgentTeamsTools(ctx, config) {
                 const selection = await resolveMemberLlmSelection(ctx, captain, {
                     provider: args.provider,
                     model: args.model,
-                    defaultModel: config.memberModel,
+                    reasoningMode: args.reasoning_mode ?? 'target-default',
                     reasoningEffort: args.reasoning_effort,
                     fallback: config.fallback,
-                    defaults: config.settings.get(),
                 }, exec.signal);
                 const member = {
                     id: '',
@@ -929,6 +1093,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     role: args.role,
                     provider: selection.provider,
                     model: selection.model,
+                    reasoningMode: selection.reasoningMode,
                     reasoningEffort: selection.reasoningEffort,
                     executionPrompt: trimmedOptional(args.executionPrompt),
                     ...selection.fallback === undefined ? {} : { fallback: selection.fallback },
@@ -967,7 +1132,7 @@ export function registerAgentTeamsTools(ctx, config) {
                         ? {}
                         : { reasoning_effort: selection.reasoningEffort },
                     status: member.status,
-                    phase: fresh.phase ?? 'running',
+                    phase: fresh.phase,
                 };
             });
             await scheduler.kickMember(workspace, team.id, created.member_name, captain);
@@ -1034,7 +1199,7 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_create_task',
-        description: 'Create a task in your team\'s task list. Every call must include a non-empty subject, including verification and review tasks. Tasks can depend on other tasks (dependencies): a task is only claimable once every dependency is completed. Optionally assign it to a member, who still claims it before working.',
+        description: 'Create a task in your team\'s task list. Every call must include a non-empty subject, including verification and review tasks. Tasks can depend on other tasks (dependencies): a task is only claimable once every dependency is completed. Use an active member name for member work, assignee="captain" for captain-owned work, or omit assignee for the shared pool; an empty assignee is also normalized to the shared pool. A member still claims its assigned task before working.',
         parameters: {
             subject: { type: 'string', required: true, description: 'Required non-empty title for this task. Never omit it, including for verification or review tasks.' },
             description: { type: 'string', description: 'What needs to be done, in detail.' },
@@ -1043,7 +1208,7 @@ export function registerAgentTeamsTools(ctx, config) {
                 items: { type: 'string' },
                 description: 'Task ids this task depends on (must be completed before this task can be claimed).',
             },
-            assignee: { type: 'string', description: 'Optional member name this task is intended for.' },
+            assignee: { type: 'string', description: 'Optional active member name, "captain" for captain-owned work, or empty/omitted for the shared pool.' },
             kind: {
                 type: 'string',
                 enum: ['work', 'requirements', 'implementation', 'verification', 'review', 'repair', 'integration'],
@@ -1085,13 +1250,15 @@ export function registerAgentTeamsTools(ctx, config) {
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireCaptainTeam(workspace, config, captain);
+            // Blank ownership is the model-facing spelling of the shared task pool.
+            const assignee = trimmedOptional(args.assignee);
             const created = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
                 const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
                 const gate = validateCreateTask(fresh, {
                     subject: args.subject,
                     description: args.description,
                     dependencies: args.dependencies,
-                    assignee: args.assignee,
+                    assignee,
                     kind: args.kind,
                     round: args.round,
                     objective: args.objective,
@@ -1128,12 +1295,12 @@ export function registerAgentTeamsTools(ctx, config) {
                         throw new Error(`dependency "${dependency}" does not exist in team "${fresh.name}"`);
                     }
                 }
-                if (args.assignee !== undefined)
-                    requireMember(fresh, args.assignee);
+                if (assignee !== undefined && assignee !== CAPTAIN_KEY)
+                    requireMember(fresh, assignee);
                 const kind = gate.kind ?? 'work';
                 const objective = kind === 'review' || kind === 'requirements'
-                    ? sanitizeReviewObjective(args.objective)
-                    : args.objective;
+                    ? sanitizeReviewObjective(gate.task?.objective)
+                    : gate.task?.objective;
                 const acceptance = kind === 'review' || kind === 'requirements'
                     ? sanitizeReviewAcceptance(args.acceptance)
                     : args.acceptance;
@@ -1142,7 +1309,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     subject: args.subject,
                     description: args.description,
                     status: 'pending',
-                    assignee: args.assignee,
+                    assignee,
                     dependencies,
                     attempt: 0,
                     createdAt: Date.now(),
@@ -1156,8 +1323,8 @@ export function registerAgentTeamsTools(ctx, config) {
                     ...args.verify === undefined ? {} : { verify: args.verify },
                     ...args.deliverables === undefined ? {} : { deliverables: args.deliverables },
                     ...args.nonGoals === undefined ? {} : { nonGoals: args.nonGoals },
-                    ...args.reviewedTaskId === undefined ? {} : { reviewedTaskId: args.reviewedTaskId },
-                    ...args.sourceTaskId === undefined ? {} : { sourceTaskId: args.sourceTaskId },
+                    ...gate.task?.reviewedTaskId === undefined ? {} : { reviewedTaskId: gate.task.reviewedTaskId },
+                    ...gate.task?.sourceTaskId === undefined ? {} : { sourceTaskId: gate.task.sourceTaskId },
                     ...args.sourceFindingIds === undefined ? {} : { sourceFindingIds: args.sourceFindingIds },
                     ...args.coverageOf === undefined ? {} : { coverageOf: args.coverageOf },
                 };
@@ -1408,7 +1575,7 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_update_task',
-        description: 'Update a task status/output. Members must supply the current attempt_id returned by claim_task; stale attempts are rejected after takeover/reassignment. Terminal results are immutable. A captain must use reassign_task(assignee="captain") before updating member-owned work.',
+        description: 'Update a task status/output. Members must supply the current attempt_id returned by claim_task; stale attempts are rejected after takeover/reassignment. Terminal results are immutable. Implementation/repair completion must report actual changedPaths; empty changedPaths requires noChangesReason and is invalid when deliverables were declared. A captain must use reassign_task(assignee="captain") before updating member-owned work.',
         parameters: {
             task_id: { type: 'string', required: true, description: 'The task id to update.' },
             status: {
@@ -1444,6 +1611,10 @@ export function registerAgentTeamsTools(ctx, config) {
                 type: 'array',
                 items: { type: 'string' },
                 description: 'Workspace-relative POSIX paths changed by this implementation/repair.',
+            },
+            noChangesReason: {
+                type: 'string',
+                description: 'Required when an implementation/repair reports changedPaths:[] and has no declared deliverables.',
             },
             acceptanceResults: {
                 type: 'array',
@@ -1534,6 +1705,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     verdict: args.verdict,
                     findings,
                     changedPaths: args.changedPaths,
+                    noChangesReason: args.noChangesReason,
                     acceptanceResults,
                     commandsRun,
                 });
@@ -1553,6 +1725,8 @@ export function registerAgentTeamsTools(ctx, config) {
                     task.findings = findings;
                 if (args.changedPaths !== undefined)
                     task.changedPaths = args.changedPaths;
+                if (args.noChangesReason !== undefined)
+                    task.noChangesReason = args.noChangesReason.trim() || undefined;
                 if (acceptanceResults !== undefined)
                     task.acceptanceResults = acceptanceResults;
                 if (commandsRun !== undefined)
@@ -1562,7 +1736,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     ? applyQualityFollowUp(fresh, task)
                     : undefined;
                 if (followUp?.escalated === true) {
-                    await appendMailbox(stateRoot, fresh.id, CAPTAIN_KEY, createMessage(CAPTAIN_KEY, CAPTAIN_KEY, `Quality-gate loop escalated after ${task.id} (${task.kind ?? 'review'} verdict=${task.verdict}). Automatic repair/review stopped.`));
+                    await appendMailbox(stateRoot, fresh.id, CAPTAIN_KEY, createMessage(CAPTAIN_KEY, CAPTAIN_KEY, `Quality-gate loop escalated after ${task.id} (${task.kind} verdict=${task.verdict}). Automatic repair/review stopped.`));
                 }
                 await writeTeam(stateRoot, fresh);
                 appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, caller.session), 'agent-teams/task-updated', {
@@ -1705,17 +1879,24 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_status',
-        description: 'Team snapshot: members with live activity and tasks with status/assignee/dependencies/output. Captains also see every team mailbox; members see only their own inbox. Poll this to watch progress.',
+        description: 'Team snapshot: members with live activity and tasks with status/assignee/dependencies/output. Captains also see every team mailbox; members see only their own inbox. A session without an active Team receives a clean inactive probe. Poll this to watch progress.',
         parameters: {},
         output: {
             schema: { type: 'object', additionalProperties: true, properties: {} },
-            render: (_args, value) => [{ type: 'text', text: renderStatus(value) }],
+            render: (_args, value) => [{
+                    type: 'text',
+                    text: value.active === false
+                        ? 'No active Team for this session.'
+                        : renderStatus(value),
+                }],
         },
         async execute(_args, exec) {
             const caller = requireCaptain(exec);
             const workspace = workspaceOf(caller);
             const stateRoot = stateRootOf(workspace, config);
-            const located = await requireParticipantTeam(workspace, config, caller);
+            const located = await findTeamByParticipant(stateRoot, caller.id);
+            if (located === undefined)
+                return { active: false };
             if (located.captainSessionId === caller.id) {
                 await scheduler.kickTeam(workspace, located.id, caller);
             }
@@ -1782,10 +1963,11 @@ export function registerAgentTeamsTools(ctx, config) {
             const delivery = { ok: deliveryCheck.ok, blockers: [...deliveryCheck.blockers] };
             const loop = describeQualityLoop(team);
             const result = {
+                active: true,
                 team_id: team.id,
                 team_name: team.name,
                 description: team.description ?? '',
-                phase: team.phase ?? 'running',
+                phase: team.phase,
                 halted: loop.halted,
                 escalated: loop.escalated,
                 loop_state: loop.state,
@@ -1878,7 +2060,7 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_delete',
-        description: 'End your team: interrupts all members (best effort) and deletes the team\'s state directory (team file, tasks, mailboxes). Use when the team\'s work is done or abandoned.',
+        description: 'End your team: interrupts all members (best effort) and archives the team state. This operation is idempotent when the caller has no active team. Use when the team\'s work is done or abandoned.',
         parameters: {},
         output: {
             schema: {
@@ -1891,14 +2073,16 @@ export function registerAgentTeamsTools(ctx, config) {
             },
             render: (args, value) => [{
                     type: 'text',
-                    text: `Team "${value.team_name}" deleted.`,
+                    text: value.deleted ? `Team "${value.team_name}" deleted.` : 'No active Team; nothing to delete.',
                 }],
         },
         async execute(_args, exec) {
             const captain = requireCaptain(exec);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
-            const team = await requireCaptainTeam(workspace, config, captain);
+            const team = await findTeamByCaptain(stateRoot, captain.id);
+            if (team === undefined)
+                return { deleted: false, team_name: '' };
             const members = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
                 const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
                 // Include previously removed members so deleting a pre-fix team also
@@ -1949,16 +2133,16 @@ async function initializeProfileTeam(input) {
         selections.push(await resolveMemberLlmSelection(input.ctx, input.captain, {
             provider: template.provider,
             model: template.model,
-            defaultModel: input.config.memberModel,
+            reasoningMode: template.reasoningMode,
             reasoningEffort: template.reasoningEffort,
             fallback: template.fallback ?? profile.fallback ?? input.config.fallback,
-            defaults: input.config.settings.get(),
         }, input.exec.signal));
     }
     await validateMemberLlmSelections(input.ctx, selections, input.exec.signal);
     const now = Date.now();
     const seedToActual = new Map(profile.tasks.map((template, index) => [template.id, `t${index + 1}`]));
     const draft = {
+        schemaVersion: AGENT_TEAMS_STATE_SCHEMA_VERSION,
         name: input.teamName,
         id: input.teamId,
         description: input.description,
@@ -1974,7 +2158,8 @@ async function initializeProfileTeam(input) {
         ...profile.reviewPolicy === undefined ? {} : { reviewPolicy: profile.reviewPolicy },
         captainSessionId: input.captain.id,
         createdAt: now,
-        ...input.staged ? { phase: 'staged', planReviewState: 'awaiting_review' } : {},
+        phase: 'staged',
+        planReviewState: 'awaiting_review',
         members: profile.members.map((template, index) => {
             const selection = selections[index];
             return {
@@ -1983,6 +2168,7 @@ async function initializeProfileTeam(input) {
                 role: template.role,
                 provider: selection.provider,
                 model: selection.model,
+                reasoningMode: selection.reasoningMode,
                 reasoningEffort: selection.reasoningEffort,
                 executionPrompt: template.executionPrompt ?? profile.executionPrompt ?? input.config.executionPrompt,
                 ...selection.fallback === undefined ? {} : { fallback: selection.fallback },
@@ -1999,13 +2185,19 @@ async function initializeProfileTeam(input) {
             assignee: template.assignee,
             dependencies: template.dependencies.map((dependency) => seedToActual.get(dependency) ?? dependency),
             attempt: 0,
+            kind: 'work',
             createdAt: now,
             updatedAt: now,
         })),
         taskSeq: profile.tasks.length,
     };
+    // A running team requires durable child ids, but the atomic create contract
+    // places the directory barrier before spawning. Use the existing staged
+    // shape as the transient on-disk draft, then publish `running` only after the
+    // complete roster has been spawned.
+    input.config.testObserver?.onInitializeProfileTeamPersistence?.('createTeamDir');
+    await createTeamDir(input.stateRoot, draft);
     if (input.staged) {
-        await createTeamDir(input.stateRoot, draft);
         return { committed: true, state: draft };
     }
     const spawned = [];
@@ -2018,7 +2210,10 @@ async function initializeProfileTeam(input) {
         if (draft.members.some((member) => member.id === '')) {
             throw new Error(`failed to initialize profile "${profile.name}": a spawned member is missing its child id`);
         }
-        await createTeamDir(input.stateRoot, draft);
+        draft.phase = 'running';
+        delete draft.planReviewState;
+        input.config.testObserver?.onInitializeProfileTeamPersistence?.('writeTeam');
+        await writeTeam(input.stateRoot, draft);
         return { committed: true, state: draft };
     }
     catch (error) {

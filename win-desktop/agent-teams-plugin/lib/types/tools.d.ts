@@ -10,7 +10,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
+import { type TaskKind } from './types.ts';
 import { type TeamState, type TeamTask } from './types.ts';
+import type { RoleReasoningMode } from './selection-policy.ts';
 import type { AgentTeamsSettingsRuntime } from './settings.ts';
 import type { DelegationPolicyRuntime } from './routing-policy.ts';
 /** Resolved plugin config consumed by the tools. */
@@ -19,8 +21,6 @@ export interface ToolsConfig {
     stateDir: string;
     /** Member subagent provider name. */
     memberProvider: string;
-    /** Optional member model override. */
-    memberModel?: string;
     /** Prompt injected into member personas and assignments. */
     executionPrompt?: string;
     /** Plugin fallback route. */
@@ -29,12 +29,16 @@ export interface ToolsConfig {
     memberMaxDepth?: number;
     /** Team size cap (members). */
     maxMembers: number;
-    /** Live AgentTeams settings runtime. */
+    /** Live AgentTeams settings runtime retained for non-routing settings. */
     settings: AgentTeamsSettingsRuntime;
     /** Durable Team/Native policy installed into captains and member children. */
     delegationPolicy?: DelegationPolicyRuntime;
     /** Named team profiles from the active DSH profile. */
     profiles: Record<string, import('./profiles.ts').TeamProfileConfig>;
+    /** Synchronous test-only observation of profile initialization persistence calls. */
+    testObserver?: {
+        onInitializeProfileTeamPersistence?: (operation: 'createTeamDir' | 'writeTeam') => void;
+    };
 }
 /** Browser/UI mutations allowed while a plan is waiting for approval. */
 export type StagedPlanMutation = {
@@ -43,21 +47,48 @@ export type StagedPlanMutation = {
     role?: string | null;
     provider: string;
     model: string;
+    reasoningMode?: RoleReasoningMode;
     reasoningEffort?: string | null;
     executionPrompt?: string | null;
 } | {
     action: 'update_task';
     taskId: string;
-    subject: string;
+    subject?: string;
     description?: string | null;
     assignee?: string | null;
-    dependencies: string[];
+    dependencies?: string[];
+    kind?: TaskKind;
+    round?: number | null;
+    objective?: string | null;
+    inScope?: string[] | null;
+    outOfScope?: string[] | null;
+    acceptance?: string[] | null;
+    verify?: string[] | null;
+    deliverables?: string[] | null;
+    nonGoals?: string[] | null;
+    reviewedTaskId?: string | null;
+    sourceTaskId?: string | null;
+    sourceFindingIds?: string[] | null;
+    coverageOf?: string[] | null;
 } | {
     action: 'add_task';
     subject: string;
     description?: string | null;
     assignee?: string | null;
-    dependencies: string[];
+    dependencies?: string[];
+    kind?: TaskKind;
+    round?: number | null;
+    objective?: string | null;
+    inScope?: string[] | null;
+    outOfScope?: string[] | null;
+    acceptance?: string[] | null;
+    verify?: string[] | null;
+    deliverables?: string[] | null;
+    nonGoals?: string[] | null;
+    reviewedTaskId?: string | null;
+    sourceTaskId?: string | null;
+    sourceFindingIds?: string[] | null;
+    coverageOf?: string[] | null;
 } | {
     action: 'remove_task';
     taskId: string;

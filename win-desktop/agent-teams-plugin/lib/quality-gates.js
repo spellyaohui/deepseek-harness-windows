@@ -176,8 +176,31 @@ export function inScopeOverlap(left, right) {
 function nonemptyString(value) {
     return typeof value === 'string' && value.trim() !== '';
 }
+function omitBlankOptionalString(value) {
+    return nonemptyString(value) ? value : undefined;
+}
 function nonemptyStringList(value) {
     return Array.isArray(value) && value.length > 0 && value.every(nonemptyString);
+}
+function deliverablesScopeError(kind, deliverables, inScope, outOfScope) {
+    if (!WRITE_KINDS.includes(kind) || deliverables === undefined || deliverables.length === 0)
+        return undefined;
+    for (const deliverable of deliverables) {
+        const classification = classifyChangedPath(deliverable, inScope ?? [], outOfScope ?? []);
+        if (classification !== 'in_scope') {
+            if (classification === 'undeclared') {
+                return `${kind} deliverable "${deliverable}" is undeclared; every deliverable path must be covered by inScope. Use an actual workspace-relative POSIX path, and put prose outcomes in subject, description, or acceptance`;
+            }
+            if (classification === 'out_of_scope' && isDefaultExcluded(deliverable)) {
+                return `${kind} deliverable "${deliverable}" is out_of_scope; every deliverable path must be covered by inScope. Protected paths such as .env files, secrets, and .git data cannot be deliverables or inScope`;
+            }
+            if (classification === 'out_of_scope') {
+                return `${kind} deliverable "${deliverable}" is out_of_scope; every deliverable path must be covered by inScope. Remove it from deliverables or add the intended workspace-relative path to inScope after checking the task boundary`;
+            }
+            return `${kind} deliverable "${deliverable}" is illegal; every deliverable path must be covered by inScope. Deliverables must be workspace-relative POSIX paths without absolute paths or parent-directory escapes`;
+        }
+    }
+    return undefined;
 }
 function dependencyClosureContains(tasks, dependencies, targetId) {
     const byId = new Map(tasks.map((task) => [task.id, task]));
@@ -196,6 +219,10 @@ function dependencyClosureContains(tasks, dependencies, targetId) {
 }
 export function validateCreateTask(team, input) {
     const kind = input.kind ?? 'work';
+    const assignee = omitBlankOptionalString(input.assignee);
+    const objective = omitBlankOptionalString(input.objective);
+    const reviewedTaskId = omitBlankOptionalString(input.reviewedTaskId);
+    const sourceTaskId = omitBlankOptionalString(input.sourceTaskId);
     if (!TASK_KINDS.includes(kind)) {
         return { ok: false, error: `unknown task kind "${String(kind)}"` };
     }
@@ -206,7 +233,7 @@ export function validateCreateTask(team, input) {
         }
     }
     if (isQualityKind(kind)) {
-        if (!nonemptyString(input.objective)) {
+        if (!nonemptyString(objective)) {
             return { ok: false, error: `${kind} tasks require a non-empty objective` };
         }
         if (!nonemptyStringList(input.acceptance)) {
@@ -221,20 +248,23 @@ export function validateCreateTask(team, input) {
             return { ok: false, error: `${kind} tasks require a non-empty verify list` };
         }
     }
+    const deliverableError = deliverablesScopeError(kind, input.deliverables, input.inScope, input.outOfScope);
+    if (deliverableError !== undefined)
+        return { ok: false, error: deliverableError };
     if (kind === 'review') {
-        if (!nonemptyString(input.reviewedTaskId)) {
+        if (!nonemptyString(reviewedTaskId)) {
             return { ok: false, error: 'review tasks require reviewedTaskId' };
         }
-        if (!team.tasks.some((item) => item.id === input.reviewedTaskId)) {
-            return { ok: false, error: `reviewed task "${input.reviewedTaskId}" does not exist` };
+        if (!team.tasks.some((item) => item.id === reviewedTaskId)) {
+            return { ok: false, error: `reviewed task "${reviewedTaskId}" does not exist` };
         }
     }
     if (kind === 'repair') {
-        if (!nonemptyString(input.sourceTaskId) || !nonemptyStringList(input.sourceFindingIds)) {
+        if (!nonemptyString(sourceTaskId) || !nonemptyStringList(input.sourceFindingIds)) {
             return { ok: false, error: 'repair tasks require sourceTaskId and at least one sourceFindingId' };
         }
-        if (!team.tasks.some((item) => item.id === input.sourceTaskId)) {
-            return { ok: false, error: `source task "${input.sourceTaskId}" does not exist` };
+        if (!team.tasks.some((item) => item.id === sourceTaskId)) {
+            return { ok: false, error: `source task "${sourceTaskId}" does not exist` };
         }
     }
     const dependencies = input.dependencies ?? [];
@@ -269,13 +299,12 @@ export function validateCreateTask(team, input) {
     if (kind === 'implementation') {
         const requirements = team.tasks.filter((item) => taskKindOf(item) === 'requirements');
         const passed = requirements.some((item) => item.status === 'completed' && item.verdict === 'pass');
-        const stagedBehindRequirements = team.phase === 'staged' && requirements.some((item) => (dependencyClosureContains(team.tasks, dependencies, item.id)));
-        if (requirements.length > 0 && !passed && !stagedBehindRequirements) {
+        const queuedBehindRequirements = requirements.some((item) => (OPEN_STATUSES.includes(item.status)
+            && dependencyClosureContains(team.tasks, dependencies, item.id)));
+        if (requirements.length > 0 && !passed && !queuedBehindRequirements) {
             return {
                 ok: false,
-                error: team.phase === 'staged'
-                    ? 'implementation must depend on the staged requirements task; it will run only after requirements passes'
-                    : 'implementation is blocked until a requirements task completes with verdict=pass',
+                error: 'implementation must depend on an active requirements task; it will run only after requirements passes',
             };
         }
     }
@@ -290,18 +319,18 @@ export function validateCreateTask(team, input) {
             subject: input.subject,
             kind,
             ...input.description === undefined ? {} : { description: input.description },
-            ...input.assignee === undefined ? {} : { assignee: input.assignee },
+            ...assignee === undefined ? {} : { assignee },
             dependencies,
             ...input.round === undefined ? {} : { round: input.round },
-            ...input.objective === undefined ? {} : { objective: input.objective },
+            ...objective === undefined ? {} : { objective },
             ...input.inScope === undefined ? {} : { inScope: input.inScope },
             ...input.outOfScope === undefined ? {} : { outOfScope: input.outOfScope },
             ...input.acceptance === undefined ? {} : { acceptance: input.acceptance },
             ...input.verify === undefined ? {} : { verify: input.verify },
             ...input.deliverables === undefined ? {} : { deliverables: input.deliverables },
             ...input.nonGoals === undefined ? {} : { nonGoals: input.nonGoals },
-            ...input.reviewedTaskId === undefined ? {} : { reviewedTaskId: input.reviewedTaskId },
-            ...input.sourceTaskId === undefined ? {} : { sourceTaskId: input.sourceTaskId },
+            ...reviewedTaskId === undefined ? {} : { reviewedTaskId },
+            ...sourceTaskId === undefined ? {} : { sourceTaskId },
             ...input.sourceFindingIds === undefined ? {} : { sourceFindingIds: input.sourceFindingIds },
             ...input.coverageOf === undefined ? {} : { coverageOf: input.coverageOf },
         },
@@ -387,6 +416,13 @@ export function evaluateQualityCompletion(task, update) {
             const changed = update.changedPaths ?? task.changedPaths;
             if (changed === undefined) {
                 return { ok: false, error: `${kind} completion requires changedPaths` };
+            }
+            const noChangesReason = update.noChangesReason ?? task.noChangesReason;
+            if (changed.length === 0 && !nonemptyString(noChangesReason)) {
+                return { ok: false, error: `${kind} completion with empty changedPaths requires noChangesReason` };
+            }
+            if (changed.length === 0 && (task.deliverables?.length ?? 0) > 0) {
+                return { ok: false, error: `${kind} completion cannot leave declared deliverables unreported in changedPaths` };
             }
             for (const path of changed) {
                 const classification = classifyChangedPath(path, task.inScope ?? [], task.outOfScope ?? []);
@@ -549,6 +585,9 @@ export function canDeclareDelivery(team) {
         }
     }
     for (const item of implementations) {
+        if (item.changedPaths?.length === 0 && !nonemptyString(item.noChangesReason)) {
+            blockers.push(`${item.id} has empty changedPaths without noChangesReason`);
+        }
         for (const path of item.changedPaths ?? []) {
             if (classifyChangedPath(path, item.inScope ?? [], item.outOfScope ?? []) !== 'in_scope') {
                 blockers.push(`${item.id} has unaudited path ${path}`);
@@ -601,7 +640,7 @@ export function isCommandResult(value) {
         && (value['evidence'] === undefined || typeof value['evidence'] === 'string');
 }
 export function hasValidQualityTaskFields(value) {
-    if (value['kind'] !== undefined && !TASK_KINDS.includes(value['kind']))
+    if (!TASK_KINDS.includes(value['kind']))
         return false;
     if (value['verdict'] !== undefined && !REVIEW_VERDICTS.includes(value['verdict']))
         return false;
@@ -612,6 +651,8 @@ export function hasValidQualityTaskFields(value) {
     if (value['reviewedTaskId'] !== undefined && !nonemptyString(value['reviewedTaskId']))
         return false;
     if (value['sourceTaskId'] !== undefined && !nonemptyString(value['sourceTaskId']))
+        return false;
+    if (value['noChangesReason'] !== undefined && !nonemptyString(value['noChangesReason']))
         return false;
     if (value['reviewedAttempt'] !== undefined && !(Number.isSafeInteger(value['reviewedAttempt']) && value['reviewedAttempt'] >= 0)) {
         return false;
@@ -727,6 +768,8 @@ export function qualityPlanningPrompt() {
         'Build that entire DAG while the team is staged: an implementation may be created before requirements finishes when its dependency chain includes that requirements task. This is supported; do not wait for requirements to run and do not inspect plugin source to confirm it.',
         'A staged integration task may depend on review round 1. If that review later returns needs_revision, the system automatically rewires still-pending downstream dependencies to the generated repair + next-review gate, so keep integration in the original plan instead of omitting or manually recreating it.',
         'Derive inScope and verification commands from the actual workspace or explicit profile; never assume src/ or pnpm test.',
+        'Treat implementation/repair deliverables as concrete workspace-relative POSIX paths covered by inScope, not prose labels; put abstract outcomes in subject, description, or acceptance. Never include .env files, secrets, or .git data in inScope or deliverables.',
+        'For task ownership, use an active member name, assignee="captain" for captain-owned work, or omit assignee for the shared pool; an empty assignee is normalized to the shared pool.',
         'Give every quality task a contract. Review acceptance must judge the latest implementation, not whether the gate rejects needs_revision.',
         'Do not write smoke-test scripts into tasks. Do not ask reviewers to submit needs_revision on purpose.',
         'Do not claim implementation or review yourself unless the user asked the captain to take over.',

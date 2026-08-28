@@ -49,7 +49,7 @@
 | `agent_teams_create` | 创建团队，调用者成为队长（一个队长同时只带一个团队） |
 | `agent_teams_add_member` | 拉成员入队（spawn 可续聊子代理 + 成员 persona） |
 | `agent_teams_remove_member` | 安全移除成员：撤销 attempt、回收其未完成任务、等待中断收敛后重新调度 |
-| `agent_teams_create_task` | 创建任务，支持 `dependencies` 依赖声明与 `assignee` 指派 |
+| `agent_teams_create_task` | 创建任务，支持 `dependencies` 依赖声明与 `assignee` 指派；成员名指向成员，`captain` 指向队长，空值进入共享任务池 |
 | `agent_teams_reassign_task` | 原子重试/转派任务；`assignee=captain` 表示队长安全接管 |
 | `agent_teams_claim_task` | 领取任务（校验依赖；队长可代领，成员只能领自己的/未指派的） |
 | `agent_teams_update_task` | 携带当前 `attempt_id` 推进任务；拒绝旧 attempt 和终态结果覆盖 |

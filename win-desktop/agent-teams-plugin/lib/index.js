@@ -24,10 +24,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectArchivedTeamsActivity, collectTeamsActivity } from "./snapshot.js";
 import { findTeamByCaptain } from "./state.js";
+import { stagedPlanMutationFromPayload } from "./staged-plan-payload.js";
 import { formatProfilesForPrompt } from "./profiles.js";
 import { qualityPlanningPrompt } from "./quality-gates.js";
 import { buildHostModelCatalog } from "./host-model-catalog.js";
-import { AGENT_TEAMS_MIGRATION_VERSION, createAgentTeamsSettingsRuntime, normalizeLegacyDesktopAgentTeamsSettings, } from "./settings.js";
+import { createAgentTeamsSettingsRuntime, } from "./settings.js";
 import { delegationPolicyUsagePreamble, policyMarker, registerDelegationPolicyLifecycle, } from "./routing-policy.js";
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
@@ -44,17 +45,8 @@ const fallbackRouteConfig = z.union([
 ]);
 export const Config = z.object({
     delegationMode: z.union(['teams', 'native']).default('teams'),
-    memberLlmProvider: z.string().default(''),
     stateDir: z.string().default('.agent-teams'),
     memberProvider: z.string().default('spawn'),
-    memberModel: z.string().default(''),
-    memberReasoningMode: z.union(['target-default', 'route-aware', 'explicit']).default('target-default'),
-    memberReasoningEffort: z.string().default(''),
-    legacyDesktopSettings: z.object({
-        provider: z.string(),
-        model: z.string(),
-        reasoningEffort: z.string(),
-    }),
     executionPrompt: z.string(),
     fallback: fallbackRouteConfig,
     profiles: z.dict(z.object({
@@ -67,6 +59,7 @@ export const Config = z.object({
             role: z.string(),
             provider: z.string(),
             model: z.string(),
+            reasoning_mode: z.union(['target-default', 'route-aware', 'explicit']).required(),
             reasoning_effort: z.string(),
             executionPrompt: z.string(),
             fallback: fallbackRouteConfig,
@@ -101,14 +94,14 @@ export function usageSectionText(policyOrToolNames, toolNamesOrProfiles = '', pr
 
 ${delegationPolicyUsagePreamble(policy)} Follow this protocol:
 1. Call agent_teams_create with a team name and the goal as description. The default approval is "automatic" for this desktop fork, so ordinary AgentTeams requests keep the existing immediate-execution behavior. Use approval="required" only when the user explicitly asks to review a staged plan before any member starts.
-2. Call agent_teams_add_member once per role the goal needs (researcher, engineer, reviewer, ...). Members are durable subagents: they wait for your messages, then work a full turn. Provider, model, and reasoning defaults come from AgentTeams settings: target-default uses the selected target model's default effort; route-aware inherits the captain's effort only on the exact same provider/model route; explicit locks the configured route and effort. In explicit mode, omit provider/model/reasoning_effort; the plugin enforces the configured settings route. In target-default and route-aware modes, omit these fields for ordinary members and pass them only when the user explicitly requests a heterogeneous route for that role. Blank optional values are treated as omitted, and reasoning_effort="default" selects the target default.
+2. Call agent_teams_add_member once per role the goal needs (researcher, engineer, reviewer, ...). Members are durable subagents: they wait for your messages, then work a full turn. Each member has a role-level reasoning policy: target-default uses the role route or captain route and sends no effort; route-aware inherits the captain effort only on the exact same provider/model route; explicit requires the role provider, model, and reasoning effort. In target-default and route-aware modes, omit provider/model for the captain route or provide both for a heterogeneous role route.
 3. For an automatic team, add members and tasks normally; the scheduler starts ready work. For approval="required", build the complete editable roster and DAG while staged, then wait for the user or the Web Approve & Run control; never approve that plan in the same turn. Return-to-chat and discard messages are authoritative and must not create a replacement team. Never inspect or edit .agent-teams state files or plugin source code to revise a staged plan.
 4. Break the goal into tasks with agent_teams_create_task and wire dependencies. Assign role-specific work when useful; unassigned ready work belongs to the shared pool. The scheduler automatically claims one ready task for each truly idle member and wakes it, including across later rounds.
 5. Lead by delegation: monitor with agent_teams_status, send guidance with agent_teams_send_message, and let idle teammates execute ready work. Do not duplicate a teammate's work merely because its turn is slow. If the user requires every member to contribute or report, create one task per required contribution (or message each member directly); never wait for an unassigned member to produce work it was never given.
 6. If the user explicitly asks to pause a running member, its open attempt remains parked after interruption; after answering the user, send that same member guidance with agent_teams_send_message so it continues the same attempt. Do not interrupt members for an ordinary user question that did not request a pause. If work must change owner, restart from scratch, or be taken over, call agent_teams_reassign_task first. Reassign to another idle member, retry with the same member, or use assignee=captain before doing it yourself. Reassignment revokes the old attempt and waits for that member to quiesce, preventing late results from overwriting the new attempt.
 7. Tasks carry attempt_id capabilities. Members must use the current attempt_id for updates; stale-attempt errors mean ownership changed. As a member, call agent_teams_claim_task with the task id only and omit assignee; automatic assignments are already pre-claimed. Check status after progress notifications until every required task is terminal and every member is idle/ready; do not busy-poll or require reports from members with no assigned work.
 8. If the user names a configured profile / template / fixed roster, pass that name as profile= to agent_teams_create. After a successful profile create, do not recreate the same members. Seed profiles provide template tasks; captain-planning profiles provide the roster and guardrails, so design their DAG while staged. Profile fallback routes are opt-in and may retry only the configured fallback after an eligible provider failure. When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".
-9. Quality kinds (requirements, implementation, verification, review, repair, integration) are opt-in contracts: use them only when the user or profile requests quality-mode planning. They need the required objective/acceptance/verification evidence; review/requirements can complete only with verdict=pass, and needs_revision/reject must fail with findings. The automatic repair/review loop must never depend on a failed task.
+9. Quality kinds (requirements, implementation, verification, review, repair, integration) are opt-in contracts: use them only when the user or profile requests quality-mode planning. They need the required objective/acceptance/verification evidence; review/requirements can complete only with verdict=pass, and needs_revision/reject must fail with findings. Implementation/repair deliverables must be covered by inScope; an empty changedPaths requires noChangesReason and cannot hide declared deliverables. The automatic repair/review loop must never depend on a failed task.
 10. ${qualityPlanningPrompt()}
 11. Present the team's results to the user, then agent_teams_delete the team unless the user wants to keep working with it. Never perform a real deployment without explicit user confirmation.
 
@@ -117,16 +110,10 @@ Tools: ${toolNames}${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesT
 export function apply(ctx, config) {
     const settings = createAgentTeamsSettingsRuntime(ctx, {
         delegationMode: config.delegationMode ?? 'teams',
-        memberLlmProvider: config.memberLlmProvider ?? '',
-        memberModel: config.memberModel ?? '',
-        memberReasoningMode: config.memberReasoningMode ?? 'target-default',
-        memberReasoningEffort: config.memberReasoningEffort ?? '',
-        migrationVersion: 0,
-    }, normalizeLegacyDesktopAgentTeamsSettings(config.legacyDesktopSettings));
+    });
     const resolved = {
         stateDir: config.stateDir ?? '.agent-teams',
         memberProvider: config.memberProvider ?? 'spawn',
-        memberModel: config.memberModel,
         executionPrompt: config.executionPrompt,
         fallback: config.fallback,
         memberMaxDepth: config.memberMaxDepth ?? 1,
@@ -180,36 +167,6 @@ export function apply(ctx, config) {
         });
         installAgentTeamsGestureBoundary(ctx, () => config.profiles ?? {});
     }
-    let migrationStatusRegistered = false;
-    const registerMigrationStatus = () => {
-        if (migrationStatusRegistered)
-            return;
-        const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1]));
-        if (webServer === undefined)
-            return;
-        migrationStatusRegistered = true;
-        ctx.effect(() => webServer.register({
-            kind: 'exact',
-            path: '/plugins/dsh-agent-teams/migration-status',
-            handler: (req, res) => {
-                const responseHeaders = {
-                    'content-type': 'application/json; charset=utf-8',
-                    'cache-control': 'no-store',
-                };
-                if (req.method !== 'GET') {
-                    res.writeHead(405, { ...responseHeaders, allow: 'GET' });
-                    res.end(JSON.stringify({ migrationVersion: 0, complete: false }));
-                    return;
-                }
-                const status = settings.migrationStatus();
-                const complete = status.migrationVersion >= AGENT_TEAMS_MIGRATION_VERSION;
-                res.writeHead(200, responseHeaders);
-                res.end(JSON.stringify(complete
-                    ? { migrationVersion: AGENT_TEAMS_MIGRATION_VERSION, complete: true }
-                    : { migrationVersion: 0, complete: false }));
-            },
-        }), 'agent-teams: migration status route');
-    };
     let modelCatalogRegistered = false;
     const registerModelCatalog = () => {
         if (modelCatalogRegistered)
@@ -422,69 +379,7 @@ export function apply(ctx, config) {
                         res.end(JSON.stringify({ ok: true, phase: 'archived', ...discarded }));
                         return;
                     }
-                    const dependencies = Array.isArray(payload['dependencies'])
-                        ? payload['dependencies'].filter((item) => typeof item === 'string')
-                        : [];
-                    let mutation;
-                    if (action === 'update_member') {
-                        if (typeof payload['memberName'] !== 'string'
-                            || typeof payload['provider'] !== 'string'
-                            || typeof payload['model'] !== 'string')
-                            throw new Error('memberName, provider, and model are required');
-                        mutation = {
-                            action,
-                            memberName: payload['memberName'],
-                            provider: payload['provider'],
-                            model: payload['model'],
-                            ...typeof payload['role'] === 'string' || payload['role'] === null ? { role: payload['role'] } : {},
-                            ...typeof payload['reasoningEffort'] === 'string' || payload['reasoningEffort'] === null
-                                ? { reasoningEffort: payload['reasoningEffort'] }
-                                : {},
-                            ...typeof payload['executionPrompt'] === 'string' || payload['executionPrompt'] === null
-                                ? { executionPrompt: payload['executionPrompt'] }
-                                : {},
-                        };
-                    }
-                    else if (action === 'update_task') {
-                        if (typeof payload['taskId'] !== 'string' || typeof payload['subject'] !== 'string') {
-                            throw new Error('taskId and subject are required');
-                        }
-                        mutation = {
-                            action,
-                            taskId: payload['taskId'],
-                            subject: payload['subject'],
-                            dependencies,
-                            ...typeof payload['description'] === 'string' || payload['description'] === null
-                                ? { description: payload['description'] }
-                                : {},
-                            ...typeof payload['assignee'] === 'string' || payload['assignee'] === null
-                                ? { assignee: payload['assignee'] }
-                                : {},
-                        };
-                    }
-                    else if (action === 'add_task') {
-                        if (typeof payload['subject'] !== 'string')
-                            throw new Error('subject is required');
-                        mutation = {
-                            action,
-                            subject: payload['subject'],
-                            dependencies,
-                            ...typeof payload['description'] === 'string' || payload['description'] === null
-                                ? { description: payload['description'] }
-                                : {},
-                            ...typeof payload['assignee'] === 'string' || payload['assignee'] === null
-                                ? { assignee: payload['assignee'] }
-                                : {},
-                        };
-                    }
-                    else if (action === 'remove_task') {
-                        if (typeof payload['taskId'] !== 'string')
-                            throw new Error('taskId is required');
-                        mutation = { action, taskId: payload['taskId'] };
-                    }
-                    else {
-                        throw new Error(`unknown plan action "${action}"`);
-                    }
+                    const mutation = stagedPlanMutationFromPayload(payload);
                     const updated = await agentTeamsRuntime.updateStagedPlan(captain, teamId, mutation);
                     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
                     res.end(JSON.stringify({ ok: true, phase: updated.phase, members: updated.members.length, tasks: updated.tasks.length }));
@@ -544,12 +439,10 @@ export function apply(ctx, config) {
             },
         }), 'agent-teams: artwork route');
     };
-    registerMigrationStatus();
     registerModelCatalog();
     registerWebSurface();
     ctx.on('internal/service', (name) => {
         if (WEB_SERVER_KEYS.includes(name)) {
-            registerMigrationStatus();
             registerModelCatalog();
             registerWebSurface();
         }

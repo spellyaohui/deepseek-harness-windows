@@ -19,14 +19,13 @@
 import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 import { type TeamProfileConfig } from './profiles.ts';
-import { type DelegationMode, type LegacyDesktopAgentTeamsSettings, type MemberReasoningMode } from './settings.ts';
+import { type DelegationMode } from './settings.ts';
 import { type DelegationPolicyId } from './routing-policy.ts';
 export declare const name = "agent-teams";
 export declare const inject: string[];
 /** Plugin configuration. */
 export interface Config {
     delegationMode?: DelegationMode;
-    memberLlmProvider?: string;
     /**
      * State directory name under the captain's workspace; team state lives at
      * `<workspace>/<stateDir>/<teamId>/` (default `.agent-teams`).
@@ -34,11 +33,6 @@ export interface Config {
     stateDir?: string;
     /** `ctx.subagents` provider used to spawn members; must support continuable children and personas (default `spawn`). */
     memberProvider?: string;
-    /** Optional model override applied to every member. */
-    memberModel?: string;
-    memberReasoningMode?: MemberReasoningMode;
-    memberReasoningEffort?: string;
-    legacyDesktopSettings?: LegacyDesktopAgentTeamsSettings;
     /** Prompt injected into member personas and automatic task assignments. */
     executionPrompt?: string;
     /** Plugin-wide fallback route for unavailable member models. */

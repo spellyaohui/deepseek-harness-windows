@@ -1373,7 +1373,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_create_task',
-    description: 'Create a task in your team\'s task list. Every call must include a non-empty subject, including verification and review tasks. Tasks can depend on other tasks (dependencies): a task is only claimable once every dependency is completed. Optionally assign it to a member, who still claims it before working.',
+    description: 'Create a task in your team\'s task list. Every call must include a non-empty subject, including verification and review tasks. Tasks can depend on other tasks (dependencies): a task is only claimable once every dependency is completed. Use an active member name for member work, assignee="captain" for captain-owned work, or omit assignee for the shared pool; an empty assignee is also normalized to the shared pool. A member still claims its assigned task before working.',
     parameters: {
       subject: { type: 'string', required: true, description: 'Required non-empty title for this task. Never omit it, including for verification or review tasks.' },
       description: { type: 'string', description: 'What needs to be done, in detail.' },
@@ -1382,7 +1382,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         items: { type: 'string' },
         description: 'Task ids this task depends on (must be completed before this task can be claimed).',
       },
-      assignee: { type: 'string', description: 'Optional member name this task is intended for.' },
+      assignee: { type: 'string', description: 'Optional active member name, "captain" for captain-owned work, or empty/omitted for the shared pool.' },
       kind: {
         type: 'string',
         enum: ['work', 'requirements', 'implementation', 'verification', 'review', 'repair', 'integration'],
@@ -1424,13 +1424,15 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       const workspace = workspaceOf(captain)
       const stateRoot = stateRootOf(workspace, config)
       const team = await requireCaptainTeam(workspace, config, captain)
+      // Blank ownership is the model-facing spelling of the shared task pool.
+      const assignee = trimmedOptional(args.assignee)
       const created = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
         const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id)
         const gate = validateCreateTask(fresh, {
           subject: args.subject,
           description: args.description,
           dependencies: args.dependencies,
-          assignee: args.assignee,
+          assignee,
           kind: args.kind as TaskKind | undefined,
           round: args.round,
           objective: args.objective,
@@ -1466,7 +1468,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             throw new Error(`dependency "${dependency}" does not exist in team "${fresh.name}"`)
           }
         }
-        if (args.assignee !== undefined) requireMember(fresh, args.assignee)
+        if (assignee !== undefined && assignee !== CAPTAIN_KEY) requireMember(fresh, assignee)
         const kind = gate.kind ?? 'work'
         const objective = kind === 'review' || kind === 'requirements'
           ? sanitizeReviewObjective(gate.task?.objective)
@@ -1479,7 +1481,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           subject: args.subject,
           description: args.description,
           status: 'pending',
-          assignee: args.assignee,
+          assignee,
           dependencies,
           attempt: 0,
           createdAt: Date.now(),

@@ -9,6 +9,8 @@
  */
 /** Statuses after which a task can no longer be claimed or worked on. */
 export const TERMINAL_TASK_STATUSES = ['completed', 'failed', 'cancelled'];
+/** Current durable TeamState format. Older records are intentionally unsupported. */
+export const AGENT_TEAMS_STATE_SCHEMA_VERSION = 2;
 export const TASK_KINDS = [
     'requirements',
     'implementation',

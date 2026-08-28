@@ -352,6 +352,7 @@ interface TeamProfileConfig {
 9. 需求未收敛时，Captain 协议和工具层都要挡实现：
    - 若团队已有 `kind=requirements` 任务，且没有一条 `completed + verdict=pass`，拒绝创建 `implementation`。
    - 若完全没有 requirements 任务，允许创建；这是兼容无质量配置的旧用法。质量 profile 必须先建 requirements。
+10. `assignee` 在创建边界统一归一化：空字符串/空白表示共享任务池，`captain` 表示队长自己持有的任务，其他非空值必须是活动成员名。implementation/repair 的 `deliverables` 只能是被 `inScope` 覆盖的实际工作区相对 POSIX 路径；抽象交付结果放在 `subject`、`description` 或 `acceptance`。`.env`、`.env.*`、`secrets`、`.git` 和密钥路径即使声明在 `inScope` 中也保持排除。
 
 ### 6.2 更新 / 完成任务
 
@@ -651,6 +652,9 @@ node scripts/verify.mjs
 8. `tdd.create.overlapping-inscope-rejects-parallel-ready-tasks`：两个无依赖实现任务 inScope 相交则拒绝。
 9. `tdd.create.overlapping-inscope-allowed-when-serialized`：后者依赖前者时允许相交。
 10. `tdd.create.implementation-blocked-until-requirements-pass`：存在未 pass 的 requirements 时拒绝创建 implementation。
+11. `tdd.create.undeclared-deliverable-explains-concrete-path-repair`：抽象 deliverable 被拒绝时提示使用真实工作区相对路径，并把结果描述放入任务文本。
+12. `tdd.create.protected-env-deliverable-explains-safe-boundary`：`.env` 类保护路径继续拒绝，并说明安全边界。
+13. `tdd.create.blank-assignee-normalizes-to-shared-pool`：空 assignee 不写入任务负责人。
 
 #### B. 完成门禁
 

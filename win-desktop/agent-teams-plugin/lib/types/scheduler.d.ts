@@ -49,7 +49,7 @@ export interface DispatchTicket {
     readonly profileSeedId?: string;
     readonly dependencyOutputs: readonly DependencyOutput[];
     readonly executionPrompt?: string;
-    readonly kind?: string;
+    readonly kind: string;
     readonly round?: number;
     readonly objective?: string;
     readonly inScope?: readonly string[];

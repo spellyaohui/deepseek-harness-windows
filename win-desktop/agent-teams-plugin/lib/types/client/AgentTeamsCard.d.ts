@@ -5,8 +5,7 @@
  * an "activity panel" button that re-activates the top-right floater.
  *
  * The floater and this card share the `agent-teams:open-panel` window event
- * so the card can summon the panel even after it was closed (or when an old
- * session is re-opened for review).
+ * so the card can summon the panel even after it was closed.
  * @module dsh-agent-teams/client/card
  */
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';

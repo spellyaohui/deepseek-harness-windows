@@ -42,6 +42,7 @@ export interface QualityCompletionUpdate {
     verdict?: ReviewVerdict;
     findings?: ReviewFinding[];
     changedPaths?: string[];
+    noChangesReason?: string;
     acceptanceResults?: AcceptanceResult[];
     commandsRun?: CommandResult[];
 }

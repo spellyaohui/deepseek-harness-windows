@@ -129,6 +129,12 @@ evidence that the local capability is preserved.
   Completion with `changedPaths: []` requires a non-empty `noChangesReason`,
   and an empty changed-path list can never hide declared deliverables. Ordinary
   `work` tasks retain their output-only completion compatibility.
+- At the `create_task` boundary, blank or whitespace `assignee` means the
+  shared task pool, while the literal `captain` is the reserved captain-owned
+  task alias; only other non-empty values are looked up as active member names.
+  Quality errors must tell the model to use concrete workspace-relative POSIX
+  paths for deliverables and to put abstract outcomes in task prose; protected
+  `.env`, secret, and `.git` paths remain excluded.
 - Preserve the rc.25 regressions in AgentTeams quality-gate/lifecycle suites
   and the wrapper capability manifest. Future Harness or AgentTeams refreshes
   must make these tests pass against the classified owner; deleting, skipping,

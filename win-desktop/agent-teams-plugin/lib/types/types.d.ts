@@ -11,7 +11,9 @@
 export type TaskStatus = 'pending' | 'claimed' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
 /** Statuses after which a task can no longer be claimed or worked on. */
 export declare const TERMINAL_TASK_STATUSES: readonly TaskStatus[];
-/** Structured quality-gate kind. Absent / unknown values are treated as `work`. */
+/** Current durable TeamState format. Older records are intentionally unsupported. */
+export declare const AGENT_TEAMS_STATE_SCHEMA_VERSION: 2;
+/** Structured quality-gate kind. */
 export type TaskKind = 'requirements' | 'implementation' | 'verification' | 'review' | 'repair' | 'integration' | 'work';
 export declare const TASK_KINDS: readonly TaskKind[];
 /** Review / requirements conclusion. Only `pass` may complete those kinds. */
@@ -77,8 +79,8 @@ export interface TeamTask {
     handoffId?: string;
     /** A handoff is quiescing the old owner; the scheduler must not dispatch it yet. */
     reassigning?: boolean;
-    /** Quality-gate kind. Missing values are treated as `work`. */
-    kind?: TaskKind;
+    /** Quality-gate kind, including ordinary work. */
+    kind: TaskKind;
     /** Review / requirements / repair loop index, 1-based when present. */
     round?: number;
     verdict?: ReviewVerdict;
@@ -91,6 +93,8 @@ export interface TeamTask {
     deliverables?: string[];
     nonGoals?: string[];
     changedPaths?: string[];
+    /** Required when an implementation/repair completes with no changed paths. */
+    noChangesReason?: string;
     acceptanceResults?: AcceptanceResult[];
     commandsRun?: CommandResult[];
     reviewedTaskId?: string;
@@ -114,9 +118,11 @@ export interface TeamMember {
     /** Role description, e.g. `researcher`, `engineer`, `reviewer`. */
     role?: string;
     /** Resolved LLM provider route captured when this member was created. */
-    provider?: string;
+    provider: string;
     /** Resolved model captured when this member was created. */
-    model?: string;
+    model: string;
+    /** Role-level reasoning policy captured with the route for cold recovery. */
+    reasoningMode: import('./selection-policy.ts').RoleReasoningMode;
     /** Resolved reasoning effort captured from the captain or target model default. */
     reasoningEffort?: string;
     /** Prompt specific to this member's execution turns. */
@@ -165,6 +171,8 @@ export interface TeamProfileSnapshot {
 }
 /** The full durable team record. */
 export interface TeamState {
+    /** Durable state schema version. */
+    schemaVersion: typeof AGENT_TEAMS_STATE_SCHEMA_VERSION;
     /** Original team name. */
     name: string;
     /** Sanitized directory id; the team's stable identity. */
@@ -181,14 +189,10 @@ export interface TeamState {
     tasks: TeamTask[];
     /** Monotonic task id counter. */
     taskSeq: number;
+    /** Two-phase execution lifecycle. */
+    phase: 'staged' | 'running';
     /**
-     * Two-phase execution lifecycle. Missing means `running` for durable
-     * compatibility with teams created before staging existed.
-     */
-    phase?: 'staged' | 'running';
-    /**
-     * Human-facing review sub-state while `phase` is `staged`. Missing staged
-     * records are treated as `awaiting_review` for backward compatibility.
+     * Human-facing review sub-state while `phase` is `staged`.
      * `awaiting_feedback` means the user returned to chat and the Captain must
      * ask what should change before editing this same draft.
      */

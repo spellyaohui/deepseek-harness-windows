@@ -8,6 +8,7 @@
  *
  * @module dsh-agent-teams/profiles
  */
+import type { RoleReasoningMode } from './selection-policy.ts';
 /** Hard cap on named profiles so the usage prompt cannot grow without bound. */
 export declare const MAX_TEAM_PROFILES = 16;
 /** Hard cap on seed tasks per profile. The software-delivery example has 13. */
@@ -24,6 +25,7 @@ export interface TeamProfileMemberConfig {
     role?: string;
     provider?: string;
     model?: string;
+    reasoning_mode: RoleReasoningMode;
     reasoning_effort?: string;
     executionPrompt?: string;
     fallback?: TeamModelFallbackConfig;
@@ -58,6 +60,7 @@ export interface NormalizedProfileMember {
     role?: string;
     provider?: string;
     model?: string;
+    reasoningMode: RoleReasoningMode;
     reasoningEffort?: string;
     executionPrompt?: string;
     fallback?: TeamModelFallbackConfig;

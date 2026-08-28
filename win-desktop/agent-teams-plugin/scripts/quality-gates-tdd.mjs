@@ -213,6 +213,43 @@ rejectCreate('tdd.create.implementation-deliverable-must-be-in-scope', team(), {
   ...implContract({ deliverables: ['artifacts/report.md'] }),
 }, (result) => /deliverable.*inScope|deliverable.*undeclared|deliverable/i.test(String(result.error ?? result.reason ?? '')))
 
+{
+  const result = api.validateCreateTask?.(team(), {
+    subject: 'impl',
+    ...implContract({ deliverables: ['S1-S5 backend code and migration scripts'] }),
+  })
+  check(
+    'tdd.create.undeclared-deliverable-explains-concrete-path-repair',
+    result?.ok === false
+      && /actual workspace-relative POSIX path/i.test(String(result.error ?? ''))
+      && /description|acceptance/i.test(String(result.error ?? '')),
+  )
+}
+
+{
+  const result = api.validateCreateTask?.(team(), {
+    subject: 'impl',
+    ...implContract({ inScope: ['./'], deliverables: ['server/.env.example'] }),
+  })
+  check(
+    'tdd.create.protected-env-deliverable-explains-safe-boundary',
+    result?.ok === false
+      && /protected|excluded/i.test(String(result.error ?? ''))
+      && /\.env/i.test(String(result.error ?? '')),
+  )
+}
+
+{
+  const result = api.validateCreateTask?.(team(), {
+    subject: 'shared task',
+    assignee: '   ',
+  })
+  check(
+    'tdd.create.blank-assignee-normalizes-to-shared-pool',
+    result?.ok === true && result.task?.assignee === undefined,
+  )
+}
+
 rejectCreate('tdd.create.review-requires-reviewed-task', team(), {
   subject: 'review',
   kind: 'review',
@@ -699,6 +736,12 @@ console.log('quality-gates TDD — D. auto loop')
     'tdd.plan.prompt-explains-staged-full-dag-and-review-rewire',
     /entire DAG while.*staged/i.test(prompt)
       && /automatically rewires.*downstream/i.test(prompt),
+  )
+  check(
+    'tdd.plan.prompt-explains-deliverable-path-and-assignee-boundaries',
+    /deliverables.*concrete workspace-relative POSIX path/i.test(prompt)
+      && /\.env|secrets/i.test(prompt)
+      && /captain.*shared pool|shared pool.*captain/i.test(prompt),
   )
 }
 
