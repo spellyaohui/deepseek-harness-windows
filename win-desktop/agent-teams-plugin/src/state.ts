@@ -17,7 +17,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { TERMINAL_TASK_STATUSES, type TaskStatus, type TeamMember, type TeamMessage, type TeamProfileSnapshot, type TeamState, type TeamTask } from './types.ts'
+import { AGENT_TEAMS_STATE_SCHEMA_VERSION, TERMINAL_TASK_STATUSES, type TaskStatus, type TeamMember, type TeamMessage, type TeamProfileSnapshot, type TeamState, type TeamTask } from './types.ts'
 import { hasValidQualityTaskFields, isReviewPolicy } from './quality-gates.ts'
 
 export {
@@ -214,11 +214,11 @@ export async function readTeam(stateRoot: string, teamId: string): Promise<TeamS
   try {
     const raw = await readFile(join(stateRoot, teamId, 'team.json'), 'utf8')
     const value: unknown = JSON.parse(stripLeadingBom(raw))
-    const team = coerceTeamState(value, teamId)
-    if (team === undefined) {
-      throw new Error(`invalid AgentTeams state in team "${teamId}"`)
+    if (!isRecord(value) || value.schemaVersion !== AGENT_TEAMS_STATE_SCHEMA_VERSION) {
+      throw new Error('旧版 AgentTeams 状态不受支持，请创建新 Team')
     }
-    return team
+    if (!isTeamState(value, teamId)) throw new Error(`AgentTeams V2 状态无效: ${teamId}`)
+    return value
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined
@@ -240,11 +240,11 @@ export function readTeamSync(stateRoot: string, teamId: string): TeamState | und
   try {
     const raw = readFileSync(join(stateRoot, teamId, 'team.json'), 'utf8')
     const value: unknown = JSON.parse(stripLeadingBom(raw))
-    const team = coerceTeamState(value, teamId)
-    if (team === undefined) {
-      throw new Error(`invalid AgentTeams state in team "${teamId}"`)
+    if (!isRecord(value) || value.schemaVersion !== AGENT_TEAMS_STATE_SCHEMA_VERSION) {
+      throw new Error('旧版 AgentTeams 状态不受支持，请创建新 Team')
     }
-    return team
+    if (!isTeamState(value, teamId)) throw new Error(`AgentTeams V2 状态无效: ${teamId}`)
+    return value
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined
@@ -669,8 +669,10 @@ function isTeamMember(value: unknown): value is TeamMember {
     && typeof value['name'] === 'string'
     && value['name'].trim() !== ''
     && isOptionalString(value['role'])
-    && isOptionalString(value['provider'])
-    && isOptionalString(value['model'])
+    && typeof value['provider'] === 'string'
+    && value['provider'].trim() !== ''
+    && typeof value['model'] === 'string'
+    && value['model'].trim() !== ''
     && (value['reasoningMode'] === undefined || value['reasoningMode'] === 'target-default' || value['reasoningMode'] === 'route-aware' || value['reasoningMode'] === 'explicit')
     && isOptionalString(value['reasoningEffort'])
     && isOptionalString(value['activeProvider'])
@@ -695,66 +697,13 @@ function isTeamProfileSnapshot(value: unknown): value is TeamProfileSnapshot {
     && (value['reviewPolicy'] === undefined || isReviewPolicy(value['reviewPolicy']))
 }
 
-function coerceProfileSnapshot(value: unknown): TeamProfileSnapshot | undefined {
-  if (typeof value === 'string') {
-    const name = value.trim()
-    return name === '' ? undefined : { name }
-  }
-  if (!isRecord(value)) return undefined
-  if (!isTeamProfileSnapshot(value)) return undefined
-  return {
-    name: value.name.trim(),
-    ...value.description === undefined ? {} : { description: value.description },
-    ...value.protocol === undefined ? {} : { protocol: value.protocol },
-    ...value.taskPlanning === undefined ? {} : { taskPlanning: value.taskPlanning },
-  }
-}
-
-/**
- * Normalize omitted-value sentinels emitted by older/upstream task writers.
- * Optional quality fields must remain absent when they are not configured;
- * keeping their empty defaults makes an otherwise usable team fail the
- * durable-state validator during a cold read.
- */
-function coerceTeamTask(value: unknown): unknown {
-  if (!isRecord(value)) return value
-  const next = { ...value }
-  if (next['profileSeedId'] !== undefined && (typeof next['profileSeedId'] !== 'string' || next['profileSeedId'].trim() === '')) {
-    delete next['profileSeedId']
-  }
-  if (next['round'] === 0) delete next['round']
-  for (const key of ['objective', 'reviewedTaskId', 'sourceTaskId'] as const) {
-    if (typeof next[key] === 'string' && next[key].trim() === '') delete next[key]
-  }
-  return next
-}
-
-function coerceTeamState(value: unknown, expectedId: string): TeamState | undefined {
-  if (!isRecord(value)) return undefined
-  if (value['profile'] !== undefined && !isTeamProfileSnapshot(value['profile']) && typeof value['profile'] !== 'string') {
-    const next = { ...value }
-    delete next['profile']
-    value = next
-  } else if (typeof value['profile'] === 'string') {
-    const upgraded = coerceProfileSnapshot(value['profile'])
-    value = upgraded === undefined
-      ? (() => {
-        const next = { ...value as Record<string, unknown> }
-        delete next['profile']
-        return next
-      })()
-      : { ...value, profile: upgraded }
-  }
-  if (!isRecord(value) || !Array.isArray(value['tasks'])) {
-    return isTeamState(value, expectedId) ? value : undefined
-  }
-  const tasks = (value['tasks'] as unknown[]).map(coerceTeamTask)
-  const coerced = { ...value, tasks }
-  return isTeamState(coerced, expectedId) ? coerced : undefined
-}
-
 export function isTeamTask(value: unknown): value is TeamTask {
   if (!isRecord(value)) return false
+  const status = value['status']
+  const open = status === 'claimed' || status === 'in_progress'
+  const assignee = value['assignee']
+  const attempt = value['attempt']
+  const attemptId = value['attemptId']
   return typeof value['id'] === 'string'
     && isOptionalString(value['profileSeedId'])
     && (value['profileSeedId'] === undefined || value['profileSeedId'].trim() !== '')
@@ -766,24 +715,35 @@ export function isTeamTask(value: unknown): value is TeamTask {
       || value['status'] === 'completed'
       || value['status'] === 'failed'
       || value['status'] === 'cancelled')
-    && isOptionalString(value['assignee'])
+    && isOptionalString(assignee)
+    && (assignee === undefined || assignee.trim() !== '')
     && Array.isArray(value['dependencies'])
     && value['dependencies'].every((dependency) => typeof dependency === 'string')
     && isOptionalString(value['output'])
     && (value['attempt'] === undefined
       || (Number.isSafeInteger(value['attempt']) && (value['attempt'] as number) >= 0))
-    && isOptionalString(value['attemptId'])
+    && isOptionalString(attemptId)
+    && (attemptId === undefined || attemptId.trim() !== '')
     && isOptionalString(value['handoffId'])
     && (value['reassigning'] === undefined || typeof value['reassigning'] === 'boolean')
     && isFiniteNumber(value['createdAt'])
     && isFiniteNumber(value['updatedAt'])
+    && (!open || (
+      typeof assignee === 'string'
+      && Number.isSafeInteger(attempt)
+      && (attempt as number) >= 1
+      && typeof attemptId === 'string'
+      && attemptId.trim() !== ''
+    ))
+    && (value['reassigning'] !== true || status === 'pending')
     && hasValidQualityTaskFields(value)
 }
 
 /** Validate the full team record before it can participate in authorization. */
 function isTeamState(value: unknown, expectedId: string): value is TeamState {
   if (!isRecord(value)) return false
-  const validShape = value['id'] === expectedId
+  const validShape = value['schemaVersion'] === AGENT_TEAMS_STATE_SCHEMA_VERSION
+    && value['id'] === expectedId
     && typeof value['name'] === 'string'
     && value['name'].trim() !== ''
     && isOptionalString(value['description'])
@@ -797,7 +757,7 @@ function isTeamState(value: unknown, expectedId: string): value is TeamState {
     && value['tasks'].every(isTeamTask)
     && Number.isSafeInteger(value['taskSeq'])
     && (value['taskSeq'] as number) >= 0
-    && (value['phase'] === undefined || value['phase'] === 'staged' || value['phase'] === 'running')
+    && (value['phase'] === 'staged' || value['phase'] === 'running')
     && (value['planReviewState'] === undefined
       || value['planReviewState'] === 'awaiting_review'
       || value['planReviewState'] === 'awaiting_feedback')
@@ -813,6 +773,8 @@ function isTeamState(value: unknown, expectedId: string): value is TeamState {
   const memberIds = new Set<string>()
   const memberKeys = new Set<string>()
   const staged = value['phase'] === 'staged'
+  if (staged && (value['planReviewState'] !== 'awaiting_review' && value['planReviewState'] !== 'awaiting_feedback')) return false
+  if (!staged && value['planReviewState'] !== undefined) return false
   for (const member of members) {
     const key = sanitizeKey(member.name)
     if ((!staged && member.id === '') || key === CAPTAIN_KEY || memberKeys.has(key)) return false
@@ -825,6 +787,8 @@ function isTeamState(value: unknown, expectedId: string): value is TeamState {
   const taskIds = new Set<string>()
   for (const task of tasks) {
     if (task.id === '' || taskIds.has(task.id)) return false
+    if ((task.status === 'claimed' || task.status === 'in_progress')
+      && (task.assignee !== CAPTAIN_KEY && !members.some((member) => member.status !== 'removed' && member.name === task.assignee))) return false
     taskIds.add(task.id)
   }
   return true

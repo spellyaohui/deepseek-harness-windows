@@ -90,6 +90,7 @@ function now() {
 
 function task(partial) {
   return {
+    kind: 'work',
     id: 't1',
     subject: 'Task',
     status: 'in_progress',
@@ -107,6 +108,8 @@ function member(name, role, extra = {}) {
     id: `member-${name}`,
     name,
     role,
+    provider: 'cpa',
+    model: 'cheap-model',
     joinedAt: now(),
     status: 'idle',
     ...extra,
@@ -115,6 +118,7 @@ function member(name, role, extra = {}) {
 
 function team(partial = {}) {
   return {
+    schemaVersion: 2,
     name: 'Quality',
     id: 'quality',
     description: 'quality-gates',
@@ -126,6 +130,7 @@ function team(partial = {}) {
     ],
     tasks: [],
     taskSeq: 0,
+    phase: 'running',
     reviewPolicy: {
       requirementsMinRounds: 1,
       requirementsMaxRounds: 4,
@@ -836,11 +841,13 @@ console.log('quality-gates TDD — G. persistence / prompts')
       taskSeq: 1,
     }
     await createTeamDir(workspace, legacy)
-    const loaded = await readTeam(workspace, 'legacy')
-    check(
-      'tdd.state.old-team-json-without-new-fields-still-loads',
-      loaded?.id === 'legacy' && loaded.tasks[0]?.subject === 'old work' && loaded.tasks[0]?.kind === undefined,
-    )
+    let rejected = false
+    try {
+      await readTeam(workspace, 'legacy')
+    } catch (error) {
+      rejected = /旧版 AgentTeams 状态不受支持|AgentTeams V2 状态无效/.test(String(error?.message ?? error))
+    }
+    check('tdd.state.old-team-json-without-new-fields-is-rejected', rejected)
   } finally {
     await rm(workspace, { recursive: true, force: true })
   }
@@ -1009,7 +1016,7 @@ console.log('quality-gates TDD — tool-level closed loop')
     const persistedWork = (await readTeam(join(workspace, '.agent-teams'), 'gates'))?.tasks.find((item) => item.id === work.task_id)
     check(
       'tdd.create.work-kind-remains-compatible.tool',
-      persistedWork?.kind === 'work' || persistedWork?.kind === undefined,
+      persistedWork?.kind === 'work',
     )
 
     await throwsAsync('tdd.create.implementation-requires-objective.tool', () => call('agent_teams_create_task', {

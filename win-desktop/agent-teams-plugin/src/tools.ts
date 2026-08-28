@@ -50,7 +50,7 @@ import {
   sanitizeReviewObjective,
   taskKindOf,
 } from './state.ts'
-import type { AcceptanceResult, CommandResult, ReviewFinding, ReviewVerdict, TaskKind } from './types.ts'
+import { AGENT_TEAMS_STATE_SCHEMA_VERSION, type AcceptanceResult, type CommandResult, type ReviewFinding, type ReviewVerdict, type TaskKind } from './types.ts'
 import {
   deliverToMember,
   installRetiredMemberGuard,
@@ -759,6 +759,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           }
           if (profileName === undefined) {
             const state: TeamState = {
+              schemaVersion: AGENT_TEAMS_STATE_SCHEMA_VERSION,
               name: teamName,
               id: teamId,
               description: args.description,
@@ -767,7 +768,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
               members: [],
               tasks: [],
               taskSeq: 0,
-              ...staged ? { phase: 'staged' as const, planReviewState: 'awaiting_review' as const } : {},
+              phase: staged ? 'staged' as const : 'running' as const,
+              ...staged ? { planReviewState: 'awaiting_review' as const } : {},
             }
             await createTeamDir(stateRoot, state)
             return { committed: true as const, state }
@@ -829,14 +831,14 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           team_id: snapshot.id,
           team_name: snapshot.name,
           state_dir: join(stateRoot, snapshot.id),
-          phase: snapshot.phase ?? 'running',
+          phase: snapshot.phase,
         }
       }
       return {
         team_id: snapshot.id,
         team_name: snapshot.name,
         state_dir: join(stateRoot, snapshot.id),
-        phase: snapshot.phase ?? 'running',
+        phase: snapshot.phase,
         profile: snapshot.profile.name,
         task_planning: snapshot.profile.taskPlanning ?? 'seed',
         members: snapshot.members.map((member) => ({
@@ -1131,7 +1133,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             ? {}
             : { reasoning_effort: selection.reasoningEffort },
           status: member.status,
-          phase: fresh.phase ?? 'running',
+          phase: fresh.phase,
         }
       })
       await scheduler.kickMember(workspace, team.id, created.member_name, captain)
@@ -1716,7 +1718,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           await appendMailbox(stateRoot, fresh.id, CAPTAIN_KEY, createMessage(
             CAPTAIN_KEY,
             CAPTAIN_KEY,
-            `Quality-gate loop escalated after ${task.id} (${task.kind ?? 'review'} verdict=${task.verdict}). Automatic repair/review stopped.`,
+            `Quality-gate loop escalated after ${task.id} (${task.kind} verdict=${task.verdict}). Automatic repair/review stopped.`,
           ))
         }
         await writeTeam(stateRoot, fresh)
@@ -1961,7 +1963,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         team_id: team.id,
         team_name: team.name,
         description: team.description ?? '',
-        phase: team.phase ?? 'running',
+        phase: team.phase,
         halted: loop.halted,
         escalated: loop.escalated,
         loop_state: loop.state,
@@ -2146,6 +2148,7 @@ async function initializeProfileTeam(input: {
   const now = Date.now()
   const seedToActual = new Map(profile.tasks.map((template, index) => [template.id, `t${index + 1}`] as const))
   const draft: TeamState = {
+    schemaVersion: AGENT_TEAMS_STATE_SCHEMA_VERSION,
     name: input.teamName,
     id: input.teamId,
     description: input.description,
@@ -2161,7 +2164,8 @@ async function initializeProfileTeam(input: {
     ...profile.reviewPolicy === undefined ? {} : { reviewPolicy: profile.reviewPolicy },
     captainSessionId: input.captain.id,
     createdAt: now,
-    ...input.staged ? { phase: 'staged' as const, planReviewState: 'awaiting_review' as const } : {},
+    phase: 'staged' as const,
+    ...input.staged ? { planReviewState: 'awaiting_review' as const } : {},
     members: profile.members.map((template, index) => {
       const selection = selections[index]!
       return {
@@ -2187,6 +2191,7 @@ async function initializeProfileTeam(input: {
       assignee: template.assignee,
       dependencies: template.dependencies.map((dependency) => seedToActual.get(dependency) ?? dependency),
       attempt: 0,
+      kind: 'work' as const,
       createdAt: now,
       updatedAt: now,
     })),
@@ -2196,7 +2201,6 @@ async function initializeProfileTeam(input: {
   // places the directory barrier before spawning. Use the existing staged
   // shape as the transient on-disk draft, then publish `running` only after the
   // complete roster has been spawned.
-  if (!input.staged) draft.phase = 'staged'
   input.config.testObserver?.onInitializeProfileTeamPersistence?.('createTeamDir')
   await createTeamDir(input.stateRoot, draft)
   if (input.staged) {

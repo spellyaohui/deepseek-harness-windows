@@ -764,7 +764,7 @@ export function isCommandResult(value: unknown): value is CommandResult {
 }
 
 export function hasValidQualityTaskFields(value: Record<string, unknown>): boolean {
-  if (value['kind'] !== undefined && !(TASK_KINDS as readonly string[]).includes(value['kind'] as string)) return false
+  if (!(TASK_KINDS as readonly string[]).includes(value['kind'] as string)) return false
   if (value['verdict'] !== undefined && !(REVIEW_VERDICTS as readonly string[]).includes(value['verdict'] as string)) return false
   if (value['round'] !== undefined && !(Number.isSafeInteger(value['round']) && (value['round'] as number) >= 1)) return false
   if (value['objective'] !== undefined && !nonemptyString(value['objective'])) return false

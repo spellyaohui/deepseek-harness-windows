@@ -72,7 +72,7 @@ export interface DispatchTicket {
   readonly profileSeedId?: string
   readonly dependencyOutputs: readonly DependencyOutput[]
   readonly executionPrompt?: string
-  readonly kind?: string
+  readonly kind: string
   readonly round?: number
   readonly objective?: string
   readonly inScope?: readonly string[]
@@ -343,11 +343,10 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
           // Re-dispatching here would revoke still-valid work on every idle
           // edge and every status kick. The idle observer remembers that exact
           // capability across normal continuable disposal; only an unobserved
-          // durable capability (cold process recovery) or a legacy open task
-          // with no capability is retried.
+          // durable capability (cold process recovery) is retried.
           const parkedAttemptId = parkedAttempts.get(currentMember.id)
           const recoverOwned = owned !== undefined
-            && (owned.attemptId === undefined || owned.attemptId !== parkedAttemptId)
+            && owned.attemptId !== parkedAttemptId
           const task = recoverOwned ? owned : owned === undefined
             ? nextReadyTask(fresh.tasks, currentMember.name)
             : undefined
@@ -380,7 +379,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
             ...fresh.profile?.executionPrompt === undefined && config.executionPrompt === undefined
               ? {}
               : { executionPrompt: fresh.profile?.executionPrompt ?? config.executionPrompt },
-            kind: task.kind ?? 'work',
+            kind: task.kind,
             ...task.round === undefined ? {} : { round: task.round },
             ...task.objective === undefined ? {} : { objective: task.objective },
             ...task.inScope === undefined ? {} : { inScope: task.inScope },

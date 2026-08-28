@@ -23,6 +23,7 @@ import {
   findTeamByParticipant,
   readMailbox,
   readTeam,
+  readTeamSync,
   removeTeamDir,
   sanitizeKey,
   transitionError,
@@ -496,17 +497,19 @@ console.log('4/8 on-disk team flow (temp dir)')
 const stateRoot = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-verify-'))
 try {
   const team = {
+    schemaVersion: 2,
     name: 'Verify Team',
     id: sanitizeKey('Verify Team'),
     description: 'smoke',
     captainSessionId: 'sess-captain',
     createdAt: Date.now(),
     members: [
-      { id: 'sess-member', name: 'alice', joinedAt: Date.now(), status: 'idle' },
-      { id: 'sess-removed', name: 'former', joinedAt: Date.now(), status: 'removed' },
+      { id: 'sess-member', name: 'alice', provider: 'cpa', model: 'cheap-model', joinedAt: Date.now(), status: 'idle' },
+      { id: 'sess-removed', name: 'former', provider: 'cpa', model: 'cheap-model', joinedAt: Date.now(), status: 'removed' },
     ],
     tasks: [],
     taskSeq: 0,
+    phase: 'running',
   }
   await createTeamDir(stateRoot, team)
 
@@ -516,38 +519,91 @@ try {
   await writeFile(join(stateRoot, team.id, 'team.json'), `\uFEFF${JSON.stringify(team, null, 2)}`, 'utf8')
   check('team.json accepts a UTF-8 BOM', (await readTeam(stateRoot, team.id))?.id === team.id)
 
-  const dirty = {
-    ...team,
-    id: 'dirty-profile',
-    profile: { name: '' },
+  function teamV2(overrides = {}) {
+    const now = Date.now()
+    return {
+      schemaVersion: 2,
+      name: 'V2 Team',
+      id: 'v2-team',
+      captainSessionId: 'captain-session',
+      createdAt: now,
+      phase: 'running',
+      members: [{
+        id: 'member-1',
+        name: 'implementer',
+        provider: 'cpa',
+        model: 'cheap-model',
+        joinedAt: now,
+        status: 'idle',
+      }],
+      tasks: [{
+        id: 't1',
+        subject: 'work',
+        kind: 'work',
+        status: 'pending',
+        dependencies: [],
+        createdAt: now,
+        updatedAt: now,
+      }],
+      taskSeq: 1,
+      ...overrides,
+    }
+  }
+
+  async function assertStrictReject(label, value, expectedId = 'v2-team') {
+    const file = join(stateRoot, expectedId, 'team.json')
+    await mkdir(join(stateRoot, expectedId, 'inbox'), { recursive: true })
+    const serialized = JSON.stringify(value, null, 2)
+    await writeFile(file, serialized, 'utf8')
+    let asyncRejected = false
+    try {
+      await readTeam(stateRoot, expectedId)
+    } catch (error) {
+      asyncRejected = /AgentTeams (V2 状态无效|状态不受支持)/.test(String(error?.message ?? error))
+    }
+    const afterAsync = await readFile(file, 'utf8')
+    let syncRejected = false
+    try {
+      readTeamSync(stateRoot, expectedId)
+    } catch (error) {
+      syncRejected = /AgentTeams (V2 状态无效|状态不受支持)/.test(String(error?.message ?? error))
+    }
+    const afterSync = await readFile(file, 'utf8')
+    check(label, asyncRejected && syncRejected && afterAsync === serialized && afterSync === serialized)
+    await removeTeamDir(stateRoot, expectedId)
+  }
+
+  await assertStrictReject('strict V2 rejects missing schema version', (() => {
+    const invalid = teamV2()
+    delete invalid.schemaVersion
+    return invalid
+  })())
+  await assertStrictReject('strict V2 rejects string Profile', teamV2({ profile: 'legacy-profile' }))
+  await assertStrictReject('strict V2 rejects missing phase', (() => {
+    const invalid = teamV2()
+    delete invalid.phase
+    return invalid
+  })())
+  await assertStrictReject('strict V2 rejects staged state without plan review state', teamV2({ phase: 'staged' }))
+  await assertStrictReject('strict V2 rejects running state with plan review state', teamV2({ planReviewState: 'awaiting_review' }))
+  await assertStrictReject('strict V2 rejects missing member route', teamV2({
+    members: [{ ...teamV2().members[0], provider: undefined }],
+  }))
+  await assertStrictReject('strict V2 rejects missing task kind', teamV2({
+    tasks: [{ ...teamV2().tasks[0], kind: undefined }],
+  }))
+  await assertStrictReject('strict V2 rejects empty quality fields', teamV2({
     tasks: [{
-      id: 't1',
-      subject: 'legacy',
-      kind: 'work',
-      status: 'pending',
-      dependencies: [],
-      profileSeedId: '   ',
-      round: 0,
+      ...teamV2().tasks[0],
+      profileSeedId: ' ',
       objective: '',
       reviewedTaskId: '',
       sourceTaskId: '',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
     }],
-    taskSeq: 1,
-  }
-  await mkdir(join(stateRoot, dirty.id, 'inbox'), { recursive: true })
-  await writeFile(join(stateRoot, dirty.id, 'team.json'), JSON.stringify(dirty, null, 2), 'utf8')
-  const recovered = await readTeam(stateRoot, dirty.id)
-  check('cold-resume normalizes legacy empty quality sentinels',
-    recovered?.id === dirty.id
-      && recovered.profile === undefined
-      && recovered.tasks[0]?.profileSeedId === undefined
-      && recovered.tasks[0]?.round === undefined
-      && recovered.tasks[0]?.objective === undefined
-      && recovered.tasks[0]?.reviewedTaskId === undefined
-      && recovered.tasks[0]?.sourceTaskId === undefined)
-  await removeTeamDir(stateRoot, dirty.id)
+  }))
+  await assertStrictReject('strict V2 rejects round zero', teamV2({
+    tasks: [{ ...teamV2().tasks[0], round: 0 }],
+  }))
 
   const found = await findTeamByCaptain(stateRoot, 'sess-captain')
   check('findTeamByCaptain finds the team', found?.id === team.id)
@@ -1424,6 +1480,7 @@ try {
     reasoningEffort: 'effort-a',
   }
   await createTeamDir(restoreStateRoot, {
+    schemaVersion: 2,
     name: 'Restore Team',
     id: 'restore-team',
     captainSessionId: 'captain-session',
@@ -1437,6 +1494,7 @@ try {
     }],
     tasks: [],
     taskSeq: 0,
+    phase: 'running',
   })
   const updatedSettingsFallback = {
     provider: 'provider-b',
@@ -1470,6 +1528,7 @@ try {
   for (const [index, policy] of validMaterializedColdPolicies.entries()) {
     const teamId = `valid-cold-${index}`
     await createTeamDir(restoreStateRoot, {
+      schemaVersion: 2,
       name: teamId,
       id: teamId,
       captainSessionId: 'captain-session',
@@ -1485,6 +1544,7 @@ try {
       }],
       tasks: [],
       taskSeq: 0,
+      phase: 'running',
     })
     const validChild = fakeChildContext({
       label: `agent-teams:${teamId}:alpha`,
@@ -1508,13 +1568,14 @@ try {
 
   const invalidColdPolicies = [
     { label: 'explicit-missing-effort', expected: /explicit.*reasoning.*effort/i, reasoningMode: 'explicit' },
-    { label: 'provider-only', expected: /provider.*model|route/i, provider: 'provider-a', model: undefined, reasoningMode: 'target-default' },
-    { label: 'model-only', expected: /provider.*model|route/i, provider: undefined, model: 'model-a', reasoningMode: 'target-default' },
+    { label: 'provider-only', expected: /provider.*model|route|状态无效/i, provider: 'provider-a', model: undefined, reasoningMode: 'target-default' },
+    { label: 'model-only', expected: /provider.*model|route|状态无效/i, provider: undefined, model: 'model-a', reasoningMode: 'target-default' },
   ]
   for (const [index, policy] of invalidColdPolicies.entries()) {
     const { label, expected, ...rolePolicy } = policy
     const teamId = `invalid-cold-${index}`
     await createTeamDir(restoreStateRoot, {
+      schemaVersion: 2,
       name: teamId,
       id: teamId,
       captainSessionId: 'captain-session',
@@ -1530,6 +1591,7 @@ try {
       }],
       tasks: [],
       taskSeq: 0,
+      phase: 'running',
     })
     const invalidChild = fakeChildContext({
       label: `agent-teams:${teamId}:alpha`,
@@ -1627,6 +1689,7 @@ try {
     // FILE_SHARE_DELETE) from a child .NET handle, then verify the public
     // write path still persists through the direct-write fallback.
     const lockedTeam = {
+      schemaVersion: 2,
       name: 'Locked Team',
       id: 'locked-team',
       captainSessionId: 'sess-lock',
@@ -1634,6 +1697,7 @@ try {
       members: [],
       tasks: [],
       taskSeq: 0,
+      phase: 'running',
     }
     await createTeamDir(atomicStateRoot, lockedTeam)
     const lockedJson = join(atomicStateRoot, lockedTeam.id, 'team.json')
@@ -1685,6 +1749,7 @@ try {
       // archive.
       const { archiveTeamDir } = await import('../lib/state.js')
       const transientTeam = {
+        schemaVersion: 2,
         name: 'Transient Lock Team',
         id: 'transient-lock',
         captainSessionId: 'sess-transient',
@@ -1692,6 +1757,7 @@ try {
         members: [],
         tasks: [],
         taskSeq: 0,
+        phase: 'running',
       }
       await createTeamDir(atomicStateRoot, transientTeam)
       const transientJson = join(atomicStateRoot, transientTeam.id, 'team.json')
