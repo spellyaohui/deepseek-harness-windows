@@ -1,8 +1,7 @@
 /**
  * Desktop settings store: a small JSON file in the Electron userData
  * directory. Holds desktop-only preferences that the web UI does not own:
- * close-to-tray behavior. Legacy AgentTeams preferences are read only for the
- * first-launch migration and are removed after the host confirms it.
+ * close-to-tray behavior and AgentTeams Profile V2 data.
  *
  * The store is synchronous on read (cached in memory) and async on write
  * (flushed to disk). The main process notifies the renderer through IPC
@@ -23,12 +22,6 @@ const DEFAULT_SETTINGS = {
   /** "tray" hides to tray on close; "quit" exits the app. */
   closeBehavior: 'quit',
 }
-
-const LEGACY_AGENT_TEAMS_KEYS = [
-  'agentTeamsMemberProvider',
-  'agentTeamsMemberModel',
-  'agentTeamsMemberReasoningEffort',
-]
 
 /** @type {Record<string, unknown> | null} */
 let cache = null
@@ -107,18 +100,4 @@ export function setAgentTeamsProfiles(profileDocument) {
     load: loadDesktopSettings,
     flush: flushSettings,
   })
-}
-
-/**
- * Remove only the Electron-era AgentTeams preferences after the host has
- * durably migrated them. The desktop document itself, close behavior, and
- * unknown future settings remain untouched.
- */
-export function removeLegacyAgentTeamsSettings({
-  load = loadDesktopSettings,
-  flush = flushSettings,
-} = {}) {
-  const next = { ...load() }
-  for (const key of LEGACY_AGENT_TEAMS_KEYS) delete next[key]
-  flush(next)
 }

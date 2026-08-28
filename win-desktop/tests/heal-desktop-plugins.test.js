@@ -6,9 +6,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
 import {
-  applyConfirmedAgentTeamsMigration,
   buildDshArgs,
-  confirmAgentTeamsMigration,
   generateAgentTeamsPatch,
   healDesktopPluginFallback,
   resolveAgentTeamsPatch,
@@ -72,128 +70,14 @@ test('dsh web args include auto-mode and agent-teams patches', () => {
   assert.ok(args.includes('--no-open'))
 })
 
-test('AgentTeams migration confirmation retries incomplete status and accepts a confirmed migration', async () => {
-  const responses = [
-    { ok: true, json: async () => ({ migrationVersion: 0, complete: false }) },
-    { ok: true, json: async () => ({ migrationVersion: 1, complete: true }) },
-  ]
-  let now = 0
-  const complete = await confirmAgentTeamsMigration('http://127.0.0.1:11000', {
-    fetcher: async (url) => {
-      assert.equal(url, 'http://127.0.0.1:11000/plugins/dsh-agent-teams/migration-status')
-      return responses.shift()
-    },
-    now: () => now,
-    sleep: async () => { now += 250 },
-  })
-  assert.equal(complete, true)
+test('wrapper contains no AgentTeams migration handshake or legacy patch surface', () => {
+  const dshServiceSource = readFileSync(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
+  const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(dshServiceSource, /legacyDesktopSettings|migration-status|confirmAgentTeamsMigration|applyConfirmedAgentTeamsMigration|removeLegacyAgentTeamsSettings/)
+  assert.doesNotMatch(mainSource, /confirmAgentTeamsMigration|applyConfirmedAgentTeamsMigration|removeLegacyAgentTeamsSettings|migration-status/)
 })
 
-test('AgentTeams migration confirmation sleeps only through the deadline after a late false response', async () => {
-  let now = 0
-  const sleeps = []
-  const complete = await confirmAgentTeamsMigration('http://127.0.0.1:11000', {
-    fetcher: async () => {
-      now = 4_999
-      return { ok: true, json: async () => ({ migrationVersion: 0, complete: false }) }
-    },
-    now: () => now,
-    sleep: async (milliseconds) => {
-      sleeps.push(milliseconds)
-      now += milliseconds
-    },
-    setTimeoutFn: () => 1,
-    clearTimeoutFn: () => {},
-  })
-  assert.equal(complete, false)
-  assert.deepEqual(sleeps, [1])
-  assert.equal(now, 5_000)
-})
-
-test('AgentTeams migration confirmation preserves legacy settings after a failed handshake', async () => {
-  const complete = await confirmAgentTeamsMigration('http://127.0.0.1:11000', {
-    fetcher: async () => { throw new Error('unreachable') },
-  })
-  assert.equal(complete, false)
-})
-
-test('AgentTeams migration confirmation times out a stalled fetch within the remaining deadline', async () => {
-  let signal
-  const confirmation = confirmAgentTeamsMigration('http://127.0.0.1:11000', {
-    timeoutMs: 10,
-    fetcher: (_url, options) => {
-      signal = options?.signal
-      return new Promise(() => {})
-    },
-    setTimeoutFn: (callback, milliseconds) => {
-      assert.equal(milliseconds, 10)
-      callback()
-      return 1
-    },
-    clearTimeoutFn: () => {},
-  })
-  const result = await Promise.race([
-    confirmation,
-    new Promise((resolve) => setTimeout(() => resolve('timed out in test'), 50)),
-  ])
-  assert.equal(result, false)
-  assert.equal(signal?.aborted, true)
-})
-
-test('AgentTeams migration confirmation times out a stalled response body within the remaining deadline', async () => {
-  let timeout
-  let jsonStarted = false
-  const confirmation = confirmAgentTeamsMigration('http://127.0.0.1:11000', {
-    timeoutMs: 10,
-    fetcher: async () => ({
-      ok: true,
-      json: async () => {
-        jsonStarted = true
-        return new Promise(() => {})
-      },
-    }),
-    setTimeoutFn: (callback) => {
-      timeout = callback
-      return 1
-    },
-    clearTimeoutFn: () => {},
-  })
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(jsonStarted, true)
-  timeout()
-  const result = await Promise.race([
-    confirmation,
-    new Promise((resolve) => setTimeout(() => resolve('timed out in test'), 50)),
-  ])
-  assert.equal(result, false)
-})
-
-test('only a confirmed AgentTeams migration removes legacy desktop settings', async () => {
-  let removals = 0
-  await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
-    confirm: async () => true,
-    remove: () => { removals += 1 },
-  })
-  await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
-    confirm: async () => false,
-    remove: () => { removals += 1 },
-  })
-  await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
-    confirm: async () => 'true',
-    remove: () => { removals += 1 },
-  })
-  await applyConfirmedAgentTeamsMigration('http://127.0.0.1:11000', {
-    confirm: async () => { throw new Error('status unavailable') },
-    remove: () => { removals += 1 },
-  })
-  assert.equal(removals, 1)
-})
-
-test('generated AgentTeams patch quotes legacy values as YAML-safe scalars', () => {
-  const source = readFileSync(fileURLToPath(new URL('../src/dsh-service.js', import.meta.url)), 'utf8')
-  assert.match(source, /legacyDesktopSettings:/)
-  assert.doesNotMatch(source, /lines\.push\(`\s*memberModel:/)
-  assert.doesNotMatch(source, /lines\.push\(`\s*memberReasoningEffort:/)
+test('generated AgentTeams patch ignores removed legacy model settings', () => {
   const home = mkdtempSync(join(tmpdir(), 'dsh-agent-teams-yaml-'))
   const legacy = {
     agentTeamsMemberProvider: 'provider #1: "quoted"',
@@ -206,11 +90,8 @@ test('generated AgentTeams patch quotes legacy values as YAML-safe scalars', () 
       getUserDataPath: () => home,
     })
     const patch = readFileSync(patchPath, 'utf8')
-    assert.ok(patch.includes(`provider: ${JSON.stringify(legacy.agentTeamsMemberProvider)}`))
-    assert.ok(patch.includes(`model: ${JSON.stringify(legacy.agentTeamsMemberModel)}`))
-    assert.ok(patch.includes(`reasoningEffort: ${JSON.stringify(legacy.agentTeamsMemberReasoningEffort)}`))
-    assert.doesNotMatch(patch, /provider: provider #1/)
-    assert.doesNotMatch(patch, /model\\path\nnext: value/)
+    assert.doesNotMatch(patch, /legacyDesktopSettings|provider #1|model\\path|reasoningEffort/)
+    assert.match(patch, /memberProvider: spawn/)
   } finally {
     rmSync(home, { recursive: true, force: true })
   }

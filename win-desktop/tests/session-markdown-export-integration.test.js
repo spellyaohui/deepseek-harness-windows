@@ -53,7 +53,7 @@ test('wrapper mounts the packed Markdown export plugin in the desktop Web profil
   assert.match(rawExportClient, /\/api\/session\.export/)
 })
 
-test('runtime-generated desktop patch retains AgentTeams migration settings before Markdown export', () => {
+test('runtime-generated desktop patch omits removed AgentTeams migration settings before Markdown export', () => {
   let generatedPatch
   generateAgentTeamsPatch({
     getSettings: () => ({
@@ -87,11 +87,6 @@ test('runtime-generated desktop patch retains AgentTeams migration settings befo
         stateDir: '.agent-teams',
         memberProvider: 'spawn',
         profiles: BUILTIN_AGENT_TEAMS_PROFILES,
-        legacyDesktopSettings: {
-          provider: 'openai-compatible',
-          model: 'example-model',
-          reasoningEffort: 'high',
-        },
       },
     },
     {

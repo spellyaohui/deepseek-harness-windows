@@ -31,14 +31,9 @@ export function resolveAutoModePatch() {
 /**
  * Dynamically generate the AgentTeams patch YAML from the current desktop
  * settings. Profiles are persisted by the desktop host so the live service
- * receives the same user-edited map on every launch; the legacy member fields
- * remain a migration envelope for older settings.
+ * receives the same user-edited map on every launch.
  * @returns {string} absolute path to the generated patch file.
  */
-function yamlScalar(value) {
-  return JSON.stringify(String(value))
-}
-
 export function generateAgentTeamsPatch({
   getSettings = getDesktopSettings,
   getProfiles,
@@ -53,16 +48,6 @@ export function generateAgentTeamsPatch({
   const profiles = readAgentTeamsProfiles({
     agentTeamsProfiles: profileSnapshot,
   })
-  const memberModel = typeof settings.agentTeamsMemberModel === 'string'
-    ? settings.agentTeamsMemberModel.trim()
-    : ''
-  const memberProvider = typeof settings.agentTeamsMemberProvider === 'string'
-    ? settings.agentTeamsMemberProvider.trim()
-    : ''
-  const memberReasoningEffort = typeof settings.agentTeamsMemberReasoningEffort === 'string'
-    ? settings.agentTeamsMemberReasoningEffort.trim()
-    : ''
-
   const lines = [
     '# Auto-generated from desktop settings — do not edit by hand.',
     '- insert:',
@@ -79,12 +64,6 @@ export function generateAgentTeamsPatch({
     '        memberProvider: spawn',
     `        profiles: ${JSON.stringify(profiles)}`,
   ]
-  if (memberProvider !== '' || memberModel !== '' || memberReasoningEffort !== '') {
-    lines.push('        legacyDesktopSettings:')
-    if (memberProvider !== '') lines.push(`          provider: ${yamlScalar(memberProvider)}`)
-    if (memberModel !== '') lines.push(`          model: ${yamlScalar(memberModel)}`)
-    if (memberReasoningEffort !== '') lines.push(`          reasoningEffort: ${yamlScalar(memberReasoningEffort)}`)
-  }
   lines.push(
     '    - id: session-markdown-export',
     "      name: '@deepseek-ai/dsh-session-markdown-export'",
@@ -132,92 +111,6 @@ export function healDesktopPluginFallback({
 
 export function extractReadyUrl(output) {
   return READY_PATTERN.exec(output)?.[1]
-}
-
-function fetchMigrationStatusWithin(fetcher, statusUrl, timeoutMs, {
-  setTimeoutFn,
-  clearTimeoutFn,
-}) {
-  const controller = new AbortController()
-  return new Promise((resolve) => {
-    let settled = false
-    let timeoutId
-    const finish = (value) => {
-      if (settled) return
-      settled = true
-      if (timeoutId !== undefined) clearTimeoutFn(timeoutId)
-      resolve(value)
-    }
-    timeoutId = setTimeoutFn(() => {
-      controller.abort()
-      finish(undefined)
-    }, timeoutMs)
-    try {
-      Promise.resolve(fetcher(statusUrl, { signal: controller.signal })).then(
-        async (response) => {
-          if (!response?.ok) {
-            finish(undefined)
-            return
-          }
-          try {
-            finish(await response.json())
-          } catch {
-            finish(undefined)
-          }
-        },
-        () => finish(undefined),
-      )
-    } catch {
-      finish(undefined)
-    }
-  })
-}
-
-/**
- * Wait for the host to confirm that it durably recorded the one-time desktop
- * migration. Any unavailable or incomplete response leaves the legacy values
- * intact for a later launch.
- */
-export async function confirmAgentTeamsMigration(serviceUrl, {
-  fetcher = globalThis.fetch,
-  timeoutMs = 5_000,
-  pollMs = 250,
-  now = () => Date.now(),
-  sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
-  setTimeoutFn = setTimeout,
-  clearTimeoutFn = clearTimeout,
-} = {}) {
-  const statusUrl = new URL('/plugins/dsh-agent-teams/migration-status', serviceUrl).toString()
-  const deadline = now() + timeoutMs
-  while (now() <= deadline) {
-    const remaining = deadline - now()
-    if (remaining <= 0) return false
-    const status = await fetchMigrationStatusWithin(fetcher, statusUrl, remaining, {
-      setTimeoutFn,
-      clearTimeoutFn,
-    })
-    if (status === undefined) return false
-    if (status?.complete === true) return true
-    const remainingAfterResponse = deadline - now()
-    if (remainingAfterResponse <= 0) return false
-    await sleep(Math.min(pollMs, remainingAfterResponse))
-  }
-  return false
-}
-
-/** Keep startup running unless the migration handshake explicitly confirms. */
-export async function applyConfirmedAgentTeamsMigration(serviceUrl, {
-  confirm = confirmAgentTeamsMigration,
-  remove,
-} = {}) {
-  let complete
-  try {
-    complete = await confirm(serviceUrl)
-  } catch {
-    // The next launch retries migration; boot must not be blocked.
-    return
-  }
-  if (complete === true) remove?.()
 }
 
 export function buildDshArgs(entry, {

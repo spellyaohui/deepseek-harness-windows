@@ -13,11 +13,19 @@ import { buildHostModelCatalog } from '../agent-teams-plugin/lib/host-model-cata
 const wrapperRoot = fileURLToPath(new URL('..', import.meta.url))
 const pluginRoot = join(wrapperRoot, 'node_modules', '@nanmicoder', 'dsh-agent-teams')
 const desktopPluginRoot = join(wrapperRoot, 'desktop-settings-plugin')
+const agentTeamsSourceRoot = join(wrapperRoot, 'agent-teams-plugin', 'src')
 const consoleHideImport = new URL('../src/win-hide-console.mjs', import.meta.url).href
 
 function readText(...segments) {
   return readFileSync(join(...segments), 'utf8')
 }
+
+test('AgentTeams global settings expose delegation mode only', () => {
+  const settingsSource = readText(agentTeamsSourceRoot, 'settings.ts')
+  const indexSource = readText(agentTeamsSourceRoot, 'index.ts')
+  assert.doesNotMatch(settingsSource, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|migrationVersion|LegacyDesktopAgentTeamsSettings|normalizeLegacyDesktop|createLegacyDesktop|AGENT_TEAMS_MIGRATION_VERSION/)
+  assert.doesNotMatch(indexSource, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|legacyDesktopSettings|migration-status|confirmAgentTeamsMigration|applyConfirmedAgentTeamsMigration|removeLegacyAgentTeamsSettings|AGENT_TEAMS_MIGRATION_VERSION|normalizeLegacyDesktop/)
+})
 
 test('installed AgentTeams fork remains runnable through the desktop patch and console-hide loader', () => {
   const userData = mkdtempSync(join(tmpdir(), 'dsh-agent-teams-integration-'))
@@ -40,11 +48,6 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
         stateDir: '.agent-teams',
         memberProvider: 'spawn',
         profiles: BUILTIN_AGENT_TEAMS_PROFILES,
-        legacyDesktopSettings: {
-          provider: 'openai-compatible',
-          model: 'example-model',
-          reasoningEffort: 'high',
-        },
       },
     })
 

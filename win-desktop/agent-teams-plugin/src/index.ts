@@ -41,12 +41,8 @@ import { formatProfilesForPrompt, type TeamProfileConfig } from './profiles.ts'
 import { qualityPlanningPrompt } from './quality-gates.ts'
 import { buildHostModelCatalog } from './host-model-catalog.ts'
 import {
-  AGENT_TEAMS_MIGRATION_VERSION,
   createAgentTeamsSettingsRuntime,
   type DelegationMode,
-  type LegacyDesktopAgentTeamsSettings,
-  type MemberReasoningMode,
-  normalizeLegacyDesktopAgentTeamsSettings,
 } from './settings.ts'
 import {
   delegationPolicyUsagePreamble,
@@ -82,7 +78,6 @@ export const inject = ['tools', 'llm', 'subagents', 'systemPrompt', 'agents']
 /** Plugin configuration. */
 export interface Config {
   delegationMode?: DelegationMode
-  memberLlmProvider?: string
   /**
    * State directory name under the captain's workspace; team state lives at
    * `<workspace>/<stateDir>/<teamId>/` (default `.agent-teams`).
@@ -90,11 +85,6 @@ export interface Config {
   stateDir?: string
   /** `ctx.subagents` provider used to spawn members; must support continuable children and personas (default `spawn`). */
   memberProvider?: string
-  /** Optional model override applied to every member. */
-  memberModel?: string
-  memberReasoningMode?: MemberReasoningMode
-  memberReasoningEffort?: string
-  legacyDesktopSettings?: LegacyDesktopAgentTeamsSettings
   /** Prompt injected into member personas and automatic task assignments. */
   executionPrompt?: string
   /** Plugin-wide fallback route for unavailable member models. */
@@ -125,17 +115,8 @@ const fallbackRouteConfig = z.union([
 
 export const Config: z<Config> = z.object({
   delegationMode: z.union(['teams', 'native']).default('teams'),
-  memberLlmProvider: z.string().default(''),
   stateDir: z.string().default('.agent-teams'),
   memberProvider: z.string().default('spawn'),
-  memberModel: z.string().default(''),
-  memberReasoningMode: z.union(['target-default', 'route-aware', 'explicit']).default('target-default'),
-  memberReasoningEffort: z.string().default(''),
-  legacyDesktopSettings: z.object({
-    provider: z.string(),
-    model: z.string(),
-    reasoningEffort: z.string(),
-  }),
   executionPrompt: z.string(),
   fallback: fallbackRouteConfig,
   profiles: z.dict(z.object({
@@ -208,12 +189,7 @@ Tools: ${toolNames}${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesT
 export function apply(ctx: Context, config: Config): void {
   const settings = createAgentTeamsSettingsRuntime(ctx, {
     delegationMode: config.delegationMode ?? 'teams',
-    memberLlmProvider: config.memberLlmProvider ?? '',
-    memberModel: config.memberModel ?? '',
-    memberReasoningMode: config.memberReasoningMode ?? 'target-default',
-    memberReasoningEffort: config.memberReasoningEffort ?? '',
-    migrationVersion: 0,
-  }, normalizeLegacyDesktopAgentTeamsSettings(config.legacyDesktopSettings))
+  })
 
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',
@@ -275,35 +251,6 @@ export function apply(ctx: Context, config: Config): void {
       registerAgentTeamsCommand(commandCtx, () => config.profiles ?? {})
     })
     installAgentTeamsGestureBoundary(ctx, () => config.profiles ?? {})
-  }
-
-  let migrationStatusRegistered = false
-  const registerMigrationStatus = (): void => {
-    if (migrationStatusRegistered) return
-    const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1])) as WebRouteHost | undefined
-    if (webServer === undefined) return
-    migrationStatusRegistered = true
-    ctx.effect(() => webServer.register({
-      kind: 'exact',
-      path: '/plugins/dsh-agent-teams/migration-status',
-      handler: (req, res) => {
-        const responseHeaders = {
-          'content-type': 'application/json; charset=utf-8',
-          'cache-control': 'no-store',
-        }
-        if (req.method !== 'GET') {
-          res.writeHead(405, { ...responseHeaders, allow: 'GET' })
-          res.end(JSON.stringify({ migrationVersion: 0, complete: false }))
-          return
-        }
-        const status = settings.migrationStatus()
-        const complete = status.migrationVersion >= AGENT_TEAMS_MIGRATION_VERSION
-        res.writeHead(200, responseHeaders)
-        res.end(JSON.stringify(complete
-          ? { migrationVersion: AGENT_TEAMS_MIGRATION_VERSION, complete: true }
-          : { migrationVersion: 0, complete: false }))
-      },
-    }), 'agent-teams: migration status route')
   }
 
   let modelCatalogRegistered = false
@@ -627,12 +574,10 @@ export function apply(ctx: Context, config: Config): void {
     }), 'agent-teams: artwork route')
   }
 
-  registerMigrationStatus()
   registerModelCatalog()
   registerWebSurface()
   ctx.on('internal/service', (name) => {
     if (WEB_SERVER_KEYS.includes(name as (typeof WEB_SERVER_KEYS)[number])) {
-      registerMigrationStatus()
       registerModelCatalog()
       registerWebSurface()
     } else if (WORKSPACE_KEYS.includes(name as (typeof WORKSPACE_KEYS)[number])) {
