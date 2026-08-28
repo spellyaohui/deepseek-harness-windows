@@ -1,3 +1,5 @@
+import type { ModelCatalogEntry } from './model-catalog.ts'
+
 const MAX_PROFILES = 16
 const MAX_MEMBERS = 8
 const MAX_TASKS = 32
@@ -76,6 +78,50 @@ export interface AgentTeamsProfilesSnapshot {
 export type ProfileSaveResult =
   | { ok: true; profiles: Record<string, TeamProfileConfig> }
   | { ok: false; error: string }
+
+export function applyMemberReasoningMode(
+  member: TeamProfileMemberConfig,
+  mode: RoleReasoningMode,
+  selectedModel: ModelCatalogEntry | undefined,
+): TeamProfileMemberConfig | undefined {
+  if (mode !== 'explicit') {
+    const next = { ...member, reasoning_mode: mode }
+    delete next.reasoning_effort
+    return next
+  }
+
+  const effort = selectedModel?.efforts.find((candidate) => candidate.id === member.reasoning_effort)
+    ?? selectedModel?.efforts.find((candidate) => candidate.id === selectedModel.defaultEffort)
+    ?? selectedModel?.efforts[0]
+  if (effort === undefined) return undefined
+  return { ...member, reasoning_mode: mode, reasoning_effort: effort.id }
+}
+
+export function hasUnvalidatedExplicitRoleDraft(
+  nextProfiles: Record<string, TeamProfileConfig>,
+  committedProfiles: Record<string, TeamProfileConfig>,
+  catalog: readonly ModelCatalogEntry[],
+  catalogReady: boolean,
+): boolean {
+  return Object.entries(nextProfiles).some(([profileName, profile]) => {
+    const committedProfile = committedProfiles[profileName]
+    return profile.members.some((member, index) => {
+      if (member.reasoning_mode !== 'explicit') return false
+      const committedMember = committedProfile?.members.find((candidate) => candidate.name === member.name)
+        ?? committedProfile?.members[index]
+      const routeChanged = committedMember?.reasoning_mode !== 'explicit'
+        || committedMember.provider !== member.provider
+        || committedMember.model !== member.model
+        || committedMember.reasoning_effort !== member.reasoning_effort
+      if (!routeChanged) return false
+      if (member.provider === undefined || member.model === undefined || member.reasoning_effort === undefined) return true
+      if (!catalogReady) return true
+      const selectedModel = catalog.find((entry) => entry.provider === member.provider && entry.id === member.model)
+      return selectedModel === undefined
+        || !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort)
+    })
+  })
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false

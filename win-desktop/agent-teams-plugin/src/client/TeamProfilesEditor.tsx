@@ -3,8 +3,10 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AgentTeamsTranslate } from './locales.ts'
 import type { ModelCatalogEntry, ModelCatalogState } from './model-catalog.ts'
 import {
+  applyMemberReasoningMode,
   cloneProfileMap,
   createEmptyTeamProfile,
+  hasUnvalidatedExplicitRoleDraft,
   normalizeProfileSnapshot,
   prepareProfileMapForSave,
   type AgentTeamsProfilesSnapshot,
@@ -247,11 +249,10 @@ function MemberEditor({
                   value={mode}
                   checked={member.reasoning_mode === mode}
                   disabled={mode === 'explicit' && (!catalogReady || (selectedModel?.efforts.length ?? 0) === 0)}
-                  onChange={() => onChange({
-                    ...member,
-                    reasoning_mode: mode,
-                    ...(mode === 'explicit' ? {} : { reasoning_effort: undefined }),
-                  })}
+                  onChange={() => {
+                    const next = applyMemberReasoningMode(member, mode, selectedModel)
+                    if (next !== undefined) onChange(next)
+                  }}
                 />
                 <span>{t(`settings.profiles.reasoning.${mode}.label`)}</span>
               </label>
@@ -642,21 +643,12 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
   const dirty = JSON.stringify(profiles) !== JSON.stringify(committedProfiles)
   const controlsDisabled = !writable || loading || saving
   const catalogReady = catalog.status === 'ready'
-  const committedProfile = committedProfiles[selectedName]
-  const explicitRouteBlocked = selectedProfile?.members.some((member, index) => {
-    if (member.reasoning_mode !== 'explicit') return false
-    const committedMember = committedProfile?.members.find((candidate) => candidate.name === member.name)
-      ?? committedProfile?.members[index]
-    const routeChanged = committedMember?.reasoning_mode !== 'explicit'
-      || committedMember.provider !== member.provider
-      || committedMember.model !== member.model
-      || committedMember.reasoning_effort !== member.reasoning_effort
-    if (!routeChanged) return false
-    if (member.provider === undefined || member.model === undefined || member.reasoning_effort === undefined) return true
-    if (!catalogReady) return true
-    const selectedModel = catalog.models.find((entry) => entry.provider === member.provider && entry.id === member.model)
-    return selectedModel === undefined || !selectedModel.efforts.some((effort) => effort.id === member.reasoning_effort)
-  }) ?? false
+  const explicitRouteBlocked = hasUnvalidatedExplicitRoleDraft(
+    profiles,
+    committedProfiles,
+    catalog.models,
+    catalogReady,
+  )
 
   const updateSelectedProfile = (next: TeamProfileConfig): void => {
     setProfiles((current) => updateProfileMap(current, selectedName, () => next))
@@ -745,6 +737,10 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
       setProfiles(nextProfiles)
     }
     setError(null)
+    if (hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, catalog.models, catalogReady)) {
+      setError(t('settings.profiles.explicitCatalogRequired'))
+      return
+    }
     const prepared = prepareProfileMapForSave(nextProfiles)
     if (!prepared.ok) {
       setError(prepared.error)
