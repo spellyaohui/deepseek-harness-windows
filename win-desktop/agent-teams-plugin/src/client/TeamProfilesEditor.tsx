@@ -5,11 +5,14 @@ import type { ModelCatalogEntry, ModelCatalogState } from './model-catalog.ts'
 import {
   applyMemberReasoningMode,
   cloneProfileMap,
+  createCommittedProfileNameMap,
   createEmptyTeamProfile,
   hasUnvalidatedExplicitRoleDraft,
   normalizeProfileSnapshot,
   prepareProfileMapForSave,
+  renameCommittedProfileName,
   type AgentTeamsProfilesSnapshot,
+  type CommittedProfileNameMap,
   type TeamModelFallbackConfig,
   type TeamProfileConfig,
   type TeamProfileMemberConfig,
@@ -23,6 +26,12 @@ interface TeamProfilesEditorProps {
   onRetryCatalog: () => void
   t: AgentTeamsTranslate
   writable: boolean
+}
+
+interface RenamedProfilesResult {
+  profiles: Record<string, TeamProfileConfig>
+  committedProfileNames: CommittedProfileNameMap
+  selectedName: string
 }
 
 type MemberField = 'role' | 'reasoning_effort' | 'executionPrompt'
@@ -596,6 +605,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
   const [snapshot, setSnapshot] = useState<AgentTeamsProfilesSnapshot | null>(null)
   const [profiles, setProfiles] = useState<Record<string, TeamProfileConfig>>({})
   const [committedProfiles, setCommittedProfiles] = useState<Record<string, TeamProfileConfig>>({})
+  const [committedProfileNames, setCommittedProfileNames] = useState<CommittedProfileNameMap>({})
   const [selectedName, setSelectedName] = useState('')
   const [nameDraft, setNameDraft] = useState('')
   const [loading, setLoading] = useState(true)
@@ -617,10 +627,11 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
       const normalized = normalizeProfileSnapshot(next)
       setSnapshot(normalized)
       setProfiles(normalized.profiles)
-       setCommittedProfiles(cloneProfileMap(normalized.profiles))
-       setSelectedName(Object.keys(normalized.profiles)[0] ?? '')
-       setMessage(null)
-       setLoading(false)
+      setCommittedProfiles(cloneProfileMap(normalized.profiles))
+      setCommittedProfileNames(createCommittedProfileNameMap(normalized.profiles))
+      setSelectedName(Object.keys(normalized.profiles)[0] ?? '')
+      setMessage(null)
+      setLoading(false)
     }).catch((reason: unknown) => {
        if (!active) return
        setLoading(false)
@@ -648,6 +659,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
     committedProfiles,
     catalog.models,
     catalogReady,
+    committedProfileNames,
   )
 
   const updateSelectedProfile = (next: TeamProfileConfig): void => {
@@ -683,6 +695,11 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
     delete next[selectedName]
     const nextName = Object.keys(next)[0] ?? ''
     setProfiles(next)
+    setCommittedProfileNames((current) => {
+      const nextNames = { ...current }
+      delete nextNames[selectedName]
+      return nextNames
+    })
     setSelectedName(nextName)
     setMessage(null)
     setError(null)
@@ -696,10 +713,12 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
     setError(null)
   }
 
-  const renamedProfiles = (): Record<string, TeamProfileConfig> | undefined => {
-    if (selectedProfile === undefined || selectedIsBuiltIn) return profiles
+  const renamedProfiles = (): RenamedProfilesResult | undefined => {
+    if (selectedProfile === undefined || selectedIsBuiltIn) {
+      return { profiles, committedProfileNames, selectedName }
+    }
     const nextName = nameDraft.trim()
-    if (nextName === selectedName) return profiles
+    if (nextName === selectedName) return { profiles, committedProfileNames, selectedName }
     if (nextName === '' || nextName.toLowerCase() === 'captain' || !/^[\p{L}\p{N}][\p{L}\p{N}._-]{0,63}$/u.test(nextName)) {
       setError(t('settings.profiles.invalidName'))
       return undefined
@@ -713,17 +732,21 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
     if (profile === undefined) return undefined
     delete next[selectedName]
     next[nextName] = profile
-    return next
+    return {
+      profiles: next,
+      committedProfileNames: renameCommittedProfileName(committedProfileNames, selectedName, nextName),
+      selectedName: nextName,
+    }
   }
 
   const renameProfile = (): boolean => {
-    const next = renamedProfiles()
-    if (next === undefined) return false
-    if (next === profiles) return true
-    const nextName = nameDraft.trim()
-    setProfiles(next)
-    setSelectedName(nextName)
-    setNameDraft(nextName)
+    const renamed = renamedProfiles()
+    if (renamed === undefined) return false
+    if (renamed.profiles === profiles) return true
+    setProfiles(renamed.profiles)
+    setCommittedProfileNames(renamed.committedProfileNames)
+    setSelectedName(renamed.selectedName)
+    setNameDraft(renamed.selectedName)
     setMessage(null)
     setError(null)
     return true
@@ -731,13 +754,21 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
 
   const saveProfiles = async (): Promise<void> => {
     if (bridge?.setAgentTeamsProfiles === undefined || saving) return
-    const nextProfiles = renamedProfiles()
-    if (nextProfiles === undefined) return
+    const renamed = renamedProfiles()
+    if (renamed === undefined) return
+    const nextProfiles = renamed.profiles
     if (nextProfiles !== profiles) {
       setProfiles(nextProfiles)
+      setCommittedProfileNames(renamed.committedProfileNames)
     }
     setError(null)
-    if (hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, catalog.models, catalogReady)) {
+    if (hasUnvalidatedExplicitRoleDraft(
+      nextProfiles,
+      committedProfiles,
+      catalog.models,
+      catalogReady,
+      renamed.committedProfileNames,
+    )) {
       setError(t('settings.profiles.explicitCatalogRequired'))
       return
     }
@@ -756,6 +787,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
       setSnapshot(next)
       setProfiles(next.profiles)
       setCommittedProfiles(cloneProfileMap(next.profiles))
+      setCommittedProfileNames(createCommittedProfileNameMap(next.profiles))
       setSelectedName((current) => next.profiles[current] === undefined ? Object.keys(next.profiles)[0] ?? '' : current)
       setMessage(t('settings.profiles.saved'))
     } catch (reason: unknown) {

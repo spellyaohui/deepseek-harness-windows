@@ -79,6 +79,28 @@ export type ProfileSaveResult =
   | { ok: true; profiles: Record<string, TeamProfileConfig> }
   | { ok: false; error: string }
 
+export type CommittedProfileNameMap = Record<string, string>
+
+export function createCommittedProfileNameMap(
+  profiles: Readonly<Record<string, TeamProfileConfig>>,
+): CommittedProfileNameMap {
+  return Object.fromEntries(Object.keys(profiles).map((name) => [name, name]))
+}
+
+export function renameCommittedProfileName(
+  committedProfileNames: Readonly<CommittedProfileNameMap>,
+  previousName: string,
+  nextName: string,
+): CommittedProfileNameMap {
+  if (previousName === nextName) return { ...committedProfileNames }
+  const next = { ...committedProfileNames }
+  const committedName = next[previousName]
+  delete next[previousName]
+  delete next[nextName]
+  if (committedName !== undefined) next[nextName] = committedName
+  return next
+}
+
 export function applyMemberReasoningMode(
   member: TeamProfileMemberConfig,
   mode: RoleReasoningMode,
@@ -102,9 +124,11 @@ export function hasUnvalidatedExplicitRoleDraft(
   committedProfiles: Record<string, TeamProfileConfig>,
   catalog: readonly ModelCatalogEntry[],
   catalogReady: boolean,
+  committedProfileNames: Readonly<CommittedProfileNameMap>,
 ): boolean {
   return Object.entries(nextProfiles).some(([profileName, profile]) => {
-    const committedProfile = committedProfiles[profileName]
+    const committedName = committedProfileNames[profileName]
+    const committedProfile = committedName === undefined ? undefined : committedProfiles[committedName]
     return profile.members.some((member, index) => {
       if (member.reasoning_mode !== 'explicit') return false
       const committedMember = committedProfile?.members.find((candidate) => candidate.name === member.name)

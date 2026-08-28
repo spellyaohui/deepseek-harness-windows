@@ -3,10 +3,12 @@ import { readFile } from 'node:fs/promises'
 
 import {
   applyMemberReasoningMode,
+  createCommittedProfileNameMap,
   createEmptyTeamProfile,
   hasUnvalidatedExplicitRoleDraft,
   normalizeProfileSnapshot,
   prepareProfileMapForSave,
+  renameCommittedProfileName,
 } from '../lib/client/profile-editor.js'
 
 const editorSource = await readFile(new URL('../src/client/TeamProfilesEditor.tsx', import.meta.url), 'utf8')
@@ -20,11 +22,11 @@ assert.match(
 )
 assert.match(
   editorSource,
-  /const explicitRouteBlocked = hasUnvalidatedExplicitRoleDraft\(\s*profiles,\s*committedProfiles,\s*catalog\.models,\s*catalogReady,\s*\)/,
+  /const explicitRouteBlocked = hasUnvalidatedExplicitRoleDraft\(\s*profiles,\s*committedProfiles,\s*catalog\.models,\s*catalogReady,\s*committedProfileNames,\s*\)/,
 )
 assert.match(
   editorSource,
-  /if \(hasUnvalidatedExplicitRoleDraft\(nextProfiles, committedProfiles, catalog\.models, catalogReady\)\)/,
+  /if \(hasUnvalidatedExplicitRoleDraft\(\s*nextProfiles,\s*committedProfiles,\s*catalog\.models,\s*catalogReady,\s*renamed\.committedProfileNames,\s*\)\)/,
 )
 assert.match(editorSource, /applyMemberReasoningMode\(member, mode, selectedModel\)/)
 assert.match(
@@ -199,13 +201,14 @@ const nextProfiles = {
     members: [{ name: 'analyst', reasoning_mode: 'target-default' }],
   },
 }
+const committedProfileNames = { hidden: 'hidden', visible: 'visible' }
 assert.equal(
-  hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, [], false),
+  hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, [], false, committedProfileNames),
   true,
   'a changed explicit role in a non-selected Profile still blocks save while the catalog is unavailable',
 )
 assert.equal(
-  hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, [singleEffortModel], true),
+  hasUnvalidatedExplicitRoleDraft(nextProfiles, committedProfiles, [singleEffortModel], true, committedProfileNames),
   false,
   'a changed explicit role is saveable when its route and effort are catalog-supported',
 )
@@ -215,7 +218,7 @@ assert.equal(
     hidden: {
       members: [{ ...nextProfiles.hidden.members[0], reasoning_effort: 'unsupported' }],
     },
-  }, committedProfiles, [singleEffortModel], true),
+  }, committedProfiles, [singleEffortModel], true, committedProfileNames),
   true,
   'a changed explicit role with an unsupported effort remains blocked',
 )
@@ -223,9 +226,69 @@ assert.equal(
   hasUnvalidatedExplicitRoleDraft(nextProfiles, {
     hidden: nextProfiles.hidden,
     visible: committedProfiles.visible,
-  }, [], false),
+  }, [], false, committedProfileNames),
   false,
   'an unchanged historical explicit route does not block unrelated edits while the catalog is unavailable',
+)
+
+const committedExplicitProfiles = {
+  oldName: {
+    members: [{
+      name: 'reviewer',
+      provider: singleEffortModel.provider,
+      model: singleEffortModel.id,
+      reasoning_mode: 'explicit',
+      reasoning_effort: 'high',
+    }],
+  },
+}
+const renamedExplicitProfiles = {
+  newName: committedExplicitProfiles.oldName,
+}
+assert.deepEqual(createCommittedProfileNameMap(committedExplicitProfiles), { oldName: 'oldName' })
+assert.deepEqual(
+  renameCommittedProfileName({ oldName: 'oldName' }, 'oldName', 'newName'),
+  { newName: 'oldName' },
+  'renaming moves the committed identity without deriving it from Profile contents',
+)
+assert.deepEqual(
+  renameCommittedProfileName({}, 'copiedName', 'renamedCopy'),
+  {},
+  'renaming a copied or new Profile does not invent a committed identity',
+)
+assert.equal(
+  hasUnvalidatedExplicitRoleDraft(
+    renamedExplicitProfiles,
+    committedExplicitProfiles,
+    [],
+    false,
+    { newName: 'oldName' },
+  ),
+  false,
+  'renaming a Profile preserves the committed identity of an unchanged explicit route during catalog failure',
+)
+assert.equal(
+  hasUnvalidatedExplicitRoleDraft({
+    newName: {
+      members: [{ ...committedExplicitProfiles.oldName.members[0], reasoning_effort: 'max' }],
+    },
+  }, committedExplicitProfiles, [], false, { newName: 'oldName' }),
+  true,
+  'changing the explicit effort while renaming still requires catalog validation',
+)
+assert.equal(
+  hasUnvalidatedExplicitRoleDraft({
+    copiedName: committedExplicitProfiles.oldName,
+  }, committedExplicitProfiles, [], false, {}),
+  true,
+  'a copied Profile does not inherit the source committed identity',
+)
+assert.equal(
+  hasUnvalidatedExplicitRoleDraft({
+    oldName: committedExplicitProfiles.oldName,
+  }, committedExplicitProfiles, [], false, {}),
+  true,
+  'a new Profile reusing a removed committed name does not inherit that committed identity',
 )
 
 for (const member of [
