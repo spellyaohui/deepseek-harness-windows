@@ -290,6 +290,9 @@ const ctx = {
   llm: {
     async resolveCallConfig(config) {
       modelResolutionCalls.push(config)
+      if (config.provider === 'fake-materialized' && config.model === 'fake-materialized-model' && config.reasoningEffort === undefined) {
+        return { ...config, reasoningEffort: 'materialized-default' }
+      }
       return config
     },
     async listModels(provider) {
@@ -766,6 +769,19 @@ try {
     executionPrompt: 'Review security-sensitive changes only.',
   })
   await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', {
+    action: 'update_member',
+    memberName: 'reviewer',
+    role: 'security reviewer',
+    provider: 'fake-provider',
+    model: 'fake-reviewer-updated',
+    reasoningMode: 'explicit',
+    executionPrompt: 'Review security-sensitive changes only.',
+  })
+  const preservedExplicitStagedMember = (await readTeam(stateRoot, 'dynamic-demo'))?.members.find(member => member.name === 'reviewer')
+  check('direct staged member edit may retain omitted explicit effort',
+    preservedExplicitStagedMember?.reasoningMode === 'explicit'
+      && preservedExplicitStagedMember.reasoningEffort === 'high')
+  await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', {
     action: 'update_task',
     taskId: dynamicSecond.task_id,
     subject: 'implement approved result',
@@ -783,15 +799,26 @@ try {
       && deliveries.length === deliveriesBeforePlan)
 
   const preservedPolicyBeforeEdit = editedDynamic?.members.find(member => member.name === 'implementer')
+  if (preservedPolicyBeforeEdit !== undefined) {
+    preservedPolicyBeforeEdit.provider = 'fake-materialized'
+    preservedPolicyBeforeEdit.model = 'fake-materialized-model'
+    preservedPolicyBeforeEdit.reasoningEffort = 'materialized-default'
+    await writeTeam(stateRoot, editedDynamic)
+  }
   const preservedPolicyEdit = await call('agent_teams_edit_plan', {
     operations: [{ action: 'update_member', member_name: 'implementer', role: 'implementation engineer' }],
   })
   const preservedPolicyAfterEdit = (await readTeam(stateRoot, 'dynamic-demo'))?.members.find(member => member.name === 'implementer')
-  check('model-facing staged member edit preserves an existing V2 role policy when omitted',
+  const preservedPolicyResolution = modelResolutionCalls.at(-1)
+  check('model-facing staged member edit omits materialized effort for non-explicit policy',
     preservedPolicyEdit.status === 'staged'
       && preservedPolicyBeforeEdit?.reasoningMode === 'target-default'
+      && preservedPolicyBeforeEdit.reasoningEffort === 'materialized-default'
       && preservedPolicyAfterEdit?.reasoningMode === preservedPolicyBeforeEdit.reasoningMode
-      && preservedPolicyAfterEdit?.reasoningEffort === preservedPolicyBeforeEdit.reasoningEffort)
+      && preservedPolicyAfterEdit?.reasoningEffort === 'materialized-default'
+      && preservedPolicyResolution?.provider === 'fake-materialized'
+      && preservedPolicyResolution?.model === 'fake-materialized-model'
+      && preservedPolicyResolution?.reasoningEffort === undefined)
 
   const legacyStaged = await readTeam(stateRoot, 'dynamic-demo')
   const legacyMember = legacyStaged?.members.find(member => member.name === 'implementer')

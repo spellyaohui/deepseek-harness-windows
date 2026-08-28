@@ -188,17 +188,20 @@ function pendingSelectionKey(parentSessionId: string, label: string): string {
 
 function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection | undefined {
   if (member === undefined) return undefined
+  const reasoningEffort = member.reasoningEffort?.trim()
   validateMemberRolePolicy({
     provider: member.provider,
     model: member.model,
     reasoningMode: member.reasoningMode,
-    reasoningEffort: member.reasoningEffort,
+    // Durable effort is often the adapter's materialized effective value. It
+    // is policy input only for explicit mode; target-default and route-aware
+    // must be validated from their durable role policy alone.
+    reasoningEffort: member.reasoningMode === 'explicit' ? reasoningEffort : undefined,
   })
   if (member.provider === undefined || member.model === undefined) return undefined
   const provider = (member.activeProvider ?? member.provider).trim()
   const model = (member.activeModel ?? member.model).trim()
   if (provider === '' || model === '') return undefined
-  const reasoningEffort = member.reasoningEffort?.trim()
   if (member.reasoningMode === undefined) return undefined
   return {
     provider,

@@ -474,7 +474,11 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             provider: mutation.provider,
             model: mutation.model,
             reasoningMode: mutation.reasoningMode ?? member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`) })(),
-            reasoningEffort: trimmedOptional(mutation.reasoningEffort),
+            ...mutation.reasoningEffort !== undefined
+              ? { reasoningEffort: trimmedOptional(mutation.reasoningEffort) }
+              : member.reasoningMode === 'explicit' && member.reasoningEffort !== undefined
+                ? { reasoningEffort: member.reasoningEffort }
+                : {},
             fallback: member.fallback,
           }, signal)
           member.role = trimmedOptional(mutation.role)
@@ -928,7 +932,11 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             provider: operation.provider?.trim() || member.provider || '',
             model: operation.model?.trim() || member.model || '',
             reasoningMode: operation.reasoning_mode ?? member.reasoningMode ?? (() => { throw new Error(`staged member "${member.name}" is missing reasoningMode`) })(),
-            reasoningEffort: operation.reasoning_effort ?? member.reasoningEffort,
+            ...operation.reasoning_effort !== undefined
+              ? { reasoningEffort: operation.reasoning_effort }
+              : member.reasoningMode === 'explicit' && member.reasoningEffort !== undefined
+                ? { reasoningEffort: member.reasoningEffort }
+                : {},
             executionPrompt: operation.execution_prompt ?? member.executionPrompt,
           }
         }

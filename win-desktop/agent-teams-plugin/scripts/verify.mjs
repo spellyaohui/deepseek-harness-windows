@@ -1463,11 +1463,53 @@ try {
   )
   disposeCold()
 
+  const validMaterializedColdPolicies = [
+    { label: 'target-default materialized default effort', reasoningMode: 'target-default', reasoningEffort: 'default-effort' },
+    { label: 'route-aware same-route inherited effort', reasoningMode: 'route-aware', reasoningEffort: 'inherited-effort' },
+  ]
+  for (const [index, policy] of validMaterializedColdPolicies.entries()) {
+    const teamId = `valid-cold-${index}`
+    await createTeamDir(restoreStateRoot, {
+      name: teamId,
+      id: teamId,
+      captainSessionId: 'captain-session',
+      createdAt: Date.now(),
+      members: [{
+        id: `cold-valid-${index}`,
+        name: 'alpha',
+        provider: 'provider-a',
+        model: 'model-a',
+        ...policy,
+        joinedAt: Date.now(),
+        status: 'idle',
+      }],
+      tasks: [],
+      taskSeq: 0,
+    })
+    const validChild = fakeChildContext({
+      label: `agent-teams:${teamId}:alpha`,
+      parentSessionId: 'captain-session',
+      cwd: restoreWorkspace,
+      agentProvider: 'provider-a',
+      agentModel: 'model-a',
+    })
+    let validResumeRejected = false
+    let validRoute
+    try {
+      const disposeValid = setupMemberSelection(validChild.context)
+      validRoute = await routedConfig(validChild)
+      disposeValid()
+    } catch {
+      validResumeRejected = true
+    }
+    check(`cold recovery keeps ${policy.label}`, !validResumeRejected && validRoute?.reasoningEffort === policy.reasoningEffort)
+    await removeTeamDir(restoreStateRoot, teamId)
+  }
+
   const invalidColdPolicies = [
-    { label: 'target-effort', expected: /reasoning effort|explicit/i, reasoningMode: 'target-default', reasoningEffort: 'stale-effort' },
-    { label: 'route-aware-effort', expected: /reasoning effort|explicit/i, reasoningMode: 'route-aware', reasoningEffort: 'stale-effort' },
     { label: 'explicit-missing-effort', expected: /explicit.*reasoning.*effort/i, reasoningMode: 'explicit' },
     { label: 'provider-only', expected: /provider.*model|route/i, provider: 'provider-a', model: undefined, reasoningMode: 'target-default' },
+    { label: 'model-only', expected: /provider.*model|route/i, provider: undefined, model: 'model-a', reasoningMode: 'target-default' },
   ]
   for (const [index, policy] of invalidColdPolicies.entries()) {
     const { label, expected, ...rolePolicy } = policy
