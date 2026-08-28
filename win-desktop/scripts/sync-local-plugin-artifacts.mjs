@@ -38,11 +38,16 @@ export function synchronizeLocalPluginArtifacts({
 
   for (const [sourceName, packageName] of artifacts) {
     const sourceLib = join(root, sourceName, 'lib')
+    const sourceManifest = join(root, sourceName, 'package.json')
     const installedRoot = join(root, 'node_modules', ...packageName.split('/'))
     const installedLib = join(installedRoot, 'lib')
+    const installedManifest = join(installedRoot, 'package.json')
 
     if (!fs.existsSync(sourceLib)) {
       throw new Error(`Local plugin build output is missing: ${sourceLib}`)
+    }
+    if (!fs.existsSync(sourceManifest)) {
+      throw new Error(`Local plugin package metadata is missing: ${sourceManifest}`)
     }
     if (!fs.existsSync(installedRoot)) {
       throw new Error(`Installed local plugin is missing: ${installedRoot}`)
@@ -50,6 +55,7 @@ export function synchronizeLocalPluginArtifacts({
 
     fs.rmSync(installedLib, { recursive: true, force: true })
     copyDirectory(sourceLib, installedLib, fs)
+    fs.copyFileSync(sourceManifest, installedManifest)
 
     if (!fs.readdirSync(installedLib).length) {
       throw new Error(`Local plugin artifact synchronization produced an empty lib directory: ${installedLib}`)

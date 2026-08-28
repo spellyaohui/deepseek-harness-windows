@@ -16,7 +16,8 @@ import {
   CAPTAIN_KEY, listArchivedTeamIds, readArchivedTeam, readUnreadMailbox, readTeam,
   taskDepthsById, taskVisualState,
 } from './state.ts'
-import type { MemberStatus, TeamState, TeamTask } from './types.ts'
+import type { MemberStatus, TaskKind, TeamState, TeamTask } from './types.ts'
+import type { RoleReasoningMode } from './selection-policy.ts'
 
 /** Visual task state for the activity panel. */
 export type VisualTaskState = 'blocked' | 'open' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -28,6 +29,7 @@ export interface TeamActivityMember {
   readonly role: string
   readonly provider: string
   readonly model: string
+  readonly reasoningMode: RoleReasoningMode
   readonly reasoningEffort: string
   readonly executionPrompt: string
   readonly status: MemberStatus
@@ -50,9 +52,20 @@ export interface TeamActivityTask {
   readonly model: string
   readonly dependencies: readonly string[]
   readonly depth: number
-  readonly kind?: string
+  readonly kind?: TaskKind
   readonly round?: number
   readonly verdict?: string
+  readonly objective?: string
+  readonly inScope?: readonly string[]
+  readonly outOfScope?: readonly string[]
+  readonly acceptance?: readonly string[]
+  readonly verify?: readonly string[]
+  readonly deliverables?: readonly string[]
+  readonly nonGoals?: readonly string[]
+  readonly reviewedTaskId?: string
+  readonly sourceTaskId?: string
+  readonly sourceFindingIds?: readonly string[]
+  readonly coverageOf?: readonly string[]
 }
 
 /** One captain-inbox preview row. */
@@ -143,6 +156,7 @@ export async function assembleTeamSnapshot(
       role: member.role ?? '',
       provider: member.provider?.trim() ?? '',
       model: member.model?.trim() ?? '',
+      reasoningMode: member.reasoningMode,
       reasoningEffort: member.reasoningEffort?.trim() ?? '',
       executionPrompt: member.executionPrompt ?? '',
       status: member.status,
@@ -188,6 +202,17 @@ export async function assembleTeamSnapshot(
       ...task.kind === undefined ? {} : { kind: task.kind },
       ...task.round === undefined ? {} : { round: task.round },
       ...task.verdict === undefined ? {} : { verdict: task.verdict },
+      ...task.objective === undefined ? {} : { objective: task.objective },
+      ...task.inScope === undefined ? {} : { inScope: task.inScope },
+      ...task.outOfScope === undefined ? {} : { outOfScope: task.outOfScope },
+      ...task.acceptance === undefined ? {} : { acceptance: task.acceptance },
+      ...task.verify === undefined ? {} : { verify: task.verify },
+      ...task.deliverables === undefined ? {} : { deliverables: task.deliverables },
+      ...task.nonGoals === undefined ? {} : { nonGoals: task.nonGoals },
+      ...task.reviewedTaskId === undefined ? {} : { reviewedTaskId: task.reviewedTaskId },
+      ...task.sourceTaskId === undefined ? {} : { sourceTaskId: task.sourceTaskId },
+      ...task.sourceFindingIds === undefined ? {} : { sourceFindingIds: task.sourceFindingIds },
+      ...task.coverageOf === undefined ? {} : { coverageOf: task.coverageOf },
     })),
     messageCount: captainInbox.length
       + members.reduce((count, member) => count + member.unread, 0),

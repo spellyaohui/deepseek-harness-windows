@@ -26,6 +26,25 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.14-desktop.8
+
+- running Team 误调用 `agent_teams_edit_plan` 时返回结构化下一步指引，不再产生工具异常；已批准计划保持不可变。
+- staged 成员编辑器保留 `target-default`、`route-aware` 和 `explicit` 三种推理权威；从 `explicit` 切到非明确模式时清除旧的显式思考强度。
+- staged 任务编辑支持完整质量契约，包括任务类型、目标、范围、验收、验证命令、交付物和覆盖项；Host 拒绝包含非字符串项的列表，空列表可明确清空字段。
+- implementation/repair 的交付物必须由 `inScope` 覆盖；空 `changedPaths` 必须提供 `noChangesReason`，并且不能隐藏已声明交付物。
+
+### v0.1.14-desktop.7
+
+- 当前会话尚未创建或加入 Team 时，`agent_teams_status` 作为只读探测返回 `active: false`，不再显示红色参与者错误。
+- `agent_teams_claim_task`、`agent_teams_update_task` 和 `agent_teams_send_message` 继续严格校验成员身份，非成员不能修改 Team 状态或冒充成员。
+- running Team 可以把 implementation 预先排到活跃 requirements 之后，但必须声明依赖；调度仍会等待 requirements 以 `verdict=pass` 完成。
+
+### v0.1.14-desktop.6
+
+- 在任务写盘前省略空的可选字符串，避免非 GPT 模型的工具调用生成严格 V2 校验无法重新读取的 Team。
+- 队长尚未创建 Team 时，`agent_teams_delete` 改为幂等返回“无需删除”，不再显示红色工具错误。
+- 继续严格使用 V2 Profile/Team 和角色级 Provider、模型、推理策略；没有加入旧状态迁移层。
+
 ### v0.1.14-desktop.5
 
 - 每个成员的 Provider、model 和 reasoning policy 都在 Profile 角色卡中配置。

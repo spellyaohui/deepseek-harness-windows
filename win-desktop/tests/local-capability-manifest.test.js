@@ -41,13 +41,13 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.1-rc.22')
-  assert.equal(packageLock.version, '0.1.1-rc.22')
-  assert.equal(packageLock.packages[''].version, '0.1.1-rc.22')
-  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.5')
+  assert.equal(packageJson.version, '0.1.1-rc.25')
+  assert.equal(packageLock.version, '0.1.1-rc.25')
+  assert.equal(packageLock.packages[''].version, '0.1.1-rc.25')
+  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.8')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.14-desktop.5',
+    '0.1.14-desktop.8',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -123,6 +123,12 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
 })
 
 test('critical integration markers retain local capability ownership', () => {
+  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.1-rc\.25` interaction invariants/)
+  assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
+  assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /AgentTeams incidents that must not recur/)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /tdd\.edit-plan\.running-team-returns-guidance-without-tool-error/)
+
   assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.card/)
 
   assertContains('cpa-provider-plugin/src/client/index.tsx', /normalize-provider-profile/)
@@ -136,6 +142,9 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('agent-teams-plugin/src/scheduler.ts', /omit the assignee property entirely/)
   assertContains('agent-teams-plugin/src/tools.ts', /members cannot set assignee when claiming a task/)
   assertContains('agent-teams-plugin/src/tools.ts', /name: 'agent_teams_edit_plan'/)
+  assertContains('agent-teams-plugin/src/tools.ts', /status: 'already_running'/)
+  assertContains('agent-teams-plugin/src/quality-gates.ts', /every deliverable path must be covered by inScope/)
+  assertContains('agent-teams-plugin/src/quality-gates.ts', /empty changedPaths requires noChangesReason/)
   assertContains('agent-teams-plugin/src/command.ts', /approval="required"/)
   assertContains('agent-teams-plugin/src/client/ActivityPanel.tsx', /ACTIVITY_HALT_URL/)
   assertContains('agent-teams-plugin/package.json', /@deepseek-ai\/dsh-client-ui-model-selection/)

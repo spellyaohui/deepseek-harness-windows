@@ -208,6 +208,11 @@ rejectCreate('tdd.create.implementation-requires-inscope-and-verify', team(), {
   acceptance: ['done'],
 })
 
+rejectCreate('tdd.create.implementation-deliverable-must-be-in-scope', team(), {
+  subject: 'impl',
+  ...implContract({ deliverables: ['artifacts/report.md'] }),
+}, (result) => /deliverable.*inScope|deliverable.*undeclared|deliverable/i.test(String(result.error ?? result.reason ?? '')))
+
 rejectCreate('tdd.create.review-requires-reviewed-task', team(), {
   subject: 'review',
   kind: 'review',
@@ -289,6 +294,26 @@ rejectCreate('tdd.create.implementation-blocked-until-requirements-pass', team({
   const requirements = task({
     id: 't1',
     kind: 'requirements',
+    status: 'in_progress',
+    objective: 'Converge requirements',
+    acceptance: ['no open questions'],
+  })
+  const result = api.validateCreateTask?.(team({
+    phase: 'running',
+    tasks: [requirements],
+    taskSeq: 1,
+  }), {
+    subject: 'queued implementation',
+    ...implContract(),
+    dependencies: ['t1'],
+  })
+  check('tdd.create.running-implementation-can-queue-behind-requirements', result?.ok === true)
+}
+
+{
+  const requirements = task({
+    id: 't1',
+    kind: 'requirements',
     status: 'pending',
     objective: 'Converge requirements',
     acceptance: ['no open questions'],
@@ -360,6 +385,35 @@ rejectComplete('tdd.complete.implementation-requires-all-verify-commands', task(
   acceptanceResults: [{ criterion: 'parser accepts empty input', status: 'passed' }],
   commandsRun: [{ command: 'pnpm test', status: 'passed' }],
 })
+
+rejectComplete('tdd.complete.empty-changed-paths-requires-no-change-reason', task(implContract()), {
+  status: 'completed',
+  changedPaths: [],
+  acceptanceResults: [{ criterion: 'parser accepts empty input', status: 'passed' }],
+  commandsRun: [{ command: 'pnpm test', status: 'passed' }],
+}, (result) => /no.?change|changedPaths/i.test(String(result.error ?? result.reason ?? '')))
+
+rejectComplete('tdd.complete.empty-changed-paths-cannot-hide-deliverables', task(implContract({
+  inScope: ['artifacts/'],
+  deliverables: ['artifacts/report.md'],
+})), {
+  status: 'completed',
+  changedPaths: [],
+  noChangesReason: 'The report was produced outside the workspace.',
+  acceptanceResults: [{ criterion: 'parser accepts empty input', status: 'passed' }],
+  commandsRun: [{ command: 'pnpm test', status: 'passed' }],
+}, (result) => /deliverable|changedPaths/i.test(String(result.error ?? result.reason ?? '')))
+
+{
+  const result = api.evaluateQualityCompletion?.(task(implContract()), {
+    status: 'completed',
+    changedPaths: [],
+    noChangesReason: 'This verification-only task produced no workspace file changes.',
+    acceptanceResults: [{ criterion: 'parser accepts empty input', status: 'passed' }],
+    commandsRun: [{ command: 'pnpm test', status: 'passed' }],
+  })
+  check('tdd.complete.empty-changed-paths-accepts-explicit-no-change-reason', result?.ok === true)
+}
 
 rejectComplete('tdd.complete.out-of-scope-path-cannot-complete', task(implContract()), {
   status: 'completed',
@@ -901,17 +955,116 @@ console.log('quality-gates TDD — G. persistence / prompts')
 
 {
   let usage = ''
+  let parseStagedPlanMutation
   try {
     const index = require('../lib/index.js')
+    const stagedPlanPayload = require('../lib/staged-plan-payload.js')
     if (typeof index.usageSectionText === 'function') {
       usage = index.usageSectionText('agent_teams_resume, agent_teams_update_task')
     }
+    parseStagedPlanMutation = stagedPlanPayload.stagedPlanMutationFromPayload
   } catch {
     usage = ''
   }
   check(
     'tdd.usage.mentions-explicit-resume-and-verdict',
     /resume/i.test(usage) && /verdict/i.test(usage),
+  )
+  const targetDefault = typeof parseStagedPlanMutation === 'function'
+    ? parseStagedPlanMutation({
+      action: 'update_member',
+      memberName: 'implementer',
+      provider: 'cpa',
+      model: 'cheap-model',
+      reasoningMode: 'target-default',
+      reasoningEffort: 'high',
+    })
+    : undefined
+  const routeAware = typeof parseStagedPlanMutation === 'function'
+    ? parseStagedPlanMutation({
+      action: 'update_member',
+      memberName: 'tester',
+      provider: 'cpa',
+      model: 'cheap-model',
+      reasoningMode: 'route-aware',
+      reasoningEffort: 'high',
+    })
+    : undefined
+  const explicit = typeof parseStagedPlanMutation === 'function'
+    ? parseStagedPlanMutation({
+      action: 'update_member',
+      memberName: 'reviewer',
+      provider: 'cpa',
+      model: 'review-model',
+      reasoningMode: 'explicit',
+      reasoningEffort: 'max',
+    })
+    : undefined
+  check(
+    'tdd.plan-http.member-policy-modes-preserve-authority',
+    targetDefault?.reasoningMode === 'target-default'
+      && targetDefault.reasoningEffort === undefined
+      && routeAware?.reasoningMode === 'route-aware'
+      && routeAware.reasoningEffort === undefined
+      && explicit?.reasoningMode === 'explicit'
+      && explicit.reasoningEffort === 'max',
+  )
+  const taskContract = typeof parseStagedPlanMutation === 'function'
+    ? parseStagedPlanMutation({
+      action: 'update_task',
+      taskId: 't2',
+      subject: 'implementation',
+      description: 'Implement the approved requirements',
+      assignee: 'implementer',
+      dependencies: ['t1'],
+      kind: 'implementation',
+      round: 2,
+      objective: 'Ship the approved implementation',
+      inScope: ['src/', 'tests/'],
+      outOfScope: ['dist/'],
+      acceptance: ['behavior passes'],
+      verify: ['pnpm test'],
+      deliverables: ['src/index.ts'],
+      nonGoals: ['do not publish'],
+      reviewedTaskId: '',
+      sourceTaskId: '',
+      sourceFindingIds: [],
+      coverageOf: ['goal'],
+    })
+    : undefined
+  check(
+    'tdd.plan-http.task-contract-round-trips-completely',
+    taskContract?.kind === 'implementation'
+      && taskContract.round === 2
+      && taskContract.objective === 'Ship the approved implementation'
+      && taskContract.inScope?.join(',') === 'src/,tests/'
+      && taskContract.outOfScope?.join(',') === 'dist/'
+      && taskContract.acceptance?.join(',') === 'behavior passes'
+      && taskContract.verify?.join(',') === 'pnpm test'
+      && taskContract.deliverables?.join(',') === 'src/index.ts'
+      && taskContract.nonGoals?.join(',') === 'do not publish'
+      && taskContract.reviewedTaskId === ''
+      && taskContract.sourceTaskId === ''
+      && Array.isArray(taskContract.sourceFindingIds)
+      && taskContract.sourceFindingIds.length === 0
+      && taskContract.coverageOf?.join(',') === 'goal',
+  )
+  let invalidTaskListRejected = false
+  if (typeof parseStagedPlanMutation === 'function') {
+    try {
+      parseStagedPlanMutation({
+        action: 'update_task',
+        taskId: 't2',
+        subject: 'implementation',
+        deliverables: [{}],
+      })
+    } catch (error) {
+      invalidTaskListRejected = /deliverables.*strings/i.test(String(error?.message ?? error))
+    }
+  }
+  check(
+    'tdd.plan-http.rejects-non-string-list-items-instead-of-clearing-fields',
+    invalidTaskListRejected,
   )
 }
 
@@ -1008,9 +1161,51 @@ console.log('quality-gates TDD — tool-level closed loop')
   }
 
   try {
+    let deleteBeforeCreate
+    try {
+      deleteBeforeCreate = await call('agent_teams_delete', {})
+    } catch {
+      deleteBeforeCreate = undefined
+    }
+    check(
+      'tdd.delete.without-active-team-is-idempotent.tool',
+      deleteBeforeCreate?.deleted === false && deleteBeforeCreate.team_name === '',
+    )
+
+    let statusBeforeCreate
+    let statusBeforeCreateRender
+    try {
+      statusBeforeCreate = await call('agent_teams_status', {})
+      statusBeforeCreateRender = definitions
+        .get('agent_teams_status')
+        ?.output?.render?.({}, statusBeforeCreate)
+    } catch {
+      statusBeforeCreate = undefined
+      statusBeforeCreateRender = undefined
+    }
+    check(
+      'tdd.status.without-active-team-is-a-clean-probe.tool',
+      statusBeforeCreate?.active === false
+        && statusBeforeCreateRender?.[0]?.text === 'No active Team for this session.',
+    )
+
     await call('agent_teams_create', { name: 'Gates', description: 'tool loop' })
     await call('agent_teams_add_member', { name: 'implementer', role: 'implementer' })
     await call('agent_teams_add_member', { name: 'reviewer', role: 'correctness-reviewer' })
+
+    const runningPlanEdit = await call('agent_teams_edit_plan', {
+      operations: [{ action: 'update_task', task_id: 'not-created-yet' }],
+    })
+    const runningPlanEditRender = definitions
+      .get('agent_teams_edit_plan')
+      ?.output?.render?.({}, runningPlanEdit)
+    check(
+      'tdd.edit-plan.running-team-returns-guidance-without-tool-error',
+      runningPlanEdit?.status === 'already_running'
+        && /already running/i.test(runningPlanEdit?.message ?? '')
+        && /create_task|update_task|reassign_task/i.test(runningPlanEdit?.next_step ?? '')
+        && /already running/i.test(runningPlanEditRender?.[0]?.text ?? ''),
+    )
 
     const work = await call('agent_teams_create_task', { subject: 'legacy work' })
     const persistedWork = (await readTeam(join(workspace, '.agent-teams'), 'gates'))?.tasks.find((item) => item.id === work.task_id)
@@ -1056,6 +1251,38 @@ console.log('quality-gates TDD — tool-level closed loop')
         (await readTeam(join(workspace, '.agent-teams'), 'gates'))?.halted !== true,
       )
     }
+
+    let blankOptionalTask
+    try {
+      const created = await call('agent_teams_create_task', {
+        subject: 'work with blank optional fields',
+        assignee: 'implementer',
+        kind: 'work',
+        round: 1,
+        objective: '',
+        inScope: [],
+        outOfScope: [],
+        acceptance: [],
+        verify: [],
+        deliverables: [],
+        nonGoals: [],
+        reviewedTaskId: '',
+        sourceTaskId: '',
+        sourceFindingIds: [],
+        coverageOf: ['goal'],
+      })
+      blankOptionalTask = (await readTeam(join(workspace, '.agent-teams'), 'gates'))
+        ?.tasks.find((item) => item.id === created.task_id)
+    } catch {
+      blankOptionalTask = undefined
+    }
+    check(
+      'tdd.create.blank-optional-strings-do-not-corrupt-v2-team.tool',
+      blankOptionalTask !== undefined
+        && !Object.hasOwn(blankOptionalTask, 'objective')
+        && !Object.hasOwn(blankOptionalTask, 'reviewedTaskId')
+        && !Object.hasOwn(blankOptionalTask, 'sourceTaskId'),
+    )
   } finally {
     await rm(workspace, { recursive: true, force: true })
   }

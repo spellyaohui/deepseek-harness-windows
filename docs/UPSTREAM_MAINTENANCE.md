@@ -7,9 +7,9 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.22`
+- Windows desktop wrapper: `0.1.1-rc.25`
 - OpenCode capability validation plugin: `0.1.1`
-- AgentTeams fork: `0.1.14-desktop.5`, based on upstream `0.1.14`
+- AgentTeams fork: `0.1.14-desktop.8`, based on upstream `0.1.14`
 - CPA provider plugin: `0.1.4`
 - Models settings fork: `0.1.1-rc.2-desktop.2`
 - Desktop Settings plugin: `0.1.1`
@@ -19,7 +19,7 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, Team/Native routing markers, native-tool suppression, member claim compatibility and durable task lifecycle | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract and catalog seam | `src/index.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/tools.ts`, `src/members.ts`, `src/scheduler.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
+| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, Team/Native routing markers, native-tool suppression, member claim compatibility, clean inactive status probes, requirements-dependent implementation queueing, staged complete-contract editing, deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization and durable task lifecycle | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract, catalog seam, participant and quality-gate boundaries, staged contract boundary, and strict V2 persistence boundary | `src/index.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/members.ts`, `src/scheduler.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/quality-gates-tdd.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
 | Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
 ## CPA owner
@@ -91,6 +91,23 @@ fork's settings contract:
 
 No registered capability required `SUPERSEDED_BY_DESIGN` in this refresh.
 
+### AgentTeams incidents that must not recur
+
+| Observed symptom | Required behavior after rc.25 | Regression evidence |
+| --- | --- | --- |
+| `you are not leading any team yet — call agent_teams_create first` during cleanup | `agent_teams_delete` returns an idempotent no-op when no captain Team exists | `tdd.delete.without-active-team-is-idempotent.tool` |
+| `you do not lead or belong to any active team yet` during a status probe | `agent_teams_status` returns `active: false`; participant mutation and messaging remain strict | `tdd.status.without-active-team-is-a-clean-probe.tool` plus lifecycle identity checks |
+| A non-GPT model supplied blank optional strings and the newly written Team then failed strict V2 loading | Blank optional task strings are omitted before persistence; V2 validation remains strict and no compatibility migration is added | `tdd.create.blank-optional-strings-do-not-corrupt-v2-team.tool` and strict-state verification |
+| `implementation is blocked until a requirements task completes with verdict=pass` while constructing a safe running DAG | Implementation may be queued only when it explicitly depends on the open requirements task; dispatch still waits for `completed + verdict=pass` | `tdd.create.running-implementation-can-queue-behind-requirements` and requirements scheduling checks |
+| `team ... is already running; its plan can no longer be edited` surfaced as a red tool error | `agent_teams_edit_plan` returns structured `already_running` guidance and performs no write; only staged plans can be edited atomically | `tdd.edit-plan.running-team-returns-guidance-without-tool-error` and staged atomic lifecycle checks |
+| The staged Web editor dropped `reasoningMode`, replayed a materialized non-explicit effort, or retained an old explicit effort after switching to inheritance/routing | Snapshots require all three reasoning modes; only `explicit` sends effort, and an old explicit effort is retained only when the target mode remains `explicit` | `staged plan browser persists all three member reasoning policies without leaking non-explicit effort`, `tdd.plan-http.member-policy-modes-preserve-authority`, `browser staged member edit can switch explicit policy to target-default without retaining explicit effort`, `model-facing staged member edit can switch explicit policy to route-aware without retaining explicit effort`, and strict V2 reasoning-mode checks |
+| The model-facing tool supported the full quality contract but the Web editor/Host route silently kept only basic task fields or filtered malformed list items into accidental clears | Snapshot, browser-shaped Host payload, and durable mutation round-trip every quality field; empty lists clear fields, while lists containing any non-string item are rejected | `staged plan browser and host preserve the complete quality task contract`, `tdd.plan-http.task-contract-round-trips-completely`, `tdd.plan-http.rejects-non-string-list-items-instead-of-clearing-fields`, `snapshot and browser-shaped Host payload persist the complete staged task contract`, and `browser-shaped empty lists and strings clear every optional staged task field durably` |
+| Implementation/repair claimed delivery with uncovered deliverables or `changedPaths: []` | Deliverables must be inside `inScope`; empty changed paths need `noChangesReason` and cannot hide declared deliverables | `tdd.create.implementation-deliverable-must-be-in-scope`, `tdd.complete.empty-changed-paths-requires-no-change-reason`, and `tdd.complete.empty-changed-paths-cannot-hide-deliverables` |
+
+These are release-blocking observable contracts, not historical notes. During
+an upstream refresh, classify the implementation owner and keep each listed
+regression active even if the local code is replaced by an upstream equivalent.
+
 Record one result for every row above during a refresh:
 
 - `UPSTREAM_EQUIVALENT`: upstream owns equivalent observable behavior and the
@@ -131,7 +148,8 @@ npm run verify:upstream
 ```
 
 The command runs the Models, CPA, AgentTeams, Session Markdown, and desktop
-test suites sequentially, then synchronizes each local plugin `lib`
-directory into its existing `file:` dependency before wrapper tests verify the
-packed runtime surface. It must not install dependencies, publish packages,
-build installers, access the network, or mutate live session/team state.
+test suites sequentially, then synchronizes each local plugin `lib` directory
+and package manifest into its existing `file:` dependency before wrapper tests
+verify the packed runtime surface. It must not install dependencies, publish
+packages, build installers, access the network, or mutate live session/team
+state.

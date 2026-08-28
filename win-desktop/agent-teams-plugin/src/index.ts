@@ -28,7 +28,6 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import {
   haltTeamWork,
   registerAgentTeamsTools,
-  type StagedPlanMutation,
   type ToolsConfig,
 } from './tools.ts'
 import { installAgentTeamsGestureBoundary, registerAgentTeamsCommand } from './command.ts'
@@ -37,6 +36,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { collectArchivedTeamsActivity, collectTeamsActivity } from './snapshot.ts'
 import { findTeamByCaptain } from './state.ts'
+import { stagedPlanMutationFromPayload } from './staged-plan-payload.ts'
 import { formatProfilesForPrompt, type TeamProfileConfig } from './profiles.ts'
 import { qualityPlanningPrompt } from './quality-gates.ts'
 import { buildHostModelCatalog } from './host-model-catalog.ts'
@@ -179,7 +179,7 @@ ${delegationPolicyUsagePreamble(policy)} Follow this protocol:
 6. If the user explicitly asks to pause a running member, its open attempt remains parked after interruption; after answering the user, send that same member guidance with agent_teams_send_message so it continues the same attempt. Do not interrupt members for an ordinary user question that did not request a pause. If work must change owner, restart from scratch, or be taken over, call agent_teams_reassign_task first. Reassign to another idle member, retry with the same member, or use assignee=captain before doing it yourself. Reassignment revokes the old attempt and waits for that member to quiesce, preventing late results from overwriting the new attempt.
 7. Tasks carry attempt_id capabilities. Members must use the current attempt_id for updates; stale-attempt errors mean ownership changed. As a member, call agent_teams_claim_task with the task id only and omit assignee; automatic assignments are already pre-claimed. Check status after progress notifications until every required task is terminal and every member is idle/ready; do not busy-poll or require reports from members with no assigned work.
 8. If the user names a configured profile / template / fixed roster, pass that name as profile= to agent_teams_create. After a successful profile create, do not recreate the same members. Seed profiles provide template tasks; captain-planning profiles provide the roster and guardrails, so design their DAG while staged. Profile fallback routes are opt-in and may retry only the configured fallback after an eligible provider failure. When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".
-9. Quality kinds (requirements, implementation, verification, review, repair, integration) are opt-in contracts: use them only when the user or profile requests quality-mode planning. They need the required objective/acceptance/verification evidence; review/requirements can complete only with verdict=pass, and needs_revision/reject must fail with findings. The automatic repair/review loop must never depend on a failed task.
+9. Quality kinds (requirements, implementation, verification, review, repair, integration) are opt-in contracts: use them only when the user or profile requests quality-mode planning. They need the required objective/acceptance/verification evidence; review/requirements can complete only with verdict=pass, and needs_revision/reject must fail with findings. Implementation/repair deliverables must be covered by inScope; an empty changedPaths requires noChangesReason and cannot hide declared deliverables. The automatic repair/review loop must never depend on a failed task.
 10. ${qualityPlanningPrompt()}
 11. Present the team's results to the user, then agent_teams_delete the team unless the user wants to keep working with it. Never perform a real deployment without explicit user confirmation.
 
@@ -460,62 +460,7 @@ export function apply(ctx: Context, config: Config): void {
             res.end(JSON.stringify({ ok: true, phase: 'archived', ...discarded }))
             return
           }
-          const dependencies = Array.isArray(payload['dependencies'])
-            ? payload['dependencies'].filter((item): item is string => typeof item === 'string')
-            : []
-          let mutation: StagedPlanMutation
-          if (action === 'update_member') {
-            if (typeof payload['memberName'] !== 'string'
-              || typeof payload['provider'] !== 'string'
-              || typeof payload['model'] !== 'string') throw new Error('memberName, provider, and model are required')
-            mutation = {
-              action,
-              memberName: payload['memberName'],
-              provider: payload['provider'],
-              model: payload['model'],
-              ...typeof payload['role'] === 'string' || payload['role'] === null ? { role: payload['role'] as string | null } : {},
-              ...typeof payload['reasoningEffort'] === 'string' || payload['reasoningEffort'] === null
-                ? { reasoningEffort: payload['reasoningEffort'] as string | null }
-                : {},
-              ...typeof payload['executionPrompt'] === 'string' || payload['executionPrompt'] === null
-                ? { executionPrompt: payload['executionPrompt'] as string | null }
-                : {},
-            }
-          } else if (action === 'update_task') {
-            if (typeof payload['taskId'] !== 'string' || typeof payload['subject'] !== 'string') {
-              throw new Error('taskId and subject are required')
-            }
-            mutation = {
-              action,
-              taskId: payload['taskId'],
-              subject: payload['subject'],
-              dependencies,
-              ...typeof payload['description'] === 'string' || payload['description'] === null
-                ? { description: payload['description'] as string | null }
-                : {},
-              ...typeof payload['assignee'] === 'string' || payload['assignee'] === null
-                ? { assignee: payload['assignee'] as string | null }
-                : {},
-            }
-          } else if (action === 'add_task') {
-            if (typeof payload['subject'] !== 'string') throw new Error('subject is required')
-            mutation = {
-              action,
-              subject: payload['subject'],
-              dependencies,
-              ...typeof payload['description'] === 'string' || payload['description'] === null
-                ? { description: payload['description'] as string | null }
-                : {},
-              ...typeof payload['assignee'] === 'string' || payload['assignee'] === null
-                ? { assignee: payload['assignee'] as string | null }
-                : {},
-            }
-          } else if (action === 'remove_task') {
-            if (typeof payload['taskId'] !== 'string') throw new Error('taskId is required')
-            mutation = { action, taskId: payload['taskId'] }
-          } else {
-            throw new Error(`unknown plan action "${action}"`)
-          }
+          const mutation = stagedPlanMutationFromPayload(payload)
           const updated = await agentTeamsRuntime.updateStagedPlan(captain, teamId, mutation)
           res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
           res.end(JSON.stringify({ ok: true, phase: updated.phase, members: updated.members.length, tasks: updated.tasks.length }))

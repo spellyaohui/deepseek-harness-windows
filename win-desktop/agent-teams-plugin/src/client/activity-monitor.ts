@@ -1,5 +1,8 @@
 /** Shared, demand-driven state for the AgentTeams browser monitor. */
 
+import type { RoleReasoningMode } from '../selection-policy.ts'
+import type { TaskKind } from '../types.ts'
+
 /** One member row of a host snapshot. */
 export interface ActivityMember {
   readonly id: string
@@ -7,6 +10,7 @@ export interface ActivityMember {
   readonly role: string
   readonly provider?: string
   readonly model?: string
+  readonly reasoningMode: RoleReasoningMode
   readonly reasoningEffort?: string
   readonly executionPrompt?: string
   readonly status?: 'idle' | 'working' | 'removed'
@@ -29,9 +33,20 @@ export interface ActivityTask {
   readonly model?: string
   readonly dependencies: readonly string[]
   readonly depth: number
-  readonly kind?: string
+  readonly kind?: TaskKind
   readonly round?: number
   readonly verdict?: string
+  readonly objective?: string
+  readonly inScope?: readonly string[]
+  readonly outOfScope?: readonly string[]
+  readonly acceptance?: readonly string[]
+  readonly verify?: readonly string[]
+  readonly deliverables?: readonly string[]
+  readonly nonGoals?: readonly string[]
+  readonly reviewedTaskId?: string
+  readonly sourceTaskId?: string
+  readonly sourceFindingIds?: readonly string[]
+  readonly coverageOf?: readonly string[]
 }
 
 /** One captain-inbox preview row. */

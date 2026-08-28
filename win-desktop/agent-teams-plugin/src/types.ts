@@ -128,6 +128,8 @@ export interface TeamTask {
   deliverables?: string[]
   nonGoals?: string[]
   changedPaths?: string[]
+  /** Required when an implementation/repair completes with no changed paths. */
+  noChangesReason?: string
   acceptanceResults?: AcceptanceResult[]
   commandsRun?: CommandResult[]
   reviewedTaskId?: string
@@ -157,7 +159,7 @@ export interface TeamMember {
   /** Resolved model captured when this member was created. */
   model: string
   /** Role-level reasoning policy captured with the route for cold recovery. */
-  reasoningMode?: import('./selection-policy.ts').RoleReasoningMode
+  reasoningMode: import('./selection-policy.ts').RoleReasoningMode
   /** Resolved reasoning effort captured from the captain or target model default. */
   reasoningEffort?: string
   /** Prompt specific to this member's execution turns. */

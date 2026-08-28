@@ -90,6 +90,50 @@ evidence that the local capability is preserved.
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.
 
+## AgentTeams `v0.1.1-rc.25` interaction invariants
+
+- Global AgentTeams settings own only Team/Native delegation. Each Profile
+  role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
+  use its configured Provider/model/effort; only `target-default` and
+  `route-aware` may resolve from the captain or target route. Do not restore a
+  global member-model override or add a legacy Profile/Team migration layer.
+- The staged member editor and its activity snapshot must preserve all three
+  role reasoning modes. `reasoningMode` is required in every V2 member record;
+  only `explicit` Web mutations may carry `reasoningEffort`. Materialized
+  effort captured for `target-default` or `route-aware` cold recovery must
+  never be reinterpreted as an explicit editor override. Switching an existing
+  `explicit` member to either non-explicit mode must clear the old explicit
+  effort before selection; omitted effort may be retained only when both the
+  stored and target modes are `explicit`.
+- `agent_teams_status` is a clean read-only probe before the caller creates or
+  joins a Team and must return `active: false`. `agent_teams_delete` is an
+  idempotent no-op before the captain creates a Team. Claim, update, and
+  messaging tools remain participant-authorized and must not inherit those
+  relaxed probe/delete semantics.
+- Blank optional task strings from non-GPT tool calls must be omitted before
+  strict V2 persistence. Profile and Team state still require
+  `schemaVersion: 2`; malformed or older documents are rejected, not migrated.
+- A running Team may queue implementation behind an open requirements task
+  only through an explicit dependency. The scheduler must still wait for that
+  requirements task to finish with `verdict=pass` before implementation runs.
+- `agent_teams_edit_plan` may write only a staged Team. Calling it for a running
+  Team returns structured `already_running` guidance with zero plan writes and
+  points the caller to create-task, message, reassign, or status tools. Staged
+  edits remain one atomic batch and support the complete quality contract.
+  The activity snapshot, browser form, Host payload parser, and durable
+  mutation must round-trip every quality field; empty arrays intentionally
+  clear list fields instead of being omitted or replaced by stale values. The
+  Host boundary must reject any list containing a non-string item instead of
+  filtering it into a partial update or accidental clear.
+- Implementation and repair deliverables must be covered by `inScope`.
+  Completion with `changedPaths: []` requires a non-empty `noChangesReason`,
+  and an empty changed-path list can never hide declared deliverables. Ordinary
+  `work` tasks retain their output-only completion compatibility.
+- Preserve the rc.25 regressions in AgentTeams quality-gate/lifecycle suites
+  and the wrapper capability manifest. Future Harness or AgentTeams refreshes
+  must make these tests pass against the classified owner; deleting, skipping,
+  or weakening a regression is not an acceptable conflict resolution.
+
 Do not collapse these owners into one plugin during conflict resolution. Do not
 move provider-specific behavior into the Models fork.
 

@@ -14,7 +14,9 @@ import { join } from 'node:path'
 import { haltTeamWork, registerAgentTeamsTools } from '../lib/tools.js'
 import { buildActivationDirective, invokedAgentTeamsGoal, invokedAgentTeamsInvocation, installAgentTeamsGestureBoundary, profileCommandName, registerAgentTeamsCommand } from '../lib/command.js'
 import { readArchivedTeam, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
-import { collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
+import { assembleTeamSnapshot, collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
+import { stagedPlanMutationFromPayload } from '../lib/staged-plan-payload.js'
+import { buildStagedTaskMutationPayload } from '../lib/client/staged-task-mutation.js'
 import {
   NATIVE_DELEGATION_TOOLS,
   policyMarker,
@@ -754,6 +756,102 @@ try {
     assignee: 'implementer',
     dependencies: [dynamicFirst.task_id],
   })
+  const roundTripSource = await readTeam(stateRoot, 'dynamic-demo')
+  const roundTripSnapshot = roundTripSource === undefined
+    ? undefined
+    : await assembleTeamSnapshot(ctx, stateRoot, 'lifecycle', roundTripSource)
+  const roundTripTask = roundTripSnapshot?.tasks.find(item => item.id === dynamicSecond.task_id)
+  if (roundTripTask !== undefined) {
+    await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', stagedPlanMutationFromPayload(buildStagedTaskMutationPayload({
+      sessionId: captain.id,
+      teamId: 'dynamic-demo',
+      taskId: roundTripTask.id,
+      subject: 'browser quality contract',
+      description: 'Persist every browser-editable task field.',
+      assignee: roundTripTask.assignee,
+      dependencies: roundTripTask.dependencies.join(', '),
+      kind: 'work',
+      round: '3',
+      objective: 'Prove the complete staged contract survives the Host boundary.',
+      inScope: 'src/\ntests/',
+      outOfScope: 'dist/',
+      acceptance: 'every field persists',
+      verify: 'pnpm test',
+      deliverables: 'src/index.ts',
+      nonGoals: 'do not publish',
+      reviewedTaskId: dynamicFirst.task_id,
+      sourceTaskId: dynamicFirst.task_id,
+      sourceFindingIds: 'finding-1',
+      coverageOf: 'goal-1',
+    })))
+  }
+  const roundTrippedTask = (await readTeam(stateRoot, 'dynamic-demo'))?.tasks.find(item => item.id === dynamicSecond.task_id)
+  check('snapshot and browser-shaped Host payload persist the complete staged task contract',
+    roundTripTask !== undefined
+      && roundTrippedTask?.subject === 'browser quality contract'
+      && roundTrippedTask.description === 'Persist every browser-editable task field.'
+      && roundTrippedTask.assignee === roundTripTask.assignee
+      && roundTrippedTask.dependencies.join(',') === roundTripTask.dependencies.join(',')
+      && roundTrippedTask.kind === 'work'
+      && roundTrippedTask.round === 3
+      && roundTrippedTask.objective === 'Prove the complete staged contract survives the Host boundary.'
+      && roundTrippedTask.inScope?.join(',') === 'src/,tests/'
+      && roundTrippedTask.outOfScope?.join(',') === 'dist/'
+      && roundTrippedTask.acceptance?.join(',') === 'every field persists'
+      && roundTrippedTask.verify?.join(',') === 'pnpm test'
+      && roundTrippedTask.deliverables?.join(',') === 'src/index.ts'
+      && roundTrippedTask.nonGoals?.join(',') === 'do not publish'
+      && roundTrippedTask.reviewedTaskId === dynamicFirst.task_id
+      && roundTrippedTask.sourceTaskId === dynamicFirst.task_id
+      && roundTrippedTask.sourceFindingIds?.join(',') === 'finding-1'
+      && roundTrippedTask.coverageOf?.join(',') === 'goal-1')
+  const clearSource = await readTeam(stateRoot, 'dynamic-demo')
+  const clearSnapshot = clearSource === undefined
+    ? undefined
+    : await assembleTeamSnapshot(ctx, stateRoot, 'lifecycle', clearSource)
+  const clearTask = clearSnapshot?.tasks.find(item => item.id === dynamicSecond.task_id)
+  if (clearTask !== undefined) {
+    await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', stagedPlanMutationFromPayload(buildStagedTaskMutationPayload({
+      sessionId: captain.id,
+      teamId: 'dynamic-demo',
+      taskId: clearTask.id,
+      subject: clearTask.subject,
+      description: '',
+      assignee: clearTask.assignee,
+      dependencies: '',
+      kind: 'work',
+      round: '',
+      objective: '',
+      inScope: '',
+      outOfScope: '',
+      acceptance: '',
+      verify: '',
+      deliverables: '',
+      nonGoals: '',
+      reviewedTaskId: '',
+      sourceTaskId: '',
+      sourceFindingIds: '',
+      coverageOf: '',
+    })))
+  }
+  const clearedTask = (await readTeam(stateRoot, 'dynamic-demo'))?.tasks.find(item => item.id === dynamicSecond.task_id)
+  check('browser-shaped empty lists and strings clear every optional staged task field durably',
+    clearTask !== undefined
+      && clearedTask?.dependencies.length === 0
+      && clearedTask.kind === 'work'
+      && !Object.hasOwn(clearedTask, 'round')
+      && !Object.hasOwn(clearedTask, 'description')
+      && !Object.hasOwn(clearedTask, 'objective')
+      && !Object.hasOwn(clearedTask, 'inScope')
+      && !Object.hasOwn(clearedTask, 'outOfScope')
+      && !Object.hasOwn(clearedTask, 'acceptance')
+      && !Object.hasOwn(clearedTask, 'verify')
+      && !Object.hasOwn(clearedTask, 'deliverables')
+      && !Object.hasOwn(clearedTask, 'nonGoals')
+      && !Object.hasOwn(clearedTask, 'reviewedTaskId')
+      && !Object.hasOwn(clearedTask, 'sourceTaskId')
+      && !Object.hasOwn(clearedTask, 'sourceFindingIds')
+      && !Object.hasOwn(clearedTask, 'coverageOf'))
   await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', {
     action: 'update_member',
     memberName: 'reviewer',
@@ -777,6 +875,54 @@ try {
   check('direct staged member edit may retain omitted explicit effort',
     preservedExplicitStagedMember?.reasoningMode === 'explicit'
       && preservedExplicitStagedMember.reasoningEffort === 'high')
+  let browserTargetDefaultError
+  try {
+    await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', stagedPlanMutationFromPayload({
+      action: 'update_member',
+      memberName: 'reviewer',
+      role: 'security reviewer',
+      provider: 'fake-provider',
+      model: 'fake-reviewer-updated',
+      reasoningMode: 'target-default',
+      executionPrompt: 'Review security-sensitive changes only.',
+    }))
+  } catch (error) {
+    browserTargetDefaultError = error
+  }
+  const browserTargetDefaultMember = (await readTeam(stateRoot, 'dynamic-demo'))?.members.find(member => member.name === 'reviewer')
+  check('browser staged member edit can switch explicit policy to target-default without retaining explicit effort',
+    browserTargetDefaultError === undefined
+      && browserTargetDefaultMember?.reasoningMode === 'target-default'
+      && browserTargetDefaultMember.reasoningEffort === undefined)
+  await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', {
+    action: 'update_member',
+    memberName: 'reviewer',
+    role: 'security reviewer',
+    provider: 'fake-provider',
+    model: 'fake-reviewer-updated',
+    reasoningMode: 'explicit',
+    reasoningEffort: 'high',
+    executionPrompt: 'Review security-sensitive changes only.',
+  })
+  let modelRouteAwareEdit
+  let modelRouteAwareError
+  try {
+    modelRouteAwareEdit = await call('agent_teams_edit_plan', {
+      operations: [{
+        action: 'update_member',
+        member_name: 'reviewer',
+        reasoning_mode: 'route-aware',
+      }],
+    })
+  } catch (error) {
+    modelRouteAwareError = error
+  }
+  const modelRouteAwareMember = (await readTeam(stateRoot, 'dynamic-demo'))?.members.find(member => member.name === 'reviewer')
+  check('model-facing staged member edit can switch explicit policy to route-aware without retaining explicit effort',
+    modelRouteAwareError === undefined
+      && modelRouteAwareEdit?.status === 'staged'
+      && modelRouteAwareMember?.reasoningMode === 'route-aware'
+      && modelRouteAwareMember.reasoningEffort === undefined)
   await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', {
     action: 'update_task',
     taskId: dynamicSecond.task_id,
@@ -833,9 +979,9 @@ try {
       model: legacyMember?.model ?? '',
     })
   } catch (error) {
-    directLegacyPolicyRejected = /missing reasoningMode/i.test(String(error?.message ?? error))
+    directLegacyPolicyRejected = /missing reasoningMode|AgentTeams V2 状态无效/i.test(String(error?.message ?? error))
   }
-  check('direct staged-plan update rejects a legacy member missing reasoningMode', directLegacyPolicyRejected)
+  check('strict V2 boundary rejects a staged member missing reasoningMode before direct mutation', directLegacyPolicyRejected)
   if (legacyStaged !== undefined && legacyMember !== undefined) {
     legacyMember.reasoningMode = legacyReasoningMode
     await writeTeam(stateRoot, legacyStaged)
@@ -850,9 +996,9 @@ try {
       operations: [{ action: 'update_member', member_name: 'implementer', role: 'implementation engineer' }],
     })
   } catch (error) {
-    modelLegacyPolicyRejected = /missing reasoningMode/i.test(String(error?.message ?? error))
+    modelLegacyPolicyRejected = /missing reasoningMode|AgentTeams V2 状态无效/i.test(String(error?.message ?? error))
   }
-  check('model-facing staged-plan update rejects a legacy member missing reasoningMode', modelLegacyPolicyRejected)
+  check('strict V2 boundary rejects a staged member missing reasoningMode before model-facing mutation', modelLegacyPolicyRejected)
   if (legacyStaged !== undefined && legacyMember !== undefined) {
     legacyMember.reasoningMode = legacyReasoningMode
     await writeTeam(stateRoot, legacyStaged)
@@ -907,18 +1053,34 @@ try {
       && captain.followups.length === captainFollowupsBeforeContinue + 1)
   const modelEditedPlan = await call('agent_teams_edit_plan', {
     operations: [
-      { action: 'update_task', task_id: dynamicSecond.task_id, dependencies: [dynamicFirst.task_id] },
+      {
+        action: 'update_task',
+        task_id: dynamicSecond.task_id,
+        dependencies: [dynamicFirst.task_id],
+        kind: 'implementation',
+        objective: 'Implement the approved result',
+        inScope: ['artifacts/'],
+        acceptance: ['The implementation evidence is complete'],
+        verify: ['verify-local-candidate.sh'],
+        deliverables: ['artifacts/IMPLEMENTATION-EVIDENCE.md'],
+        coverageOf: ['goal'],
+      },
       { action: 'remove_task', task_id: obsoleteReview.task_id },
       { action: 'remove_member', member_name: 'reviewer' },
     ],
   })
   const modelEditedDynamic = await readTeam(stateRoot, 'dynamic-demo')
+  const editedImplementation = modelEditedDynamic?.tasks.find(item => item.id === dynamicSecond.task_id)
   check('captain can revise the staged DAG and roster through one model-facing atomic tool',
     modelEditedPlan.status === 'staged'
       && modelEditedPlan.tasks === 2
       && modelEditedPlan.members === 4
       && modelEditedDynamic?.tasks.every(item => item.id !== obsoleteReview.task_id)
       && modelEditedDynamic.tasks.find(item => item.id === dynamicSecond.task_id)?.dependencies.join(',') === dynamicFirst.task_id
+      && editedImplementation?.kind === 'implementation'
+      && editedImplementation.objective === 'Implement the approved result'
+      && editedImplementation.inScope?.join(',') === 'artifacts/'
+      && editedImplementation.deliverables?.join(',') === 'artifacts/IMPLEMENTATION-EVIDENCE.md'
       && modelEditedDynamic.members.every(member => member.name !== 'reviewer')
       && modelEditedDynamic.members.every(member => member.id === '')
       && modelEditedDynamic.tasks.every(item => item.status === 'pending')

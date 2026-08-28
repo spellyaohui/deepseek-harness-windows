@@ -2,7 +2,23 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.22`（开发者预览）
+> 当前版本：`v0.1.1-rc.25`（开发者预览）
+
+## `v0.1.1-rc.25` 更新说明
+
+- Team 已运行后，误调用 `agent_teams_edit_plan` 不再产生红色工具异常；返回明确的下一步指引，已批准计划仍保持不可变。
+- staged 成员编辑会保留“目标模型默认 / 路由感知 / 明确指定”三种推理策略；从明确指定切到继承或路由时会清除旧的显式思考强度，避免保存失败或把旧强度继续当成角色覆盖值。
+- staged 计划编辑支持完整质量契约字段，包含任务类型、目标、`inScope`、验收、验证命令、交付物和覆盖范围；Host 会拒绝包含非字符串项的列表，避免非法输入被误当成清空操作。
+- implementation/repair 的声明交付物必须被 `inScope` 覆盖；完成时不能用空 `changedPaths` 隐藏声明交付物。确实没有文件变更时，必须提供 `noChangesReason`。
+- 新增运行中计划误调用、显式策略降级、Host 列表边界、完整 staged 契约与清空往返、交付物范围和无变更证据回归测试；保留本项目既有的角色级模型、CPA/OpenCode 路由、V2 严格状态和质量门。
+
+## `v0.1.1-rc.24` 更新说明
+
+- `agent_teams_status` 在当前会话尚未创建或加入 Team 时改为返回干净的 `active: false` 状态，不再显示 `you do not lead or belong to any active team yet` 红色错误；任务认领、更新和消息发送仍严格要求真实 Team 成员身份。
+- 运行中的 Team 允许把 `implementation` 任务预先排在尚未完成的 requirements 任务之后；只有明确依赖该 requirements 才能创建，调度仍须等待其 `completed + verdict=pass`，不会绕过质量门。
+- 修复非 GPT 模型在 `agent_teams_create_task` 中补出空可选字段后，Team 虽创建成功却在下一次读取时报“AgentTeams V2 状态无效”的问题；空的 `objective`、`reviewedTaskId`、`sourceTaskId` 现在会在持久化前省略。
+- `agent_teams_delete` 在当前会话尚未创建 Team 时改为幂等返回“无需删除”，不再显示 `you are not leading any team yet` 红色错误。
+- 继续严格使用 V2 Profile/Team 与角色级 Provider、模型、思考强度设置；不新增旧状态迁移或旧对话兼容层。
 
 ## `v0.1.1-rc.22` 更新说明
 
@@ -177,7 +193,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.5`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.8`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

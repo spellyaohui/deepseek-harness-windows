@@ -11,6 +11,8 @@ import type { ModelDirectory } from '@deepseek-ai/dsh-client-ui-model-selection/
 import { Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ActivityMember, ActivityTask, ActivityTeam } from './activity-monitor.ts'
 import type { AgentTeamsTranslate } from './locales.ts'
+import type { TaskKind } from '../types.ts'
+import { buildStagedTaskMutationPayload } from './staged-task-mutation.ts'
 import css from './ActivityPanel.module.css'
 
 const PLAN_URL = '/plugins/dsh-agent-teams/plan'
@@ -22,10 +24,37 @@ type PlanFeedback = {
 type PlanModelSelection = {
   readonly provider: string
   readonly model: string
+  readonly reasoningMode: ActivityMember['reasoningMode']
   readonly reasoningEffort: string
 }
 
 type EditorPendingChange = (key: string, pending: boolean) => void
+
+const TASK_KIND_OPTIONS: readonly TaskKind[] = [
+  'work',
+  'requirements',
+  'implementation',
+  'verification',
+  'review',
+  'repair',
+  'integration',
+]
+
+function formatLineList(values: readonly string[] | undefined): string {
+  return (values ?? []).join('\n')
+}
+
+function taskKindLabel(t: AgentTeamsTranslate, kind: TaskKind): string {
+  switch (kind) {
+    case 'work': return t('plan.task.kind.work')
+    case 'requirements': return t('plan.task.kind.requirements')
+    case 'implementation': return t('plan.task.kind.implementation')
+    case 'verification': return t('plan.task.kind.verification')
+    case 'review': return t('plan.task.kind.review')
+    case 'repair': return t('plan.task.kind.repair')
+    case 'integration': return t('plan.task.kind.integration')
+  }
+}
 
 function useDismissSuccess(
   feedback: PlanFeedback | undefined,
@@ -95,7 +124,6 @@ const MODEL_MENU_OPEN_MODELS = 'open:models'
 const MODEL_MENU_OPEN_EFFORT = 'open:effort'
 const MODEL_MENU_BACK = 'navigate:back'
 const MODEL_MENU_RETRY = 'action:retry'
-const MODEL_MENU_DEFAULT_EFFORT = 'effort:default'
 
 function modelMenuId(provider: string, model: string): string {
   return `model:${routeKey(provider, model)}`
@@ -114,6 +142,7 @@ function StagedModelPicker({
   directory,
   provider,
   model,
+  reasoningMode,
   reasoningEffort,
   busy,
   onChange,
@@ -122,6 +151,7 @@ function StagedModelPicker({
   readonly directory: ModelDirectory
   readonly provider: string
   readonly model: string
+  readonly reasoningMode: ActivityMember['reasoningMode']
   readonly reasoningEffort: string
   readonly busy: boolean
   readonly onChange: (selection: PlanModelSelection) => void
@@ -141,14 +171,18 @@ function StagedModelPicker({
   const efforts = selected?.model.reasoning?.efforts ?? []
   const currentMissing = provider !== '' && model !== '' && selected === undefined
   const defaultEffort = selected?.model.reasoning?.defaultEffort
-  const effectiveEffort = reasoningEffort === '' || reasoningEffort === 'default'
-    ? defaultEffort
-    : reasoningEffort
+  const effectiveEffort = reasoningMode === 'explicit' ? reasoningEffort : undefined
   const selectedEffort = efforts.find((effort) => effort.id === effectiveEffort)
   const modelLabel = selected?.model.name
     ?? (model === '' ? t('plan.model.choose') : model)
-  const effortLabel = selectedEffort?.name
-    ?? (effectiveEffort === undefined ? t('plan.model.providerDefault') : effectiveEffort)
+  const modeLabel = reasoningMode === 'target-default'
+    ? t('settings.profiles.reasoning.target-default.label')
+    : reasoningMode === 'route-aware'
+      ? t('settings.profiles.reasoning.route-aware.label')
+      : t('settings.profiles.reasoning.explicit.label')
+  const effortLabel = reasoningMode === 'explicit'
+    ? selectedEffort?.name ?? reasoningEffort
+    : modeLabel
   const unavailable = state.status === 'error' || state.failures.length > 0
 
   const close = (): void => {
@@ -177,7 +211,7 @@ function StagedModelPicker({
           <DisclosureChevron open={false} />
         </span>
       ),
-      disabled: selected?.model.reasoning === undefined,
+      disabled: reasoningMode !== 'explicit' || efforts.length === 0,
     },
   ]
 
@@ -206,6 +240,7 @@ function StagedModelPicker({
         modelItems.push({
           id: modelMenuId(group.id, candidate.id),
           label: candidate.name,
+          disabled: reasoningMode === 'explicit' && (candidate.reasoning?.efforts.length ?? 0) === 0,
         })
       }
     }
@@ -222,14 +257,6 @@ function StagedModelPicker({
       ),
     },
     { type: 'separator', id: 'effort:separator' },
-    {
-      id: MODEL_MENU_DEFAULT_EFFORT,
-      label: defaultEffort === undefined
-        ? t('plan.model.providerDefault')
-        : t('plan.model.modelDefault', {
-          effort: efforts.find((effort) => effort.id === defaultEffort)?.name ?? defaultEffort,
-        }),
-    },
     ...efforts.map((effort): MenuEntry => ({
       id: effortMenuId(effort.id),
       label: (
@@ -245,9 +272,7 @@ function StagedModelPicker({
   const selectedId = pane === 'models'
     ? modelMenuId(provider, model)
     : pane === 'effort'
-      ? reasoningEffort === '' || reasoningEffort === 'default'
-        ? MODEL_MENU_DEFAULT_EFFORT
-        : effortMenuId(reasoningEffort)
+      ? effortMenuId(reasoningEffort)
       : undefined
 
   const choose = (id: string): void => {
@@ -274,25 +299,43 @@ function StagedModelPicker({
       onChange({
         provider: nextModel.provider,
         model: nextModel.model.id,
-        reasoningEffort: 'default',
+        reasoningMode,
+        reasoningEffort: reasoningMode === 'explicit'
+          ? nextModel.model.reasoning?.defaultEffort ?? nextModel.model.reasoning?.efforts[0]?.id ?? ''
+          : '',
       })
-      return
-    }
-    if (id === MODEL_MENU_DEFAULT_EFFORT) {
-      close()
-      if (effectiveEffort === defaultEffort) return
-      onChange({ provider, model, reasoningEffort: 'default' })
       return
     }
     const nextEffort = efforts.find((effort) => effortMenuId(effort.id) === id)
     if (nextEffort === undefined) return
     close()
     if (nextEffort.id === reasoningEffort) return
-    onChange({ provider, model, reasoningEffort: nextEffort.id })
+    onChange({ provider, model, reasoningMode, reasoningEffort: nextEffort.id })
   }
 
   return (
     <div className={css.planModelPicker} data-model-directory-status={state.status}>
+      <label>
+        {t('settings.profiles.reasoning.title')}
+        <select
+          name="reasoningMode"
+          value={reasoningMode}
+          disabled={busy}
+          onChange={(event) => {
+            const nextMode = event.currentTarget.value as ActivityMember['reasoningMode']
+            if (nextMode === reasoningMode) return
+            const nextEffort = nextMode === 'explicit' ? defaultEffort ?? efforts[0]?.id ?? '' : ''
+            if (nextMode === 'explicit' && nextEffort === '') return
+            onChange({ provider, model, reasoningMode: nextMode, reasoningEffort: nextEffort })
+          }}
+        >
+          <option value="target-default">{t('settings.profiles.reasoning.target-default.label')}</option>
+          <option value="route-aware">{t('settings.profiles.reasoning.route-aware.label')}</option>
+          <option value="explicit" disabled={efforts.length === 0 && reasoningMode !== 'explicit'}>
+            {t('settings.profiles.reasoning.explicit.label')}
+          </option>
+        </select>
+      </label>
       <Menu
         open={open}
         portal
@@ -359,20 +402,22 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
   const [role, setRole] = useState(member.role)
   const [provider, setProvider] = useState(member.provider ?? '')
   const [model, setModel] = useState(member.model ?? '')
-  const [reasoningEffort, setReasoningEffort] = useState(member.reasoningEffort ?? '')
+  const [reasoningMode, setReasoningMode] = useState(member.reasoningMode)
+  const [reasoningEffort, setReasoningEffort] = useState(member.reasoningMode === 'explicit' ? member.reasoningEffort ?? '' : '')
   const [executionPrompt, setExecutionPrompt] = useState(member.executionPrompt ?? '')
   const remoteSignature = JSON.stringify([
     member.role,
     member.provider ?? '',
     member.model ?? '',
-    member.reasoningEffort ?? '',
+    member.reasoningMode,
+    member.reasoningMode === 'explicit' ? member.reasoningEffort ?? '' : '',
     member.executionPrompt ?? '',
   ])
   const [savedSignature, setSavedSignature] = useState(remoteSignature)
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<PlanFeedback>()
   useDismissSuccess(feedback, setFeedback)
-  const signature = JSON.stringify([role, provider, model, reasoningEffort, executionPrompt])
+  const signature = JSON.stringify([role, provider, model, reasoningMode, reasoningEffort, executionPrompt])
   const dirty = signature !== savedSignature
 
   useEffect(() => {
@@ -384,22 +429,25 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
     setRole(member.role)
     setProvider(member.provider ?? '')
     setModel(member.model ?? '')
-    setReasoningEffort(member.reasoningEffort ?? '')
+    setReasoningMode(member.reasoningMode)
+    setReasoningEffort(member.reasoningMode === 'explicit' ? member.reasoningEffort ?? '' : '')
     setExecutionPrompt(member.executionPrompt ?? '')
     setSavedSignature(remoteSignature)
-  }, [member.role, member.provider, member.model, member.reasoningEffort, member.executionPrompt, remoteSignature])
+  }, [member.role, member.provider, member.model, member.reasoningMode, member.reasoningEffort, member.executionPrompt, remoteSignature])
 
   const markEdited = (): void => { setFeedback(undefined) }
-  const persist = async (selection: PlanModelSelection = { provider, model, reasoningEffort }): Promise<void> => {
+  const persist = async (selection: PlanModelSelection = { provider, model, reasoningMode, reasoningEffort }): Promise<void> => {
     const nextSignature = JSON.stringify([
       role,
       selection.provider,
       selection.model,
+      selection.reasoningMode,
       selection.reasoningEffort,
       executionPrompt,
     ])
     setProvider(selection.provider)
     setModel(selection.model)
+    setReasoningMode(selection.reasoningMode)
     setReasoningEffort(selection.reasoningEffort)
     setBusy(true)
     setFeedback(undefined)
@@ -412,7 +460,8 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
         role,
         provider: selection.provider,
         model: selection.model,
-        reasoningEffort: selection.reasoningEffort,
+        reasoningMode: selection.reasoningMode,
+        ...selection.reasoningMode === 'explicit' ? { reasoningEffort: selection.reasoningEffort } : {},
         executionPrompt,
       })
       setSavedSignature(nextSignature)
@@ -454,6 +503,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
               directory={modelDirectory}
               provider={provider}
               model={model}
+              reasoningMode={reasoningMode}
               reasoningEffort={reasoningEffort}
               busy={busy}
               onChange={(selection) => { void persist(selection) }}
@@ -463,7 +513,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
           </fieldset>
           <span className={css.planActions}>
             <Feedback value={feedback} />
-            <button type="submit" disabled={busy || !dirty || provider.trim() === '' || model.trim() === ''}>
+            <button type="submit" disabled={busy || !dirty || provider.trim() === '' || model.trim() === '' || (reasoningMode === 'explicit' && reasoningEffort.trim() === '')}>
               {busy ? t('plan.saving') : t('plan.save')}
             </button>
           </span>
@@ -486,13 +536,65 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
   const [description, setDescription] = useState(task.description ?? '')
   const [assignee, setAssignee] = useState(task.assignee)
   const [dependencies, setDependencies] = useState(taskDependencies)
-  const remoteSignature = JSON.stringify([task.subject, task.description ?? '', task.assignee, taskDependencies])
+  const [kind, setKind] = useState<TaskKind>(task.kind ?? 'work')
+  const [round, setRound] = useState(task.round?.toString() ?? '')
+  const [objective, setObjective] = useState(task.objective ?? '')
+  const [inScope, setInScope] = useState(formatLineList(task.inScope))
+  const [outOfScope, setOutOfScope] = useState(formatLineList(task.outOfScope))
+  const [acceptance, setAcceptance] = useState(formatLineList(task.acceptance))
+  const [verify, setVerify] = useState(formatLineList(task.verify))
+  const [deliverables, setDeliverables] = useState(formatLineList(task.deliverables))
+  const [nonGoals, setNonGoals] = useState(formatLineList(task.nonGoals))
+  const [reviewedTaskId, setReviewedTaskId] = useState(task.reviewedTaskId ?? '')
+  const [sourceTaskId, setSourceTaskId] = useState(task.sourceTaskId ?? '')
+  const [sourceFindingIds, setSourceFindingIds] = useState(formatLineList(task.sourceFindingIds))
+  const [coverageOf, setCoverageOf] = useState(formatLineList(task.coverageOf))
+  const taskContractSignature = [
+    task.kind ?? 'work',
+    task.round?.toString() ?? '',
+    task.objective ?? '',
+    formatLineList(task.inScope),
+    formatLineList(task.outOfScope),
+    formatLineList(task.acceptance),
+    formatLineList(task.verify),
+    formatLineList(task.deliverables),
+    formatLineList(task.nonGoals),
+    task.reviewedTaskId ?? '',
+    task.sourceTaskId ?? '',
+    formatLineList(task.sourceFindingIds),
+    formatLineList(task.coverageOf),
+  ]
+  const remoteSignature = JSON.stringify([
+    task.subject,
+    task.description ?? '',
+    task.assignee,
+    taskDependencies,
+    ...taskContractSignature,
+  ])
   const [savedSignature, setSavedSignature] = useState(remoteSignature)
   const [busy, setBusy] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [feedback, setFeedback] = useState<PlanFeedback>()
   useDismissSuccess(feedback, setFeedback)
-  const signature = JSON.stringify([subject, description, assignee, dependencies])
+  const signature = JSON.stringify([
+    subject,
+    description,
+    assignee,
+    dependencies,
+    kind,
+    round,
+    objective,
+    inScope,
+    outOfScope,
+    acceptance,
+    verify,
+    deliverables,
+    nonGoals,
+    reviewedTaskId,
+    sourceTaskId,
+    sourceFindingIds,
+    coverageOf,
+  ])
   const dirty = signature !== savedSignature
 
   useEffect(() => {
@@ -505,8 +607,21 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
     setDescription(task.description ?? '')
     setAssignee(task.assignee)
     setDependencies(taskDependencies)
+    setKind(task.kind ?? 'work')
+    setRound(task.round?.toString() ?? '')
+    setObjective(task.objective ?? '')
+    setInScope(formatLineList(task.inScope))
+    setOutOfScope(formatLineList(task.outOfScope))
+    setAcceptance(formatLineList(task.acceptance))
+    setVerify(formatLineList(task.verify))
+    setDeliverables(formatLineList(task.deliverables))
+    setNonGoals(formatLineList(task.nonGoals))
+    setReviewedTaskId(task.reviewedTaskId ?? '')
+    setSourceTaskId(task.sourceTaskId ?? '')
+    setSourceFindingIds(formatLineList(task.sourceFindingIds))
+    setCoverageOf(formatLineList(task.coverageOf))
     setSavedSignature(remoteSignature)
-  }, [task.subject, task.description, task.assignee, taskDependencies, remoteSignature])
+  }, [remoteSignature])
 
   const markEdited = (): void => {
     setFeedback(undefined)
@@ -517,16 +632,28 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
     setBusy(true)
     setFeedback(undefined)
     try {
-      await mutatePlan({
+      await mutatePlan(buildStagedTaskMutationPayload({
         sessionId: team.captainSessionId,
         teamId: team.teamId,
-        action: 'update_task',
         taskId: task.id,
         subject,
         description,
         assignee,
-        dependencies: dependencies.split(',').map((item) => item.trim()).filter(Boolean),
-      })
+        dependencies,
+        kind,
+        round,
+        objective,
+        inScope,
+        outOfScope,
+        acceptance,
+        verify,
+        deliverables,
+        nonGoals,
+        reviewedTaskId,
+        sourceTaskId,
+        sourceFindingIds,
+        coverageOf,
+      }))
       setSavedSignature(signature)
       setFeedback({ tone: 'success', message: t('plan.saved') })
     } catch (error: unknown) {
@@ -555,6 +682,7 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
   const dependencySummary = task.dependencies.length === 0
     ? t('plan.dependencies.none')
     : t('plan.dependencies.count', { count: task.dependencies.length })
+  const roundValid = round.trim() === '' || (/^[1-9]\d*$/u.test(round.trim()) && Number.isSafeInteger(Number(round)))
   return (
     <article className={css.planCard} data-plan-task={task.id} data-open={open}>
       <button
@@ -576,6 +704,16 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
             <label>{t('plan.task.subject')}<input name="subject" required value={subject} onChange={(event) => { setSubject(event.currentTarget.value); markEdited() }} /></label>
             <label>{t('plan.task.description')}<textarea name="description" value={description} onChange={(event) => { setDescription(event.currentTarget.value); markEdited() }} rows={3} /></label>
             <span className={css.planGrid}>
+              <label>{t('plan.task.kind')}
+                <select name="kind" value={kind} onChange={(event) => { setKind(event.currentTarget.value as TaskKind); markEdited() }}>
+                  {TASK_KIND_OPTIONS.map((candidate) => <option key={candidate} value={candidate}>{taskKindLabel(t, candidate)}</option>)}
+                </select>
+              </label>
+              <label>{t('plan.task.round')}
+                <input name="round" type="number" min="1" step="1" value={round} onChange={(event) => { setRound(event.currentTarget.value); markEdited() }} />
+              </label>
+            </span>
+            <span className={css.planGrid}>
               <label>{t('plan.task.assignee')}
                 <select name="assignee" value={assignee} onChange={(event) => { setAssignee(event.currentTarget.value); markEdited() }}>
                   <option value="">{t('plan.task.unassigned')}</option>
@@ -588,6 +726,57 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
                 <small>{t('plan.task.dependenciesHint')}</small>
               </label>
             </span>
+            {kind !== 'work' && (
+              <>
+                <label>{t('plan.task.objective')}<textarea name="objective" value={objective} onChange={(event) => { setObjective(event.currentTarget.value); markEdited() }} rows={2} /></label>
+                <span className={css.planGrid}>
+                  <label>{t('plan.task.inScope')}
+                    <textarea name="inScope" value={inScope} onChange={(event) => { setInScope(event.currentTarget.value); markEdited() }} rows={3} />
+                    <small>{t('plan.task.listHint')}</small>
+                  </label>
+                  <label>{t('plan.task.outOfScope')}
+                    <textarea name="outOfScope" value={outOfScope} onChange={(event) => { setOutOfScope(event.currentTarget.value); markEdited() }} rows={3} />
+                    <small>{t('plan.task.listHint')}</small>
+                  </label>
+                </span>
+                <span className={css.planGrid}>
+                  <label>{t('plan.task.acceptance')}
+                    <textarea name="acceptance" value={acceptance} onChange={(event) => { setAcceptance(event.currentTarget.value); markEdited() }} rows={3} />
+                    <small>{t('plan.task.listHint')}</small>
+                  </label>
+                  <label>{t('plan.task.verify')}
+                    <textarea name="verify" value={verify} onChange={(event) => { setVerify(event.currentTarget.value); markEdited() }} rows={3} />
+                    <small>{t('plan.task.listHint')}</small>
+                  </label>
+                </span>
+                <span className={css.planGrid}>
+                  <label>{t('plan.task.deliverables')}
+                    <textarea name="deliverables" value={deliverables} onChange={(event) => { setDeliverables(event.currentTarget.value); markEdited() }} rows={3} />
+                    <small>{t('plan.task.listHint')}</small>
+                  </label>
+                  <label>{t('plan.task.nonGoals')}
+                    <textarea name="nonGoals" value={nonGoals} onChange={(event) => { setNonGoals(event.currentTarget.value); markEdited() }} rows={3} />
+                    <small>{t('plan.task.listHint')}</small>
+                  </label>
+                </span>
+                <label>{t('plan.task.coverageOf')}
+                  <textarea name="coverageOf" value={coverageOf} onChange={(event) => { setCoverageOf(event.currentTarget.value); markEdited() }} rows={2} />
+                  <small>{t('plan.task.listHint')}</small>
+                </label>
+                {kind === 'review' && (
+                  <label>{t('plan.task.reviewedTaskId')}<input name="reviewedTaskId" value={reviewedTaskId} onChange={(event) => { setReviewedTaskId(event.currentTarget.value); markEdited() }} /></label>
+                )}
+                {kind === 'repair' && (
+                  <span className={css.planGrid}>
+                    <label>{t('plan.task.sourceTaskId')}<input name="sourceTaskId" value={sourceTaskId} onChange={(event) => { setSourceTaskId(event.currentTarget.value); markEdited() }} /></label>
+                    <label>{t('plan.task.sourceFindingIds')}
+                      <textarea name="sourceFindingIds" value={sourceFindingIds} onChange={(event) => { setSourceFindingIds(event.currentTarget.value); markEdited() }} rows={3} />
+                      <small>{t('plan.task.listHint')}</small>
+                    </label>
+                  </span>
+                )}
+              </>
+            )}
           </fieldset>
           {confirmingRemove && (
             <span className={css.planConfirm} role="alert">
@@ -599,7 +788,7 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
           <span className={css.planActions}>
             <Feedback value={feedback} />
             <button type="button" data-danger onClick={() => { setConfirmingRemove(true); setFeedback(undefined) }} disabled={busy || confirmingRemove}>{t('plan.remove')}</button>
-            <button type="submit" disabled={busy || !dirty || subject.trim() === ''}>{busy ? t('plan.saving') : t('plan.save')}</button>
+            <button type="submit" disabled={busy || !dirty || subject.trim() === '' || !roundValid}>{busy ? t('plan.saving') : t('plan.save')}</button>
           </span>
         </form>
       )}

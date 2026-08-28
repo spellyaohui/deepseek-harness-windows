@@ -205,6 +205,8 @@ const activityPanelSource = await readFile(new URL('../src/client/ActivityPanel.
 const activityMonitorSource = await readFile(new URL('../src/client/activity-monitor.ts', import.meta.url), 'utf8')
 const sessionNavigationSource = await readFile(new URL('../src/client/session-navigation.ts', import.meta.url), 'utf8')
 const stagingPlanSource = await readFile(new URL('../src/client/StagingPlanEditor.tsx', import.meta.url), 'utf8')
+const stagedTaskMutationSource = await readFile(new URL('../src/client/staged-task-mutation.ts', import.meta.url), 'utf8')
+const stagedPlanPayloadSource = await readFile(new URL('../src/staged-plan-payload.ts', import.meta.url), 'utf8')
 const clientIndexSource = await readFile(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
 const agentTeamsCardCss = await readFile(new URL('../src/client/AgentTeamsCard.module.css', import.meta.url), 'utf8')
 const agentTeamsCardSource = await readFile(new URL('../src/client/AgentTeamsCard.tsx', import.meta.url), 'utf8')
@@ -308,6 +310,32 @@ check(
     && toolsSource.includes('none of the edits are saved')
     && hostSource.includes('agent_teams_edit_plan')
     && hostSource.includes('Never inspect or edit .agent-teams state files or plugin source code'),
+)
+check(
+  'staged plan browser persists all three member reasoning policies without leaking non-explicit effort',
+  stagingPlanSource.includes('reasoningMode')
+    && stagingPlanSource.includes("'target-default'")
+    && stagingPlanSource.includes("'route-aware'")
+    && stagingPlanSource.includes("'explicit'")
+    && stagedPlanPayloadSource.includes("payload['reasoningMode']")
+    && hostSource.includes('stagedPlanMutationFromPayload(payload)'),
+)
+check(
+  'staged plan browser and host preserve the complete quality task contract',
+  stagingPlanSource.includes("from './staged-task-mutation.ts'")
+    && stagingPlanSource.includes('await mutatePlan(buildStagedTaskMutationPayload({')
+    && stagedTaskMutationSource.includes('inScope: parseLineList(draft.inScope)')
+    && stagedTaskMutationSource.includes('outOfScope: parseLineList(draft.outOfScope)')
+    && stagedTaskMutationSource.includes('acceptance: parseLineList(draft.acceptance)')
+    && stagedTaskMutationSource.includes('verify: parseLineList(draft.verify)')
+    && stagedTaskMutationSource.includes('deliverables: parseLineList(draft.deliverables)')
+    && stagedTaskMutationSource.includes('nonGoals: parseLineList(draft.nonGoals)')
+    && stagedTaskMutationSource.includes('sourceFindingIds: parseLineList(draft.sourceFindingIds)')
+    && stagedTaskMutationSource.includes('coverageOf: parseLineList(draft.coverageOf)')
+    && stagedPlanPayloadSource.includes("optionalPayloadStringList(payload, 'inScope')")
+    && stagedPlanPayloadSource.includes("optionalPayloadStringList(payload, 'deliverables')")
+    && stagedPlanPayloadSource.includes("optionalPayloadStringList(payload, 'coverageOf')")
+    && hostSource.includes('stagedPlanMutationFromPayload(payload)'),
 )
 check(
   'discarded and stopped teams render terminal semantics instead of pending execution copy',
@@ -442,6 +470,11 @@ check(
   'plan review must expose disclosure, feedback, destructive confirmation, focus, sticky action, and container-based narrow-layout contracts',
 )
 check(
+  'staged task drafts survive content-identical polling snapshots',
+  stagingPlanSource.includes('}, [remoteSignature])')
+    && !stagingPlanSource.includes('task.inScope,\n    task.outOfScope,'),
+)
+check(
   'running DAG tasks reuse the animated work glyph without losing focus context',
   activityPanelSource.includes("task.state === 'running'")
     && activityPanelSource.includes('className={css.dagRunningState}')
@@ -527,8 +560,8 @@ try {
     captainSessionId: 'sess-captain',
     createdAt: Date.now(),
     members: [
-      { id: 'sess-member', name: 'alice', provider: 'cpa', model: 'cheap-model', joinedAt: Date.now(), status: 'idle' },
-      { id: 'sess-removed', name: 'former', provider: 'cpa', model: 'cheap-model', joinedAt: Date.now(), status: 'removed' },
+      { id: 'sess-member', name: 'alice', provider: 'cpa', model: 'cheap-model', reasoningMode: 'target-default', joinedAt: Date.now(), status: 'idle' },
+      { id: 'sess-removed', name: 'former', provider: 'cpa', model: 'cheap-model', reasoningMode: 'target-default', joinedAt: Date.now(), status: 'removed' },
     ],
     tasks: [],
     taskSeq: 0,
@@ -556,6 +589,7 @@ try {
         name: 'implementer',
         provider: 'cpa',
         model: 'cheap-model',
+        reasoningMode: 'target-default',
         joinedAt: now,
         status: 'idle',
       }],
@@ -611,6 +645,9 @@ try {
   await assertStrictReject('strict V2 rejects running state with plan review state', teamV2({ planReviewState: 'awaiting_review' }))
   await assertStrictReject('strict V2 rejects missing member route', teamV2({
     members: [{ ...teamV2().members[0], provider: undefined }],
+  }))
+  await assertStrictReject('strict V2 rejects missing member reasoning mode', teamV2({
+    members: [{ ...teamV2().members[0], reasoningMode: undefined }],
   }))
   await assertStrictReject('strict V2 rejects missing task kind', teamV2({
     tasks: [{ ...teamV2().tasks[0], kind: undefined }],
@@ -1611,7 +1648,7 @@ try {
 
   const invalidColdPolicies = [
     { label: 'explicit-missing-effort', expected: /explicit.*reasoning.*effort/i, reasoningMode: 'explicit' },
-    { label: 'reasoning-mode-missing', expected: /missing reasoning mode/i },
+    { label: 'reasoning-mode-missing', expected: /missing reasoning mode|AgentTeams V2 状态无效/i },
     { label: 'provider-only', expected: /provider.*model|route|状态无效/i, provider: 'provider-a', model: undefined, reasoningMode: 'target-default' },
     { label: 'model-only', expected: /provider.*model|route|状态无效/i, provider: undefined, model: 'model-a', reasoningMode: 'target-default' },
   ]

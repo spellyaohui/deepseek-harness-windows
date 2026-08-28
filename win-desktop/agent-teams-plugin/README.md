@@ -26,6 +26,25 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.14-desktop.8
+
+- A running Team now returns structured next-step guidance when `agent_teams_edit_plan` is called by mistake; the approved plan remains immutable and no tool exception is raised.
+- The staged member editor preserves `target-default`, `route-aware`, and `explicit` reasoning authority; switching away from `explicit` clears the old explicit effort.
+- Staged task editing can replace the complete quality contract, including task kind, objective, scope, acceptance, verification commands, deliverables, and coverage; the Host rejects non-string list items while empty lists explicitly clear fields.
+- Implementation/repair deliverables must be covered by `inScope`; empty `changedPaths` requires `noChangesReason` and cannot hide declared deliverables.
+
+### v0.1.14-desktop.7
+
+- Make `agent_teams_status` a clean read-only probe before the caller has created or joined a Team; it returns `active: false` instead of a red participant error.
+- Keep `agent_teams_claim_task`, `agent_teams_update_task`, and `agent_teams_send_message` strict so inactive sessions cannot mutate Team state or impersonate members.
+- Allow a running Team to queue an implementation behind an active requirements task when the dependency is explicit; scheduling still waits for requirements to complete with `verdict=pass`.
+
+### v0.1.14-desktop.6
+
+- Normalize blank optional task strings before persistence so non-GPT tool calls cannot create a Team that strict V2 validation cannot read back.
+- Make `agent_teams_delete` idempotent before the captain has created a Team, returning a clean no-op instead of a red tool error.
+- Keep strict V2-only Profile/Team loading and role-level Provider/model/reasoning authority; no legacy migration layer was added.
+
 ### v0.1.14-desktop.5
 
 - Configure each member's Provider, model, and reasoning policy in its Profile role card.

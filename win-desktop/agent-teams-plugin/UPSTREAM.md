@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.5`.
+- Desktop fork version is `0.1.14-desktop.8`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -30,6 +30,23 @@
   members are instructed to send only `task_id`, while blank, whitespace, or
   self `assignee` values remain idempotent and attempts to claim as another
   actor are still rejected.
+- `.desktop.6` normalizes blank optional task strings before persistence so a
+  non-GPT tool call cannot produce a Team that strict V2 validation rejects on
+  the next read. It also makes captain-side deletion idempotent when no Team
+  exists, without weakening strict V2 validation for real persisted state.
+- `.desktop.7` makes the read-only `agent_teams_status` call return an inactive
+  snapshot before the session creates or joins a Team. Participant-only task
+  mutation and messaging tools retain their strict identity boundary. It also
+  lets a running Team queue implementation behind an explicit active
+  requirements dependency while preserving pass-before-dispatch gating.
+- `.desktop.8` makes `agent_teams_edit_plan` return structured next-step guidance
+  when a running Team is targeted, validates declared implementation/repair
+  deliverables against `inScope`, preserves all three staged member reasoning
+  modes without replaying non-explicit materialized effort or retaining an old
+  explicit effort after switching modes, rejects malformed Host list payloads,
+  round-trips and clears the complete staged quality contract through the
+  Web/Host/durable boundary, and requires explicit no-change evidence without
+  allowing empty `changedPaths` to hide declared deliverables.
 - `.desktop.5` makes each Profile role the authority for Provider, model, and
   reasoning policy, removes global member-model/reasoning settings, and
   requires strict Profile/Team `schemaVersion: 2`. Older persisted documents
