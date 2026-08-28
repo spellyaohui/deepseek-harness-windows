@@ -44,6 +44,16 @@ function check(label, condition, detail = '') {
   if (!condition) failures.push(label)
 }
 
+async function waitFor(description, read, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const value = await read()
+    if (value !== undefined && value !== false) return value
+    await new Promise(resolve => setTimeout(resolve, 5))
+  }
+  throw new Error(`timed out waiting for ${description}`)
+}
+
 console.log('durable Team/Native routing policy')
 const policyTools = new Set([
   ...NATIVE_DELEGATION_TOOLS,
@@ -1404,17 +1414,25 @@ try {
   // must return to the ordinary member scheduler instead of staying white and
   // ownerless forever in the activity panel.
   publishStatus(captain, 'idle')
-  await new Promise(resolve => setTimeout(resolve, 20))
-  const afterCaptainIdle = await state()
-  const recoveredParallel = afterCaptainIdle?.tasks.filter(candidate => (
-    candidate.id === t8.task_id || candidate.id === t9.task_id
-  )) ?? []
+  const recoveredParallel = await waitFor('captain takeover tasks to return to assigned members', async () => {
+    const afterCaptainIdle = await state()
+    const recovered = afterCaptainIdle?.tasks.filter(candidate => (
+      candidate.id === t8.task_id || candidate.id === t9.task_id
+    )) ?? []
+    return recovered.length === 2
+      && recovered.every(candidate => (
+        (candidate.assignee === 'beta' || candidate.assignee === 'gamma')
+          && (candidate.status === 'claimed' || candidate.status === 'in_progress')
+      ))
+      ? recovered
+      : undefined
+  })
   check('unfinished captain takeover returns to a member when the captain becomes idle',
     recoveredParallel.length === 2
       && recoveredParallel.every(candidate => candidate.assignee !== 'captain')
       && recoveredParallel.every(candidate => candidate.status === 'claimed' || candidate.status === 'in_progress'))
   for (const recoveredTask of recoveredParallel) {
-    const owner = recoveredTask.assignee === 'beta' ? beta : gamma
+    const owner = recoveredTask.assignee === 'gamma' ? gamma : beta
     owner.status = 'running'
     const claim = await call('agent_teams_claim_task', { task_id: recoveredTask.id }, owner)
     await call('agent_teams_update_task', {
