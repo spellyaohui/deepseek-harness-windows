@@ -15,6 +15,18 @@ const grepSource = readFileSync(
   new URL('../node_modules/@deepseek-ai/dsh-tool-fs-search/lib/index.js', import.meta.url),
   'utf8',
 )
+const toolCallEndBlock = `\t\tcase "toolcall_end":
+\t\t\tyield {
+\t\t\t\ttype: "block-end",
+\t\t\t\tindex: event.contentIndex,
+\t\t\t\tblock: {
+\t\t\t\t\ttype: "tool-call",
+\t\t\t\t\tid: CallId(event.toolCall.id),
+\t\t\t\t\tname: event.toolCall.name,
+\t\t\t\t\targuments: JSON.stringify(event.toolCall.arguments)
+\t\t\t\t}
+\t\t\t};
+\t\t\tbreak;`
 
 test('repairs the exact grep description alias without provider or model routing', () => {
   for (const route of ['woyaopro/gemini', 'cpa/gemini', 'future-provider/future-model']) {
@@ -79,6 +91,28 @@ test('rewrites the installed pi-ai adapter once at the durable tool-call boundar
 
   const routed = rewriteDesktopConsoleSource(adapterSource, pathToFileURL(fileURLToPath(adapterUrl)).href)
   assert.equal(routed, rewritten)
+})
+
+test('fails closed on ambiguous or drifted durable-boundary anchors', () => {
+  const duplicateBlock = `${toolCallEndBlock}\n${adapterSource}`
+  assert.equal(rewriteKnownToolArgumentAliases(duplicateBlock), duplicateBlock)
+
+  const duplicateSignature = `async function* toStreamChunks(events, contextWindow) {}\n${adapterSource}`
+  assert.equal(rewriteKnownToolArgumentAliases(duplicateSignature), duplicateSignature)
+
+  const drifted = adapterSource.replace(
+    'arguments: JSON.stringify(event.toolCall.arguments)',
+    'arguments: JSON.stringify(event.toolCall.arguments ?? {})',
+  )
+  assert.equal(rewriteKnownToolArgumentAliases(drifted), drifted)
+})
+
+test('a detached argument-line decoy cannot steal the durable-boundary rewrite', () => {
+  const decoy = 'const sample = "arguments: JSON.stringify(event.toolCall.arguments)";\n'
+  const rewritten = rewriteKnownToolArgumentAliases(`${decoy}${adapterSource}`)
+
+  assert.ok(rewritten.startsWith(decoy))
+  assert.match(rewritten, /JSON\.stringify\(normalizeKnownToolArgumentAliases\(event\.toolCall\.name, event\.toolCall\.arguments\)\)/)
 })
 
 test('loader can import the rewritten installed pi-ai adapter', () => {

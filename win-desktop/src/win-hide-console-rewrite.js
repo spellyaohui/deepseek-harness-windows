@@ -74,8 +74,30 @@ const OPENCODE_KIMI_SCHEMA_HELPER = `function normalizeOpenCodeKimiToolSchema(sc
 function convertTools(tools, compat, model) {
     const isOpenCodeKimi = model.provider === "opencode-go" && model.id.toLowerCase().includes("kimi");`
 const TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE = 'async function* toStreamChunks(events, contextWindow) {'
-const TOOL_ARGUMENTS_NEEDLE = 'arguments: JSON.stringify(event.toolCall.arguments)'
-const TOOL_ARGUMENTS_PATCH = 'arguments: JSON.stringify(normalizeKnownToolArgumentAliases(event.toolCall.name, event.toolCall.arguments))'
+const TOOL_CALL_END_BLOCK_NEEDLE = `\t\tcase "toolcall_end":
+\t\t\tyield {
+\t\t\t\ttype: "block-end",
+\t\t\t\tindex: event.contentIndex,
+\t\t\t\tblock: {
+\t\t\t\t\ttype: "tool-call",
+\t\t\t\t\tid: CallId(event.toolCall.id),
+\t\t\t\t\tname: event.toolCall.name,
+\t\t\t\t\targuments: JSON.stringify(event.toolCall.arguments)
+\t\t\t\t}
+\t\t\t};
+\t\t\tbreak;`
+const TOOL_CALL_END_BLOCK_PATCH = `\t\tcase "toolcall_end":
+\t\t\tyield {
+\t\t\t\ttype: "block-end",
+\t\t\t\tindex: event.contentIndex,
+\t\t\t\tblock: {
+\t\t\t\t\ttype: "tool-call",
+\t\t\t\t\tid: CallId(event.toolCall.id),
+\t\t\t\t\tname: event.toolCall.name,
+\t\t\t\t\targuments: JSON.stringify(normalizeKnownToolArgumentAliases(event.toolCall.name, event.toolCall.arguments))
+\t\t\t\t}
+\t\t\t};
+\t\t\tbreak;`
 
 export { HIDDEN_CONSOLE_STARTF }
 
@@ -293,22 +315,23 @@ export function rewriteOpenCodeKimiToolSchemas(source) {
  */
 export function rewriteKnownToolArgumentAliases(source) {
   const helperMarker = 'function normalizeKnownToolArgumentAliases(toolName, args)'
-  const alreadyRewritten = source.includes(helperMarker)
-    && source.includes(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE)
-    && source.includes(TOOL_ARGUMENTS_PATCH)
-  if (alreadyRewritten) return source
-  if (source.includes(helperMarker)
-    || !source.includes(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE)
-    || !source.includes(TOOL_ARGUMENTS_NEEDLE)) {
-    return source
+  if (source.includes(helperMarker)) return source
+
+  const uniqueIndex = (needle) => {
+    const first = source.indexOf(needle)
+    if (first === -1 || source.indexOf(needle, first + needle.length) !== -1) return -1
+    return first
   }
+  const signatureAt = uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE)
+  const blockAt = uniqueIndex(TOOL_CALL_END_BLOCK_NEEDLE)
+  if (signatureAt === -1 || blockAt <= signatureAt) return source
 
   return source
     .replace(
       TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE,
       `${normalizeKnownToolArgumentAliases.toString()}\n${TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE}`,
     )
-    .replace(TOOL_ARGUMENTS_NEEDLE, TOOL_ARGUMENTS_PATCH)
+    .replace(TOOL_CALL_END_BLOCK_NEEDLE, TOOL_CALL_END_BLOCK_PATCH)
 }
 
 function injectWindowsHide(options) {
