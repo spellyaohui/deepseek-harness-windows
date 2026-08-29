@@ -16,6 +16,18 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
   assert.equal(packageJson.version, '0.1.14-desktop.9')
 })
 
+test('tool guidance is synchronized as a wrapper-owned local artifact', () => {
+  assert.deepEqual(
+    LOCAL_PLUGIN_ARTIFACTS.find(([sourceName]) => sourceName === 'tool-call-guidance-plugin'),
+    ['tool-call-guidance-plugin', '@deepseek-ai/dsh-tool-call-guidance'],
+  )
+  const sourcePackage = JSON.parse(readFileSync(
+    new URL('../tool-call-guidance-plugin/package.json', import.meta.url),
+    'utf8',
+  ))
+  assert.equal(sourcePackage.version, '0.1.0')
+})
+
 test('Models release identity and image editor artifact stay synchronized', () => {
   assert.deepEqual(
     LOCAL_PLUGIN_ARTIFACTS.find(([sourceName]) => sourceName === 'models-settings-plugin'),

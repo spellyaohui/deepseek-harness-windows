@@ -6,6 +6,8 @@
       name: '@deepseek-ai/dsh-cpa-provider'
     - id: opencode-capabilities
       name: '@deepseek-ai/dsh-opencode-capabilities'
+    - id: tool-call-guidance
+      name: '@deepseek-ai/dsh-tool-call-guidance'
     - id: session-markdown-export
       name: '@deepseek-ai/dsh-session-markdown-export'
     - id: agent-teams

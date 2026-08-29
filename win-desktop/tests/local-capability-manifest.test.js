@@ -19,6 +19,7 @@ const localDependencies = {
   '@deepseek-ai/dsh-desktop-settings': 'desktop-settings-plugin',
   '@deepseek-ai/dsh-opencode-capabilities': 'opencode-capabilities-plugin',
   '@deepseek-ai/dsh-session-markdown-export': 'session-markdown-export-plugin',
+  '@deepseek-ai/dsh-tool-call-guidance': 'tool-call-guidance-plugin',
   '@nanmicoder/dsh-agent-teams': 'agent-teams-plugin',
 }
 
@@ -81,6 +82,8 @@ test('desktop composition retains every independently owned local plugin', () =>
   assertFile('tests/desktop-settings-plugin.test.js')
   assertFile('opencode-capabilities-plugin/lib/client.js')
   assertFile('tests/opencode-capabilities-integration.test.js')
+  assertFile('tool-call-guidance-plugin/lib/index.js')
+  assertFile('tests/tool-call-guidance.test.js')
 })
 
 test('behavioral regressions and ownership records cannot be silently deleted', () => {
@@ -199,6 +202,7 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/preload.cjs', /opencode-capabilities:validate/)
   assertContains('src/settings-window.js', /validateOpencodeCatalog/)
   assertContains('scripts/sync-local-plugin-artifacts.mjs', /LOCAL_PLUGIN_ARTIFACTS/)
+  assertContains('tool-call-guidance-plugin/lib/index.js', /desktop:tool-call-guidance/)
 })
 
 test('the complete upstream regression gate remains registered', () => {
