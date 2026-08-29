@@ -168,3 +168,39 @@ packages, build installers, access the network, or mutate live session/team
 state. pnpm's automatic dependency-state repair is disabled for the gate;
 missing or unusable dependencies must fail through the requested build/test
 command and be repaired separately before rerunning the gate.
+
+## Packaging closure incident — 2026-08-29
+
+The rc.28 installer initially started with `ERR_MODULE_NOT_FOUND` for
+`@deepseek-ai/cordis`. The source package was present in the development
+workspace, but the installer had been built from an isolated worktree whose
+`node_modules` was a Junction to another checkout. Electron Builder's npm
+dependency scan followed that layout incompletely and omitted transitive
+runtime packages from `resources/app/node_modules`.
+
+This is a build-environment failure, not a reason to keep adding arbitrary
+transitive packages to the wrapper's root dependencies. Preserve the following
+release-blocking procedure:
+
+1. Build from the real `win-desktop` checkout with an actual `node_modules`
+   directory; do not package from a worktree whose dependency directory is a
+   Junction or symlink.
+2. After `electron-builder --win dir`, verify the unpacked application contains
+   `@deepseek-ai/dsh-app-boot`, `@deepseek-ai/cordis`, its Cordis loader/include
+   runtime packages, `js-yaml`, and `argparse`.
+3. Resolve those packages with Node `createRequire` from
+   `dist/win-unpacked/resources/app/src/dsh-service.js`; filesystem presence
+   alone is insufficient.
+4. Inspect the ZIP archive for the same package manifests, then record SHA-256
+   for the EXE and ZIP. Code-signing status is an independent release property
+   and must not be confused with dependency closure.
+5. Do not hot-overwrite an installed running copy. Close old processes before
+   installing the verified artifact; the screenshot path of an old install is
+   not evidence about the newly built package.
+6. Upload installers as GitHub Release assets, never as tracked source files.
+
+The direct `dsh-app-boot`, `js-yaml`, and `argparse` declarations remain part of
+the checked-in runtime closure. They complement the real-checkout packaging
+requirement; they do not replace it. Future upstream refreshes must rerun the
+full `npm run verify:upstream` gate before package generation and repeat these
+closure checks before release publication.

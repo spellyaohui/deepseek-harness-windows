@@ -10,7 +10,7 @@
 - 新增包装器自有的通用工具调用约束：可选参数未知或空白时默认省略，只有工具明确赋予空值语义时才保留；工具失败后必须先读取错误或结构化下一步，不能用同一组无效参数原样重试。该系统提示不超过 500 字符。
 - AgentTeams 提示改为 `unknown / inactive / staged / running / halted` 生命周期状态机；真实内置 `software-delivery` Profile 的完整提示为 3,353 字符，同时保留角色级模型/思考策略、审批、依赖、attempt/reassign、质量门禁、resume/delete 和部署确认约束。
 - `agent_teams_create` 的可选 `profile` 缺失、空字符串或纯空白时统一视为未传，创建无 Profile 的 ad-hoc Team；非空未知 Profile 仍在写入状态或启动成员前严格拒绝，且工具说明会列出当前可用 Profile。
-- 394 个工具的目录、CPA/OpenCode、多模态图片设置、协议、通用 `grep` 兼容和严格 V2 状态规则均未改动。本次只更新源码和回归门禁，不包含新的 EXE/ZIP 安装包。
+- 394 个工具的目录、CPA/OpenCode、多模态图片设置、协议、通用 `grep` 兼容和严格 V2 状态规则均未改动。本次同步修复了 Windows 打包依赖闭包：必须从实体 `node_modules` 的主工作区构建，并在发布前验证 `cordis` 等启动链依赖确实进入安装包；对应 EXE/ZIP 作为 GitHub Release 资产发布。
 
 ## `v0.1.1-rc.27` 更新说明
 
