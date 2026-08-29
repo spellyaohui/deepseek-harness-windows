@@ -17,6 +17,7 @@ const PLUGINS = [
   '@nanmicoder/dsh-agent-teams',
   '@deepseek-ai/dsh-session-markdown-export',
   '@deepseek-ai/dsh-opencode-capabilities',
+  '@deepseek-ai/dsh-tool-call-guidance',
 ]
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
