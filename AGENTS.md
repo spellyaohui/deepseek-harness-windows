@@ -47,9 +47,10 @@ evidence that the local capability is preserved.
 - Session Markdown owns continuation export ordering, lineage, sanitization,
   and the header action.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
-  OpenCode stream recovery, verified OpenCode model-protocol and image-capability
-  reconciliation, the manual capability-validation bridge, plugin mounting, and
-  startup integration.
+  provider-neutral exact `grep` argument alias normalization at the pi-ai
+  durable boundary, OpenCode stream recovery, verified OpenCode model-protocol
+  and image-capability reconciliation, the manual capability-validation bridge,
+  plugin mounting, and startup integration.
 
 ## Release `v0.1.1-rc.17` interaction invariants
 
@@ -86,6 +87,14 @@ evidence that the local capability is preserved.
   `x-opencode-session`, including when prompt-cache retention is `none`, so the
   OpenCode Go gateway keeps model routing stable. Generic OpenAI-compatible
   providers must not receive this OpenCode-specific header.
+- Before the Agent Loop receives a pi-ai tool call, the wrapper may normalize
+  the exact `grep` argument alias only when the call has no own `pattern` and
+  its `description` wholly matches one single-line `pattern: <non-empty value>`
+  form. This rule is provider-neutral and model-neutral, never overwrites an
+  existing `pattern`, and leaves every other malformed call to the upstream
+  strict validator. The upstream grep Schema must continue requiring `pattern`;
+  future refreshes must retain the dedicated regression or prove an
+  `UPSTREAM_EQUIVALENT` implementation.
 - Every future upstream refresh must classify these behaviors as
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.

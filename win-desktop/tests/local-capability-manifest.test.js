@@ -106,6 +106,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'tests/agent-teams-integration.test.js',
     'tests/cpa-provider-integration.test.js',
     'tests/desktop-settings.test.js',
+    'tests/grep-tool-argument-compatibility.test.js',
     'tests/heal-desktop-plugins.test.js',
     'tests/model-fetcher.test.js',
     'tests/opencode-capabilities-integration.test.js',
@@ -128,6 +129,8 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /AgentTeams incidents that must not recur/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /tdd\.edit-plan\.running-team-returns-guidance-without-tool-error/)
+  assertContains('../AGENTS.md', /exact `grep` argument alias/)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /provider-neutral `grep` argument alias normalization/i)
 
   assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.card/)
 
@@ -166,6 +169,8 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /windowsHide/)
   assertContains('src/win-hide-console-rewrite.js', /Stream ended without finish_reason/)
   assertContains('src/win-hide-console-rewrite.js', /normalizeOpenCodeKimiToolSchema/)
+  assertContains('src/win-hide-console-rewrite.js', /normalizeKnownToolArgumentAliases/)
+  assertContains('src/win-hide-console-rewrite.js', /rewriteKnownToolArgumentAliases/)
   assertContains('src/win-hide-console-rewrite.js', /x-opencode-session/)
   assertContains('src/model-fetcher.js', /OPENCODE_GO_PROTOCOL_PROFILES/)
   assertContains('src/model-fetcher.js', /OPENCODE_GO_COMPATIBILITY_INPUTS/)
