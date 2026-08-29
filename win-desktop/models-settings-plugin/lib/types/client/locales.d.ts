@@ -59,6 +59,7 @@ export declare const en: {
     modelContextInvalid: string;
     modelMaxTokensInvalid: string;
     modelInputInvalid: string;
+    modelImageInvalid: string;
     modelImageInput: string;
     modelImageAuto: string;
     modelImageSupported: string;

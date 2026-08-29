@@ -41,5 +41,6 @@ test('pi-ai model rows expose provider-neutral image controls and bulk actions',
   assert.match(editor, /aria-invalid/)
   assert.doesNotMatch(editor, /woyaopro|opencode|cpa/i)
   assert.match(locales, /modelImageAutoHint/)
+  assert.match(locales, /modelImageInvalid:/)
   assert.match(locales, /无法确认时按仅文本处理/)
 })
