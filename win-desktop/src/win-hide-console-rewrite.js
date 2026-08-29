@@ -73,6 +73,9 @@ const OPENCODE_KIMI_SCHEMA_HELPER = `function normalizeOpenCodeKimiToolSchema(sc
 }
 function convertTools(tools, compat, model) {
     const isOpenCodeKimi = model.provider === "opencode-go" && model.id.toLowerCase().includes("kimi");`
+const TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE = 'async function* toStreamChunks(events, contextWindow) {'
+const TOOL_ARGUMENTS_NEEDLE = 'arguments: JSON.stringify(event.toolCall.arguments)'
+const TOOL_ARGUMENTS_PATCH = 'arguments: JSON.stringify(normalizeKnownToolArgumentAliases(event.toolCall.name, event.toolCall.arguments))'
 
 export { HIDDEN_CONSOLE_STARTF }
 
@@ -87,6 +90,26 @@ export function normalizeRedundantEscalationArgs(args, currentMode) {
   return redundant
     ? { ...args, sandbox_permissions: undefined, justification: undefined }
     : args
+}
+
+/**
+ * Repair registered, structurally unambiguous tool-call aliases without
+ * weakening their schemas. Every non-matching shape stays untouched so the
+ * Harness validator can reject it normally.
+ */
+export function normalizeKnownToolArgumentAliases(toolName, args) {
+  if (toolName !== 'grep') return args
+  if (typeof args !== 'object' || args === null || Array.isArray(args)) return args
+  if (Object.prototype.hasOwnProperty.call(args, 'pattern')) return args
+
+  const description = args.description
+  if (typeof description !== 'string') return args
+  const match = /^[ \t]*pattern[ \t]*:[ \t]*([^\r\n]*\S)[ \t]*$/iu.exec(description)
+  if (match === null) return args
+
+  const normalized = { ...args, pattern: match[1] }
+  delete normalized.description
+  return normalized
 }
 
 function rewriteShellEscalationSource(source, validator) {
@@ -161,6 +184,10 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
 
   if (url.includes('@deepseek-ai/dsh-tool-fs')) {
     next = rewriteFsEscalationSource(next)
+  }
+
+  if (url.includes('@deepseek-ai/dsh-llm-pi-ai')) {
+    next = rewriteKnownToolArgumentAliases(next)
   }
 
   if (url.includes('@earendil-works/pi-ai/dist/api/openai-responses.js')) {
@@ -256,6 +283,32 @@ export function rewriteOpenCodeKimiToolSchemas(source) {
       'parameters: tool.parameters, // TypeBox already generates JSON Schema',
       'parameters: isOpenCodeKimi ? normalizeOpenCodeKimiToolSchema(tool.parameters) : tool.parameters, // TypeBox already generates JSON Schema',
     )
+}
+
+/**
+ * Normalize the final pi-ai tool-call block before it enters the Harness
+ * durable assistant message and Agent Loop. The rule depends only on the exact
+ * tool name and argument shape, so the same deterministic repair works across
+ * providers and models without changing the stream function's interface.
+ */
+export function rewriteKnownToolArgumentAliases(source) {
+  const helperMarker = 'function normalizeKnownToolArgumentAliases(toolName, args)'
+  const alreadyRewritten = source.includes(helperMarker)
+    && source.includes(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE)
+    && source.includes(TOOL_ARGUMENTS_PATCH)
+  if (alreadyRewritten) return source
+  if (source.includes(helperMarker)
+    || !source.includes(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE)
+    || !source.includes(TOOL_ARGUMENTS_NEEDLE)) {
+    return source
+  }
+
+  return source
+    .replace(
+      TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE,
+      `${normalizeKnownToolArgumentAliases.toString()}\n${TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE}`,
+    )
+    .replace(TOOL_ARGUMENTS_NEEDLE, TOOL_ARGUMENTS_PATCH)
 }
 
 function injectWindowsHide(options) {
