@@ -24,10 +24,6 @@ export function resolveWindowsPickerPatch() {
   return fileURLToPath(new URL('../config/windows-directory-picker.patch.yml', import.meta.url))
 }
 
-export function resolveAutoModePatch() {
-  return fileURLToPath(import.meta.resolve('@nanmicoder/dsh-auto-mode/cordis.patch.yml'))
-}
-
 /**
  * Dynamically generate the AgentTeams patch YAML from the current desktop
  * settings. Profiles are persisted by the desktop host so the live service
@@ -98,9 +94,8 @@ export function resolveDesktopInstallAnchor() {
 /**
  * Out-of-tree plugins are imported from `$DSH_HOME/profiles/<name>`. Official
  * dsh only heals packages in `@deepseek-ai/dsh`'s dependency closure into
- * `$DSH_HOME/profiles/node_modules`. Desktop extras such as dsh-auto-mode and
- * dsh-agent-teams live on this wrapper's package.json, so they need a second
- * heal from that anchor.
+ * `$DSH_HOME/profiles/node_modules`. Wrapper-owned desktop plugins live on
+ * this package.json, so they need a second heal from that anchor.
  */
 export function healDesktopPluginFallback({
   installAnchor = resolveDesktopInstallAnchor(),
@@ -116,7 +111,6 @@ export function extractReadyUrl(output) {
 export function buildDshArgs(entry, {
   platform = process.platform,
   windowsPickerPatch = resolveWindowsPickerPatch(),
-  autoModePatch = resolveAutoModePatch(),
   agentTeamsPatch = resolveAgentTeamsPatch(),
   winHideConsoleImport = resolveWinHideConsoleImport(),
 } = {}) {
@@ -126,8 +120,6 @@ export function buildDshArgs(entry, {
     entry,
     'web',
     ...(platform === 'win32' ? ['--patch', windowsPickerPatch] : []),
-    '--patch',
-    autoModePatch,
     '--patch',
     agentTeamsPatch,
     '--host',

@@ -10,17 +10,17 @@ import {
   generateAgentTeamsPatch,
   healDesktopPluginFallback,
   resolveAgentTeamsPatch,
-  resolveAutoModePatch,
   resolveDesktopInstallAnchor,
-  resolveWinHideConsoleImport,
 } from '../src/dsh-service.js'
 
 const PLUGINS = [
-  '@nanmicoder/dsh-auto-mode',
   '@nanmicoder/dsh-agent-teams',
   '@deepseek-ai/dsh-session-markdown-export',
   '@deepseek-ai/dsh-opencode-capabilities',
 ]
+
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const packageLock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
 
 function makeHome() {
   const home = mkdtempSync(join(tmpdir(), 'dsh-desktop-heal-'))
@@ -60,14 +60,27 @@ test('healing the desktop install anchor makes desktop plugins resolvable from t
   }
 })
 
-test('dsh web args include auto-mode and agent-teams patches', () => {
-  const args = buildDshArgs('entry.js', { platform: 'win32' })
+test('dsh web args omit AUTO and retain the Windows and desktop patches', () => {
+  const args = buildDshArgs('entry.js', {
+    platform: 'win32',
+    windowsPickerPatch: 'picker.patch.yml',
+    agentTeamsPatch: 'desktop.patch.yml',
+    winHideConsoleImport: 'hide-console.mjs',
+  })
   assert.equal(args[0], '--import')
-  assert.equal(args[1], resolveWinHideConsoleImport())
-  assert.equal(args[args.indexOf(resolveAutoModePatch()) - 1], '--patch')
-  assert.equal(args[args.indexOf(resolveAgentTeamsPatch()) - 1], '--patch')
+  assert.equal(args[1], 'hide-console.mjs')
+  assert.deepEqual(args.filter(value => value.endsWith('.patch.yml')), [
+    'picker.patch.yml',
+    'desktop.patch.yml',
+  ])
+  assert.doesNotMatch(JSON.stringify(args), /auto-mode/i)
   assert.match(resolveAgentTeamsPatch(), /config[\\/]agent-teams\.patch\.yml$/)
   assert.ok(args.includes('--no-open'))
+})
+
+test('wrapper dependency graph contains no AUTO plugin', () => {
+  assert.equal(packageJson.dependencies['@nanmicoder/dsh-auto-mode'], undefined)
+  assert.equal(packageLock.packages['node_modules/@nanmicoder/dsh-auto-mode'], undefined)
 })
 
 test('wrapper contains no AgentTeams migration handshake or legacy patch surface', () => {
