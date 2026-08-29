@@ -26,7 +26,6 @@ import { collectArchivedTeamsActivity, collectTeamsActivity } from "./snapshot.j
 import { findTeamByCaptain } from "./state.js";
 import { stagedPlanMutationFromPayload } from "./staged-plan-payload.js";
 import { formatProfilesForPrompt } from "./profiles.js";
-import { qualityPlanningPrompt } from "./quality-gates.js";
 import { buildHostModelCatalog } from "./host-model-catalog.js";
 import { createAgentTeamsSettingsRuntime, } from "./settings.js";
 import { delegationPolicyUsagePreamble, policyMarker, registerDelegationPolicyLifecycle, } from "./routing-policy.js";
@@ -88,24 +87,29 @@ export const Config = z.object({
 export function usageSectionText(policyOrToolNames, toolNamesOrProfiles = '', profilesText = '') {
     const isPolicy = policyOrToolNames === 'teams-v1' || policyOrToolNames === 'native-v1';
     const policy = isPolicy ? policyOrToolNames : 'native-v1';
-    const toolNames = isPolicy ? toolNamesOrProfiles : policyOrToolNames;
     const resolvedProfilesText = isPolicy ? profilesText : toolNamesOrProfiles;
     return `${policyMarker(policy)}
 
-${delegationPolicyUsagePreamble(policy)} Follow this protocol:
-1. Call agent_teams_create with a team name and the goal as description. The default approval is "automatic" for this desktop fork, so ordinary AgentTeams requests keep the existing immediate-execution behavior. Use approval="required" only when the user explicitly asks to review a staged plan before any member starts.
-2. Call agent_teams_add_member once per role the goal needs (researcher, engineer, reviewer, ...). Members are durable subagents: they wait for your messages, then work a full turn. Each member has a role-level reasoning policy: target-default uses the role route or captain route and sends no effort; route-aware inherits the captain effort only on the exact same provider/model route; explicit requires the role provider, model, and reasoning effort. In target-default and route-aware modes, omit provider/model for the captain route or provide both for a heterogeneous role route.
-3. For an automatic team, add members and tasks normally; the scheduler starts ready work. For approval="required", build the complete editable roster and DAG while staged, then wait for the user or the Web Approve & Run control; never approve that plan in the same turn. Return-to-chat and discard messages are authoritative and must not create a replacement team. Never inspect or edit .agent-teams state files or plugin source code to revise a staged plan.
-4. Break the goal into tasks with agent_teams_create_task and wire dependencies. Assign role-specific work when useful; unassigned ready work belongs to the shared pool. The scheduler automatically claims one ready task for each truly idle member and wakes it, including across later rounds.
-5. Lead by delegation: monitor with agent_teams_status, send guidance with agent_teams_send_message, and let idle teammates execute ready work. Do not duplicate a teammate's work merely because its turn is slow. If the user requires every member to contribute or report, create one task per required contribution (or message each member directly); never wait for an unassigned member to produce work it was never given.
-6. If the user explicitly asks to pause a running member, its open attempt remains parked after interruption; after answering the user, send that same member guidance with agent_teams_send_message so it continues the same attempt. Do not interrupt members for an ordinary user question that did not request a pause. If work must change owner, restart from scratch, or be taken over, call agent_teams_reassign_task first. Reassign to another idle member, retry with the same member, or use assignee=captain before doing it yourself. Reassignment revokes the old attempt and waits for that member to quiesce, preventing late results from overwriting the new attempt.
-7. Tasks carry attempt_id capabilities. Members must use the current attempt_id for updates; stale-attempt errors mean ownership changed. As a member, call agent_teams_claim_task with the task id only and omit assignee; automatic assignments are already pre-claimed. Check status after progress notifications until every required task is terminal and every member is idle/ready; do not busy-poll or require reports from members with no assigned work.
-8. If the user names a configured profile / template / fixed roster, pass that name as profile= to agent_teams_create. After a successful profile create, do not recreate the same members. Seed profiles provide template tasks; captain-planning profiles provide the roster and guardrails, so design their DAG while staged. Profile fallback routes are opt-in and may retry only the configured fallback after an eligible provider failure. When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".
-9. Quality kinds (requirements, implementation, verification, review, repair, integration) are opt-in contracts: use them only when the user or profile requests quality-mode planning. They need the required objective/acceptance/verification evidence; review/requirements can complete only with verdict=pass, and needs_revision/reject must fail with findings. Implementation/repair deliverables must be covered by inScope; an empty changedPaths requires noChangesReason and cannot hide declared deliverables. The automatic repair/review loop must never depend on a failed task.
-10. ${qualityPlanningPrompt()}
-11. Present the team's results to the user, then agent_teams_delete the team unless the user wants to keep working with it. Never perform a real deployment without explicit user confirmation.
+${delegationPolicyUsagePreamble(policy)}
 
-Tools: ${toolNames}${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`;
+State first:
+- unknown -> agent_teams_status once.
+- inactive -> create one Team; status/delete are safe probes.
+- staged -> edit roster/DAG or wait for explicit approval; no work runs.
+- running -> use status, create-task, message, reassign, and delete; never create a replacement Team, edit-plan, or approve.
+- halted -> agent_teams_resume(reason) before work. Escalated remains running; ask the user when its review loop reaches the ceiling.
+
+Approval/Profile: approval="automatic" runs normally. approval="required" stages the full roster/dependency DAG; wait for the user/Web control and never self-approve in that turn. Return/discard forbids replacement. An exact requested Profile expands its roster plus seed tasks or captain guardrails; do not recreate members and only its eligible fallback may retry. When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".
+
+Reasoning/routes: each role owns target-default, route-aware, or explicit. target-default uses its role/captain route with no effort; route-aware inherits captain effort only on the same provider/model; explicit requires role provider/model and effort. Omit provider/model for the captain route or provide both as a pair for another route.
+
+Tasks/execution: plan tasks and dependencies; the scheduler gives ready shared work to durable idle members. Assign an active member/captain or omit assignee. Never duplicate slow or unassigned work. A requested pause parks its attempt; message that member to continue. Updates use current attempt_id; stale means ownership changed, so reassign before retry/takeover. Members claim by task id without assignee. Reassignment revokes old attempt; monitor without busy-polling until required work and members are terminal/idle. Never inspect or edit .agent-teams state files or plugin source code.
+
+Quality mode: requirements, implementation, verification, review, repair, and integration are opt-in. Build the staged DAG; implementation depends on requirements and waits for verdict=pass. Quality tasks need objective/acceptance and verification evidence; review/requirements pass only with verdict=pass; needs_revision/reject fail with findings. Review failure triggers repair/next-review and rewires pending integration; do not recreate the loop. Derive workspace-relative POSIX inScope, deliverable paths, and verification commands; exclude .env, secrets, .git. Implementation/repair deliverables must be covered by inScope; changedPaths=[] needs noChangesReason and cannot hide deliverables. Delivery waits for all gates.
+
+Present the Team result, then call agent_teams_delete unless work continues. Never perform a real deployment without explicit user confirmation.
+
+Use the registered agent_teams_* tool schemas.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`;
 }
 export function apply(ctx, config) {
     const settings = createAgentTeamsSettingsRuntime(ctx, {

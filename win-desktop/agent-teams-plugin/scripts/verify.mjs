@@ -76,6 +76,7 @@ import {
 } from '../lib/client/locales.js'
 import { openAgentTeamMember } from '../lib/client/session-navigation.js'
 import { steerCaptainReport } from '../lib/tools.js'
+import { usageSectionText } from '../lib/index.js'
 import { parseProfileInvocation, resolveTeamProfile, formatProfilesForPrompt } from '../lib/profiles.js'
 import { memberPersona, memberWelcome } from '../lib/members.js'
 import { collectCompletedDependencyOutputs, formatDependencyOutputs, assignmentPrompt } from '../lib/scheduler.js'
@@ -111,6 +112,55 @@ check(
 check(
   'usage prompt omits profile when no profile is configured',
   builtIndex.includes('When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".'),
+)
+
+const softwareDeliveryPrompt = usageSectionText(
+  'teams-v1',
+  'agent_teams_create, agent_teams_approve, agent_teams_edit_plan, agent_teams_add_member, agent_teams_remove_member, agent_teams_create_task, agent_teams_reassign_task, agent_teams_claim_task, agent_teams_update_task, agent_teams_send_message, agent_teams_status, agent_teams_resume, agent_teams_delete',
+  formatProfilesForPrompt({
+    'software-delivery': {
+      description: 'A general software delivery team for analysis, implementation, verification, and review.',
+      protocol: 'Keep scope, acceptance criteria, and verification evidence traceable. Analyze before implementation and verify before delivery.',
+      taskPlanning: 'captain',
+      members: [
+        { name: 'analyst', role: 'Requirements analyst', reasoning_mode: 'target-default' },
+        { name: 'implementer', role: 'Implementation engineer', reasoning_mode: 'target-default' },
+        { name: 'tester', role: 'Verification engineer', reasoning_mode: 'target-default' },
+        { name: 'reviewer', role: 'Code and risk reviewer', reasoning_mode: 'target-default' },
+      ],
+    },
+  }),
+)
+check(
+  'usage prompt stays within the software-delivery budget',
+  softwareDeliveryPrompt.length <= 3500,
+  `length = ${softwareDeliveryPrompt.length}`,
+)
+for (const [label, pattern] of [
+  ['state unknown', /unknown[^\n]*agent_teams_status/i],
+  ['state inactive', /inactive[^\n]*create/i],
+  ['state staged', /staged[^\n]*edit[^\n]*(?:wait|approval)/i],
+  ['state running', /running[^\n]*(?:create-task|create_task)[^\n]*message[^\n]*reassign/i],
+  ['state halted', /halted[^\n]*resume/i],
+  ['approval boundary', /approval="required"[^\n]*never[^\n]*(?:self-approve|approve it)/i],
+  ['profile omission', /omit the profile property[^\n]*profile=""/i],
+  ['reasoning ownership', /target-default[^\n]*route-aware[^\n]*explicit/i],
+  ['route pairing', /provider\/model[^\n]*(?:both|pair)/i],
+  ['scheduler dependencies', /dependenc[^\n]*scheduler/i],
+  ['attempt and reassignment', /attempt_id[^\n]*reassign/i],
+  ['requirements gate', /requirements[^\n]*implementation[^\n]*verdict=pass/i],
+  ['review repair loop', /review[^\n]*repair/i],
+  ['scope and deliverables', /inScope[^\n]*deliverable/i],
+  ['verification evidence', /verification evidence/i],
+  ['cleanup', /agent_teams_delete/i],
+  ['deployment confirmation', /deployment[^\n]*explicit user confirmation/i],
+]) {
+  check(`usage prompt preserves ${label}`, pattern.test(softwareDeliveryPrompt))
+}
+check(
+  'usage prompt removes the duplicated eleven-step manual',
+  !/Follow this protocol:\s*\n1\./.test(softwareDeliveryPrompt)
+    && !/10\. When the user explicitly requests full quality-mode planning/.test(softwareDeliveryPrompt),
 )
 
 // Named multi-role profile rules
