@@ -62,6 +62,10 @@ evidence that the local capability is preserved.
   migrated on startup through the CPA plugin's path-scoped, revision-guarded
   settings mutation. The migration must preserve unrelated providers,
   credentials, raw capacities, and explicit per-model text-only overrides.
+  Once a profile already carries the current text/image Provider default,
+  missing or empty model-level `input` is intentional `auto` and must not be
+  materialized again. Native CPA edits must also leave malformed `input`
+  untouched so the provider-neutral Models validator can reject it.
 - The `桌面` section has no save button. Changing close behavior immediately
   persists through the existing IPC bridge, disables the selector while the
   write is pending, announces success, and restores the prior committed value

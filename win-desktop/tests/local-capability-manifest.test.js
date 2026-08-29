@@ -94,6 +94,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'models-settings-plugin/tests/models-card-slot.test.js',
     'cpa-provider-plugin/tests/capacity.test.js',
     'cpa-provider-plugin/tests/client-registration.test.js',
+    'cpa-provider-plugin/tests/migration.test.js',
     'cpa-provider-plugin/tests/profile.test.js',
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
@@ -152,6 +153,9 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('cpa-provider-plugin/src/client/index.tsx', /provider !== 'cpa'/)
   assertContains('cpa-provider-plugin/src/client/capacity.ts', /contextWindow/)
   assertContains('cpa-provider-plugin/src/client/capacity.ts', /maxTokens/)
+  assertContains('cpa-provider-plugin/src/migration.ts', /hasCurrentCpaDefaultInput/)
+  assertContains('cpa-provider-plugin/tests/migration.test.js', /does not reinterpret current automatic CPA models/)
+  assertContains('tests/cpa-provider-integration.test.js', /round-trip automatic and invalid model input states/)
 
   assertContains('agent-teams-plugin/src/host-model-catalog.ts', /buildHostModelCatalog/)
   assertContains('agent-teams-plugin/src/selection-policy.ts', /input\.reasoningMode === 'explicit'/)

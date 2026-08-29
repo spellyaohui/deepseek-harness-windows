@@ -75,6 +75,35 @@ test('does not rewrite a current CPA profile or an unrelated settings descriptor
   }), undefined)
 })
 
+test('does not reinterpret current automatic CPA models as explicit image overrides', () => {
+  const currentReasoning = {
+    off: 'none', minimal: 'minimal', low: 'low', medium: 'medium',
+    high: 'high', xhigh: 'xhigh', max: 'max',
+  }
+
+  for (const model of [
+    { id: 'automatic', reasoningEfforts: currentReasoning },
+    { id: 'empty-automatic', input: [], reasoningEfforts: currentReasoning },
+  ]) {
+    assert.equal(cpaProfileMigration({
+      ns: 'llm-pi-ai',
+      revision: 12,
+      user: {
+        providers: {
+          cpa: {
+            displayName: 'CPA / CLIProxyAPI',
+            apiKeyEnv: 'CPA_API_KEY',
+            api: 'openai-responses',
+            baseURL: 'https://proxy.example.invalid/v1',
+            defaultInput: ['text', 'image'],
+            models: [model],
+          },
+        },
+      },
+    }), undefined)
+  }
+})
+
 test('preserves an explicit text-only model while upgrading the provider default', () => {
   const migration = cpaProfileMigration({
     ns: 'llm-pi-ai',
@@ -94,6 +123,27 @@ test('preserves an explicit text-only model while upgrading the provider default
 
   assert.deepEqual(migration?.ops[0].value.defaultInput, ['text', 'image'])
   assert.deepEqual(migration?.ops[0].value.models[0].input, ['text'])
+})
+
+test('preserves malformed model input while upgrading a legacy provider default', () => {
+  const migration = cpaProfileMigration({
+    ns: 'llm-pi-ai',
+    revision: 13,
+    user: {
+      providers: {
+        cpa: {
+          displayName: 'CPA / CLIProxyAPI',
+          apiKeyEnv: 'CPA_API_KEY',
+          api: 'openai-responses',
+          baseURL: 'https://proxy.example.invalid/v1',
+          models: [{ id: 'invalid', input: 'image' }],
+        },
+      },
+    },
+  })
+
+  assert.deepEqual(migration?.ops[0].value.defaultInput, ['text', 'image'])
+  assert.equal(migration?.ops[0].value.models[0].input, 'image')
 })
 
 test('host startup applies the legacy migration through a revision-guarded path mutation', async () => {

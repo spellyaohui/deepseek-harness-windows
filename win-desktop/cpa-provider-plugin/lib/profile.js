@@ -81,13 +81,12 @@ export function normalizeCpaProviderProfile(value) {
         const id = typeof model['id'] === 'string' ? model['id'].trim() : '';
         if (id === '')
             return model;
-        const input = Array.isArray(model['input']) && model['input'].length > 0
-            ? model['input']
-            : [...CPA_INPUT_MODALITIES];
+        // Keep model-level input byte-for-byte: missing/empty means the native
+        // editor's automatic mode, while malformed values must reach its shared
+        // validation gate instead of being hidden by CPA normalization.
         return {
             ...model,
             id,
-            input,
             reasoningEfforts: reasoningEffortsForModel(id),
         };
     });

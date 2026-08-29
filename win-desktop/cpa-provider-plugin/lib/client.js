@@ -65,11 +65,9 @@ window.__ModuleLoader__.load({
 				const model = rawModel;
 				const id = typeof model["id"] === "string" ? model["id"].trim() : "";
 				if (id === "") return model;
-				const input = Array.isArray(model["input"]) && model["input"].length > 0 ? model["input"] : [...CPA_INPUT_MODALITIES];
 				return {
 					...model,
 					id,
-					input,
 					reasoningEfforts: reasoningEffortsForModel(id)
 				};
 			});

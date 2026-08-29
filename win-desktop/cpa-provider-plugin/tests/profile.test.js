@@ -82,20 +82,22 @@ test('normalizes native CPA edits without scaling capacities or leaking the Toke
   assert.equal(profile.models[0].contextWindow, 1050000)
   assert.equal(profile.models[0].maxTokens, 131072)
   assert.deepEqual(profile.defaultInput, ['text', 'image'])
-  assert.deepEqual(profile.models[0].input, ['text', 'image'])
+  assert.equal(Object.hasOwn(profile.models[0], 'input'), false)
   assert.deepEqual(Object.values(profile.models[0].reasoningEfforts), [
     'none', 'low', 'medium', 'high', 'xhigh', 'max',
   ])
 })
 
-test('preserves an explicit native modality override while defaulting CPA models to vision', () => {
+test('preserves automatic, invalid, and explicit native modality states', () => {
   const profile = normalizeCpaProviderProfile({
     baseURL: 'https://proxy.example.invalid/v1',
     defaultInput: ['text'],
     models: [
       { id: 'vision-model', input: ['text', 'image'] },
       { id: 'text-only-model', input: ['text'] },
-      { id: 'default-vision-model' },
+      { id: 'automatic-model' },
+      { id: 'empty-automatic-model', input: [] },
+      { id: 'invalid-model', input: 'image' },
     ],
   })
 
@@ -103,6 +105,8 @@ test('preserves an explicit native modality override while defaulting CPA models
   assert.deepEqual(profile.models.map(model => model.input), [
     ['text', 'image'],
     ['text'],
-    ['text', 'image'],
+    undefined,
+    [],
+    'image',
   ])
 })

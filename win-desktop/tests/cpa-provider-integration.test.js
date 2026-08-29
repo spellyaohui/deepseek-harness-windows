@@ -4,6 +4,12 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import test from 'node:test'
 
+import {
+  applyImageInputChoice,
+  readImageInputChoice,
+} from '../models-settings-plugin/lib/client/model-input.js'
+import { normalizeCpaProviderProfile } from '../cpa-provider-plugin/lib/profile.js'
+
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const lockfile = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
 const patch = readFileSync(new URL('../config/agent-teams.patch.yml', import.meta.url), 'utf8')
@@ -32,9 +38,9 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
     lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.resolved,
     'file:cpa-provider-plugin',
   )
-  assert.equal(sourceCpaPackage.version, '0.1.4')
-  assert.equal(cpaPackage.version, '0.1.4')
-  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.4')
+  assert.equal(sourceCpaPackage.version, '0.1.5')
+  assert.equal(cpaPackage.version, '0.1.5')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.5')
 })
 
 test('static and generated desktop patches both mount CPA', () => {
@@ -62,6 +68,19 @@ test('CPA host startup migrates legacy persisted profiles before image admission
   assert.match(cpaMigrationBundle, /expectedRevision/)
   assert.match(cpaBundle, /defaultInput/)
   assert.match(cpaBundle, /["']text["'],\s*["']image["']/)
+})
+
+test('CPA native saves round-trip automatic and invalid model input states', () => {
+  const automatic = applyImageInputChoice({ id: 'automatic', input: ['text'] }, 'auto')
+  const normalized = normalizeCpaProviderProfile({
+    baseURL: 'https://proxy.example.invalid/v1',
+    defaultInput: ['text', 'image'],
+    models: [automatic, { id: 'invalid', input: 'image' }],
+  })
+
+  assert.equal(readImageInputChoice(normalized.models[0]), 'auto')
+  assert.equal(readImageInputChoice(normalized.models[1]), 'invalid')
+  assert.deepEqual(normalized.defaultInput, ['text', 'image'])
 })
 
 test('desktop composition contains no credential value', () => {

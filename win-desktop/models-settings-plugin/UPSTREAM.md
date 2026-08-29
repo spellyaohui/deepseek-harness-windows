@@ -27,7 +27,9 @@ save without filtering or downgrading the source row. The editor preserves
 unrelated model fields, keeps unknown automatic models fail-closed, and its
 provider-scoped bulk actions operate on the unsaved draft only. The dedicated
 model-input tests, UI tests, and wrapper ownership regressions are part of the
-refresh contract.
+refresh contract. Provider-specific normalization listeners may set Provider
+defaults, but must preserve missing/empty model input as `auto` and leave
+malformed input intact for this fork's shared save gate.
 
 ## Refresh rule
 

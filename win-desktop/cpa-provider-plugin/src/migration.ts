@@ -23,6 +23,29 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function hasCurrentCpaDefaultInput(value: unknown): boolean {
+  return Array.isArray(value)
+    && value.length === 2
+    && value.includes('text')
+    && value.includes('image')
+}
+
+function materializeLegacyModelInputs(value: UnknownRecord): UnknownRecord {
+  const rawModels = value['models']
+  if (!Array.isArray(rawModels)) return value
+  return {
+    ...value,
+    models: rawModels.map((rawModel) => {
+      if (!isRecord(rawModel)) return rawModel
+      const input = rawModel['input']
+      // Only the legacy absence/empty shape is safe to materialize. Explicit
+      // values, including malformed ones, must survive for normal validation.
+      if (input !== undefined && (!Array.isArray(input) || input.length > 0)) return rawModel
+      return { ...rawModel, input: ['text', 'image'] }
+    }),
+  }
+}
+
 /** Build the one path-scoped write needed to upgrade a legacy persisted CPA profile. */
 export function cpaProfileMigration(descriptor: SettingsDescriptorLike): CpaProfileMigration | undefined {
   if (descriptor.ns !== 'llm-pi-ai' || !isRecord(descriptor.user)) return undefined
@@ -31,7 +54,11 @@ export function cpaProfileMigration(descriptor: SettingsDescriptorLike): CpaProf
   const current = providers['cpa']
   if (!isRecord(current)) return undefined
 
-  const normalized = normalizeCpaProviderProfile(current)
+  const hadCurrentDefaultInput = hasCurrentCpaDefaultInput(current['defaultInput'])
+  const normalizedProfile = normalizeCpaProviderProfile(current)
+  const normalized = hadCurrentDefaultInput
+    ? normalizedProfile
+    : materializeLegacyModelInputs(normalizedProfile)
   if (deepEqualJson(current, normalized)) return undefined
   return {
     expectedRevision: descriptor.revision,
