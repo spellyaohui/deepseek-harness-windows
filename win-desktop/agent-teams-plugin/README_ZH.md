@@ -26,6 +26,12 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.14-desktop.10
+
+- 队长系统提示改为生命周期优先的状态机；内置 `software-delivery` 完整提示为 3,353 字符，同时保留审批、角色推理路由、依赖、attempt/reassign、质量门禁、停止/恢复、清理和部署确认规则。
+- 可选 `profile` 缺失、空字符串或纯空白时创建相同的 ad-hoc Team，不会隐式选择默认 Profile。
+- 非空未知 Profile 仍在持久化状态或启动成员前严格失败；创建工具会列出当前配置名称，并提示未指定时省略该属性。
+
 ### v0.1.14-desktop.9
 
 - `agent_teams_create_task` 接受 `captain` 作为队长任务别名，并把空 `assignee` 归一化到共享任务池；其他名称仍必须对应活动成员。

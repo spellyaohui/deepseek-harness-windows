@@ -46,6 +46,8 @@ evidence that the local capability is preserved.
   behavior bridge.
 - Session Markdown owns continuation export ordering, lineage, sanitization,
   and the header action.
+- Wrapper tool-call guidance owns only the compact cross-tool system-prompt
+  discipline for optional arguments and failed-call retries.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
   provider-neutral exact `grep` argument alias normalization at the pi-ai
   durable boundary, OpenCode stream recovery, verified OpenCode model-protocol
@@ -103,7 +105,22 @@ evidence that the local capability is preserved.
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.
 
-## AgentTeams `v0.1.1-rc.26` interaction invariants
+## Wrapper tool-call guidance and AUTO removal invariants
+
+- `@deepseek-ai/dsh-tool-call-guidance` registers one system-prompt section at
+  order `110`, before AgentTeams, and stays at or below 500 characters. It must
+  not register tools, settings UI, Provider rules, or lifecycle state.
+- Its four rules remain provider/model neutral: follow the current tool Schema
+  and explicit context; omit unknown or blank optional properties; preserve an
+  empty value only when the tool explicitly documents its meaning; after a
+  failure, read the error/next step and never repeat the same invalid arguments
+  unchanged.
+- The AUTO permission plugin is intentionally absent from dependencies,
+  lockfile, desktop Patch composition, healing expectations, prompt, UI, and
+  documentation. Do not restore it during conflict resolution. Do not migrate
+  old AUTO sessions or delete stale user Profile caches.
+
+## AgentTeams `v0.1.14-desktop.10` interaction invariants
 
 - Global AgentTeams settings own only Team/Native delegation. Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
@@ -126,6 +143,18 @@ evidence that the local capability is preserved.
 - Blank optional task strings from non-GPT tool calls must be omitted before
   strict V2 persistence. Profile and Team state still require
   `schemaVersion: 2`; malformed or older documents are rejected, not migrated.
+- The captain usage section starts with the unknown/inactive/staged/running/
+  halted lifecycle state machine and the complete built-in `software-delivery`
+  output must remain at or below 3,500 characters. Prompt compaction must retain
+  reasoning ownership, Profile selection, staged approval, DAG dependencies,
+  scheduler/attempt/reassignment safety, quality gates, halt/resume, cleanup,
+  and explicit deployment confirmation.
+- At `agent_teams_create`, a missing, empty, or whitespace-only optional
+  `profile` means no Profile and creates an ad-hoc Team. A non-empty name must
+  exactly match a configured Profile and must fail before durable writes or
+  member spawning when unknown. Keep the model-facing parameter an optional
+  string with configured names in its description; do not replace it with an
+  enum or add a default Profile.
 - A running Team may queue implementation behind an open requirements task
   only through an explicit dependency. The scheduler must still wait for that
   requirements task to finish with `verdict=pass` before implementation runs.

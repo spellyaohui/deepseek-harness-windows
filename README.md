@@ -2,7 +2,15 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.27`（开发者预览）
+> 当前版本：`v0.1.1-rc.28`（开发者预览）
+
+## `v0.1.1-rc.28` 更新说明
+
+- 完整移除 AUTO 权限插件，新的安装包只保留上游官方 `Read Only`、`Workspace Write`、`Full Access` 权限模式；不迁移旧 AUTO 会话，也不删除用户目录中可能残留但已不再挂载的缓存文件。
+- 新增包装器自有的通用工具调用约束：可选参数未知或空白时默认省略，只有工具明确赋予空值语义时才保留；工具失败后必须先读取错误或结构化下一步，不能用同一组无效参数原样重试。该系统提示不超过 500 字符。
+- AgentTeams 提示改为 `unknown / inactive / staged / running / halted` 生命周期状态机；真实内置 `software-delivery` Profile 的完整提示为 3,353 字符，同时保留角色级模型/思考策略、审批、依赖、attempt/reassign、质量门禁、resume/delete 和部署确认约束。
+- `agent_teams_create` 的可选 `profile` 缺失、空字符串或纯空白时统一视为未传，创建无 Profile 的 ad-hoc Team；非空未知 Profile 仍在写入状态或启动成员前严格拒绝，且工具说明会列出当前可用 Profile。
+- 394 个工具的目录、CPA/OpenCode、多模态图片设置、协议、通用 `grep` 兼容和严格 V2 状态规则均未改动。本次只更新源码和回归门禁，不包含新的 EXE/ZIP 安装包。
 
 ## `v0.1.1-rc.27` 更新说明
 
@@ -100,7 +108,7 @@
 - Windows 子进程隐藏控制台窗口。
 - 主程序设置界面中的“桌面”与“子智能体”TAB，沿用同一 Harness 设置外壳和主题。
 - “模型”设置中的 `CPA / CLIProxyAPI` 插件：填写 API 地址和 Token，从 `/v1/models` 获取模型，并供主会话与 AgentTeams 共用。
-- AgentTeams 和 Auto Mode 插件集成；AgentTeams 的成员 Provider、模型与 reasoning policy 在 Profile 角色卡中配置。
+- AgentTeams 插件集成；成员 Provider、模型与 reasoning policy 在 Profile 角色卡中配置。权限模式由上游 Harness 官方预设负责。
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。角色 Profile 保存后需重启才用于新团队。
 - 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
@@ -207,7 +215,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.9`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.10`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

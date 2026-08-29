@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.9`.
+- Desktop fork version is `0.1.14-desktop.10`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -54,6 +54,13 @@
   captain-owned task alias, and blank assignees are normalized to the shared
   task pool. The upstream task engine remains the semantic owner; this is a
   local model-facing boundary and regression seam.
+- `.desktop.10` compacts the captain protocol into a lifecycle-first state
+  machine with a 3,500-character budget for the complete built-in Profile,
+  while retaining reasoning, dependency, attempt/reassignment, quality,
+  resume/delete, and deployment-confirmation contracts. At the create boundary,
+  blank optional Profile input is omission and produces an ad-hoc Team; unknown
+  non-empty names remain strict before durable writes or member spawning. This
+  is provider-neutral input normalization, not a legacy-state migration.
 - `.desktop.5` makes each Profile role the authority for Provider, model, and
   reasoning policy, removes global member-model/reasoning settings, and
   requires strict Profile/Team `schemaVersion: 2`. Older persisted documents

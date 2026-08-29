@@ -43,18 +43,18 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.1-rc.27')
-  assert.equal(packageLock.version, '0.1.1-rc.27')
-  assert.equal(packageLock.packages[''].version, '0.1.1-rc.27')
+  assert.equal(packageJson.version, '0.1.1-rc.28')
+  assert.equal(packageLock.version, '0.1.1-rc.28')
+  assert.equal(packageLock.packages[''].version, '0.1.1-rc.28')
   assert.equal(modelsPackage.version, '0.1.1-rc.2-desktop.3')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.1.1-rc.2-desktop.3',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.9')
+  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.10')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.14-desktop.9',
+    '0.1.14-desktop.10',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -101,7 +101,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'cpa-provider-plugin/tests/profile.test.js',
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
-    'agent-teams-plugin/release-notes/v0.1.14-desktop.9.md',
+    'agent-teams-plugin/release-notes/v0.1.14-desktop.10.md',
     'agent-teams-plugin/scripts/clean-build.mjs',
     'agent-teams-plugin/scripts/fallback-tdd.mjs',
     'agent-teams-plugin/scripts/lifecycle-verify.mjs',
@@ -138,7 +138,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
 })
 
 test('critical integration markers retain local capability ownership', () => {
-  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.1-rc\.26` interaction invariants/)
+  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.14-desktop\.10` interaction invariants/)
   assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.3` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)
@@ -146,6 +146,12 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /tdd\.edit-plan\.running-team-returns-guidance-without-tool-error/)
   assertContains('../AGENTS.md', /exact `grep` argument alias/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /provider-neutral `grep` argument alias normalization/i)
+  assertContains('../AGENTS.md', /Wrapper tool-call guidance/)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /tool-call guidance/i)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /blank optional Profile/i)
+  for (const relativePath of ['../README.md', 'README.md', '../docs/UPSTREAM_MAINTENANCE.md']) {
+    assert.doesNotMatch(read(relativePath), /@nanmicoder\/dsh-auto-mode|Auto Mode/)
+  }
 
   assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.card/)
   assertContains('models-settings-plugin/src/client/model-input.ts', /ImageInputChoice = 'auto' \| 'image' \| 'text-only'/)

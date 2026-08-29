@@ -26,6 +26,12 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.14-desktop.10
+
+- The captain system guidance is now a lifecycle-first state machine. The complete built-in `software-delivery` prompt is 3,353 characters and retains approval, reasoning-route, dependency, attempt/reassignment, quality, halt/resume, cleanup, and deployment-confirmation rules.
+- Missing, empty, or whitespace-only optional `profile` values create the same ad-hoc Team and never select a default Profile.
+- Unknown non-empty Profile names still fail before durable state creation or member spawning; the create-tool schema lists current configured names and tells models to omit the property otherwise.
+
 ### v0.1.14-desktop.9
 
 - `agent_teams_create_task` accepts `captain` as the captain-owned task alias and normalizes blank assignees to the shared pool; other names still require an active member.
