@@ -67,7 +67,7 @@ import type { RoleReasoningMode } from './selection-policy.ts'
 import { installTeamScheduler } from './scheduler.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
 import type { DelegationPolicyRuntime } from './routing-policy.ts'
-import { resolveTeamProfile } from './profiles.ts'
+import { listConfiguredProfiles, resolveTeamProfile } from './profiles.ts'
 
 /** Resolved plugin config consumed by the tools. */
 export interface ToolsConfig {
@@ -821,13 +821,18 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
     discardStagedTeam,
   }
 
+  const configuredProfileNames = listConfiguredProfiles(config.profiles).map((entry) => entry.name)
+  const profileDescription = configuredProfileNames.length === 0
+    ? 'No Profiles are configured; omit this optional property.'
+    : `Optional exact configured Profile name: ${configuredProfileNames.join(', ')}. Omit this property when no configured Profile is requested.`
+
   ctx.tools.register(defineTool({
     name: 'agent_teams_create',
     description: 'Create a team. Use approval=required for a two-phase plan: members and tasks remain unspawned/unclaimed until the user reviews the Web plan and explicitly approves it. Optional profiles expand their configured roster; seed profiles also expand template tasks, while captain profiles leave the graph for the Captain to design. approval=automatic preserves the legacy immediate-execution path.',
     parameters: {
       name: { type: 'string', required: true, description: 'Name for the new team (used as its stable id).' },
       description: { type: 'string', description: 'Team purpose / the goal the team will work on.' },
-      profile: { type: 'string', description: 'Optional configured profile name.' },
+      profile: { type: 'string', description: profileDescription },
       approval: {
         type: 'string',
         enum: ['required', 'automatic'],
@@ -864,10 +869,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       if (teamName === '') throw new Error('team name must not be empty')
       const teamId = sanitizeKey(teamName)
       const staged = args.approval === 'required'
-      const profileName = args.profile?.trim()
-      if (args.profile !== undefined && profileName === '') {
-        throw new Error('AgentTeams profile name must not be empty')
-      }
+      const normalizedProfileName = args.profile?.trim()
+      const profileName = normalizedProfileName === '' ? undefined : normalizedProfileName
       const created = await withTeamLock(captainLockKey(stateRoot, captain.id), async () => {
         const current = await findTeamByParticipant(stateRoot, captain.id)
         if (current !== undefined) {

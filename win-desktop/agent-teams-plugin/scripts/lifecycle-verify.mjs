@@ -463,6 +463,66 @@ const task = async id => (await state())?.tasks.find(candidate => candidate.id =
 
 console.log('dsh-agent-teams lifecycle verification')
 
+const createProfileDescription = definitions.get('agent_teams_create')
+  ?.parameters?.properties?.profile?.description ?? ''
+check('create schema lists configured Profiles and says to omit an unspecified Profile',
+  /demo-delivery/.test(createProfileDescription)
+    && /dynamic-delivery/.test(createProfileDescription)
+    && /omit/i.test(createProfileDescription))
+
+const omittedProfileCreation = await call('agent_teams_create', {
+  name: 'Ad Hoc Omitted Profile',
+  description: 'missing optional profile stays ad hoc',
+})
+const omittedProfileTeam = await readTeam(stateRoot, 'ad-hoc-omitted-profile')
+check('create without Profile produces an ad-hoc Team',
+  omittedProfileCreation.profile === undefined
+    && omittedProfileTeam?.profile === undefined
+    && omittedProfileTeam?.members.length === 0
+    && omittedProfileTeam?.tasks.length === 0)
+await call('agent_teams_delete', {})
+
+let blankProfileCreation
+let blankProfileError
+try {
+  blankProfileCreation = await call('agent_teams_create', {
+    name: 'Ad Hoc Blank Profile',
+    description: 'blank optional profile stays ad hoc',
+    profile: '   ',
+  })
+} catch (error) {
+  blankProfileError = error
+}
+const blankProfileTeam = await readTeam(stateRoot, 'ad-hoc-blank-profile')
+check('blank Profile normalizes to the same ad-hoc Team shape',
+  blankProfileError === undefined
+    && blankProfileCreation?.profile === undefined
+    && blankProfileTeam?.profile === undefined
+    && blankProfileTeam?.members.length === omittedProfileTeam?.members.length
+    && blankProfileTeam?.tasks.length === omittedProfileTeam?.tasks.length)
+if (blankProfileTeam !== undefined) await call('agent_teams_delete', {})
+
+const entriesBeforeUnknownProfile = (await readdir(stateRoot)).sort()
+const childrenBeforeUnknownProfile = children.length
+const persistenceBeforeUnknownProfile = { ...profilePersistenceCalls }
+let unknownProfileError
+try {
+  await call('agent_teams_create', {
+    name: 'Unknown Profile',
+    description: 'strict unknown Profile check',
+    profile: 'not-configured',
+  })
+} catch (error) {
+  unknownProfileError = error
+}
+check('unknown non-empty Profile rejects before state write or member spawn',
+  /unknown AgentTeams profile "not-configured".*demo-delivery.*dynamic-delivery/i
+    .test(String(unknownProfileError?.message ?? unknownProfileError))
+    && JSON.stringify((await readdir(stateRoot)).sort()) === JSON.stringify(entriesBeforeUnknownProfile)
+    && children.length === childrenBeforeUnknownProfile
+    && profilePersistenceCalls.createTeamDir === persistenceBeforeUnknownProfile.createTeamDir
+    && profilePersistenceCalls.writeTeam === persistenceBeforeUnknownProfile.writeTeam)
+
 const modelResolutionCallsBeforeRolePolicy = modelResolutionCalls.length
 const rolePolicyCreation = await call('agent_teams_create', {
   name: 'Role Policy',
