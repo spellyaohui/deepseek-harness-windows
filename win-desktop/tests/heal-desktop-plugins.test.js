@@ -91,6 +91,14 @@ test('desktop shell declares dsh-app-boot as a direct runtime dependency', () =>
   assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.1.1-rc.2')
 })
 
+test('desktop shell declares the boot loader runtime closure directly', () => {
+  for (const [name, version] of [['js-yaml', '4.3.1'], ['argparse', '2.0.1']]) {
+    assert.equal(packageJson.dependencies[name], version)
+    assert.equal(packageLock.packages[''].dependencies[name], version)
+    assert.equal(packageLock.packages[`node_modules/${name}`]?.version, version)
+  }
+})
+
 test('wrapper contains no AgentTeams migration handshake or legacy patch surface', () => {
   const dshServiceSource = readFileSync(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
   const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
