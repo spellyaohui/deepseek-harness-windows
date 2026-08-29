@@ -16,6 +16,31 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
   assert.equal(packageJson.version, '0.1.14-desktop.8')
 })
 
+test('Models release identity and image editor artifact stay synchronized', () => {
+  assert.deepEqual(
+    LOCAL_PLUGIN_ARTIFACTS.find(([sourceName]) => sourceName === 'models-settings-plugin'),
+    ['models-settings-plugin', '@deepseek-ai/dsh-client-ui-settings-models'],
+  )
+  const sourcePackage = JSON.parse(readFileSync(new URL('../models-settings-plugin/package.json', import.meta.url), 'utf8'))
+  const installedPackage = JSON.parse(readFileSync(
+    new URL('../node_modules/@deepseek-ai/dsh-client-ui-settings-models/package.json', import.meta.url),
+    'utf8',
+  ))
+  const lockfile = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
+  const installedBundle = readFileSync(
+    new URL('../node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js', import.meta.url),
+    'utf8',
+  )
+
+  assert.equal(installedPackage.version, sourcePackage.version)
+  assert.equal(
+    lockfile.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
+    sourcePackage.version,
+  )
+  assert.match(installedBundle, /modelImageAuto/)
+  assert.match(installedBundle, /modelImageTextOnly/)
+})
+
 after(() => rmSync(testRoot, { recursive: true, force: true }))
 
 test('synchronizes built lib and package metadata into the installed file dependency', () => {

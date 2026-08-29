@@ -203,6 +203,42 @@ test('persisted OpenCode models hydrate the runtime catalog before startup', () 
   }
 })
 
+test('OpenCode hydration preserves manual image overrides only in provider settings', () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-opencode-image-override-'))
+  const catalogPath = join(root, 'opencode-go.json')
+  const settingsPath = join(root, 'settings.yaml')
+  const settings = `llm-pi-ai:
+  providers:
+    opencode-go:
+      models:
+        - id: muse-spark-1.2-contributor
+          input:
+            - text
+        - id: future-image-model
+          input:
+            - text
+            - image
+`
+  writeFileSync(catalogPath, JSON.stringify({
+    'openai-completions': {
+      'muse-spark-1.2-contributor': minimalOpencodeModel('muse-spark-1.2-contributor'),
+    },
+  }))
+  writeFileSync(settingsPath, settings)
+
+  try {
+    const result = hydrateOpencodeCatalogFromSettings({ catalogPath, settingsPath })
+    const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+
+    assert.equal(result.added, 1)
+    assert.equal(readFileSync(settingsPath, 'utf8'), settings)
+    assert.deepEqual(catalog['openai-responses']['muse-spark-1.2-contributor'].input, ['text', 'image'])
+    assert.deepEqual(catalog['openai-completions']['future-image-model'].input, ['text'])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('static OpenCode protocol mismatches are repaired even without a settings file', () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-opencode-static-repair-'))
   const catalogPath = join(root, 'opencode-go.json')

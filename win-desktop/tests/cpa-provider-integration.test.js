@@ -45,6 +45,9 @@ test('static and generated desktop patches both mount CPA', () => {
 
 test('built browser packages expose the native Models slot without a duplicate CPA card', () => {
   assert.match(modelsBundle, /settings\.models\.card/)
+  assert.match(modelsBundle, /modelImageAuto/)
+  assert.match(modelsBundle, /modelImageSupported/)
+  assert.match(modelsBundle, /modelImageTextOnly/)
   assert.match(cpaBundle, /normalize-provider-profile/)
   assert.doesNotMatch(cpaBundle, /name:\s*["']settings\.models\.card["']/)
   assert.doesNotMatch(cpaBundle, /id:\s*["']cpa["']/)

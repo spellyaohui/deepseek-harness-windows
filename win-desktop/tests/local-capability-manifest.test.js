@@ -82,6 +82,9 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     '../AGENTS.md',
     '../docs/UPSTREAM_MAINTENANCE.md',
     'models-settings-plugin/UPSTREAM.md',
+    'models-settings-plugin/src/client/model-input.ts',
+    'models-settings-plugin/tests/model-input.test.js',
+    'models-settings-plugin/tests/model-input-ui.test.js',
     'models-settings-plugin/tests/models-card-slot.test.js',
     'cpa-provider-plugin/tests/capacity.test.js',
     'cpa-provider-plugin/tests/client-registration.test.js',
@@ -133,6 +136,9 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /provider-neutral `grep` argument alias normalization/i)
 
   assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.card/)
+  assertContains('models-settings-plugin/src/client/model-input.ts', /ImageInputChoice = 'auto' \| 'image' \| 'text-only'/)
+  assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'image'\)/)
+  assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'auto'\)/)
 
   assertContains('cpa-provider-plugin/src/client/index.tsx', /normalize-provider-profile/)
   assertContains('cpa-provider-plugin/src/client/index.tsx', /provider !== 'cpa'/)
