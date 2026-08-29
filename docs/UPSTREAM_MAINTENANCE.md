@@ -7,11 +7,11 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.25`
+- Windows desktop wrapper: `0.1.1-rc.27`
 - OpenCode capability validation plugin: `0.1.1`
-- AgentTeams fork: `0.1.14-desktop.8`, based on upstream `0.1.14`
+- AgentTeams fork: `0.1.14-desktop.9`, based on upstream `0.1.14`
 - CPA provider plugin: `0.1.4`
-- Models settings fork: `0.1.1-rc.2-desktop.2`
+- Models settings fork: `0.1.1-rc.2-desktop.3`
 - Desktop Settings plugin: `0.1.1`
 - Session Markdown export plugin: `0.1.0`
 
@@ -19,7 +19,7 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, Team/Native routing markers, native-tool suppression, member claim compatibility, clean inactive status probes, requirements-dependent implementation queueing, staged complete-contract editing, deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization and durable task lifecycle | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract, catalog seam, participant and quality-gate boundaries, staged contract boundary, and strict V2 persistence boundary | `src/index.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/members.ts`, `src/scheduler.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/quality-gates-tdd.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
+| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization and durable task lifecycle | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract, catalog seam, participant and quality-gate boundaries, staged contract boundary, and strict V2 persistence boundary | `src/index.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/members.ts`, `src/scheduler.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/quality-gates-tdd.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
 | Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
 ## CPA owner
@@ -32,7 +32,7 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Additive `settings.models.card` slot, provider-neutral profile normalization seam, and native expandable provider rows | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; no CPA-specific behavior belongs here | `src/client/ModelsSection.tsx`, `src/client/ProviderEditor.tsx`, `src/client/provider-profile.ts`, `UPSTREAM.md` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` |
+| Additive `settings.models.card` slot, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, and field-preserving model normalization | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; no CPA, OpenCode, woyaopro, or model-name rules belong here | `src/client/ModelsSection.tsx`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/provider-profile.ts`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
 
 ## Desktop Settings owner
 
@@ -73,7 +73,7 @@ classified as follows:
 | --- | --- | --- |
 | AgentTeams | `REAPPLY` | Imported upstream v0.1.14, then reapplied role-level Provider/model/reasoning policy, strict Profile/Team V2, shared catalog, route policy, Team/Native tool boundary, claim compatibility, and Windows verification seams. |
 | CPA | `REAPPLY` | No upstream owner change; retained the independent CPA plugin and its migration, modality, capacity, and native-row regressions. |
-| Models settings | `REAPPLY` | No upstream owner change; retained the provider-neutral native editor and additive slot seam without adding CPA rules. |
+| Models settings | `REAPPLY` | No upstream owner change; retained the provider-neutral native editor, additive slot seam, and model-level image-input contract without adding provider/model rules. |
 | Desktop Settings | `REAPPLY` | No upstream owner change; retained the Harness-native desktop section and immediate-save IPC bridge. |
 | Session Markdown | `REAPPLY` | No upstream owner change; retained continuation export ownership and regression coverage. |
 | Windows wrapper | `REAPPLY` | No upstream owner change; retained shell, OpenCode, plugin-mount, startup-healing, and artifact synchronization compatibility. |
@@ -94,7 +94,7 @@ No registered capability required `SUPERSEDED_BY_DESIGN` in this refresh.
 
 ### AgentTeams incidents that must not recur
 
-| Observed symptom | Required behavior after rc.25 | Regression evidence |
+| Observed symptom | Required behavior after rc.26 | Regression evidence |
 | --- | --- | --- |
 | `you are not leading any team yet — call agent_teams_create first` during cleanup | `agent_teams_delete` returns an idempotent no-op when no captain Team exists | `tdd.delete.without-active-team-is-idempotent.tool` |
 | `you do not lead or belong to any active team yet` during a status probe | `agent_teams_status` returns `active: false`; participant mutation and messaging remain strict | `tdd.status.without-active-team-is-a-clean-probe.tool` plus lifecycle identity checks |

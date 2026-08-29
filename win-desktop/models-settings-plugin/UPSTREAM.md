@@ -5,6 +5,7 @@
 - Commit: `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 - Source directory: `packages/client/ui-settings-models`
 - Imported: 2026-08-23
+- Local desktop fork: `0.1.1-rc.2-desktop.3`
 
 ## Intentional desktop difference
 
@@ -19,9 +20,20 @@ fork; the CPA plugin is the only listener for provider `cpa`.
 Provider-specific behavior does not belong in this fork. CPA behavior is owned
 by the separate `@deepseek-ai/dsh-cpa-provider` plugin.
 
+The desktop fork also owns a provider-neutral per-model image-input editor.
+`auto` removes the model-level `input` override, `image` stores `['text',
+'image']`, and `text-only` stores `['text']`. Invalid modality values block
+save without filtering or downgrading the source row. The editor preserves
+unrelated model fields, keeps unknown automatic models fail-closed, and its
+provider-scoped bulk actions operate on the unsaved draft only. The dedicated
+model-input tests, UI tests, and wrapper ownership regressions are part of the
+refresh contract.
+
 ## Refresh rule
 
 Import the same upstream directory from a newer Harness tag, reapply only the
-slot declaration/rendering and provider-neutral normalization seam, then run
-`pnpm typecheck` and `pnpm test`. The native CPA row regression must remain
-green after every refresh.
+slot declaration/rendering, provider-neutral normalization seam, and the
+provider-neutral model-input editor when upstream does not provide an
+equivalent. Then run `pnpm typecheck` and `pnpm test`; the native CPA row,
+model-input, and wrapper ownership regressions must remain green after every
+refresh.

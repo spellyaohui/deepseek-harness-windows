@@ -99,7 +99,7 @@ evidence that the local capability is preserved.
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.
 
-## AgentTeams `v0.1.1-rc.25` interaction invariants
+## AgentTeams `v0.1.1-rc.26` interaction invariants
 
 - Global AgentTeams settings own only Team/Native delegation. Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
@@ -144,10 +144,33 @@ evidence that the local capability is preserved.
   Quality errors must tell the model to use concrete workspace-relative POSIX
   paths for deliverables and to put abstract outcomes in task prose; protected
   `.env`, secret, and `.git` paths remain excluded.
-- Preserve the rc.25 regressions in AgentTeams quality-gate/lifecycle suites
+- Preserve the rc.26 regressions in AgentTeams quality-gate/lifecycle suites
   and the wrapper capability manifest. Future Harness or AgentTeams refreshes
   must make these tests pass against the classified owner; deleting, skipping,
   or weakening a regression is not an acceptable conflict resolution.
+
+## Models settings fork `v0.1.1-rc.2-desktop.3` interaction invariants
+
+- Each pi-ai model row owns its image-input choice: `auto`, `image`, or
+  `text-only`. Persist `auto` by deleting the model-level `input`, `image` as
+  `['text', 'image']`, and `text-only` as `['text']`.
+- Missing or empty `input` resolves to `auto`; a valid non-empty list containing
+  `image` resolves to `image`, and a valid text-only list resolves to
+  `text-only`. Malformed values are invalid and block save; they must not be
+  filtered, cleared, or silently downgraded.
+- The editor must preserve every unedited model field, including protocol,
+  capacities, reasoning, cost, and compat records. Provider-scoped bulk
+  actions operate only on the unsaved draft and must use the same pure
+  normalization contract.
+- The Models fork remains provider-neutral: no CPA, OpenCode, woyaopro, or
+  model-name heuristics belong there. Unknown automatic models remain
+  fail-closed through pi-ai's text-only default, and a saved choice requires
+  restart before the runtime loads it.
+- OpenCode catalog hydration must never rewrite persisted provider settings;
+  manual model-level declarations remain higher precedence than installed
+  catalogs and provider defaults. Preserve the model-input unit/UI tests,
+  wrapper ownership regressions, and capability-manifest markers through every
+  upstream refresh.
 
 Do not collapse these owners into one plugin during conflict resolution. Do not
 move provider-specific behavior into the Models fork.

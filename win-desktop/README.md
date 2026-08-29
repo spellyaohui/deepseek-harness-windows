@@ -1,6 +1,19 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.25`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.27`。
+
+## `v0.1.1-rc.27` 更新说明
+
+- “设置 → 模型”中的每个 pi-ai 模型现在可独立选择 `自动`、`文本和图像` 或 `仅文本`；批量按钮只作用于当前提供方的草稿，不会覆盖其他模型字段。
+- `自动` 依赖提供方目录，无法确认时按文本处理；非法输入模态会阻止应用并保留原始值。保存后重启，模型级覆盖才会进入运行时目录。
+- `grep` 兼容层改为提供方/模型无关的精确规则，只修复缺少 `pattern` 且描述完整为 `pattern: <非空内容>` 的调用，其他错误仍由上游严格 Schema 报告。
+- 包含 AgentTeams `0.1.14-desktop.9` 的队长/共享任务池和交付物提示修复；既有 CPA、OpenCode、角色级模型与思考强度设置保持不变。
+
+## `v0.1.1-rc.26` 更新说明
+
+- `agent_teams_create_task` 接受 `captain` 作为队长任务别名，并把空或纯空白 `assignee` 归一化到共享任务池；活动成员名称校验仍然严格。
+- 交付物门禁为抽象描述提供真实工作区相对 POSIX 路径的修正说明，并明确 `.env`、密钥和 `.git` 不能作为 `inScope` 或交付物。
+- 新增对应的 TDD、生命周期与包装器能力登记回归，编译产物与源码保持同步；角色级模型/思考策略、CPA/OpenCode、严格 V2 状态和其他本地能力保持不变。
 
 ## `v0.1.1-rc.25` 更新说明
 
@@ -108,7 +121,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
 - Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后必须重启，才会注入并用于新团队。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.8`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.9`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 
@@ -177,8 +190,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.25-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.25-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.1-rc.27-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.1-rc.27-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

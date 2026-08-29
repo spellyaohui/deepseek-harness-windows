@@ -13,7 +13,7 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
     ['agent-teams-plugin', '@nanmicoder/dsh-agent-teams'],
   )
   const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
-  assert.equal(packageJson.version, '0.1.14-desktop.8')
+  assert.equal(packageJson.version, '0.1.14-desktop.9')
 })
 
 test('Models release identity and image editor artifact stay synchronized', () => {

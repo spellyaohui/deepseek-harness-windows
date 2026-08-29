@@ -26,6 +26,12 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.14-desktop.9
+
+- `agent_teams_create_task` 接受 `captain` 作为队长任务别名，并把空 `assignee` 归一化到共享任务池；其他名称仍必须对应活动成员。
+- 交付物门禁会提示使用工作区相对 POSIX 路径，并引导把抽象成果写入任务标题、描述或验收条件。
+- `.env`、密钥和 `.git` 等受保护路径继续被拒绝，同时返回明确的安全边界说明。
+
 ### v0.1.14-desktop.8
 
 - running Team 误调用 `agent_teams_edit_plan` 时返回结构化下一步指引，不再产生工具异常；已批准计划保持不可变。

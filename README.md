@@ -2,7 +2,20 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.25`（开发者预览）
+> 当前版本：`v0.1.1-rc.27`（开发者预览）
+
+## `v0.1.1-rc.27` 更新说明
+
+- 模型设置新增按模型独立编辑的图片输入三态：`自动`、`文本和图像`、`仅文本`；支持按当前提供方批量设为图像或恢复自动，保存会保留协议、容量、思考强度、成本和兼容字段。
+- 自动模式不猜测未知模型：没有可确认能力时继续按文本处理；检测到非法 `input` 数据会阻止保存，必须由用户明确选择有效状态。保存后重启，新的模型能力覆盖才会加载。
+- 修复通用 `grep` 工具参数兼容：只有缺少自有 `pattern` 且 `description` 完整匹配单行 `pattern: <内容>` 时才转换；已有 `pattern` 或其他 malformed 参数继续交给上游严格校验，不绑定供应商或模型。
+- 延续 AgentTeams `.9` 的队长任务别名、共享任务池和可操作交付物提示修复；所有既有 CPA、OpenCode、子智能体角色模型/思考策略和严格 V2 状态能力继续受回归门禁保护。
+
+## `v0.1.1-rc.26` 更新说明
+
+- AgentTeams 创建任务时，`assignee="captain"` 现在明确表示队长负责，空值或纯空白则归一化到共享任务池；修复 `no active member named "captain"` 和 `no active member named ""`，其他非空名称仍必须对应活动成员。
+- 交付物质量门继续拒绝抽象描述和受保护路径，但会直接提示使用真实的工作区相对 POSIX 路径，并把抽象成果写入任务标题、描述或验收条件；`.env`、密钥和 `.git` 边界没有放宽。
+- 新增队长/共享任务池生命周期与交付物提示回归，并同步 AgentTeams 运行时产物；角色级 Provider、模型、思考强度、CPA/OpenCode、严格 V2 状态和既有质量门保持不变。
 
 ## `v0.1.1-rc.25` 更新说明
 
@@ -193,7 +206,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.8`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.9`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

@@ -26,6 +26,12 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.14-desktop.9
+
+- `agent_teams_create_task` accepts `captain` as the captain-owned task alias and normalizes blank assignees to the shared pool; other names still require an active member.
+- Deliverable failures now explain the required workspace-relative POSIX path and direct abstract outcomes to task prose.
+- Protected `.env`, secret, and `.git` paths remain excluded, with explicit safe-boundary guidance.
+
 ### v0.1.14-desktop.8
 
 - A running Team now returns structured next-step guidance when `agent_teams_edit_plan` is called by mistake; the approved plan remains immutable and no tool exception is raised.

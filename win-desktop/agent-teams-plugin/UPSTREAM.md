@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.8`.
+- Desktop fork version is `0.1.14-desktop.9`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -47,7 +47,7 @@
   round-trips and clears the complete staged quality contract through the
   Web/Host/durable boundary, and requires explicit no-change evidence without
   allowing empty `changedPaths` to hide declared deliverables.
-- The current local follow-up keeps those quality gates strict while making
+- `.desktop.9` keeps those quality gates strict while making
   their rejection actionable: prose deliverable labels are directed to
   subject/description/acceptance, protected `.env`/secret/`.git` paths are
   explicitly explained as excluded, `captain` is accepted as the reserved
