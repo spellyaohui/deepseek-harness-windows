@@ -220,6 +220,7 @@ test('the complete upstream regression gate remains registered', () => {
   }
   assert.match(runner, /spawnSync/)
   assert.match(runner, /stdio: 'inherit'/)
+  assert.match(runner, /pnpm_config_verify_deps_before_run:\s*'false'/)
   assert.match(runner, /\[upstream-regression\] START/)
   assert.match(runner, /\[upstream-regression\] PASS/)
   assert.match(runner, /\[upstream-regression\] FAIL/)

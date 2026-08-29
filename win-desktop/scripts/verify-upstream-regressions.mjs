@@ -24,13 +24,21 @@ function runGate(command, args, options) {
   return spawnSync(executable, args, options)
 }
 
+const pnpmGateEnv = {
+  ...process.env,
+  // pnpm 11 otherwise repairs stale dependency state before a script runs.
+  // This gate is forbidden from mutating node_modules or resolving anything,
+  // so stale local dependencies must fail closed and be repaired beforehand.
+  pnpm_config_verify_deps_before_run: 'false',
+}
+
 for (const [directory, command, args] of gates) {
   const label = `${directory} ${command} ${args.join(' ')}`
   console.log(`[upstream-regression] START ${label}`)
 
   const result = runGate(command, args, {
     cwd: join(wrapperRoot, directory),
-    env: process.env,
+    env: command === 'pnpm' ? pnpmGateEnv : process.env,
     stdio: 'inherit',
   })
 

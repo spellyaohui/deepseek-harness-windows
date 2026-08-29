@@ -154,4 +154,6 @@ test suites sequentially, then synchronizes each local plugin `lib` directory
 and package manifest into its existing `file:` dependency before wrapper tests
 verify the packed runtime surface. It must not install dependencies, publish
 packages, build installers, access the network, or mutate live session/team
-state.
+state. pnpm's automatic dependency-state repair is disabled for the gate;
+missing or unusable dependencies must fail through the requested build/test
+command and be repaired separately before rerunning the gate.
