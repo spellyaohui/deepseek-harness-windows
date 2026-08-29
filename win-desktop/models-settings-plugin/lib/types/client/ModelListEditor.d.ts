@@ -16,7 +16,7 @@
 import type { ReactNode } from 'react';
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client';
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx';
-import type { en } from './locales.ts';
+import type { ModelsKey } from './locales.ts';
 /**
  * One configured model row. Structurally open, exactly like the DeepSeek
  * catalog editor's rows: a profile field this card does not edit — one a future
@@ -59,11 +59,11 @@ export interface ModelListEditorProps {
      * asking with a key the form has already refused spends a round trip to be
      * told what the field already says.
      */
-    probeBlocked?: keyof typeof en | undefined;
+    probeBlocked?: ModelsKey | undefined;
     /** Wire face the fetch action calls. */
     api: Pick<IApiClient, 'llm'>;
     /** Section copy. */
-    t: (key: keyof typeof en) => string;
+    t: (key: ModelsKey) => string;
     /** Disable every control (read-only deployment or a pending write). */
     disabled: boolean;
 }

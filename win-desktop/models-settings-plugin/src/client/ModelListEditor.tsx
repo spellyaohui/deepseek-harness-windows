@@ -20,8 +20,12 @@ import type { DiscoveredModelView, IApiClient } from '@deepseek-ai/dsh-api-remot
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatCapacity, parseCapacity } from './DeepSeekModelsEditor.tsx'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
+import {
+  applyImageInputChoice, applyImageInputChoiceToAll, readImageInputChoice,
+} from './model-input.ts'
+import type { ImageInputChoice } from './model-input.ts'
 import { messageOf } from './store.ts'
-import type { en } from './locales.ts'
+import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /**
@@ -80,11 +84,11 @@ export interface ModelListEditorProps {
    * asking with a key the form has already refused spends a round trip to be
    * told what the field already says.
    */
-  probeBlocked?: keyof typeof en | undefined
+  probeBlocked?: ModelsKey | undefined
   /** Wire face the fetch action calls. */
   api: Pick<IApiClient, 'llm'>
   /** Section copy. */
-  t: (key: keyof typeof en) => string
+  t: (key: ModelsKey) => string
   /** Disable every control (read-only deployment or a pending write). */
   disabled: boolean
 }
@@ -227,6 +231,10 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     }))
   }
 
+  const setImageInputChoice = (index: number, choice: ImageInputChoice): void => {
+    onChange(models.map((model, at) => at === index ? applyImageInputChoice(model, choice) : model))
+  }
+
   const fetchModels = async (): Promise<void> => {
     setBusy(true)
     setFailure(undefined)
@@ -318,29 +326,47 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               </span>
             )}
         </div>
-        {props.overridden === true && props.onReset !== undefined
-          ? (
-            <button
-              type="button"
-              className={styles['linkButton']}
-              disabled={disabled}
-              onClick={props.onReset}
-            >
-              {t('resetModels')}
-            </button>
-          )
-          : null}
-        <button
-          type="button"
-          className={styles['linkButton']}
-          disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
-          title={props.probeBlocked !== undefined
-            ? t(props.probeBlocked)
-            : askable ? undefined : t('fetchNeedsBaseUrl')}
-          onClick={() => { void fetchModels() }}
-        >
-          {busy ? t('fetching') : t('fetchModels')}
-        </button>
+        <div className={styles['modelListActions']}>
+          <button
+            type="button"
+            className={styles['linkButton']}
+            disabled={disabled || models.length === 0}
+            onClick={() => { onChange(applyImageInputChoiceToAll(models, 'image')) }}
+          >
+            {t('setAllModelsToImage')}
+          </button>
+          <button
+            type="button"
+            className={styles['linkButton']}
+            disabled={disabled || models.length === 0}
+            onClick={() => { onChange(applyImageInputChoiceToAll(models, 'auto')) }}
+          >
+            {t('restoreAllModelsToAuto')}
+          </button>
+          {props.overridden === true && props.onReset !== undefined
+            ? (
+              <button
+                type="button"
+                className={styles['linkButton']}
+                disabled={disabled}
+                onClick={props.onReset}
+              >
+                {t('resetModels')}
+              </button>
+            )
+            : null}
+          <button
+            type="button"
+            className={styles['linkButton']}
+            disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
+            title={props.probeBlocked !== undefined
+              ? t(props.probeBlocked)
+              : askable ? undefined : t('fetchNeedsBaseUrl')}
+            onClick={() => { void fetchModels() }}
+          >
+            {busy ? t('fetching') : t('fetchModels')}
+          </button>
+        </div>
       </div>
       {models.length === 0 ? <p className={styles['modelEmpty']}>{t('modelsEmpty')}</p> : null}
       {models.map((model, index) => (
@@ -428,6 +454,40 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
                     disabled={disabled}
                     onChange={(event) => { editCapacity(index, 'maxTokens', event.target.value) }}
                   />
+                </label>
+                <label className={styles['modelField']}>
+                  <span className={styles['modelFieldLabel']}>{t('modelImageInput')}</span>
+                  {(() => {
+                    const imageChoice = readImageInputChoice(model)
+                    return (
+                      <>
+                        <select
+                          className={`${styles['input']} ${styles['selectInput']} ${styles['modelInputChoice']}`}
+                          value={imageChoice}
+                          aria-invalid={imageChoice === 'invalid'}
+                          disabled={disabled}
+                          onChange={(event) => { setImageInputChoice(index, event.target.value as ImageInputChoice) }}
+                        >
+                          {imageChoice === 'invalid'
+                            ? <option value="invalid" disabled>{t('modelImageInvalid' as ModelsKey)}</option>
+                            : null}
+                          <option value="auto">{t('modelImageAuto')}</option>
+                          <option value="image">{t('modelImageSupported')}</option>
+                          <option value="text-only">{t('modelImageTextOnly')}</option>
+                        </select>
+                        <span className={styles['modelFieldHint']}>
+                          {t((imageChoice === 'auto'
+                            ? 'modelImageAutoHint'
+                            : imageChoice === 'image'
+                              ? 'modelImageSupportedHint'
+                              : imageChoice === 'text-only'
+                                ? 'modelImageTextOnlyHint'
+                                : 'modelImageInvalid') as ModelsKey)}
+                        </span>
+                        <span className={styles['modelFieldHint']}>{t('modelImageRestartHint')}</span>
+                      </>
+                    )
+                  })()}
                 </label>
               </div>
             )

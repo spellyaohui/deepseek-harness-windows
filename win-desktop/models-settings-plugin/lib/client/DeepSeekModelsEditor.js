@@ -7,6 +7,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  */
 import { useState } from 'react';
 import { IconChevronDownOutline14, IconChevronRightOutline14, IconPlusOutline16, IconTrashOutline16, } from '@deepseek-ai/dsh-client-ui-primitives';
+import { readImageInputChoice } from "./model-input.js";
 import styles from './ModelsSection.module.css';
 /** Row index encoded in an editing-buffer key. */
 function rowOf(key) {
@@ -97,6 +98,8 @@ export function validateDeepSeekModels(value) {
             && (typeof maxTokens !== 'number' || !Number.isInteger(maxTokens) || maxTokens <= 0)) {
             return { index, key: 'modelMaxTokensInvalid' };
         }
+        if (readImageInputChoice(model) === 'invalid')
+            return { index, key: 'modelInputInvalid' };
     }
     return undefined;
 }

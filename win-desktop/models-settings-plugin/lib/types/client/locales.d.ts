@@ -58,6 +58,17 @@ export declare const en: {
     modelNameInvalid: string;
     modelContextInvalid: string;
     modelMaxTokensInvalid: string;
+    modelInputInvalid: string;
+    modelImageInput: string;
+    modelImageAuto: string;
+    modelImageSupported: string;
+    modelImageTextOnly: string;
+    modelImageAutoHint: string;
+    modelImageSupportedHint: string;
+    modelImageTextOnlyHint: string;
+    modelImageRestartHint: string;
+    setAllModelsToImage: string;
+    restoreAllModelsToAuto: string;
     advancedHint: string;
     modelCapacityInvalid: string;
     modelDuplicate: string;
