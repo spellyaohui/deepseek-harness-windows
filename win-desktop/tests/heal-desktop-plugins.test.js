@@ -14,6 +14,7 @@ import {
 } from '../src/dsh-service.js'
 
 const PLUGINS = [
+  '@deepseek-ai/dsh-app-boot',
   '@nanmicoder/dsh-agent-teams',
   '@deepseek-ai/dsh-session-markdown-export',
   '@deepseek-ai/dsh-opencode-capabilities',
@@ -82,6 +83,12 @@ test('dsh web args omit AUTO and retain the Windows and desktop patches', () => 
 test('wrapper dependency graph contains no AUTO plugin', () => {
   assert.equal(packageJson.dependencies['@nanmicoder/dsh-auto-mode'], undefined)
   assert.equal(packageLock.packages['node_modules/@nanmicoder/dsh-auto-mode'], undefined)
+})
+
+test('desktop shell declares dsh-app-boot as a direct runtime dependency', () => {
+  assert.equal(packageJson.dependencies['@deepseek-ai/dsh-app-boot'], '0.1.1-rc.2')
+  assert.equal(packageLock.packages[''].dependencies['@deepseek-ai/dsh-app-boot'], '0.1.1-rc.2')
+  assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.1.1-rc.2')
 })
 
 test('wrapper contains no AgentTeams migration handshake or legacy patch surface', () => {
