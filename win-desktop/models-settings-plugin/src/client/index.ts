@@ -27,6 +27,7 @@ import { createSettingsSchemaOperations } from './schema-operations.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from '../onboarding-copy.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
+import { TYPERT_REMOTE } from '../remote.ts'
 
 export type { ModelsSectionInjected, ModelsSectionProps } from './ModelsSection.tsx'
 export type { ModelsKey } from './locales.ts'
@@ -81,6 +82,11 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  ctx.effect(async () => {
+    const dispose = await ctx.remote.$mount(TYPERT_REMOTE)
+    return () => dispose()
+  }, 'ui-settings-models: capability probe Remote')
+
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 
   const connection = ctx.get('connection') as ConnectionHandle

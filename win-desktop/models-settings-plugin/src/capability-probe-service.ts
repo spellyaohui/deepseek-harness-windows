@@ -4,7 +4,11 @@ import type {
   ModelCapabilityPatch,
   ModelCapabilityProbeResult,
 } from './capability-contract.ts'
-import { capabilityPatchFromChecks } from './client/model-capabilities.ts'
+import { capabilityPatchFromChecks } from './capability-contract.ts'
+import type { Context } from '@deepseek-ai/cordis'
+import type { CredentialRef } from '@deepseek-ai/dsh-credentials/types'
+import type {} from '@deepseek-ai/dsh-credentials'
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 export interface CapabilityProbeRequest {
   modelId: string
@@ -36,6 +40,10 @@ export type ProbeFetch = (
 
 export interface CapabilityProbeDependencies {
   fetch?: ProbeFetch
+  resolveCredential?: (reference: string) => Promise<string | undefined> | string | undefined
+}
+
+export interface CapabilityProbeHandlerDependencies extends CapabilityProbeDependencies {
   resolveCredential?: (reference: string) => Promise<string | undefined> | string | undefined
 }
 
@@ -364,4 +372,40 @@ export async function probeModelCapabilities(
 
   const patch: ModelCapabilityPatch = capabilityPatchFromChecks(checks)
   return { modelId: request.modelId, protocol, checks, patch }
+}
+
+/** Build the Host handler so credential lookup stays injectable and testable. */
+export function createCapabilityProbeHandler(
+  dependencies: CapabilityProbeHandlerDependencies = {},
+): (request: CapabilityProbeRequest, signal?: AbortSignal) => Promise<ModelCapabilityProbeResult> {
+  return async (request, signal) => {
+    const supplied = request.apiKey?.trim()
+    const apiKey = supplied === undefined || supplied.length === 0
+      ? request.credentialRef === undefined
+        ? undefined
+        : await dependencies.resolveCredential?.(request.credentialRef)
+      : supplied
+    return probeModelCapabilities({ ...request, apiKey, signal }, { fetch: dependencies.fetch })
+  }
+}
+
+/** Host service exposing the one provider-neutral probe method to the Models page. */
+export class ModelCapabilityProbeService extends TypertRemoteService {
+  static inject = ['credentials']
+
+  constructor(ctx: Context) {
+    super(ctx, 'modelCapabilityProbe', { namespace: 'model-capabilities' })
+  }
+
+  @Remote('probe')
+  async probe(request: CapabilityProbeRequest, signal: AbortSignal): Promise<ModelCapabilityProbeResult> {
+    const handler = createCapabilityProbeHandler({
+      fetch: globalThis.fetch as unknown as ProbeFetch,
+      resolveCredential: async (reference) => {
+        const resolved = await this.ctx.credentials.resolve(reference as CredentialRef)
+        return resolved?.value
+      },
+    })
+    return handler(request, signal)
+  }
 }

@@ -6,6 +6,7 @@ import { ModelsSettingsStore } from "./store.js";
 import { createSettingsSchemaOperations } from "./schema-operations.js";
 import { en, zh } from "./locales.js";
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from "../onboarding-copy.js";
+import { TYPERT_REMOTE } from "../remote.js";
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.models';
 /**
@@ -31,6 +32,10 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope
  * @param ctx - client root context.
  */
 export function apply(ctx) {
+    ctx.effect(async () => {
+        const dispose = await ctx.remote.$mount(TYPERT_REMOTE);
+        return () => dispose();
+    }, 'ui-settings-models: capability probe Remote');
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries');
     const connection = ctx.get('connection');
     const schema = createSettingsSchemaOperations(ctx.settingsSchema);

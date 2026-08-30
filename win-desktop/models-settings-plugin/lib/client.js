@@ -2840,6 +2840,85 @@ window.__ModuleLoader__.load({
 			keyRequired: "请输入 API 密钥后继续。"
 		};
 		//#endregion
+		//#region lib/remote.js
+		function plainRecord(value) {
+			if (typeof value !== "object" || value === null || Array.isArray(value)) throw new TypeError("model capability Remote expects a plain object");
+			return value;
+		}
+		function requiredString(value, field) {
+			if (typeof value !== "string" || value.trim().length === 0) throw new TypeError(`model capability Remote field ${field} must be a non-empty string`);
+			return value;
+		}
+		function strictKeys(value, allowed) {
+			for (const key of Object.keys(value)) if (!allowed.has(key)) throw new TypeError(`model capability Remote field ${key} is not allowed`);
+		}
+		/** Client-selected descriptor for the Host capability probe service. */
+		const TYPERT_REMOTE = {
+			package: "@deepseek-ai/dsh-client-ui-settings-models",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-client-ui-settings-models#model-capabilities/probe",
+				service: "modelCapabilityProbe",
+				namespace: "model-capabilities",
+				method: "probe",
+				invocation: { kind: "direct" },
+				parameters: [{
+					name: "request",
+					wire: "request",
+					source: "json",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-client-ui-settings-models#CapabilityProbeRequest",
+						schema: { parse(value) {
+							const record = plainRecord(value);
+							strictKeys(record, /* @__PURE__ */ new Set([
+								"modelId",
+								"protocol",
+								"baseURL",
+								"credentialRef",
+								"apiKey",
+								"candidate"
+							]));
+							const candidate = record["candidate"];
+							if (candidate !== void 0) plainRecord(candidate);
+							return {
+								modelId: requiredString(record["modelId"], "modelId"),
+								protocol: requiredString(record["protocol"], "protocol"),
+								baseURL: requiredString(record["baseURL"], "baseURL"),
+								...record["credentialRef"] === void 0 ? {} : { credentialRef: requiredString(record["credentialRef"], "credentialRef") },
+								...record["apiKey"] === void 0 ? {} : { apiKey: requiredString(record["apiKey"], "apiKey") },
+								...candidate === void 0 ? {} : { candidate }
+							};
+						} }
+					}
+				}],
+				cancellation: { parameter: "signal" },
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-client-ui-settings-models#ModelCapabilityProbeResult",
+					schema: { parse(value) {
+						const record = plainRecord(value);
+						strictKeys(record, /* @__PURE__ */ new Set([
+							"modelId",
+							"protocol",
+							"checks",
+							"patch"
+						]));
+						return {
+							modelId: requiredString(record["modelId"], "modelId"),
+							protocol: requiredString(record["protocol"], "protocol"),
+							checks: plainRecord(record["checks"]),
+							patch: plainRecord(record["patch"])
+						};
+					} }
+				},
+				sourceLocation: {
+					file: "win-desktop/models-settings-plugin/src/capability-probe-service.ts",
+					line: 1,
+					column: 1
+				}
+			}]
+		};
+		//#endregion
 		//#region lib/client/index.js
 		/** Dictionary namespace owned by this plugin. */
 		const NS = "settings.models";
@@ -2872,6 +2951,10 @@ window.__ModuleLoader__.load({
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
+			ctx.effect(async () => {
+				const dispose = await ctx.remote.$mount(TYPERT_REMOTE);
+				return () => dispose();
+			}, "ui-settings-models: capability probe Remote");
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en

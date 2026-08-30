@@ -1,4 +1,39 @@
-import { capabilityPatchFromChecks } from "./client/model-capabilities.js";
+var __runInitializers = (this && this.__runInitializers) || function (thisArg, initializers, value) {
+    var useValue = arguments.length > 2;
+    for (var i = 0; i < initializers.length; i++) {
+        value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
+    }
+    return useValue ? value : void 0;
+};
+var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
+    function accept(f) { if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected"); return f; }
+    var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
+    var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
+    var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
+    var _, done = false;
+    for (var i = decorators.length - 1; i >= 0; i--) {
+        var context = {};
+        for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
+        for (var p in contextIn.access) context.access[p] = contextIn.access[p];
+        context.addInitializer = function (f) { if (done) throw new TypeError("Cannot add initializers after decoration has completed"); extraInitializers.push(accept(f || null)); };
+        var result = (0, decorators[i])(kind === "accessor" ? { get: descriptor.get, set: descriptor.set } : descriptor[key], context);
+        if (kind === "accessor") {
+            if (result === void 0) continue;
+            if (result === null || typeof result !== "object") throw new TypeError("Object expected");
+            if (_ = accept(result.get)) descriptor.get = _;
+            if (_ = accept(result.set)) descriptor.set = _;
+            if (_ = accept(result.init)) initializers.unshift(_);
+        }
+        else if (_ = accept(result)) {
+            if (kind === "field") initializers.unshift(_);
+            else descriptor[key] = _;
+        }
+    }
+    if (target) Object.defineProperty(target, contextIn.name, descriptor);
+    done = true;
+};
+import { capabilityPatchFromChecks } from "./capability-contract.js";
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 const DEFAULT_REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 const ONE_BY_ONE_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 const ONE_BY_ONE_DATA_URL = `data:image/png;base64,${ONE_BY_ONE_PNG}`;
@@ -299,3 +334,45 @@ export async function probeModelCapabilities(request, dependencies = {}) {
     const patch = capabilityPatchFromChecks(checks);
     return { modelId: request.modelId, protocol, checks, patch };
 }
+/** Build the Host handler so credential lookup stays injectable and testable. */
+export function createCapabilityProbeHandler(dependencies = {}) {
+    return async (request, signal) => {
+        const supplied = request.apiKey?.trim();
+        const apiKey = supplied === undefined || supplied.length === 0
+            ? request.credentialRef === undefined
+                ? undefined
+                : await dependencies.resolveCredential?.(request.credentialRef)
+            : supplied;
+        return probeModelCapabilities({ ...request, apiKey, signal }, { fetch: dependencies.fetch });
+    };
+}
+/** Host service exposing the one provider-neutral probe method to the Models page. */
+let ModelCapabilityProbeService = (() => {
+    let _classSuper = TypertRemoteService;
+    let _instanceExtraInitializers = [];
+    let _probe_decorators;
+    return class ModelCapabilityProbeService extends _classSuper {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _probe_decorators = [Remote('probe')];
+            __esDecorate(this, null, _probe_decorators, { kind: "method", name: "probe", static: false, private: false, access: { has: obj => "probe" in obj, get: obj => obj.probe }, metadata: _metadata }, null, _instanceExtraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        static inject = ['credentials'];
+        constructor(ctx) {
+            super(ctx, 'modelCapabilityProbe', { namespace: 'model-capabilities' });
+            __runInitializers(this, _instanceExtraInitializers);
+        }
+        async probe(request, signal) {
+            const handler = createCapabilityProbeHandler({
+                fetch: globalThis.fetch,
+                resolveCredential: async (reference) => {
+                    const resolved = await this.ctx.credentials.resolve(reference);
+                    return resolved?.value;
+                },
+            });
+            return handler(request, signal);
+        }
+    };
+})();
+export { ModelCapabilityProbeService };

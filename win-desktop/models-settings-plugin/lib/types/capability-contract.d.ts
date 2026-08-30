@@ -29,3 +29,5 @@ export interface ModelCapabilityProbeResult {
     patch: ModelCapabilityPatch;
 }
 export type CapabilityPatchSource = 'probe' | 'discovery';
+/** Convert successful/explicitly unsupported checks into the canonical pi-ai patch. */
+export declare function capabilityPatchFromChecks(checks: Readonly<Record<string, CapabilityCheck>>): ModelCapabilityPatch;
