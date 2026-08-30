@@ -55,7 +55,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:src/client/ModelsSection.module.css.mjs
-		const css$3 = ".GoWlTG_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.GoWlTG_title{color:var(--dsw-alias-label-primary);margin:0;font-size:16px;font-weight:500;line-height:24px}.GoWlTG_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:14px;line-height:22px}.GoWlTG_notice{color:var(--dsw-alias-state-warn-label);margin:0;font-size:12px;line-height:18px}.GoWlTG_savedNotice{color:var(--dsw-alias-state-success-primary);margin:0;font-size:12px;line-height:18px}.GoWlTG_rows{flex-direction:column;gap:8px;margin:12px 0 0;padding:0;list-style:none;display:flex}.GoWlTG_rowCard{border:1px solid var(--dsw-alias-border-l2);border-radius:12px;flex-direction:column;gap:12px;padding:12px 14px;display:flex}.GoWlTG_rowHead{align-items:center;gap:10px;display:flex}.GoWlTG_rowIdentity{align-items:center;gap:6px;min-width:0;display:inline-flex}.GoWlTG_rowName{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:500;line-height:22px}.GoWlTG_rowTag{border:1px solid var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:4px;flex:none;padding:1px 6px;font-size:11px;line-height:16px}.GoWlTG_credentialDot{box-sizing:border-box;border-radius:50%;flex:none;width:8px;height:8px;display:inline-block}.GoWlTG_credentialDotConfigured{background:var(--dsw-alias-state-success-primary)}.GoWlTG_credentialDotMissing{background:var(--dsw-alias-state-error-primary)}.GoWlTG_rowActions{align-items:center;gap:4px;margin-left:auto;display:inline-flex}.GoWlTG_primaryButton,.GoWlTG_secondaryButton,.GoWlTG_addButton{box-sizing:border-box;height:36px;font:inherit;cursor:pointer;border:none;border-radius:18px;justify-content:center;align-items:center;gap:4px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.GoWlTG_primaryButton{background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground)}.GoWlTG_primaryButton:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}.GoWlTG_secondaryButton,.GoWlTG_addButton{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);background:0 0}.GoWlTG_secondaryButton:hover:not(:disabled),.GoWlTG_addButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.GoWlTG_secondaryButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-solid)}.GoWlTG_dangerButton{box-sizing:border-box;height:36px;color:var(--dsw-alias-state-error-primary);font:inherit;cursor:pointer;background:0 0;border:none;border-radius:18px;justify-content:center;align-items:center;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.GoWlTG_dangerButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)}.GoWlTG_rowActions .GoWlTG_secondaryButton,.GoWlTG_rowActions .GoWlTG_dangerButton{border-radius:14px;height:28px;padding:0 10px;font-size:12px;line-height:18px}.GoWlTG_primaryButton:disabled,.GoWlTG_secondaryButton:disabled,.GoWlTG_dangerButton:disabled,.GoWlTG_addButton:disabled,.GoWlTG_linkButton:disabled,.GoWlTG_addModelButton:disabled{opacity:.4;cursor:default}.GoWlTG_primaryButton:focus-visible,.GoWlTG_secondaryButton:focus-visible,.GoWlTG_dangerButton:focus-visible,.GoWlTG_addButton:focus-visible,.GoWlTG_linkButton:focus-visible,.GoWlTG_addModelButton:focus-visible,.GoWlTG_iconButton:focus-visible,.GoWlTG_customizedSummary:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-border-l3);outline:none}.GoWlTG_editor{background:var(--dsw-alias-bg-module-platform);border-radius:12px;flex-direction:column;gap:14px;padding:14px 16px;display:flex}.GoWlTG_editorHeader{align-items:baseline;gap:8px;display:flex}.GoWlTG_editorTitle{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:500;line-height:22px}.GoWlTG_editorRoute{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.GoWlTG_field{flex-direction:column;gap:6px;display:flex}.GoWlTG_fieldLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:10px;font-size:12px;font-weight:500;line-height:18px;display:inline-flex}.GoWlTG_linkButton{box-sizing:border-box;height:28px;color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:none;border-radius:14px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.GoWlTG_linkButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.GoWlTG_advancedHint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}.GoWlTG_editorActions{justify-content:flex-end;gap:8px;display:flex}.GoWlTG_addBlock{flex-direction:column;gap:12px;display:flex}.GoWlTG_addActions{flex-wrap:wrap;gap:10px;display:flex}.GoWlTG_addButton{border:1px dashed var(--dsw-alias-border-l3);border-radius:12px;flex:1 1 0;gap:6px;min-width:180px;height:44px}.GoWlTG_addCard,.GoWlTG_setupCard{background:var(--dsw-alias-bg-module-platform);border-radius:12px;flex-direction:column;gap:14px;padding:14px 16px;list-style:none;display:flex}.GoWlTG_addCard .GoWlTG_editor,.GoWlTG_setupCard .GoWlTG_editor{background:0 0;padding:0}.GoWlTG_customized{border-top:1px solid var(--dsw-alias-border-l2);padding-top:10px}.GoWlTG_customizedSummary{cursor:pointer;width:fit-content;color:var(--dsw-alias-label-secondary);border-radius:6px;align-items:center;gap:6px;margin-left:-4px;padding:2px 4px;font-size:12px;font-weight:500;line-height:18px;list-style:none;display:flex}.GoWlTG_customizedSummary::-webkit-details-marker{display:none}.GoWlTG_customizedSummary:before{content:\"\";border-bottom:1.5px solid;border-right:1.5px solid;width:5px;height:5px;transition:transform .12s;transform:rotate(-45deg)translate(-1px,-1px)}.GoWlTG_customized[open]>.GoWlTG_customizedSummary:before{transform:rotate(45deg)translate(-1px,-1px)}.GoWlTG_customizedSummary:hover{color:var(--dsw-alias-label-primary)}.GoWlTG_customizedBody{flex-direction:column;gap:12px;padding-top:12px;display:flex}.GoWlTG_modelCatalog{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:12px;display:flex}.GoWlTG_modelCatalogHeading{flex-direction:column;gap:2px;display:flex}.GoWlTG_modelCatalogTitle{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;line-height:18px}.GoWlTG_modelCatalogMeta,.GoWlTG_modelEmpty{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}.GoWlTG_modelList{flex-direction:column;gap:8px;display:flex}.GoWlTG_modelListHead{flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:12px;display:flex}.GoWlTG_modelListActions{flex-wrap:wrap;flex:260px;justify-content:flex-end;gap:4px;display:flex}.GoWlTG_modelEntry{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:6px}.GoWlTG_modelRow{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto auto;align-items:center;gap:6px;display:grid}.GoWlTG_iconButton{box-sizing:border-box;width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;justify-content:center;align-items:center;display:inline-flex}.GoWlTG_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.GoWlTG_iconButton:disabled{cursor:default;opacity:.4}.GoWlTG_iconButtonDanger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary)}.GoWlTG_modelAdvanced{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;padding:8px 4px 2px;display:grid}.GoWlTG_modelField{flex-direction:column;gap:4px;display:flex}.GoWlTG_modelFieldLabel,.GoWlTG_modelFieldHint{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.GoWlTG_modelInputChoice{max-width:100%}.GoWlTG_modelEmpty{border:1px dashed var(--dsw-alias-border-l3);text-align:center;border-radius:8px;padding:12px}.GoWlTG_addModelButton{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);height:28px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;border-radius:14px;align-self:flex-start;align-items:center;gap:4px;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.GoWlTG_addModelButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.GoWlTG_input{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);width:100%;height:32px;font:inherit;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 10px;font-size:14px;line-height:22px}select.GoWlTG_input{cursor:pointer;max-width:240px}.GoWlTG_input:focus{border-color:var(--dsw-alias-brand-primary);outline:none}.GoWlTG_input::placeholder{color:var(--dsw-alias-label-dimmed)}.GoWlTG_input:disabled{opacity:.6;cursor:default}.GoWlTG_selectInput{appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2381858C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");background-position:right 12px center;background-repeat:no-repeat;background-size:12px 12px;padding-right:32px}.GoWlTG_error{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px;line-height:18px}.GoWlTG_deleteDialog{width:min(480px,100%)}.GoWlTG_deleteConfirm:not(:disabled){border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}.GoWlTG_deleteConfirm:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)}.GoWlTG_hiddenLabel{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:reduce){.GoWlTG_customizedSummary:before{transition:none}}.GoWlTG_fetchDialog{--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);max-width:520px}.GoWlTG_candidateActions{justify-content:flex-end;margin-bottom:6px;display:flex}.GoWlTG_candidateList{flex-direction:column;gap:2px;max-height:320px;margin:0;padding:0;list-style:none;display:flex;overflow-y:auto}.GoWlTG_candidate{border-radius:6px}.GoWlTG_candidateLabel{cursor:pointer;align-items:center;gap:8px;padding:6px 8px;display:flex}.GoWlTG_candidateId{font-family:var(--ds-font-family-code);overflow-wrap:anywhere;flex:auto;font-size:13px}";
+		const css$3 = ".GoWlTG_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.GoWlTG_title{color:var(--dsw-alias-label-primary);margin:0;font-size:16px;font-weight:500;line-height:24px}.GoWlTG_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:14px;line-height:22px}.GoWlTG_notice{color:var(--dsw-alias-state-warn-label);margin:0;font-size:12px;line-height:18px}.GoWlTG_savedNotice{color:var(--dsw-alias-state-success-primary);margin:0;font-size:12px;line-height:18px}.GoWlTG_rows{flex-direction:column;gap:8px;margin:12px 0 0;padding:0;list-style:none;display:flex}.GoWlTG_rowCard{border:1px solid var(--dsw-alias-border-l2);border-radius:12px;flex-direction:column;gap:12px;padding:12px 14px;display:flex}.GoWlTG_rowHead{align-items:center;gap:10px;display:flex}.GoWlTG_rowIdentity{align-items:center;gap:6px;min-width:0;display:inline-flex}.GoWlTG_rowName{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:500;line-height:22px}.GoWlTG_rowTag{border:1px solid var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:4px;flex:none;padding:1px 6px;font-size:11px;line-height:16px}.GoWlTG_credentialDot{box-sizing:border-box;border-radius:50%;flex:none;width:8px;height:8px;display:inline-block}.GoWlTG_credentialDotConfigured{background:var(--dsw-alias-state-success-primary)}.GoWlTG_credentialDotMissing{background:var(--dsw-alias-state-error-primary)}.GoWlTG_rowActions{align-items:center;gap:4px;margin-left:auto;display:inline-flex}.GoWlTG_primaryButton,.GoWlTG_secondaryButton,.GoWlTG_addButton{box-sizing:border-box;height:36px;font:inherit;cursor:pointer;border:none;border-radius:18px;justify-content:center;align-items:center;gap:4px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.GoWlTG_primaryButton{background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground)}.GoWlTG_primaryButton:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}.GoWlTG_secondaryButton,.GoWlTG_addButton{border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);background:0 0}.GoWlTG_secondaryButton:hover:not(:disabled),.GoWlTG_addButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.GoWlTG_secondaryButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-solid)}.GoWlTG_dangerButton{box-sizing:border-box;height:36px;color:var(--dsw-alias-state-error-primary);font:inherit;cursor:pointer;background:0 0;border:none;border-radius:18px;justify-content:center;align-items:center;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.GoWlTG_dangerButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)}.GoWlTG_rowActions .GoWlTG_secondaryButton,.GoWlTG_rowActions .GoWlTG_dangerButton{border-radius:14px;height:28px;padding:0 10px;font-size:12px;line-height:18px}.GoWlTG_primaryButton:disabled,.GoWlTG_secondaryButton:disabled,.GoWlTG_dangerButton:disabled,.GoWlTG_addButton:disabled,.GoWlTG_linkButton:disabled,.GoWlTG_addModelButton:disabled{opacity:.4;cursor:default}.GoWlTG_primaryButton:focus-visible,.GoWlTG_secondaryButton:focus-visible,.GoWlTG_dangerButton:focus-visible,.GoWlTG_addButton:focus-visible,.GoWlTG_linkButton:focus-visible,.GoWlTG_addModelButton:focus-visible,.GoWlTG_iconButton:focus-visible,.GoWlTG_customizedSummary:focus-visible{box-shadow:0 0 0 2px var(--dsw-alias-border-l3);outline:none}.GoWlTG_editor{background:var(--dsw-alias-bg-module-platform);border-radius:12px;flex-direction:column;gap:14px;padding:14px 16px;display:flex}.GoWlTG_editorHeader{align-items:baseline;gap:8px;display:flex}.GoWlTG_editorTitle{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:500;line-height:22px}.GoWlTG_editorRoute{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.GoWlTG_field{flex-direction:column;gap:6px;display:flex}.GoWlTG_fieldLabel{color:var(--dsw-alias-label-secondary);align-items:center;gap:10px;font-size:12px;font-weight:500;line-height:18px;display:inline-flex}.GoWlTG_linkButton{box-sizing:border-box;height:28px;color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:none;border-radius:14px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.GoWlTG_linkButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.GoWlTG_advancedHint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}.GoWlTG_editorActions{justify-content:flex-end;gap:8px;display:flex}.GoWlTG_addBlock{flex-direction:column;gap:12px;display:flex}.GoWlTG_addActions{flex-wrap:wrap;gap:10px;display:flex}.GoWlTG_addButton{border:1px dashed var(--dsw-alias-border-l3);border-radius:12px;flex:1 1 0;gap:6px;min-width:180px;height:44px}.GoWlTG_addCard,.GoWlTG_setupCard{background:var(--dsw-alias-bg-module-platform);border-radius:12px;flex-direction:column;gap:14px;padding:14px 16px;list-style:none;display:flex}.GoWlTG_addCard .GoWlTG_editor,.GoWlTG_setupCard .GoWlTG_editor{background:0 0;padding:0}.GoWlTG_customized{border-top:1px solid var(--dsw-alias-border-l2);padding-top:10px}.GoWlTG_customizedSummary{cursor:pointer;width:fit-content;color:var(--dsw-alias-label-secondary);border-radius:6px;align-items:center;gap:6px;margin-left:-4px;padding:2px 4px;font-size:12px;font-weight:500;line-height:18px;list-style:none;display:flex}.GoWlTG_customizedSummary::-webkit-details-marker{display:none}.GoWlTG_customizedSummary:before{content:\"\";border-bottom:1.5px solid;border-right:1.5px solid;width:5px;height:5px;transition:transform .12s;transform:rotate(-45deg)translate(-1px,-1px)}.GoWlTG_customized[open]>.GoWlTG_customizedSummary:before{transform:rotate(45deg)translate(-1px,-1px)}.GoWlTG_customizedSummary:hover{color:var(--dsw-alias-label-primary)}.GoWlTG_customizedBody{flex-direction:column;gap:12px;padding-top:12px;display:flex}.GoWlTG_modelCatalog{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:10px;padding-top:12px;display:flex}.GoWlTG_modelCatalogHeading{flex-direction:column;gap:2px;display:flex}.GoWlTG_modelCatalogTitle{color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;line-height:18px}.GoWlTG_modelCatalogMeta,.GoWlTG_modelEmpty{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}.GoWlTG_modelList{flex-direction:column;gap:8px;display:flex}.GoWlTG_modelListHead{flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:12px;display:flex}.GoWlTG_modelListActions{flex-wrap:wrap;flex:260px;justify-content:flex-end;gap:4px;display:flex}.GoWlTG_capabilityProbe{border:1px solid var(--dsw-alias-border-l2);border-left:3px solid var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-1);border-radius:8px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.GoWlTG_capabilityProbeHead,.GoWlTG_capabilityProbeActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.GoWlTG_capabilityProbeHead{justify-content:space-between}.GoWlTG_capabilityProbeActions{justify-content:flex-end}.GoWlTG_capabilityOverwrite{color:var(--dsw-alias-label-secondary);align-items:center;gap:6px;font-size:12px;line-height:18px;display:inline-flex}.GoWlTG_capabilityStatus{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-1);border-radius:6px;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px;padding:4px 8px;font-size:12px;line-height:18px;display:flex}.GoWlTG_capabilityStatus_supported{color:var(--dsw-alias-state-success-primary)}.GoWlTG_capabilityStatus_unsupported{color:var(--dsw-alias-state-error-primary)}.GoWlTG_capabilityStatus_inconclusive{color:var(--dsw-alias-state-warn-label)}.GoWlTG_capabilityStatus_not_applicable{color:var(--dsw-alias-label-tertiary)}.GoWlTG_modelEntry{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:6px}.GoWlTG_modelRow{grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) auto auto;align-items:center;gap:6px;display:grid}.GoWlTG_iconButton{box-sizing:border-box;width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;justify-content:center;align-items:center;display:inline-flex}.GoWlTG_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.GoWlTG_iconButton:disabled{cursor:default;opacity:.4}.GoWlTG_iconButtonDanger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary)}.GoWlTG_modelAdvanced{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;padding:8px 4px 2px;display:grid}.GoWlTG_modelField{flex-direction:column;gap:4px;display:flex}.GoWlTG_modelFieldLabel,.GoWlTG_modelFieldHint{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.GoWlTG_modelInputChoice{max-width:100%}.GoWlTG_modelEmpty{border:1px dashed var(--dsw-alias-border-l3);text-align:center;border-radius:8px;padding:12px}.GoWlTG_addModelButton{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);height:28px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;border-radius:14px;align-self:flex-start;align-items:center;gap:4px;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.GoWlTG_addModelButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.GoWlTG_input{box-sizing:border-box;border:1px solid var(--dsw-alias-border-l2);width:100%;height:32px;font:inherit;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);border-radius:8px;padding:0 10px;font-size:14px;line-height:22px}select.GoWlTG_input{cursor:pointer;max-width:240px}.GoWlTG_input:focus{border-color:var(--dsw-alias-brand-primary);outline:none}.GoWlTG_input::placeholder{color:var(--dsw-alias-label-dimmed)}.GoWlTG_input:disabled{opacity:.6;cursor:default}.GoWlTG_selectInput{appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2381858C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");background-position:right 12px center;background-repeat:no-repeat;background-size:12px 12px;padding-right:32px}.GoWlTG_error{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px;line-height:18px}.GoWlTG_deleteDialog{width:min(480px,100%)}.GoWlTG_deleteConfirm:not(:disabled){border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}.GoWlTG_deleteConfirm:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)}.GoWlTG_hiddenLabel{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:reduce){.GoWlTG_customizedSummary:before{transition:none}}.GoWlTG_fetchDialog{--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);max-width:520px}.GoWlTG_candidateActions{justify-content:flex-end;margin-bottom:6px;display:flex}.GoWlTG_candidateList{flex-direction:column;gap:2px;max-height:320px;margin:0;padding:0;list-style:none;display:flex;overflow-y:auto}.GoWlTG_candidate{border-radius:6px}.GoWlTG_candidateLabel{cursor:pointer;align-items:center;gap:8px;padding:6px 8px;display:flex}.GoWlTG_candidateId{font-family:var(--ds-font-family-code);overflow-wrap:anywhere;flex:auto;font-size:13px}";
 		const tagId$3 = "@deepseek-ai/dsh-client-ui-settings-models/ModelsSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
 			const tag = document.createElement("style");
@@ -76,6 +76,15 @@ window.__ModuleLoader__.load({
 			"candidateId": "GoWlTG_candidateId",
 			"candidateLabel": "GoWlTG_candidateLabel",
 			"candidateList": "GoWlTG_candidateList",
+			"capabilityOverwrite": "GoWlTG_capabilityOverwrite",
+			"capabilityProbe": "GoWlTG_capabilityProbe",
+			"capabilityProbeActions": "GoWlTG_capabilityProbeActions",
+			"capabilityProbeHead": "GoWlTG_capabilityProbeHead",
+			"capabilityStatus": "GoWlTG_capabilityStatus",
+			"capabilityStatus_inconclusive": "GoWlTG_capabilityStatus_inconclusive",
+			"capabilityStatus_not_applicable": "GoWlTG_capabilityStatus_not_applicable",
+			"capabilityStatus_supported": "GoWlTG_capabilityStatus_supported",
+			"capabilityStatus_unsupported": "GoWlTG_capabilityStatus_unsupported",
 			"credentialDot": "GoWlTG_credentialDot",
 			"credentialDotConfigured": "GoWlTG_credentialDotConfigured",
 			"credentialDotMissing": "GoWlTG_credentialDotMissing",
@@ -471,6 +480,52 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region lib/client/model-capabilities.js
+		function isCapabilityInput(value) {
+			return Array.isArray(value) && (value.length === 1 && value[0] === "text" || value.length === 2 && value[0] === "text" && value[1] === "image");
+		}
+		function isPlainRecord(value) {
+			return typeof value === "object" && value !== null && !Array.isArray(value);
+		}
+		/**
+		* Apply capability fields to a draft row without rebuilding or losing hidden
+		* model fields. The source is explicit so later callers cannot silently use
+		* this helper for a different precedence rule.
+		*/
+		function applyCapabilityPatch(model, patch, options) {
+			const next = { ...model };
+			const { overwriteExisting, source: _source } = options;
+			if (patch.input !== void 0 && isCapabilityInput(patch.input) && (!Object.hasOwn(model, "input") || overwriteExisting)) next["input"] = [...patch.input];
+			if (patch.reasoningEfforts !== void 0 && (!Object.hasOwn(model, "reasoningEfforts") || overwriteExisting)) next["reasoningEfforts"] = patch.reasoningEfforts === false ? false : { ...patch.reasoningEfforts };
+			if (patch.compat !== void 0) {
+				const existing = isPlainRecord(model["compat"]) ? model["compat"] : {};
+				const merged = { ...existing };
+				for (const [key, value] of Object.entries(patch.compat)) if (!Object.hasOwn(existing, key) || overwriteExisting) merged[key] = value;
+				next["compat"] = merged;
+			}
+			return next;
+		}
+		/**
+		* Apply one completed probe to every matching draft row without writing
+		* settings. Duplicate ids are deliberately all updated: the parent save gate
+		* still rejects duplicates, but a user who is correcting a duplicate should
+		* not see one visually identical row behave differently from the other.
+		*/
+		function applyCapabilityProbeResult(models, result, overwriteExisting) {
+			return models.map((model) => typeof model["id"] === "string" && model["id"].trim() === result.modelId ? applyCapabilityPatch(model, result.patch, {
+				overwriteExisting,
+				source: "probe"
+			}) : model);
+		}
+		/** Collapse the matrix into one cautious row-level status for the editor. */
+		function capabilityResultStatus(result) {
+			const statuses = Object.values(result.checks).map((check) => check.status);
+			if (statuses.includes("inconclusive")) return "inconclusive";
+			if (statuses.includes("supported")) return "supported";
+			if (statuses.includes("unsupported")) return "unsupported";
+			return "not-applicable";
+		}
+		//#endregion
 		//#region lib/client/store.js
 		/**
 		* Models settings page store: one snapshot joining the configurable-provider
@@ -775,19 +830,56 @@ window.__ModuleLoader__.load({
 				...candidate.maxTokens === void 0 ? {} : { maxTokens: candidate.maxTokens }
 			};
 		}
+		function capabilityStatusKey(status) {
+			switch (status) {
+				case "supported": return "capabilitySupported";
+				case "unsupported": return "capabilityUnsupported";
+				case "inconclusive": return "capabilityInconclusive";
+				case "not-applicable": return "capabilityNotApplicable";
+			}
+		}
+		function capabilitySummary(result, t) {
+			const counts = {
+				supported: 0,
+				unsupported: 0,
+				inconclusive: 0,
+				"not-applicable": 0
+			};
+			for (const check of Object.values(result.checks)) counts[check.status] += 1;
+			return [
+				`${t("capabilitySupported")} ${String(counts.supported)}`,
+				`${t("capabilityUnsupported")} ${String(counts.unsupported)}`,
+				`${t("capabilityInconclusive")} ${String(counts.inconclusive)}`
+			].join(" · ");
+		}
+		function probeCandidate(model) {
+			return Object.hasOwn(model, "reasoningEfforts") ? { reasoningEfforts: model["reasoningEfforts"] } : {};
+		}
 		/**
 		* Render the model list with its fetch action.
 		* @param props - the drafted rows, probe target, wire face, and copy.
 		* @returns the model-list editor.
 		*/
 		function ModelListEditor(props) {
-			const { models, onChange, probe, api, t, disabled } = props;
+			const { models, onChange, probe, api, modelCapabilities, t, disabled } = props;
 			const [busy, setBusy] = (0, react.useState)(false);
 			const [failure, setFailure] = (0, react.useState)(void 0);
+			const [probeBusy, setProbeBusy] = (0, react.useState)(false);
+			const [probeFailure, setProbeFailure] = (0, react.useState)(void 0);
+			const [probeNotice, setProbeNotice] = (0, react.useState)(void 0);
+			const [selectedIds, setSelectedIds] = (0, react.useState)(/* @__PURE__ */ new Set());
+			const [probeResults, setProbeResults] = (0, react.useState)(/* @__PURE__ */ new Map());
+			const [overwriteExisting, setOverwriteExisting] = (0, react.useState)(false);
+			const probeController = (0, react.useRef)(null);
+			const modelsRef = (0, react.useRef)(models);
+			modelsRef.current = models;
 			const [candidates, setCandidates] = (0, react.useState)(void 0);
 			const [picked, setPicked] = (0, react.useState)(/* @__PURE__ */ new Set());
 			const [expanded, setExpanded] = (0, react.useState)(/* @__PURE__ */ new Set());
 			const [editing, setEditing] = (0, react.useState)(/* @__PURE__ */ new Map());
+			(0, react.useEffect)(() => () => {
+				probeController.current?.abort();
+			}, []);
 			/** Buffer key for one capacity field; the row half moves when rows do. */
 			const bufferKey = (index, field) => `${String(index)}:${field}`;
 			const editCapacity = (index, field, text) => {
@@ -825,6 +917,77 @@ window.__ModuleLoader__.load({
 			};
 			const setImageInputChoice = (index, choice) => {
 				onChange(models.map((model, at) => at === index ? applyImageInputChoice(model, choice) : model));
+			};
+			const selectableIds = models.map((model) => textOf(model, "id").trim()).filter((id) => id.length > 0);
+			const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+			const toggleSelected = (id) => {
+				if (id.length === 0) return;
+				setSelectedIds((current) => {
+					const next = new Set(current);
+					if (!next.delete(id)) next.add(id);
+					return next;
+				});
+			};
+			const toggleAllSelected = () => {
+				setSelectedIds(allSelected ? /* @__PURE__ */ new Set() : new Set(selectableIds));
+			};
+			const cancelProbe = () => {
+				probeController.current?.abort();
+			};
+			const probeSelected = async () => {
+				const ids = [...selectedIds].filter((id) => selectableIds.includes(id));
+				if (ids.length === 0) {
+					setProbeFailure(t("capabilitySelectModelFirst"));
+					return;
+				}
+				const baseURL = probe.baseURL?.trim() ?? "";
+				if (baseURL.length === 0) {
+					setProbeFailure(t("capabilityNeedsBaseUrl"));
+					return;
+				}
+				const controller = new AbortController();
+				probeController.current = controller;
+				setProbeBusy(true);
+				setProbeFailure(void 0);
+				setProbeNotice(void 0);
+				let completed = 0;
+				try {
+					for (const id of ids) {
+						if (controller.signal.aborted) break;
+						const model = modelsRef.current.find((candidate) => textOf(candidate, "id").trim() === id);
+						if (model === void 0) continue;
+						const protocol = textOf(model, "api").trim() || probe.api?.trim() || "";
+						if (protocol.length === 0) {
+							setProbeFailure(`${id}: ${t("capabilityNeedsProtocol")}`);
+							continue;
+						}
+						const response = await modelCapabilities.probe({
+							modelId: id,
+							protocol,
+							baseURL,
+							...probe.credentialRef === void 0 ? {} : { credentialRef: probe.credentialRef },
+							...probe.apiKey === void 0 ? {} : { apiKey: probe.apiKey },
+							candidate: probeCandidate(model)
+						}, controller.signal);
+						if (!response.ok) {
+							setProbeFailure(`${id}: ${response.error.message}`);
+							continue;
+						}
+						const result = response.value;
+						setProbeResults((current) => new Map(current).set(id, result));
+						const updated = applyCapabilityProbeResult(modelsRef.current, result, overwriteExisting);
+						modelsRef.current = updated;
+						onChange(updated);
+						completed += 1;
+					}
+					setProbeNotice(controller.signal.aborted ? t("capabilityCancelled") : `${t("capabilityCompleted")} ${String(completed)}/${String(ids.length)}`);
+				} catch (error) {
+					if (controller.signal.aborted) setProbeNotice(t("capabilityCancelled"));
+					else setProbeFailure(messageOf(error));
+				} finally {
+					if (probeController.current === controller) probeController.current = null;
+					setProbeBusy(false);
+				}
 			};
 			const fetchModels = async () => {
 				setBusy(true);
@@ -885,6 +1048,7 @@ window.__ModuleLoader__.load({
 				});
 			};
 			const askable = probe.provider !== void 0 || probe.baseURL !== void 0 && probe.baseURL.length > 0;
+			const rowDisabled = disabled || probeBusy;
 			return (0, react_jsx_runtime.jsxs)("section", {
 				className: ModelsSection_module_css_default["modelCatalog"],
 				"aria-label": t("models"),
@@ -906,7 +1070,7 @@ window.__ModuleLoader__.load({
 								(0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: ModelsSection_module_css_default["linkButton"],
-									disabled: disabled || models.length === 0,
+									disabled: rowDisabled || models.length === 0,
 									onClick: () => {
 										onChange(applyImageInputChoiceToAll(models, "image"));
 									},
@@ -915,7 +1079,7 @@ window.__ModuleLoader__.load({
 								(0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: ModelsSection_module_css_default["linkButton"],
-									disabled: disabled || models.length === 0,
+									disabled: rowDisabled || models.length === 0,
 									onClick: () => {
 										onChange(applyImageInputChoiceToAll(models, "auto"));
 									},
@@ -924,14 +1088,14 @@ window.__ModuleLoader__.load({
 								props.overridden === true && props.onReset !== void 0 ? (0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: ModelsSection_module_css_default["linkButton"],
-									disabled,
+									disabled: rowDisabled,
 									onClick: props.onReset,
 									children: t("resetModels")
 								}) : null,
 								(0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: ModelsSection_module_css_default["linkButton"],
-									disabled: disabled || busy || !askable || props.probeBlocked !== void 0,
+									disabled: disabled || busy || probeBusy || !askable || props.probeBlocked !== void 0,
 									title: props.probeBlocked !== void 0 ? t(props.probeBlocked) : askable ? void 0 : t("fetchNeedsBaseUrl"),
 									onClick: () => {
 										fetchModels();
@@ -941,160 +1105,253 @@ window.__ModuleLoader__.load({
 							]
 						})]
 					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: ModelsSection_module_css_default["capabilityProbe"],
+						"aria-label": t("capabilityTitle"),
+						children: [
+							(0, react_jsx_runtime.jsxs)("div", {
+								className: ModelsSection_module_css_default["capabilityProbeHead"],
+								children: [(0, react_jsx_runtime.jsx)("span", {
+									className: ModelsSection_module_css_default["modelCatalogTitle"],
+									children: t("capabilityTitle")
+								}), (0, react_jsx_runtime.jsx)("span", {
+									className: ModelsSection_module_css_default["modelCatalogMeta"],
+									children: `${t("capabilitySelected")} ${String(selectedIds.size)}/${String(selectableIds.length)}`
+								})]
+							}),
+							(0, react_jsx_runtime.jsxs)("div", {
+								className: ModelsSection_module_css_default["capabilityProbeActions"],
+								children: [
+									(0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: ModelsSection_module_css_default["linkButton"],
+										disabled: rowDisabled || selectableIds.length === 0,
+										onClick: toggleAllSelected,
+										children: t(allSelected ? "capabilityDeselectAll" : "capabilitySelectAll")
+									}),
+									(0, react_jsx_runtime.jsxs)("label", {
+										className: ModelsSection_module_css_default["capabilityOverwrite"],
+										children: [(0, react_jsx_runtime.jsx)("input", {
+											type: "checkbox",
+											checked: overwriteExisting,
+											disabled: rowDisabled,
+											onChange: (event) => {
+												setOverwriteExisting(event.target.checked);
+											}
+										}), (0, react_jsx_runtime.jsx)("span", { children: t("capabilityOverwrite") })]
+									}),
+									probeBusy ? (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: ModelsSection_module_css_default["secondaryButton"],
+										onClick: cancelProbe,
+										children: t("capabilityCancel")
+									}) : (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: ModelsSection_module_css_default["primaryButton"],
+										disabled: disabled || busy || selectedIds.size === 0,
+										onClick: () => {
+											probeSelected();
+										},
+										children: t("capabilityProbe")
+									})
+								]
+							}),
+							(0, react_jsx_runtime.jsx)("p", {
+								className: ModelsSection_module_css_default["advancedHint"],
+								children: t("capabilityDraftHint")
+							}),
+							probeNotice === void 0 ? null : (0, react_jsx_runtime.jsx)("p", {
+								className: ModelsSection_module_css_default["savedNotice"],
+								role: "status",
+								"aria-live": "polite",
+								children: probeNotice
+							}),
+							probeFailure === void 0 ? null : (0, react_jsx_runtime.jsx)("p", {
+								className: ModelsSection_module_css_default["error"],
+								role: "alert",
+								children: probeFailure
+							})
+						]
+					}),
 					models.length === 0 ? (0, react_jsx_runtime.jsx)("p", {
 						className: ModelsSection_module_css_default["modelEmpty"],
 						children: t("modelsEmpty")
 					}) : null,
 					models.map((model, index) => (0, react_jsx_runtime.jsxs)("div", {
 						className: ModelsSection_module_css_default["modelEntry"],
-						children: [(0, react_jsx_runtime.jsxs)("div", {
-							className: ModelsSection_module_css_default["modelRow"],
-							children: [
-								(0, react_jsx_runtime.jsx)("input", {
-									className: ModelsSection_module_css_default["input"],
-									type: "text",
-									value: textOf(model, "id"),
-									placeholder: t("modelId"),
-									"aria-label": `${t("modelId")} ${index + 1}`,
-									disabled,
-									onChange: (event) => {
-										patch(index, { id: event.target.value });
-									}
-								}),
-								(0, react_jsx_runtime.jsx)("input", {
-									className: ModelsSection_module_css_default["input"],
-									type: "text",
-									value: textOf(model, "name"),
-									placeholder: t("modelName"),
-									"aria-label": `${t("modelName")} ${index + 1}`,
-									disabled,
-									onChange: (event) => {
-										patch(index, { name: event.target.value === "" ? void 0 : event.target.value });
-									}
-								}),
-								(0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: ModelsSection_module_css_default["iconButton"],
-									"aria-label": `${t("modelAdvanced")} ${index + 1}`,
-									"aria-expanded": expanded.has(index),
-									title: t("modelAdvanced"),
-									onClick: () => {
-										toggleExpanded(index);
-									},
-									children: (0, react_jsx_runtime.jsx)(IconChevron, { open: expanded.has(index) })
-								}),
-								(0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: `${ModelsSection_module_css_default["iconButton"]} ${ModelsSection_module_css_default["iconButtonDanger"]}`,
-									"aria-label": `${t("removeModel")} ${index + 1}`,
-									title: t("removeModel"),
-									disabled,
-									onClick: () => {
-										onChange(models.filter((_model, at) => at !== index));
-										setExpanded((current) => {
-											const next = /* @__PURE__ */ new Set();
-											for (const at of current) if (at < index) next.add(at);
-											else if (at > index) next.add(at - 1);
-											return next;
-										});
-										setEditing((current) => reindexOnRemove(current, index));
-									},
-									children: (0, react_jsx_runtime.jsx)(IconTrash, {})
-								})
-							]
-						}), expanded.has(index) ? (0, react_jsx_runtime.jsxs)("div", {
-							className: ModelsSection_module_css_default["modelAdvanced"],
-							children: [
-								(0, react_jsx_runtime.jsxs)("label", {
-									className: ModelsSection_module_css_default["modelField"],
-									children: [(0, react_jsx_runtime.jsx)("span", {
-										className: ModelsSection_module_css_default["modelFieldLabel"],
-										children: t("modelContextWindow")
-									}), (0, react_jsx_runtime.jsx)("input", {
+						children: [
+							(0, react_jsx_runtime.jsxs)("div", {
+								className: ModelsSection_module_css_default["modelRow"],
+								children: [
+									(0, react_jsx_runtime.jsx)("input", {
+										type: "checkbox",
+										checked: selectedIds.has(textOf(model, "id").trim()) && textOf(model, "id").trim().length > 0,
+										"aria-label": `${t("capabilitySelectModel")} ${index + 1}`,
+										disabled: rowDisabled || textOf(model, "id").trim().length === 0,
+										onChange: () => {
+											toggleSelected(textOf(model, "id").trim());
+										}
+									}),
+									(0, react_jsx_runtime.jsx)("input", {
 										className: ModelsSection_module_css_default["input"],
 										type: "text",
-										inputMode: "numeric",
-										value: capacityText(model, index, "contextWindow"),
-										placeholder: CAPACITY_HINT.contextWindow,
-										"aria-label": `${t("modelContextWindow")} ${index + 1}`,
-										disabled,
+										value: textOf(model, "id"),
+										placeholder: t("modelId"),
+										"aria-label": `${t("modelId")} ${index + 1}`,
+										disabled: rowDisabled,
 										onChange: (event) => {
-											editCapacity(index, "contextWindow", event.target.value);
+											patch(index, { id: event.target.value });
 										}
-									})]
-								}),
-								(0, react_jsx_runtime.jsxs)("label", {
-									className: ModelsSection_module_css_default["modelField"],
-									children: [(0, react_jsx_runtime.jsx)("span", {
-										className: ModelsSection_module_css_default["modelFieldLabel"],
-										children: t("modelMaxTokens")
-									}), (0, react_jsx_runtime.jsx)("input", {
+									}),
+									(0, react_jsx_runtime.jsx)("input", {
 										className: ModelsSection_module_css_default["input"],
 										type: "text",
-										inputMode: "numeric",
-										value: capacityText(model, index, "maxTokens"),
-										placeholder: CAPACITY_HINT.maxTokens,
-										"aria-label": `${t("modelMaxTokens")} ${index + 1}`,
-										disabled,
+										value: textOf(model, "name"),
+										placeholder: t("modelName"),
+										"aria-label": `${t("modelName")} ${index + 1}`,
+										disabled: rowDisabled,
 										onChange: (event) => {
-											editCapacity(index, "maxTokens", event.target.value);
+											patch(index, { name: event.target.value === "" ? void 0 : event.target.value });
 										}
-									})]
-								}),
-								(0, react_jsx_runtime.jsxs)("label", {
-									className: ModelsSection_module_css_default["modelField"],
-									children: [(0, react_jsx_runtime.jsx)("span", {
-										className: ModelsSection_module_css_default["modelFieldLabel"],
-										children: t("modelImageInput")
-									}), (() => {
-										const imageChoice = readImageInputChoice(model);
-										return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-											(0, react_jsx_runtime.jsxs)("select", {
-												className: `${ModelsSection_module_css_default["input"]} ${ModelsSection_module_css_default["selectInput"]} ${ModelsSection_module_css_default["modelInputChoice"]}`,
-												value: imageChoice,
-												"aria-invalid": imageChoice === "invalid",
-												disabled,
-												onChange: (event) => {
-													setImageInputChoice(index, event.target.value);
-												},
-												children: [
-													imageChoice === "invalid" ? (0, react_jsx_runtime.jsx)("option", {
-														value: "invalid",
-														disabled: true,
-														children: t("modelImageInvalid")
-													}) : null,
-													(0, react_jsx_runtime.jsx)("option", {
-														value: "auto",
-														children: t("modelImageAuto")
-													}),
-													(0, react_jsx_runtime.jsx)("option", {
-														value: "image",
-														children: t("modelImageSupported")
-													}),
-													(0, react_jsx_runtime.jsx)("option", {
-														value: "text-only",
-														children: t("modelImageTextOnly")
-													})
-												]
-											}),
-											(0, react_jsx_runtime.jsx)("span", {
-												className: ModelsSection_module_css_default["modelFieldHint"],
-												children: t(imageChoice === "auto" ? "modelImageAutoHint" : imageChoice === "image" ? "modelImageSupportedHint" : imageChoice === "text-only" ? "modelImageTextOnlyHint" : "modelImageInvalid")
-											}),
-											(0, react_jsx_runtime.jsx)("span", {
-												className: ModelsSection_module_css_default["modelFieldHint"],
-												children: t("modelImageRestartHint")
-											})
-										] });
-									})()]
-								})
-							]
-						}) : null]
+									}),
+									(0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: ModelsSection_module_css_default["iconButton"],
+										"aria-label": `${t("modelAdvanced")} ${index + 1}`,
+										"aria-expanded": expanded.has(index),
+										title: t("modelAdvanced"),
+										disabled: rowDisabled,
+										onClick: () => {
+											toggleExpanded(index);
+										},
+										children: (0, react_jsx_runtime.jsx)(IconChevron, { open: expanded.has(index) })
+									}),
+									(0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: `${ModelsSection_module_css_default["iconButton"]} ${ModelsSection_module_css_default["iconButtonDanger"]}`,
+										"aria-label": `${t("removeModel")} ${index + 1}`,
+										title: t("removeModel"),
+										disabled: rowDisabled,
+										onClick: () => {
+											onChange(models.filter((_model, at) => at !== index));
+											setExpanded((current) => {
+												const next = /* @__PURE__ */ new Set();
+												for (const at of current) if (at < index) next.add(at);
+												else if (at > index) next.add(at - 1);
+												return next;
+											});
+											setEditing((current) => reindexOnRemove(current, index));
+										},
+										children: (0, react_jsx_runtime.jsx)(IconTrash, {})
+									})
+								]
+							}),
+							expanded.has(index) ? (0, react_jsx_runtime.jsxs)("div", {
+								className: ModelsSection_module_css_default["modelAdvanced"],
+								children: [
+									(0, react_jsx_runtime.jsxs)("label", {
+										className: ModelsSection_module_css_default["modelField"],
+										children: [(0, react_jsx_runtime.jsx)("span", {
+											className: ModelsSection_module_css_default["modelFieldLabel"],
+											children: t("modelContextWindow")
+										}), (0, react_jsx_runtime.jsx)("input", {
+											className: ModelsSection_module_css_default["input"],
+											type: "text",
+											inputMode: "numeric",
+											value: capacityText(model, index, "contextWindow"),
+											placeholder: CAPACITY_HINT.contextWindow,
+											"aria-label": `${t("modelContextWindow")} ${index + 1}`,
+											disabled: rowDisabled,
+											onChange: (event) => {
+												editCapacity(index, "contextWindow", event.target.value);
+											}
+										})]
+									}),
+									(0, react_jsx_runtime.jsxs)("label", {
+										className: ModelsSection_module_css_default["modelField"],
+										children: [(0, react_jsx_runtime.jsx)("span", {
+											className: ModelsSection_module_css_default["modelFieldLabel"],
+											children: t("modelMaxTokens")
+										}), (0, react_jsx_runtime.jsx)("input", {
+											className: ModelsSection_module_css_default["input"],
+											type: "text",
+											inputMode: "numeric",
+											value: capacityText(model, index, "maxTokens"),
+											placeholder: CAPACITY_HINT.maxTokens,
+											"aria-label": `${t("modelMaxTokens")} ${index + 1}`,
+											disabled: rowDisabled,
+											onChange: (event) => {
+												editCapacity(index, "maxTokens", event.target.value);
+											}
+										})]
+									}),
+									(0, react_jsx_runtime.jsxs)("label", {
+										className: ModelsSection_module_css_default["modelField"],
+										children: [(0, react_jsx_runtime.jsx)("span", {
+											className: ModelsSection_module_css_default["modelFieldLabel"],
+											children: t("modelImageInput")
+										}), (() => {
+											const imageChoice = readImageInputChoice(model);
+											return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+												(0, react_jsx_runtime.jsxs)("select", {
+													className: `${ModelsSection_module_css_default["input"]} ${ModelsSection_module_css_default["selectInput"]} ${ModelsSection_module_css_default["modelInputChoice"]}`,
+													value: imageChoice,
+													"aria-invalid": imageChoice === "invalid",
+													disabled: rowDisabled,
+													onChange: (event) => {
+														setImageInputChoice(index, event.target.value);
+													},
+													children: [
+														imageChoice === "invalid" ? (0, react_jsx_runtime.jsx)("option", {
+															value: "invalid",
+															disabled: true,
+															children: t("modelImageInvalid")
+														}) : null,
+														(0, react_jsx_runtime.jsx)("option", {
+															value: "auto",
+															children: t("modelImageAuto")
+														}),
+														(0, react_jsx_runtime.jsx)("option", {
+															value: "image",
+															children: t("modelImageSupported")
+														}),
+														(0, react_jsx_runtime.jsx)("option", {
+															value: "text-only",
+															children: t("modelImageTextOnly")
+														})
+													]
+												}),
+												(0, react_jsx_runtime.jsx)("span", {
+													className: ModelsSection_module_css_default["modelFieldHint"],
+													children: t(imageChoice === "auto" ? "modelImageAutoHint" : imageChoice === "image" ? "modelImageSupportedHint" : imageChoice === "text-only" ? "modelImageTextOnlyHint" : "modelImageInvalid")
+												}),
+												(0, react_jsx_runtime.jsx)("span", {
+													className: ModelsSection_module_css_default["modelFieldHint"],
+													children: t("modelImageRestartHint")
+												})
+											] });
+										})()]
+									})
+								]
+							}) : null,
+							(() => {
+								const id = textOf(model, "id").trim();
+								const result = id.length === 0 ? void 0 : probeResults.get(id);
+								if (result === void 0) return null;
+								const status = capabilityResultStatus(result);
+								return (0, react_jsx_runtime.jsxs)("div", {
+									className: `${ModelsSection_module_css_default["capabilityStatus"]} ${ModelsSection_module_css_default[`capabilityStatus_${status.replace("-", "_")}`]}`,
+									"data-status": status,
+									role: "status",
+									children: [(0, react_jsx_runtime.jsx)("span", { children: t(capabilityStatusKey(status)) }), (0, react_jsx_runtime.jsx)("span", { children: capabilitySummary(result, t) })]
+								});
+							})()
+						]
 					}, index)),
 					(0, react_jsx_runtime.jsx)("button", {
 						type: "button",
 						className: ModelsSection_module_css_default["addModelButton"],
-						disabled,
+						disabled: rowDisabled,
 						onClick: () => {
 							onChange([...models, { id: "" }]);
 						},
@@ -1391,6 +1648,7 @@ window.__ModuleLoader__.load({
 						},
 						probeBlocked: keyFailure === "keyBlank" ? "keyBlankNew" : keyFailure,
 						api,
+						modelCapabilities: props.modelCapabilities,
 						t,
 						disabled: profileDisabled
 					}),
@@ -1548,6 +1806,7 @@ window.__ModuleLoader__.load({
 				provider: props.provider,
 				...probeBaseURL === void 0 ? {} : { baseURL: probeBaseURL },
 				...probeApi === void 0 ? {} : { api: probeApi },
+				credentialRef: keyRef,
 				...keyValue.length === 0 ? {} : { apiKey: keyValue }
 			};
 			/**
@@ -1750,11 +2009,15 @@ window.__ModuleLoader__.load({
 								...catalogProps,
 								defaultContextWindow: typeof defaultContextWindow === "number" ? defaultContextWindow : void 0,
 								defaultMaxTokens: typeof defaultMaxTokens === "number" ? defaultMaxTokens : void 0
+							}) : props.modelCapabilities === void 0 ? (0, react_jsx_runtime.jsx)("p", {
+								className: ModelsSection_module_css_default["error"],
+								children: t("capabilityUnavailable")
 							}) : (0, react_jsx_runtime.jsx)(ModelListEditor, {
 								...catalogProps,
 								probe,
 								probeBlocked: keyFailure,
-								api
+								api,
+								modelCapabilities: props.modelCapabilities
 							})
 						]
 					})]
@@ -1897,12 +2160,13 @@ window.__ModuleLoader__.load({
 		* @returns the section, or null while the shell has not injected yet.
 		*/
 		function ModelsSection(props) {
-			const { controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile } = props;
-			if (controller === void 0 || useSnapshot === void 0 || api === void 0 || schema === void 0 || t === void 0 || renderSlot === void 0 || normalizeProviderProfile === void 0) return null;
+			const { controller, useSnapshot, api, modelCapabilities, schema, t, renderSlot, normalizeProviderProfile } = props;
+			if (controller === void 0 || useSnapshot === void 0 || api === void 0 || schema === void 0 || t === void 0 || renderSlot === void 0 || normalizeProviderProfile === void 0 || modelCapabilities === void 0) return null;
 			return (0, react_jsx_runtime.jsx)(Loaded, { injected: {
 				controller,
 				useSnapshot,
 				api,
+				modelCapabilities,
 				schema,
 				t,
 				renderSlot,
@@ -1910,7 +2174,7 @@ window.__ModuleLoader__.load({
 			} });
 		}
 		function Loaded({ injected }) {
-			const { controller, api, schema, t, normalizeProviderProfile } = injected;
+			const { controller, api, modelCapabilities, schema, t, normalizeProviderProfile } = injected;
 			const state = injected.useSnapshot((snapshot) => snapshot);
 			const [editing, setEditing] = (0, react.useState)(void 0);
 			const [adding, setAdding] = (0, react.useState)(false);
@@ -2028,6 +2292,7 @@ window.__ModuleLoader__.load({
 									namespace,
 									schema,
 									api,
+									modelCapabilities,
 									t,
 									normalizeProviderProfile,
 									readOnly: !state.writable,
@@ -2097,6 +2362,7 @@ window.__ModuleLoader__.load({
 									namespace,
 									schema,
 									api,
+									modelCapabilities,
 									t,
 									normalizeProviderProfile,
 									readOnly: !state.writable,
@@ -2139,6 +2405,7 @@ window.__ModuleLoader__.load({
 								schema,
 								settingsPath: addTarget.settingsPath,
 								api,
+								modelCapabilities,
 								t,
 								normalizeProviderProfile,
 								readOnly: !state.writable,
@@ -2154,6 +2421,7 @@ window.__ModuleLoader__.load({
 								/* v8 ignore next -- the card only opens from a button disabled without this namespace */
 								revision: state.namespaces.get("llm-pi-ai")?.revision ?? 0,
 								api,
+								modelCapabilities,
 								t,
 								normalizeProviderProfile,
 								readOnly: !state.writable,
@@ -2317,7 +2585,7 @@ window.__ModuleLoader__.load({
 		* @returns the onboarding modal or null when onboarding needs no intervention.
 		*/
 		function DeepSeekOnboardingDialog(props) {
-			const { complete, controller, useModels, api, schema, t, normalizeProviderProfile } = props;
+			const { complete, controller, useModels, api, modelCapabilities, schema, t, normalizeProviderProfile } = props;
 			const state = useModels((snapshot) => snapshot);
 			const readiness = onboardingReadiness(state);
 			(0, react.useEffect)(() => {
@@ -2360,6 +2628,7 @@ window.__ModuleLoader__.load({
 						schema,
 						settingsPath: row.entry.settingsPath,
 						api,
+						modelCapabilities,
 						t,
 						readOnly: false,
 						hideTitle: true,
@@ -2690,6 +2959,25 @@ window.__ModuleLoader__.load({
 			modelImageRestartHint: "Restart after saving before this choice is loaded.",
 			setAllModelsToImage: "Set all to image",
 			restoreAllModelsToAuto: "Restore all to automatic",
+			capabilityTitle: "Model capability validation",
+			capabilitySelected: "Selected",
+			capabilitySelectModel: "Select model for capability validation",
+			capabilitySelectAll: "Select all models",
+			capabilityDeselectAll: "Deselect all models",
+			capabilityProbe: "Probe and apply",
+			capabilityCancel: "Cancel probing",
+			capabilityOverwrite: "Overwrite existing capability values",
+			capabilityDraftHint: "Results apply to this unsaved draft only. Save the provider to persist them; restart afterward to load new model capabilities.",
+			capabilitySupported: "Supported",
+			capabilityUnsupported: "Unsupported",
+			capabilityInconclusive: "Unconfirmed",
+			capabilityNotApplicable: "Not applicable",
+			capabilityCompleted: "Completed",
+			capabilityCancelled: "Probing cancelled; completed results remain in the draft.",
+			capabilitySelectModelFirst: "Select at least one model first.",
+			capabilityNeedsBaseUrl: "Enter the provider API address before probing.",
+			capabilityNeedsProtocol: "This model has no selected API protocol.",
+			capabilityUnavailable: "Capability validation is unavailable until the Host Remote is mounted.",
 			advancedHint: "Other fields live in settings.yaml; edit that section directly.",
 			modelCapacityInvalid: "A capacity must be a number, optionally suffixed K or M.",
 			modelDuplicate: "Each model ID may appear once.",
@@ -2800,6 +3088,25 @@ window.__ModuleLoader__.load({
 			modelImageRestartHint: "保存后重启，新的选择才会被加载。",
 			setAllModelsToImage: "全部设为图像",
 			restoreAllModelsToAuto: "全部恢复为自动",
+			capabilityTitle: "模型能力探测",
+			capabilitySelected: "已选择",
+			capabilitySelectModel: "选择用于能力探测的模型",
+			capabilitySelectAll: "全选模型",
+			capabilityDeselectAll: "取消全选模型",
+			capabilityProbe: "探测并应用",
+			capabilityCancel: "取消探测",
+			capabilityOverwrite: "覆盖已有能力配置",
+			capabilityDraftHint: "结果只应用到当前未保存草稿；保存提供方后才会持久化，随后需要重启才能加载新的模型能力。",
+			capabilitySupported: "支持",
+			capabilityUnsupported: "不支持",
+			capabilityInconclusive: "无法确认",
+			capabilityNotApplicable: "不适用",
+			capabilityCompleted: "已完成",
+			capabilityCancelled: "已取消探测；已完成的结果仍保留在草稿中。",
+			capabilitySelectModelFirst: "请先选择至少一个模型。",
+			capabilityNeedsBaseUrl: "探测前请填写提供方 API 地址。",
+			capabilityNeedsProtocol: "该模型没有选定的 API 协议。",
+			capabilityUnavailable: "Host Remote 尚未挂载，暂时无法进行能力探测。",
 			advancedHint: "其余字段在 settings.yaml 中，请直接编辑对应段。",
 			modelCapacityInvalid: "容量需为数字，可加 K 或 M 后缀。",
 			modelDuplicate: "每个模型 ID 只能出现一次。",
@@ -2983,6 +3290,7 @@ window.__ModuleLoader__.load({
 				controller,
 				hooks: { snapshot: controller.store },
 				api: connection.api,
+				modelCapabilities: ctx.remote["model-capabilities"],
 				schema,
 				t,
 				normalizeProviderProfile: normalizeProfile
@@ -2991,6 +3299,7 @@ window.__ModuleLoader__.load({
 				controller,
 				hooks: { models: controller.store },
 				api: connection.api,
+				modelCapabilities: ctx.remote["model-capabilities"],
 				schema,
 				t,
 				normalizeProviderProfile: normalizeProfile

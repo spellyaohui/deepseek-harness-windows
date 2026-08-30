@@ -10,6 +10,8 @@ export function classifyCapabilityOutcome(outcome) {
         return 'inconclusive';
     if (outcome.status >= 200 && outcome.status < 300)
         return 'supported';
+    if (outcome.status === 401 || outcome.status === 403 || outcome.status === 407)
+        return 'inconclusive';
     if (outcome.status >= 400 && outcome.status < 500 && outcome.status !== 408 && outcome.status !== 429) {
         return 'unsupported';
     }
@@ -51,4 +53,26 @@ export function applyCapabilityPatch(model, patch, options) {
         next['compat'] = merged;
     }
     return next;
+}
+/**
+ * Apply one completed probe to every matching draft row without writing
+ * settings. Duplicate ids are deliberately all updated: the parent save gate
+ * still rejects duplicates, but a user who is correcting a duplicate should
+ * not see one visually identical row behave differently from the other.
+ */
+export function applyCapabilityProbeResult(models, result, overwriteExisting) {
+    return models.map(model => typeof model['id'] === 'string' && model['id'].trim() === result.modelId
+        ? applyCapabilityPatch(model, result.patch, { overwriteExisting, source: 'probe' })
+        : model);
+}
+/** Collapse the matrix into one cautious row-level status for the editor. */
+export function capabilityResultStatus(result) {
+    const statuses = Object.values(result.checks).map(check => check.status);
+    if (statuses.includes('inconclusive'))
+        return 'inconclusive';
+    if (statuses.includes('supported'))
+        return 'supported';
+    if (statuses.includes('unsupported'))
+        return 'unsupported';
+    return 'not-applicable';
 }

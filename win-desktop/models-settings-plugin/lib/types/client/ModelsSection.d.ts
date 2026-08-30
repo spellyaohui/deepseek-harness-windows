@@ -18,6 +18,7 @@ import type { ModelsSettingsStore, ProviderRow } from './store.ts';
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
 import type { ProviderProfileNormalizer } from './provider-profile.ts';
+import type { ModelCapabilityProbeRemote } from '../remote.ts';
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
 export interface ModelsSectionInjected {
     /** The page store (loaded on mount, refreshed on pushed invalidations). */
@@ -28,6 +29,8 @@ export interface ModelsSectionInjected {
     };
     /** Wire faces the editor writes through. */
     api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>;
+    /** Mounted provider-neutral Host capability probe. */
+    modelCapabilities: ModelCapabilityProbeRemote;
     /** Settings schema and immutable path callbacks. */
     schema: SettingsSchemaOperations;
     /** Section copy. */

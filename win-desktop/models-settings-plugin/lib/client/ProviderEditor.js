@@ -160,6 +160,7 @@ export function ProviderEditor(props) {
         provider: props.provider,
         ...probeBaseURL === undefined ? {} : { baseURL: probeBaseURL },
         ...probeApi === undefined ? {} : { api: probeApi },
+        credentialRef: keyRef,
         ...keyValue.length === 0 ? {} : { apiKey: keyValue },
     };
     /**
@@ -315,7 +316,9 @@ export function ProviderEditor(props) {
                                     ? (_jsx(DeepSeekModelsEditor, { ...catalogProps, defaultContextWindow: typeof defaultContextWindow === 'number'
                                             ? defaultContextWindow
                                             : undefined, defaultMaxTokens: typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined }))
-                                    : _jsx(ModelListEditor, { ...catalogProps, probe: probe, probeBlocked: keyFailure, api: api })] })] })] }));
+                                    : props.modelCapabilities === undefined
+                                        ? _jsx("p", { className: styles['error'], children: t('capabilityUnavailable') })
+                                        : _jsx(ModelListEditor, { ...catalogProps, probe: probe, probeBlocked: keyFailure, api: api, modelCapabilities: props.modelCapabilities })] })] })] }));
     };
     return (_jsxs("div", { className: props.credentialOnly === true ? styles['addBlock'] : styles['editor'], children: [props.hideTitle === true
                 ? null

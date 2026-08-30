@@ -108,6 +108,20 @@ test('400 is explicit unsupported but 429, 502, 503, timeout, and network failur
   assert.doesNotMatch(JSON.stringify(network), /secret-key/)
 })
 
+test('authentication failures stay inconclusive instead of becoming destructive capability facts', async () => {
+  for (const status of [401, 403]) {
+    const result = await probeModelCapabilities({
+      modelId: `auth-${status}`,
+      protocol: 'openai-responses',
+      baseURL: 'https://provider.example/v1',
+    }, { fetch: async () => response(status, { message: 'credential rejected' }) })
+
+    assert.equal(result.checks.text.status, 'inconclusive', String(status))
+    assert.equal(result.checks.image.status, 'inconclusive', String(status))
+    assert.deepEqual(result.patch, {}, String(status))
+  }
+})
+
 test('unknown protocols do not fall back to another wire format', async () => {
   let calls = 0
   const result = await probeModelCapabilities({

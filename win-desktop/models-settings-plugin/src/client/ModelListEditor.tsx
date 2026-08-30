@@ -14,7 +14,7 @@
  * rows the user can still fill in by hand.
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { DiscoveredModelView, IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -24,6 +24,9 @@ import {
   applyImageInputChoice, applyImageInputChoiceToAll, readImageInputChoice,
 } from './model-input.ts'
 import type { ImageInputChoice } from './model-input.ts'
+import { applyCapabilityProbeResult, capabilityResultStatus } from './model-capabilities.ts'
+import type { CapabilityStatus, ModelCapabilityProbeResult } from '../capability-contract.ts'
+import type { ModelCapabilityProbeRemote } from '../remote.ts'
 import { messageOf } from './store.ts'
 import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
@@ -64,6 +67,8 @@ export interface ProbeTarget {
   api?: string
   /** Key typed into the form and not yet stored, when there is one. */
   apiKey?: string
+  /** Credential reference resolved by the Host when no one-shot key is typed. */
+  credentialRef?: string
 }
 
 /** Props of {@link ModelListEditor}. */
@@ -87,6 +92,8 @@ export interface ModelListEditorProps {
   probeBlocked?: ModelsKey | undefined
   /** Wire face the fetch action calls. */
   api: Pick<IApiClient, 'llm'>
+  /** Host-side, provider-neutral capability probe. */
+  modelCapabilities: ModelCapabilityProbeRemote
   /** Section copy. */
   t: (key: ModelsKey) => string
   /** Disable every control (read-only deployment or a pending write). */
@@ -157,15 +164,57 @@ function adopt(candidate: DiscoveredModelView): ModelDraft {
   }
 }
 
+function capabilityStatusKey(status: CapabilityStatus): ModelsKey {
+  switch (status) {
+    case 'supported': return 'capabilitySupported'
+    case 'unsupported': return 'capabilityUnsupported'
+    case 'inconclusive': return 'capabilityInconclusive'
+    case 'not-applicable': return 'capabilityNotApplicable'
+  }
+}
+
+function capabilitySummary(
+  result: ModelCapabilityProbeResult,
+  t: (key: ModelsKey) => string,
+): string {
+  const counts: Record<CapabilityStatus, number> = {
+    supported: 0,
+    unsupported: 0,
+    inconclusive: 0,
+    'not-applicable': 0,
+  }
+  for (const check of Object.values(result.checks)) counts[check.status] += 1
+  return [
+    `${t('capabilitySupported')} ${String(counts.supported)}`,
+    `${t('capabilityUnsupported')} ${String(counts.unsupported)}`,
+    `${t('capabilityInconclusive')} ${String(counts.inconclusive)}`,
+  ].join(' · ')
+}
+
+function probeCandidate(model: ModelDraft): Record<string, unknown> {
+  return Object.hasOwn(model, 'reasoningEfforts')
+    ? { reasoningEfforts: model['reasoningEfforts'] }
+    : {}
+}
+
 /**
  * Render the model list with its fetch action.
  * @param props - the drafted rows, probe target, wire face, and copy.
  * @returns the model-list editor.
  */
 export function ModelListEditor(props: ModelListEditorProps): ReactNode {
-  const { models, onChange, probe, api, t, disabled } = props
+  const { models, onChange, probe, api, modelCapabilities, t, disabled } = props
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [probeBusy, setProbeBusy] = useState(false)
+  const [probeFailure, setProbeFailure] = useState<string | undefined>(undefined)
+  const [probeNotice, setProbeNotice] = useState<string | undefined>(undefined)
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set())
+  const [probeResults, setProbeResults] = useState<ReadonlyMap<string, ModelCapabilityProbeResult>>(new Map())
+  const [overwriteExisting, setOverwriteExisting] = useState(false)
+  const probeController = useRef<AbortController | null>(null)
+  const modelsRef = useRef<readonly ModelDraft[]>(models)
+  modelsRef.current = models
   const [candidates, setCandidates] = useState<readonly DiscoveredModelView[] | undefined>(undefined)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   // Rows carry an id and a name; capacities are the exception, so they stay
@@ -178,6 +227,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // FIELD: a single buffer would be displaced by editing any other field, and
   // the abandoned one would render its stored NaN as the literal `NaN`.
   const [editing, setEditing] = useState<ReadonlyMap<string, string>>(new Map())
+
+  useEffect(() => () => { probeController.current?.abort() }, [])
 
   /** Buffer key for one capacity field; the row half moves when rows do. */
   const bufferKey = (index: number, field: CapacityField): string => `${String(index)}:${field}`
@@ -233,6 +284,87 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
 
   const setImageInputChoice = (index: number, choice: ImageInputChoice): void => {
     onChange(models.map((model, at) => at === index ? applyImageInputChoice(model, choice) : model))
+  }
+
+  const selectableIds = models
+    .map(model => textOf(model, 'id').trim())
+    .filter(id => id.length > 0)
+  const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.has(id))
+
+  const toggleSelected = (id: string): void => {
+    if (id.length === 0) return
+    setSelectedIds(current => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  }
+
+  const toggleAllSelected = (): void => {
+    setSelectedIds(allSelected ? new Set() : new Set(selectableIds))
+  }
+
+  const cancelProbe = (): void => {
+    probeController.current?.abort()
+  }
+
+  const probeSelected = async (): Promise<void> => {
+    const ids = [...selectedIds].filter(id => selectableIds.includes(id))
+    if (ids.length === 0) {
+      setProbeFailure(t('capabilitySelectModelFirst'))
+      return
+    }
+    const baseURL = probe.baseURL?.trim() ?? ''
+    if (baseURL.length === 0) {
+      setProbeFailure(t('capabilityNeedsBaseUrl'))
+      return
+    }
+
+    const controller = new AbortController()
+    probeController.current = controller
+    setProbeBusy(true)
+    setProbeFailure(undefined)
+    setProbeNotice(undefined)
+    let completed = 0
+    try {
+      for (const id of ids) {
+        if (controller.signal.aborted) break
+        const model = modelsRef.current.find(candidate => textOf(candidate, 'id').trim() === id)
+        if (model === undefined) continue
+        const protocol = textOf(model, 'api').trim() || probe.api?.trim() || ''
+        if (protocol.length === 0) {
+          setProbeFailure(`${id}: ${t('capabilityNeedsProtocol')}`)
+          continue
+        }
+        const response = await modelCapabilities.probe({
+          modelId: id,
+          protocol,
+          baseURL,
+          ...probe.credentialRef === undefined ? {} : { credentialRef: probe.credentialRef },
+          ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
+          candidate: probeCandidate(model),
+        }, controller.signal)
+        if (!response.ok) {
+          setProbeFailure(`${id}: ${response.error.message}`)
+          continue
+        }
+        const result = response.value
+        setProbeResults(current => new Map(current).set(id, result))
+        const updated = applyCapabilityProbeResult(modelsRef.current, result, overwriteExisting)
+        modelsRef.current = updated
+        onChange(updated)
+        completed += 1
+      }
+      setProbeNotice(controller.signal.aborted
+        ? t('capabilityCancelled')
+        : `${t('capabilityCompleted')} ${String(completed)}/${String(ids.length)}`)
+    } catch (error) {
+      if (controller.signal.aborted) setProbeNotice(t('capabilityCancelled'))
+      else setProbeFailure(messageOf(error))
+    } finally {
+      if (probeController.current === controller) probeController.current = null
+      setProbeBusy(false)
+    }
   }
 
   const fetchModels = async (): Promise<void> => {
@@ -313,6 +445,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // A route the adapter already describes answers without an endpoint; only a
   // draft with neither has nothing to ask about.
   const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
+  const rowDisabled = disabled || probeBusy
   return (
     <section className={styles['modelCatalog']} aria-label={t('models')}>
       <div className={styles['modelListHead']}>
@@ -330,7 +463,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           <button
             type="button"
             className={styles['linkButton']}
-            disabled={disabled || models.length === 0}
+            disabled={rowDisabled || models.length === 0}
             onClick={() => { onChange(applyImageInputChoiceToAll(models, 'image')) }}
           >
             {t('setAllModelsToImage')}
@@ -338,7 +471,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           <button
             type="button"
             className={styles['linkButton']}
-            disabled={disabled || models.length === 0}
+            disabled={rowDisabled || models.length === 0}
             onClick={() => { onChange(applyImageInputChoiceToAll(models, 'auto')) }}
           >
             {t('restoreAllModelsToAuto')}
@@ -348,7 +481,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               <button
                 type="button"
                 className={styles['linkButton']}
-                disabled={disabled}
+                disabled={rowDisabled}
                 onClick={props.onReset}
               >
                 {t('resetModels')}
@@ -358,7 +491,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           <button
             type="button"
             className={styles['linkButton']}
-            disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
+            disabled={disabled || busy || probeBusy || !askable || props.probeBlocked !== undefined}
             title={props.probeBlocked !== undefined
               ? t(props.probeBlocked)
               : askable ? undefined : t('fetchNeedsBaseUrl')}
@@ -368,17 +501,74 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           </button>
         </div>
       </div>
+      <div className={styles['capabilityProbe']} aria-label={t('capabilityTitle')}>
+        <div className={styles['capabilityProbeHead']}>
+          <span className={styles['modelCatalogTitle']}>{t('capabilityTitle')}</span>
+          <span className={styles['modelCatalogMeta']}>
+            {`${t('capabilitySelected')} ${String(selectedIds.size)}/${String(selectableIds.length)}`}
+          </span>
+        </div>
+        <div className={styles['capabilityProbeActions']}>
+          <button
+            type="button"
+            className={styles['linkButton']}
+            disabled={rowDisabled || selectableIds.length === 0}
+            onClick={toggleAllSelected}
+          >
+            {t(allSelected ? 'capabilityDeselectAll' : 'capabilitySelectAll')}
+          </button>
+          <label className={styles['capabilityOverwrite']}>
+            <input
+              type="checkbox"
+              checked={overwriteExisting}
+              disabled={rowDisabled}
+              onChange={(event) => { setOverwriteExisting(event.target.checked) }}
+            />
+            <span>{t('capabilityOverwrite')}</span>
+          </label>
+          {probeBusy
+            ? (
+              <button
+                type="button"
+                className={styles['secondaryButton']}
+                onClick={cancelProbe}
+              >
+                {t('capabilityCancel')}
+              </button>
+            )
+            : (
+              <button
+                type="button"
+                className={styles['primaryButton']}
+                disabled={disabled || busy || selectedIds.size === 0}
+                onClick={() => { void probeSelected() }}
+              >
+                {t('capabilityProbe')}
+              </button>
+            )}
+        </div>
+        <p className={styles['advancedHint']}>{t('capabilityDraftHint')}</p>
+        {probeNotice === undefined ? null : <p className={styles['savedNotice']} role="status" aria-live="polite">{probeNotice}</p>}
+        {probeFailure === undefined ? null : <p className={styles['error']} role="alert">{probeFailure}</p>}
+      </div>
       {models.length === 0 ? <p className={styles['modelEmpty']}>{t('modelsEmpty')}</p> : null}
       {models.map((model, index) => (
         <div key={index} className={styles['modelEntry']}>
           <div className={styles['modelRow']}>
+            <input
+              type="checkbox"
+              checked={selectedIds.has(textOf(model, 'id').trim()) && textOf(model, 'id').trim().length > 0}
+              aria-label={`${t('capabilitySelectModel')} ${index + 1}`}
+              disabled={rowDisabled || textOf(model, 'id').trim().length === 0}
+              onChange={() => { toggleSelected(textOf(model, 'id').trim()) }}
+            />
             <input
               className={styles['input']}
               type="text"
               value={textOf(model, 'id')}
               placeholder={t('modelId')}
               aria-label={`${t('modelId')} ${index + 1}`}
-              disabled={disabled}
+              disabled={rowDisabled}
               onChange={(event) => { patch(index, { id: event.target.value }) }}
             />
             <input
@@ -387,7 +577,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               value={textOf(model, 'name')}
               placeholder={t('modelName')}
               aria-label={`${t('modelName')} ${index + 1}`}
-              disabled={disabled}
+              disabled={rowDisabled}
               onChange={(event) => { patch(index, { name: event.target.value === '' ? undefined : event.target.value }) }}
             />
             <button
@@ -396,6 +586,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               aria-label={`${t('modelAdvanced')} ${index + 1}`}
               aria-expanded={expanded.has(index)}
               title={t('modelAdvanced')}
+              disabled={rowDisabled}
               onClick={() => { toggleExpanded(index) }}
             >
               <IconChevron open={expanded.has(index)} />
@@ -405,7 +596,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               className={`${styles['iconButton']} ${styles['iconButtonDanger']}`}
               aria-label={`${t('removeModel')} ${index + 1}`}
               title={t('removeModel')}
-              disabled={disabled}
+              disabled={rowDisabled}
               onClick={() => {
                 onChange(models.filter((_model, at) => at !== index))
                 // Both stores are keyed by position, so every row after this
@@ -438,7 +629,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
                     value={capacityText(model, index, 'contextWindow')}
                     placeholder={CAPACITY_HINT.contextWindow}
                     aria-label={`${t('modelContextWindow')} ${index + 1}`}
-                    disabled={disabled}
+                    disabled={rowDisabled}
                     onChange={(event) => { editCapacity(index, 'contextWindow', event.target.value) }}
                   />
                 </label>
@@ -451,7 +642,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
                     value={capacityText(model, index, 'maxTokens')}
                     placeholder={CAPACITY_HINT.maxTokens}
                     aria-label={`${t('modelMaxTokens')} ${index + 1}`}
-                    disabled={disabled}
+                    disabled={rowDisabled}
                     onChange={(event) => { editCapacity(index, 'maxTokens', event.target.value) }}
                   />
                 </label>
@@ -465,7 +656,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
                           className={`${styles['input']} ${styles['selectInput']} ${styles['modelInputChoice']}`}
                           value={imageChoice}
                           aria-invalid={imageChoice === 'invalid'}
-                          disabled={disabled}
+                          disabled={rowDisabled}
                           onChange={(event) => { setImageInputChoice(index, event.target.value as ImageInputChoice) }}
                         >
                           {imageChoice === 'invalid'
@@ -492,12 +683,28 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               </div>
             )
             : null}
+          {(() => {
+            const id = textOf(model, 'id').trim()
+            const result = id.length === 0 ? undefined : probeResults.get(id)
+            if (result === undefined) return null
+            const status = capabilityResultStatus(result)
+            return (
+              <div
+                className={`${styles['capabilityStatus']} ${styles[`capabilityStatus_${status.replace('-', '_')}`]}`}
+                data-status={status}
+                role="status"
+              >
+                <span>{t(capabilityStatusKey(status))}</span>
+                <span>{capabilitySummary(result, t)}</span>
+              </div>
+            )
+          })()}
         </div>
       ))}
       <button
         type="button"
         className={styles['addModelButton']}
-        disabled={disabled}
+        disabled={rowDisabled}
         onClick={() => { onChange([...models, { id: '' }]) }}
       >
         {t('addModel')}

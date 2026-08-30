@@ -33,6 +33,7 @@ import { deriveKeyRef, messageOf } from './store.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
+import type { ModelCapabilityProbeRemote } from '../remote.ts'
 
 /** The settings namespace a hand-declared provider is written into. */
 const NS = 'llm-pi-ai'
@@ -61,6 +62,8 @@ export interface CustomProviderCardProps {
   revision: number
   /** Wire faces for the write and for interrogating the endpoint. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  /** Mounted provider-neutral Host capability probe. */
+  modelCapabilities: ModelCapabilityProbeRemote
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable writes (read-only settings provider). */
@@ -280,6 +283,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         }}
         probeBlocked={keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
         api={api}
+        modelCapabilities={props.modelCapabilities}
         t={t}
         disabled={profileDisabled}
       />

@@ -2,6 +2,14 @@ import type { RemoteResult, TypertRemoteContribution } from '@deepseek-ai/dsh-ty
 import type { CapabilityProbeRequest } from './capability-probe-service.ts'
 import type { ModelCapabilityProbeResult } from './capability-contract.ts'
 
+/** The mounted Host capability probe used by the Models editor. */
+export interface ModelCapabilityProbeRemote {
+  probe: (
+    request: CapabilityProbeRequest,
+    signal?: AbortSignal,
+  ) => Promise<RemoteResult<ModelCapabilityProbeResult>>
+}
+
 function plainRecord(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError('model capability Remote expects a plain object')

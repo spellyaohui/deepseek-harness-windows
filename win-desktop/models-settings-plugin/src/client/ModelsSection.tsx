@@ -25,6 +25,7 @@ import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
+import type { ModelCapabilityProbeRemote } from '../remote.ts'
 
 /** Injected dependencies of {@link ModelsSection} (slot `inject`). */
 export interface ModelsSectionInjected {
@@ -36,6 +37,8 @@ export interface ModelsSectionInjected {
   }
   /** Wire faces the editor writes through. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  /** Mounted provider-neutral Host capability probe. */
+  modelCapabilities: ModelCapabilityProbeRemote
   /** Settings schema and immutable path callbacks. */
   schema: SettingsSchemaOperations
   /** Section copy. */
@@ -76,6 +79,7 @@ interface EditorTarget extends ProviderIdentity {
 interface ProviderEditorRenderProps extends Pick<
   ProviderEditorProps,
   'namespace' | 'schema' | 'api' | 't' | 'readOnly' | 'onClose' | 'normalizeProviderProfile'
+  | 'modelCapabilities'
 > {
   target: EditorTarget
 }
@@ -181,17 +185,19 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  const { controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile } = props
+  const {
+    controller, useSnapshot, api, modelCapabilities, schema, t, renderSlot, normalizeProviderProfile,
+  } = props
   if (
     controller === undefined || useSnapshot === undefined || api === undefined
     || schema === undefined || t === undefined || renderSlot === undefined
-    || normalizeProviderProfile === undefined
+    || normalizeProviderProfile === undefined || modelCapabilities === undefined
   ) return null
-  return <Loaded injected={{ controller, useSnapshot, api, schema, t, renderSlot, normalizeProviderProfile }} />
+  return <Loaded injected={{ controller, useSnapshot, api, modelCapabilities, schema, t, renderSlot, normalizeProviderProfile }} />
 }
 
 function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
-  const { controller, api, schema, t, normalizeProviderProfile } = injected
+  const { controller, api, modelCapabilities, schema, t, normalizeProviderProfile } = injected
   const state = injected.useSnapshot(snapshot => snapshot)
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
   const [adding, setAdding] = useState(false)
@@ -316,6 +322,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   namespace,
                   schema,
                   api,
+                  modelCapabilities,
                   t,
                   normalizeProviderProfile,
                   readOnly: !state.writable,
@@ -402,6 +409,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   namespace,
                   schema,
                   api,
+                  modelCapabilities,
                   t,
                   normalizeProviderProfile,
                   readOnly: !state.writable,
@@ -443,6 +451,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                 schema={schema}
                 settingsPath={addTarget.settingsPath}
                 api={api}
+                modelCapabilities={modelCapabilities}
                 t={t}
                 normalizeProviderProfile={normalizeProviderProfile}
                 readOnly={!state.writable}
@@ -459,6 +468,7 @@ function Loaded({ injected }: { injected: ModelsSectionFace }): ReactNode {
                   /* v8 ignore next -- the card only opens from a button disabled without this namespace */
                   revision={state.namespaces.get('llm-pi-ai')?.revision ?? 0}
                   api={api}
+                  modelCapabilities={modelCapabilities}
                   t={t}
                   normalizeProviderProfile={normalizeProviderProfile}
                   readOnly={!state.writable}

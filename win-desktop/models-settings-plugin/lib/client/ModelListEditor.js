@@ -14,10 +14,11 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
  * with no readable listing) is not a dead end: the failure is shown next to the
  * rows the user can still fill in by hand.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { formatCapacity, parseCapacity } from "./DeepSeekModelsEditor.js";
 import { applyImageInputChoice, applyImageInputChoiceToAll, readImageInputChoice, } from "./model-input.js";
+import { applyCapabilityProbeResult, capabilityResultStatus } from "./model-capabilities.js";
 import { messageOf } from "./store.js";
 import styles from './ModelsSection.module.css';
 /** A row's text field, or the empty string when unset or not a string. */
@@ -72,15 +73,52 @@ function adopt(candidate) {
         ...candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens },
     };
 }
+function capabilityStatusKey(status) {
+    switch (status) {
+        case 'supported': return 'capabilitySupported';
+        case 'unsupported': return 'capabilityUnsupported';
+        case 'inconclusive': return 'capabilityInconclusive';
+        case 'not-applicable': return 'capabilityNotApplicable';
+    }
+}
+function capabilitySummary(result, t) {
+    const counts = {
+        supported: 0,
+        unsupported: 0,
+        inconclusive: 0,
+        'not-applicable': 0,
+    };
+    for (const check of Object.values(result.checks))
+        counts[check.status] += 1;
+    return [
+        `${t('capabilitySupported')} ${String(counts.supported)}`,
+        `${t('capabilityUnsupported')} ${String(counts.unsupported)}`,
+        `${t('capabilityInconclusive')} ${String(counts.inconclusive)}`,
+    ].join(' · ');
+}
+function probeCandidate(model) {
+    return Object.hasOwn(model, 'reasoningEfforts')
+        ? { reasoningEfforts: model['reasoningEfforts'] }
+        : {};
+}
 /**
  * Render the model list with its fetch action.
  * @param props - the drafted rows, probe target, wire face, and copy.
  * @returns the model-list editor.
  */
 export function ModelListEditor(props) {
-    const { models, onChange, probe, api, t, disabled } = props;
+    const { models, onChange, probe, api, modelCapabilities, t, disabled } = props;
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState(undefined);
+    const [probeBusy, setProbeBusy] = useState(false);
+    const [probeFailure, setProbeFailure] = useState(undefined);
+    const [probeNotice, setProbeNotice] = useState(undefined);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [probeResults, setProbeResults] = useState(new Map());
+    const [overwriteExisting, setOverwriteExisting] = useState(false);
+    const probeController = useRef(null);
+    const modelsRef = useRef(models);
+    modelsRef.current = models;
     const [candidates, setCandidates] = useState(undefined);
     const [picked, setPicked] = useState(new Set());
     // Rows carry an id and a name; capacities are the exception, so they stay
@@ -93,6 +131,7 @@ export function ModelListEditor(props) {
     // FIELD: a single buffer would be displaced by editing any other field, and
     // the abandoned one would render its stored NaN as the literal `NaN`.
     const [editing, setEditing] = useState(new Map());
+    useEffect(() => () => { probeController.current?.abort(); }, []);
     /** Buffer key for one capacity field; the row half moves when rows do. */
     const bufferKey = (index, field) => `${String(index)}:${field}`;
     const editCapacity = (index, field, text) => {
@@ -136,6 +175,90 @@ export function ModelListEditor(props) {
     };
     const setImageInputChoice = (index, choice) => {
         onChange(models.map((model, at) => at === index ? applyImageInputChoice(model, choice) : model));
+    };
+    const selectableIds = models
+        .map(model => textOf(model, 'id').trim())
+        .filter(id => id.length > 0);
+    const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.has(id));
+    const toggleSelected = (id) => {
+        if (id.length === 0)
+            return;
+        setSelectedIds(current => {
+            const next = new Set(current);
+            if (!next.delete(id))
+                next.add(id);
+            return next;
+        });
+    };
+    const toggleAllSelected = () => {
+        setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
+    };
+    const cancelProbe = () => {
+        probeController.current?.abort();
+    };
+    const probeSelected = async () => {
+        const ids = [...selectedIds].filter(id => selectableIds.includes(id));
+        if (ids.length === 0) {
+            setProbeFailure(t('capabilitySelectModelFirst'));
+            return;
+        }
+        const baseURL = probe.baseURL?.trim() ?? '';
+        if (baseURL.length === 0) {
+            setProbeFailure(t('capabilityNeedsBaseUrl'));
+            return;
+        }
+        const controller = new AbortController();
+        probeController.current = controller;
+        setProbeBusy(true);
+        setProbeFailure(undefined);
+        setProbeNotice(undefined);
+        let completed = 0;
+        try {
+            for (const id of ids) {
+                if (controller.signal.aborted)
+                    break;
+                const model = modelsRef.current.find(candidate => textOf(candidate, 'id').trim() === id);
+                if (model === undefined)
+                    continue;
+                const protocol = textOf(model, 'api').trim() || probe.api?.trim() || '';
+                if (protocol.length === 0) {
+                    setProbeFailure(`${id}: ${t('capabilityNeedsProtocol')}`);
+                    continue;
+                }
+                const response = await modelCapabilities.probe({
+                    modelId: id,
+                    protocol,
+                    baseURL,
+                    ...probe.credentialRef === undefined ? {} : { credentialRef: probe.credentialRef },
+                    ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
+                    candidate: probeCandidate(model),
+                }, controller.signal);
+                if (!response.ok) {
+                    setProbeFailure(`${id}: ${response.error.message}`);
+                    continue;
+                }
+                const result = response.value;
+                setProbeResults(current => new Map(current).set(id, result));
+                const updated = applyCapabilityProbeResult(modelsRef.current, result, overwriteExisting);
+                modelsRef.current = updated;
+                onChange(updated);
+                completed += 1;
+            }
+            setProbeNotice(controller.signal.aborted
+                ? t('capabilityCancelled')
+                : `${t('capabilityCompleted')} ${String(completed)}/${String(ids.length)}`);
+        }
+        catch (error) {
+            if (controller.signal.aborted)
+                setProbeNotice(t('capabilityCancelled'));
+            else
+                setProbeFailure(messageOf(error));
+        }
+        finally {
+            if (probeController.current === controller)
+                probeController.current = null;
+            setProbeBusy(false);
+        }
     };
     const fetchModels = async () => {
         setBusy(true);
@@ -214,13 +337,16 @@ export function ModelListEditor(props) {
     // A route the adapter already describes answers without an endpoint; only a
     // draft with neither has nothing to ask about.
     const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0);
+    const rowDisabled = disabled || probeBusy;
     return (_jsxs("section", { className: styles['modelCatalog'], "aria-label": t('models'), children: [_jsxs("div", { className: styles['modelListHead'], children: [_jsxs("div", { className: styles['modelCatalogHeading'], children: [_jsx("span", { className: styles['modelCatalogTitle'], children: t('models') }), props.overridden === undefined
                                 ? null
-                                : (_jsx("span", { className: styles['modelCatalogMeta'], children: props.overridden ? t('modelsCustomized') : t('modelsInherited') }))] }), _jsxs("div", { className: styles['modelListActions'], children: [_jsx("button", { type: "button", className: styles['linkButton'], disabled: disabled || models.length === 0, onClick: () => { onChange(applyImageInputChoiceToAll(models, 'image')); }, children: t('setAllModelsToImage') }), _jsx("button", { type: "button", className: styles['linkButton'], disabled: disabled || models.length === 0, onClick: () => { onChange(applyImageInputChoiceToAll(models, 'auto')); }, children: t('restoreAllModelsToAuto') }), props.overridden === true && props.onReset !== undefined
-                                ? (_jsx("button", { type: "button", className: styles['linkButton'], disabled: disabled, onClick: props.onReset, children: t('resetModels') }))
-                                : null, _jsx("button", { type: "button", className: styles['linkButton'], disabled: disabled || busy || !askable || props.probeBlocked !== undefined, title: props.probeBlocked !== undefined
+                                : (_jsx("span", { className: styles['modelCatalogMeta'], children: props.overridden ? t('modelsCustomized') : t('modelsInherited') }))] }), _jsxs("div", { className: styles['modelListActions'], children: [_jsx("button", { type: "button", className: styles['linkButton'], disabled: rowDisabled || models.length === 0, onClick: () => { onChange(applyImageInputChoiceToAll(models, 'image')); }, children: t('setAllModelsToImage') }), _jsx("button", { type: "button", className: styles['linkButton'], disabled: rowDisabled || models.length === 0, onClick: () => { onChange(applyImageInputChoiceToAll(models, 'auto')); }, children: t('restoreAllModelsToAuto') }), props.overridden === true && props.onReset !== undefined
+                                ? (_jsx("button", { type: "button", className: styles['linkButton'], disabled: rowDisabled, onClick: props.onReset, children: t('resetModels') }))
+                                : null, _jsx("button", { type: "button", className: styles['linkButton'], disabled: disabled || busy || probeBusy || !askable || props.probeBlocked !== undefined, title: props.probeBlocked !== undefined
                                     ? t(props.probeBlocked)
-                                    : askable ? undefined : t('fetchNeedsBaseUrl'), onClick: () => { void fetchModels(); }, children: busy ? t('fetching') : t('fetchModels') })] })] }), models.length === 0 ? _jsx("p", { className: styles['modelEmpty'], children: t('modelsEmpty') }) : null, models.map((model, index) => (_jsxs("div", { className: styles['modelEntry'], children: [_jsxs("div", { className: styles['modelRow'], children: [_jsx("input", { className: styles['input'], type: "text", value: textOf(model, 'id'), placeholder: t('modelId'), "aria-label": `${t('modelId')} ${index + 1}`, disabled: disabled, onChange: (event) => { patch(index, { id: event.target.value }); } }), _jsx("input", { className: styles['input'], type: "text", value: textOf(model, 'name'), placeholder: t('modelName'), "aria-label": `${t('modelName')} ${index + 1}`, disabled: disabled, onChange: (event) => { patch(index, { name: event.target.value === '' ? undefined : event.target.value }); } }), _jsx("button", { type: "button", className: styles['iconButton'], "aria-label": `${t('modelAdvanced')} ${index + 1}`, "aria-expanded": expanded.has(index), title: t('modelAdvanced'), onClick: () => { toggleExpanded(index); }, children: _jsx(IconChevron, { open: expanded.has(index) }) }), _jsx("button", { type: "button", className: `${styles['iconButton']} ${styles['iconButtonDanger']}`, "aria-label": `${t('removeModel')} ${index + 1}`, title: t('removeModel'), disabled: disabled, onClick: () => {
+                                    : askable ? undefined : t('fetchNeedsBaseUrl'), onClick: () => { void fetchModels(); }, children: busy ? t('fetching') : t('fetchModels') })] })] }), _jsxs("div", { className: styles['capabilityProbe'], "aria-label": t('capabilityTitle'), children: [_jsxs("div", { className: styles['capabilityProbeHead'], children: [_jsx("span", { className: styles['modelCatalogTitle'], children: t('capabilityTitle') }), _jsx("span", { className: styles['modelCatalogMeta'], children: `${t('capabilitySelected')} ${String(selectedIds.size)}/${String(selectableIds.length)}` })] }), _jsxs("div", { className: styles['capabilityProbeActions'], children: [_jsx("button", { type: "button", className: styles['linkButton'], disabled: rowDisabled || selectableIds.length === 0, onClick: toggleAllSelected, children: t(allSelected ? 'capabilityDeselectAll' : 'capabilitySelectAll') }), _jsxs("label", { className: styles['capabilityOverwrite'], children: [_jsx("input", { type: "checkbox", checked: overwriteExisting, disabled: rowDisabled, onChange: (event) => { setOverwriteExisting(event.target.checked); } }), _jsx("span", { children: t('capabilityOverwrite') })] }), probeBusy
+                                ? (_jsx("button", { type: "button", className: styles['secondaryButton'], onClick: cancelProbe, children: t('capabilityCancel') }))
+                                : (_jsx("button", { type: "button", className: styles['primaryButton'], disabled: disabled || busy || selectedIds.size === 0, onClick: () => { void probeSelected(); }, children: t('capabilityProbe') }))] }), _jsx("p", { className: styles['advancedHint'], children: t('capabilityDraftHint') }), probeNotice === undefined ? null : _jsx("p", { className: styles['savedNotice'], role: "status", "aria-live": "polite", children: probeNotice }), probeFailure === undefined ? null : _jsx("p", { className: styles['error'], role: "alert", children: probeFailure })] }), models.length === 0 ? _jsx("p", { className: styles['modelEmpty'], children: t('modelsEmpty') }) : null, models.map((model, index) => (_jsxs("div", { className: styles['modelEntry'], children: [_jsxs("div", { className: styles['modelRow'], children: [_jsx("input", { type: "checkbox", checked: selectedIds.has(textOf(model, 'id').trim()) && textOf(model, 'id').trim().length > 0, "aria-label": `${t('capabilitySelectModel')} ${index + 1}`, disabled: rowDisabled || textOf(model, 'id').trim().length === 0, onChange: () => { toggleSelected(textOf(model, 'id').trim()); } }), _jsx("input", { className: styles['input'], type: "text", value: textOf(model, 'id'), placeholder: t('modelId'), "aria-label": `${t('modelId')} ${index + 1}`, disabled: rowDisabled, onChange: (event) => { patch(index, { id: event.target.value }); } }), _jsx("input", { className: styles['input'], type: "text", value: textOf(model, 'name'), placeholder: t('modelName'), "aria-label": `${t('modelName')} ${index + 1}`, disabled: rowDisabled, onChange: (event) => { patch(index, { name: event.target.value === '' ? undefined : event.target.value }); } }), _jsx("button", { type: "button", className: styles['iconButton'], "aria-label": `${t('modelAdvanced')} ${index + 1}`, "aria-expanded": expanded.has(index), title: t('modelAdvanced'), disabled: rowDisabled, onClick: () => { toggleExpanded(index); }, children: _jsx(IconChevron, { open: expanded.has(index) }) }), _jsx("button", { type: "button", className: `${styles['iconButton']} ${styles['iconButtonDanger']}`, "aria-label": `${t('removeModel')} ${index + 1}`, title: t('removeModel'), disabled: rowDisabled, onClick: () => {
                                     onChange(models.filter((_model, at) => at !== index));
                                     // Both stores are keyed by position, so every row after this
                                     // one shifts down and would otherwise inherit its neighbour's
@@ -238,9 +364,9 @@ export function ModelListEditor(props) {
                                     });
                                     setEditing(current => reindexOnRemove(current, index));
                                 }, children: _jsx(IconTrash, {}) })] }), expanded.has(index)
-                        ? (_jsxs("div", { className: styles['modelAdvanced'], children: [_jsxs("label", { className: styles['modelField'], children: [_jsx("span", { className: styles['modelFieldLabel'], children: t('modelContextWindow') }), _jsx("input", { className: styles['input'], type: "text", inputMode: "numeric", value: capacityText(model, index, 'contextWindow'), placeholder: CAPACITY_HINT.contextWindow, "aria-label": `${t('modelContextWindow')} ${index + 1}`, disabled: disabled, onChange: (event) => { editCapacity(index, 'contextWindow', event.target.value); } })] }), _jsxs("label", { className: styles['modelField'], children: [_jsx("span", { className: styles['modelFieldLabel'], children: t('modelMaxTokens') }), _jsx("input", { className: styles['input'], type: "text", inputMode: "numeric", value: capacityText(model, index, 'maxTokens'), placeholder: CAPACITY_HINT.maxTokens, "aria-label": `${t('modelMaxTokens')} ${index + 1}`, disabled: disabled, onChange: (event) => { editCapacity(index, 'maxTokens', event.target.value); } })] }), _jsxs("label", { className: styles['modelField'], children: [_jsx("span", { className: styles['modelFieldLabel'], children: t('modelImageInput') }), (() => {
+                        ? (_jsxs("div", { className: styles['modelAdvanced'], children: [_jsxs("label", { className: styles['modelField'], children: [_jsx("span", { className: styles['modelFieldLabel'], children: t('modelContextWindow') }), _jsx("input", { className: styles['input'], type: "text", inputMode: "numeric", value: capacityText(model, index, 'contextWindow'), placeholder: CAPACITY_HINT.contextWindow, "aria-label": `${t('modelContextWindow')} ${index + 1}`, disabled: rowDisabled, onChange: (event) => { editCapacity(index, 'contextWindow', event.target.value); } })] }), _jsxs("label", { className: styles['modelField'], children: [_jsx("span", { className: styles['modelFieldLabel'], children: t('modelMaxTokens') }), _jsx("input", { className: styles['input'], type: "text", inputMode: "numeric", value: capacityText(model, index, 'maxTokens'), placeholder: CAPACITY_HINT.maxTokens, "aria-label": `${t('modelMaxTokens')} ${index + 1}`, disabled: rowDisabled, onChange: (event) => { editCapacity(index, 'maxTokens', event.target.value); } })] }), _jsxs("label", { className: styles['modelField'], children: [_jsx("span", { className: styles['modelFieldLabel'], children: t('modelImageInput') }), (() => {
                                             const imageChoice = readImageInputChoice(model);
-                                            return (_jsxs(_Fragment, { children: [_jsxs("select", { className: `${styles['input']} ${styles['selectInput']} ${styles['modelInputChoice']}`, value: imageChoice, "aria-invalid": imageChoice === 'invalid', disabled: disabled, onChange: (event) => { setImageInputChoice(index, event.target.value); }, children: [imageChoice === 'invalid'
+                                            return (_jsxs(_Fragment, { children: [_jsxs("select", { className: `${styles['input']} ${styles['selectInput']} ${styles['modelInputChoice']}`, value: imageChoice, "aria-invalid": imageChoice === 'invalid', disabled: rowDisabled, onChange: (event) => { setImageInputChoice(index, event.target.value); }, children: [imageChoice === 'invalid'
                                                                 ? _jsx("option", { value: "invalid", disabled: true, children: t('modelImageInvalid') })
                                                                 : null, _jsx("option", { value: "auto", children: t('modelImageAuto') }), _jsx("option", { value: "image", children: t('modelImageSupported') }), _jsx("option", { value: "text-only", children: t('modelImageTextOnly') })] }), _jsx("span", { className: styles['modelFieldHint'], children: t((imageChoice === 'auto'
                                                             ? 'modelImageAutoHint'
@@ -250,5 +376,12 @@ export function ModelListEditor(props) {
                                                                     ? 'modelImageTextOnlyHint'
                                                                     : 'modelImageInvalid')) }), _jsx("span", { className: styles['modelFieldHint'], children: t('modelImageRestartHint') })] }));
                                         })()] })] }))
-                        : null] }, index))), _jsx("button", { type: "button", className: styles['addModelButton'], disabled: disabled, onClick: () => { onChange([...models, { id: '' }]); }, children: t('addModel') }), failure !== undefined ? _jsx("p", { className: styles['error'], children: failure }) : null, _jsxs(Modal, { open: candidates !== undefined, onClose: closePicker, title: t('fetchTitle'), closeLabel: t('close'), description: t('fetchDescription'), className: styles['fetchDialog'], footer: (_jsxs(_Fragment, { children: [_jsx(Button, { variant: "outline", onClick: closePicker, children: t('cancel') }), _jsx(Button, { variant: "outline", onClick: adoptPicked, children: t('fetchAdopt') })] })), children: [_jsx("div", { className: styles['candidateActions'], children: _jsx(Button, { variant: "ghost", size: "sm", onClick: toggleAllCandidates, children: t(allCandidatesPicked ? 'fetchDeselectAll' : 'fetchSelectAll') }) }), _jsx("ul", { className: styles['candidateList'], children: (candidates ?? []).map(candidate => (_jsx("li", { className: styles['candidate'], children: _jsxs("label", { className: styles['candidateLabel'], children: [_jsx("input", { type: "checkbox", checked: picked.has(candidate.id), onChange: () => { toggle(candidate.id); } }), _jsx("span", { className: styles['candidateId'], children: candidate.id })] }) }, candidate.id))) })] })] }));
+                        : null, (() => {
+                        const id = textOf(model, 'id').trim();
+                        const result = id.length === 0 ? undefined : probeResults.get(id);
+                        if (result === undefined)
+                            return null;
+                        const status = capabilityResultStatus(result);
+                        return (_jsxs("div", { className: `${styles['capabilityStatus']} ${styles[`capabilityStatus_${status.replace('-', '_')}`]}`, "data-status": status, role: "status", children: [_jsx("span", { children: t(capabilityStatusKey(status)) }), _jsx("span", { children: capabilitySummary(result, t) })] }));
+                    })()] }, index))), _jsx("button", { type: "button", className: styles['addModelButton'], disabled: rowDisabled, onClick: () => { onChange([...models, { id: '' }]); }, children: t('addModel') }), failure !== undefined ? _jsx("p", { className: styles['error'], children: failure }) : null, _jsxs(Modal, { open: candidates !== undefined, onClose: closePicker, title: t('fetchTitle'), closeLabel: t('close'), description: t('fetchDescription'), className: styles['fetchDialog'], footer: (_jsxs(_Fragment, { children: [_jsx(Button, { variant: "outline", onClick: closePicker, children: t('cancel') }), _jsx(Button, { variant: "outline", onClick: adoptPicked, children: t('fetchAdopt') })] })), children: [_jsx("div", { className: styles['candidateActions'], children: _jsx(Button, { variant: "ghost", size: "sm", onClick: toggleAllCandidates, children: t(allCandidatesPicked ? 'fetchDeselectAll' : 'fetchSelectAll') }) }), _jsx("ul", { className: styles['candidateList'], children: (candidates ?? []).map(candidate => (_jsx("li", { className: styles['candidate'], children: _jsxs("label", { className: styles['candidateLabel'], children: [_jsx("input", { type: "checkbox", checked: picked.has(candidate.id), onChange: () => { toggle(candidate.id); } }), _jsx("span", { className: styles['candidateId'], children: candidate.id })] }) }, candidate.id))) })] })] }));
 }

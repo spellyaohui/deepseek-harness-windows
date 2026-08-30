@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-## Desktop fork `0.1.1-rc.2-desktop.3`
+## Desktop fork `0.1.1-rc.2-desktop.4`
 
 This desktop fork adds a provider-neutral image-input choice to every pi-ai
 model row: **Automatic**, **Text and image**, or **Text only**. The choice is
@@ -15,6 +15,19 @@ Malformed modality data is shown as invalid and blocks Apply until the user
 chooses a valid state; it is never filtered or silently downgraded. Unknown
 automatic models remain fail-closed as text-only, and a restart is required
 after saving before the runtime loads a new model-level override.
+
+The same model editor also offers a provider-neutral **capability validation**
+action. Select one or more model rows and run the bounded probe against the
+current endpoint and explicitly selected protocol. The Host resolves a stored
+credential through the existing credential seam, while a newly typed key is
+used only for that request; neither value is returned to the browser or stored
+by the probe. Results cover text/image input, reasoning effort spellings,
+developer role, strict tools, store, streaming usage, and output-token field
+compatibility. Successful or explicitly unsupported results update the unsaved
+draft only. Existing model capability values are preserved unless the user
+explicitly enables **Overwrite existing capability values**; transient HTTP
+failures remain unconfirmed. Probing is sequential and cancellable, and saving
+the provider remains the only settings write.
 
 Models settings and product-onboarding plugin. The same client Cordis plugin registers the Models page plus two ordered first-run dialogs: a versioned internal-testing notice and the conditional official-DeepSeek credential step. Both steps share one modal wrapper and remain sequenced by `settings.onboarding`. The Models plane joins three wire domains into one shared snapshot — `llm.providers` (the configurable-provider directory with each route's live/dormant state), `settings.describe` (serialized schemas, layered redacted values, secret slots), and `credentials.describe` (value-free configured/source/writable badges) — and renders provider rows with one editor card at a time, without presenting route liveness as provider status.
 

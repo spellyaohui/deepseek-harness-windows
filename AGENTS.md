@@ -182,7 +182,7 @@ evidence that the local capability is preserved.
   must make these tests pass against the classified owner; deleting, skipping,
   or weakening a regression is not an acceptable conflict resolution.
 
-## Models settings fork `v0.1.1-rc.2-desktop.3` interaction invariants
+## Models settings fork `v0.1.1-rc.2-desktop.4` interaction invariants
 
 - Each pi-ai model row owns its image-input choice: `auto`, `image`, or
   `text-only`. Persist `auto` by deleting the model-level `input`, `image` as
@@ -195,10 +195,24 @@ evidence that the local capability is preserved.
   capacities, reasoning, cost, and compat records. Provider-scoped bulk
   actions operate only on the unsaved draft and must use the same pure
   normalization contract.
+- The existing model editor owns one provider-neutral capability probe surface:
+  rows are selected individually, probes run sequentially against the current
+  explicit protocol/address, cancellation preserves completed draft results,
+  and only an explicit overwrite toggle may replace existing capability
+  fields. The probe never writes settings before the parent Save action.
+- Capability outcomes use `supported` / `unsupported` / `inconclusive` /
+  `not-applicable`; authentication/proxy-auth failures (401/403/407),
+  transient HTTP, timeout, rate-limit, 5xx, and network failures remain
+  inconclusive. Stored credentials resolve only in Host, and a typed draft key
+  is one-shot and never returned or persisted by the probe.
 - The Models fork remains provider-neutral: no CPA, OpenCode, woyaopro, or
   model-name heuristics belong there. Unknown automatic models remain
   fail-closed through pi-ai's text-only default, and a saved choice requires
   restart before the runtime loads it.
+- Before Models TypeScript/Rolldown output is regenerated, the build detaches
+  every existing `lib` output directory entry with identical bytes so a
+  consumer/indexer memory map cannot trigger Windows `os error 1224`; the
+  generated output remains ignored by the package's source ownership rules.
 - OpenCode catalog hydration must never rewrite persisted provider settings;
   manual model-level declarations remain higher precedence than installed
   catalogs and provider defaults. Preserve the model-input unit/UI tests,

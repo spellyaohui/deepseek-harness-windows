@@ -170,5 +170,5 @@ export function CustomProviderCard(props) {
                     baseURL,
                     api: protocol,
                     ...keyValue.length === 0 ? {} : { apiKey: keyValue },
-                }, probeBlocked: keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure, api: api, t: t, disabled: profileDisabled }), failure !== undefined ? _jsx("p", { className: styles['error'], children: failure }) : null, hint === undefined ? null : _jsx("p", { className: styles['advancedHint'], children: hint }), _jsx(EditorFooter, { t: t, busy: busy, submitDisabled: disabled || !ready, submitLabel: "create", submitBusyLabel: "creating", onCancel: () => { props.onClose(committed); }, onSubmit: () => { void create(); } })] }));
+                }, probeBlocked: keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure, api: api, modelCapabilities: props.modelCapabilities, t: t, disabled: profileDisabled }), failure !== undefined ? _jsx("p", { className: styles['error'], children: failure }) : null, hint === undefined ? null : _jsx("p", { className: styles['advancedHint'], children: hint }), _jsx(EditorFooter, { t: t, busy: busy, submitDisabled: disabled || !ready, submitLabel: "create", submitBusyLabel: "creating", onCancel: () => { props.onClose(committed); }, onSubmit: () => { void create(); } })] }));
 }

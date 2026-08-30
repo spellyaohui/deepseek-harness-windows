@@ -13,6 +13,7 @@ import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts';
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
 import type { ProviderProfileNormalizer } from './provider-profile.ts';
+import type { ModelCapabilityProbeRemote } from '../remote.ts';
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
 export interface DeepSeekOnboardingInjected {
     hooks: {
@@ -23,6 +24,8 @@ export interface DeepSeekOnboardingInjected {
     controller: ModelsSettingsStore;
     /** Existing wire face reused by the Models credential editor. */
     api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>;
+    /** Mounted provider-neutral Host capability probe. */
+    modelCapabilities: ModelCapabilityProbeRemote;
     /** Settings schema and immutable path callbacks. */
     schema: SettingsSchemaOperations;
     /** Feature copy. */

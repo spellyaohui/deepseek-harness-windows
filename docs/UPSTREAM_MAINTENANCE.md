@@ -7,12 +7,12 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.28`
+- Windows desktop wrapper: `0.1.1-rc.29`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.1`
 - AgentTeams fork: `0.1.14-desktop.10`, based on upstream `0.1.14`
 - CPA provider plugin: `0.1.5`
-- Models settings fork: `0.1.1-rc.2-desktop.3`
+- Models settings fork: `0.1.1-rc.2-desktop.4`
 - Desktop Settings plugin: `0.1.1`
 - Session Markdown export plugin: `0.1.0`
 
@@ -33,7 +33,7 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Additive `settings.models.card` slot, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, and field-preserving model normalization | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; no CPA, OpenCode, woyaopro, or model-name rules belong here | `src/client/ModelsSection.tsx`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/provider-profile.ts`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
+| Additive `settings.models.card` slot, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, and one sequential cancellable capability probe with explicit overwrite | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; the Host Remote and editor are provider-neutral, while CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork | `src/client/ModelsSection.tsx`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
 
 ## Desktop Settings owner
 
@@ -75,7 +75,7 @@ classified as follows:
 | --- | --- | --- |
 | AgentTeams | `REAPPLY` | Imported upstream v0.1.14, then reapplied role-level Provider/model/reasoning policy, strict Profile/Team V2, shared catalog, route policy, Team/Native tool boundary, claim compatibility, and Windows verification seams. |
 | CPA | `REAPPLY` | No upstream owner change; retained the independent CPA plugin and its migration, modality, capacity, and native-row regressions. |
-| Models settings | `REAPPLY` | No upstream owner change; retained the provider-neutral native editor, additive slot seam, and model-level image-input contract without adding provider/model rules. |
+| Models settings | `REAPPLY` | No upstream owner change; retained the provider-neutral native editor, additive slot seam, model-level image-input contract, Host capability Remote, draft-only probe application, and generated-output mapping protection without adding provider/model rules. |
 | Desktop Settings | `REAPPLY` | No upstream owner change; retained the Harness-native desktop section and immediate-save IPC bridge. |
 | Session Markdown | `REAPPLY` | No upstream owner change; retained continuation export ownership and regression coverage. |
 | Windows wrapper | `REAPPLY` | No upstream owner change; retained shell, OpenCode, plugin-mount, startup-healing, and artifact synchronization compatibility. |
@@ -204,3 +204,21 @@ the checked-in runtime closure. They complement the real-checkout packaging
 requirement; they do not replace it. Future upstream refreshes must rerun the
 full `npm run verify:upstream` gate before package generation and repeat these
 closure checks before release publication.
+
+## Generated-output mapping incident — 2026-08-30
+
+The Models plugin build intermittently failed on Windows with TypeScript
+`TS5033` or Rolldown `os error 1224` while writing files under `lib/`. The
+generated files were hardlinked into another local plugin's installed
+`node_modules`, and a consumer/indexer could hold a user-mapped section over
+one of those directory entries. This was a build-environment race, not a
+provider or model capability failure.
+
+The Models package now runs
+`scripts/detach-output-links.mjs` before TypeScript/Rolldown. It recursively
+replaces each existing regular `lib` output with a byte-identical private copy,
+never follows symlinks, and leaves the consumer's old inode untouched. The
+`output-link-safety.test.js` regression proves the bytes and unrelated hardlink
+remain intact. Future refreshes must retain this prebuild step and regression;
+do not solve the error by deleting generated outputs, weakening the upstream
+gate, or killing user processes.

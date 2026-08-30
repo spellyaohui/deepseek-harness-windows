@@ -19,6 +19,7 @@ import type { en } from './locales.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './DeepSeekOnboardingDialog.module.css'
+import type { ModelCapabilityProbeRemote } from '../remote.ts'
 
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
 export interface DeepSeekOnboardingInjected {
@@ -30,6 +31,8 @@ export interface DeepSeekOnboardingInjected {
   controller: ModelsSettingsStore
   /** Existing wire face reused by the Models credential editor. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  /** Mounted provider-neutral Host capability probe. */
+  modelCapabilities: ModelCapabilityProbeRemote
   /** Settings schema and immutable path callbacks. */
   schema: SettingsSchemaOperations
   /** Feature copy. */
@@ -54,7 +57,7 @@ function assertNever(_value: never): never {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, api, schema, t, normalizeProviderProfile } = props
+  const { complete, controller, useModels, api, modelCapabilities, schema, t, normalizeProviderProfile } = props
   const state = useModels(snapshot => snapshot)
   const readiness = onboardingReadiness(state)
 
@@ -110,6 +113,7 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           schema={schema}
           settingsPath={row.entry.settingsPath}
           api={api}
+          modelCapabilities={modelCapabilities}
           t={t}
           readOnly={false}
           hideTitle

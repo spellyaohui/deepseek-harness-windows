@@ -1,4 +1,4 @@
-import type { CapabilityCheck, CapabilityCompatValue, CapabilityPatchSource, CapabilityStatus, ModelCapabilityPatch } from '../capability-contract.ts';
+import type { CapabilityCheck, CapabilityCompatValue, CapabilityPatchSource, CapabilityStatus, ModelCapabilityPatch, ModelCapabilityProbeResult } from '../capability-contract.ts';
 import { capabilityPatchFromChecks } from '../capability-contract.ts';
 export type { CapabilityCheck, CapabilityCompatValue, CapabilityPatchSource, CapabilityStatus, ModelCapabilityPatch };
 export { capabilityPatchFromChecks };
@@ -16,3 +16,12 @@ export declare function applyCapabilityPatch<T extends Record<string, unknown>>(
     overwriteExisting: boolean;
     source: CapabilityPatchSource;
 }): T;
+/**
+ * Apply one completed probe to every matching draft row without writing
+ * settings. Duplicate ids are deliberately all updated: the parent save gate
+ * still rejects duplicates, but a user who is correcting a duplicate should
+ * not see one visually identical row behave differently from the other.
+ */
+export declare function applyCapabilityProbeResult<T extends Record<string, unknown>>(models: readonly T[], result: ModelCapabilityProbeResult, overwriteExisting: boolean): T[];
+/** Collapse the matrix into one cautious row-level status for the editor. */
+export declare function capabilityResultStatus(result: ModelCapabilityProbeResult): CapabilityStatus;

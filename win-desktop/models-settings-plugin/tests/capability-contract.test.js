@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   applyCapabilityPatch,
+  applyCapabilityProbeResult,
   capabilityPatchFromChecks,
   classifyCapabilityOutcome,
 } from '../lib/client/model-capabilities.js'
@@ -10,6 +11,9 @@ import {
 test('capability outcomes keep supported and explicit unsupported separate from temporary failures', () => {
   assert.equal(classifyCapabilityOutcome({ status: 200 }), 'supported')
   assert.equal(classifyCapabilityOutcome({ status: 400 }), 'unsupported')
+  assert.equal(classifyCapabilityOutcome({ status: 401 }), 'inconclusive')
+  assert.equal(classifyCapabilityOutcome({ status: 403 }), 'inconclusive')
+  assert.equal(classifyCapabilityOutcome({ status: 407 }), 'inconclusive')
   assert.equal(classifyCapabilityOutcome({ status: 502 }), 'inconclusive')
   assert.equal(classifyCapabilityOutcome({ status: 429 }), 'inconclusive')
   assert.equal(classifyCapabilityOutcome({ aborted: true }), 'inconclusive')
@@ -114,4 +118,22 @@ test('inconclusive and not-applicable checks never produce a destructive patch',
     reasoning: { status: 'not-applicable', summary: 'protocol does not expose it' },
     strict: { status: 'inconclusive', summary: 'timeout' },
   }), {})
+})
+
+test('probe result application matches trimmed model ids and preserves unselected rows', () => {
+  const models = [
+    { id: ' model-a ', input: ['text'], contextWindow: 128000 },
+    { id: 'model-b', input: ['text'], unknown: true },
+  ]
+  const result = {
+    modelId: 'model-a',
+    protocol: 'openai-responses',
+    checks: {},
+    patch: { input: ['text', 'image'] },
+  }
+
+  const next = applyCapabilityProbeResult(models, result, true)
+  assert.deepEqual(next[0], { id: ' model-a ', input: ['text', 'image'], contextWindow: 128000 })
+  assert.deepEqual(next[1], models[1])
+  assert.notEqual(next, models)
 })

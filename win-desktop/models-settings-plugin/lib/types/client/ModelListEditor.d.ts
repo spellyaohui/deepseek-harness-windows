@@ -16,6 +16,7 @@
 import type { ReactNode } from 'react';
 import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client';
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx';
+import type { ModelCapabilityProbeRemote } from '../remote.ts';
 import type { ModelsKey } from './locales.ts';
 /**
  * One configured model row. Structurally open, exactly like the DeepSeek
@@ -40,6 +41,8 @@ export interface ProbeTarget {
     api?: string;
     /** Key typed into the form and not yet stored, when there is one. */
     apiKey?: string;
+    /** Credential reference resolved by the Host when no one-shot key is typed. */
+    credentialRef?: string;
 }
 /** Props of {@link ModelListEditor}. */
 export interface ModelListEditorProps {
@@ -62,6 +65,8 @@ export interface ModelListEditorProps {
     probeBlocked?: ModelsKey | undefined;
     /** Wire face the fetch action calls. */
     api: Pick<IApiClient, 'llm'>;
+    /** Host-side, provider-neutral capability probe. */
+    modelCapabilities: ModelCapabilityProbeRemote;
     /** Section copy. */
     t: (key: ModelsKey) => string;
     /** Disable every control (read-only deployment or a pending write). */

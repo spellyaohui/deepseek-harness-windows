@@ -5,7 +5,7 @@
 - Commit: `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 - Source directory: `packages/client/ui-settings-models`
 - Imported: 2026-08-23
-- Local desktop fork: `0.1.1-rc.2-desktop.3`
+- Local desktop fork: `0.1.1-rc.2-desktop.4`
 
 ## Intentional desktop difference
 
@@ -19,6 +19,15 @@ fork; the CPA plugin is the only listener for provider `cpa`.
 
 Provider-specific behavior does not belong in this fork. CPA behavior is owned
 by the separate `@deepseek-ai/dsh-cpa-provider` plugin.
+
+The fork also owns the provider-neutral capability validation controls inside
+the native model editor. The Host Remote uses the current explicit protocol
+and credential seam to run bounded probes; the client applies only successful
+or explicitly unsupported fields to the unsaved draft, preserves existing
+values unless overwrite is selected, and supports sequential cancellation.
+This is a shared seam for CPA, OpenCode, WOYAOPRO, CommandCode, and custom
+routes; provider/model-name heuristics and protocol fallback remain outside
+this package.
 
 The desktop fork also owns a provider-neutral per-model image-input editor.
 `auto` removes the model-level `input` override, `image` stores `['text',

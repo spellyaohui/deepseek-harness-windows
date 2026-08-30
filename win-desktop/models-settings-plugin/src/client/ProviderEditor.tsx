@@ -35,6 +35,7 @@ import type { SettingsSchemaOperations } from './schema-operations.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
+import type { ModelCapabilityProbeRemote } from '../remote.ts'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
 type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
@@ -66,6 +67,8 @@ export interface ProviderEditorProps {
   settingsPath: readonly string[]
   /** Wire faces for writes and for interrogating a provider endpoint. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  /** Mounted provider-neutral Host capability probe. */
+  modelCapabilities?: ModelCapabilityProbeRemote
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable writes (read-only settings provider). */
@@ -240,6 +243,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     provider: props.provider,
     ...probeBaseURL === undefined ? {} : { baseURL: probeBaseURL },
     ...probeApi === undefined ? {} : { api: probeApi },
+    credentialRef: keyRef,
     ...keyValue.length === 0 ? {} : { apiKey: keyValue },
   }
   /**
@@ -477,7 +481,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                   defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
                 />
               )
-              : <ModelListEditor {...catalogProps} probe={probe} probeBlocked={keyFailure} api={api} />}
+              : props.modelCapabilities === undefined
+                ? <p className={styles['error']}>{t('capabilityUnavailable')}</p>
+                : <ModelListEditor
+                  {...catalogProps}
+                  probe={probe}
+                  probeBlocked={keyFailure}
+                  api={api}
+                  modelCapabilities={props.modelCapabilities}
+                />}
           </div>
         </details>}
       </>

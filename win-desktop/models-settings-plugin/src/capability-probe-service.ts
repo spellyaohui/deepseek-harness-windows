@@ -260,6 +260,12 @@ async function attempt(
       signal,
     })
     if (response.status >= 200 && response.status < 300) return { status: 'supported', field }
+    // Authentication or proxy-authentication failures say nothing about the
+    // model's capabilities. Keep them inconclusive so a missing credential
+    // cannot be turned into a destructive text-only/reasoning=false patch.
+    if (response.status === 401 || response.status === 403 || response.status === 407) {
+      return { status: 'inconclusive', field }
+    }
     if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
       return { status: 'unsupported', field }
     }

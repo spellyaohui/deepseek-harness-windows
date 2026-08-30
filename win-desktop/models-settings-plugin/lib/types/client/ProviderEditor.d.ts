@@ -25,6 +25,7 @@ import type { IApiClient, SettingsNamespaceView, SettingsPathOpView } from '@dee
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
 import type { ProviderProfileNormalizer } from './provider-profile.ts';
+import type { ModelCapabilityProbeRemote } from '../remote.ts';
 /** Props of {@link ProviderEditor}. */
 export interface ProviderEditorProps {
     /** Provider route id. */
@@ -49,6 +50,8 @@ export interface ProviderEditorProps {
     settingsPath: readonly string[];
     /** Wire faces for writes and for interrogating a provider endpoint. */
     api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>;
+    /** Mounted provider-neutral Host capability probe. */
+    modelCapabilities?: ModelCapabilityProbeRemote;
     /** Section copy. */
     t: (key: keyof typeof en) => string;
     /** Disable writes (read-only settings provider). */
