@@ -76,6 +76,7 @@ import {
 } from '../lib/client/locales.js'
 import { openAgentTeamMember } from '../lib/client/session-navigation.js'
 import { steerCaptainReport } from '../lib/tools.js'
+import { renderStatus, statusFingerprint } from '../lib/status-render.js'
 import { usageSectionText } from '../lib/index.js'
 import { parseProfileInvocation, resolveTeamProfile, formatProfilesForPrompt } from '../lib/profiles.js'
 import { memberPersona, memberWelcome } from '../lib/members.js'
@@ -161,6 +162,94 @@ check(
   'usage prompt removes the duplicated eleven-step manual',
   !/Follow this protocol:\s*\n1\./.test(softwareDeliveryPrompt)
     && !/10\. When the user explicitly requests full quality-mode planning/.test(softwareDeliveryPrompt),
+)
+check(
+  'status guidance separates read-only monitoring from recovery wake-up',
+  builtIndex.includes('status is read-only')
+    && builtIndex.includes('wake="recover"')
+    && builtTools.includes('detail')
+    && builtTools.includes('wake')
+    && builtTools.includes('acknowledge')
+    && builtTools.includes('recover'),
+)
+
+const statusRenderFixture = {
+  team_name: 'render-demo',
+  description: 'A team description that remains useful in the compact view.',
+  profile: {
+    name: 'software-delivery',
+    protocol: 'private verbose profile protocol that belongs only in the full view',
+    task_planning: 'captain',
+  },
+  viewer: 'captain',
+  members: [{
+    name: 'reviewer',
+    role: 'review',
+    provider: 'provider-x',
+    model: 'expensive-review-model',
+    reasoning_effort: 'high',
+    status: 'working',
+    activity: 'running',
+  }],
+  tasks: [{
+    id: 't1',
+    subject: 'Review implementation',
+    status: 'completed',
+    assignee: 'reviewer',
+    dependencies: ['requirements'],
+    attempt: 2,
+    attempt_id: 'attempt-2',
+    reassigning: false,
+    verdict: 'pass',
+    findings_open: 2,
+    output: 'verbose-output-that-must-not-be-repeated-in-summary',
+  }],
+  coverage: [{ goal_item: 'quality', task_ids: ['t1'], status: 'covered' }],
+  delivery: { ok: false, blockers: ['waiting for explicit deployment confirmation'] },
+  captain_inbox: [{ from: 'reviewer', content: 'new review message' }],
+  member_inboxes: { tester: { count: 1, latest: 'new tester message' } },
+  mailbox_warnings: ['tester mailbox line 4'],
+  mailbox_warning_count: 1,
+}
+const compactStatus = renderStatus(statusRenderFixture)
+const fullStatus = renderStatus(statusRenderFixture, 'full')
+const unchangedStatus = renderStatus({ ...statusRenderFixture, status_summary_unchanged: true })
+check(
+  'status summary keeps quality gates and omits verbose detail',
+  compactStatus.includes('Delivery: blocked')
+    && compactStatus.includes('Coverage:')
+    && compactStatus.includes('verdict pass')
+    && compactStatus.includes('findings 2')
+    && compactStatus.includes('attempt 2 id attempt-2')
+    && compactStatus.includes('(deps: requirements)')
+    && compactStatus.includes('reviewer [review] working/running')
+    && compactStatus.includes('Member inbox tester (1): latest — new tester message')
+    && compactStatus.includes('Mailbox warnings (1; malformed lines were skipped; showing up to 10):')
+    && compactStatus.includes('Task outputs omitted')
+    && !compactStatus.includes('verbose-output-that-must-not-be-repeated-in-summary')
+    && !compactStatus.includes('private verbose profile protocol')
+    && !compactStatus.includes('expensive-review-model'),
+)
+check(
+  'full status still exposes model, profile protocol, and task output on demand',
+  fullStatus.includes('provider-x/expensive-review-model')
+    && fullStatus.includes('private verbose profile protocol')
+    && fullStatus.includes('verbose-output-that-must-not-be-repeated-in-summary'),
+)
+check(
+  'unchanged status collapses to a current-state heartbeat',
+  unchangedStatus.includes('No summary-visible Team state changes since the previous status query.')
+    && unchangedStatus.includes('Delivery: blocked')
+    && !unchangedStatus.includes('verbose-output-that-must-not-be-repeated-in-summary'),
+)
+check(
+  'summary fingerprint ignores hidden long-form fields',
+  statusFingerprint(statusRenderFixture)
+    === statusFingerprint({
+      ...statusRenderFixture,
+      profile: { ...statusRenderFixture.profile, protocol: 'a different long protocol' },
+      tasks: [{ ...statusRenderFixture.tasks[0], output: 'a different long report' }],
+    }),
 )
 
 // Named multi-role profile rules

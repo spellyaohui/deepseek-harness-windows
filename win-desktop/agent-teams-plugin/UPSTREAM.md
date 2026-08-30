@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.10`.
+- Desktop fork version is `0.1.14-desktop.11`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -61,6 +61,12 @@
   blank optional Profile input is omission and produces an ad-hoc Team; unknown
   non-empty names remain strict before durable writes or member spawning. This
   is provider-neutral input normalization, not a legacy-state migration.
+- `.desktop.11` makes `agent_teams_status` read-only by default with a compact
+  quality-preserving summary and unchanged-result heartbeat. Full task reports
+  and stable route/profile details require `detail="full"`; scheduler recovery
+  requires explicit `wake="recover"`. Normal creation, approval, task-update,
+  and member-idle scheduling remains event-driven, and the status renderer is
+  isolated in `src/status-render.ts` for future upstream conflict review.
 - `.desktop.5` makes each Profile role the authority for Provider, model, and
   reasoning policy, removes global member-model/reasoning settings, and
   requires strict Profile/Team `schemaVersion: 2`. Older persisted documents

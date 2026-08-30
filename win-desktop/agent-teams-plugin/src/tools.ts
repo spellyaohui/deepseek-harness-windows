@@ -12,7 +12,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { JsonValue, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { join } from 'node:path'
@@ -68,6 +68,7 @@ import { installTeamScheduler } from './scheduler.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
 import type { DelegationPolicyRuntime } from './routing-policy.ts'
 import { listConfiguredProfiles, resolveTeamProfile } from './profiles.ts'
+import { renderStatus, statusFingerprint } from './status-render.ts'
 
 /** Resolved plugin config consumed by the tools. */
 export interface ToolsConfig {
@@ -547,6 +548,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
   installRetiredMemberGuard(ctx, config.stateDir)
   const memberSelections = installMemberSelectionRuntime(ctx, config.stateDir, config.delegationPolicy)
   const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt })
+  const statusFingerprints = new Map<string, string>()
+  const maxStatusFingerprints = 256
 
   const updateStagedPlanBatch: AgentTeamsRuntime['updateStagedPlanBatch'] = async (captain, teamId, mutations, signal) => {
     if (mutations.length === 0) throw new Error('at least one staged plan operation is required')
@@ -2055,24 +2058,42 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_status',
-    description: 'Team snapshot: members with live activity and tasks with status/assignee/dependencies/output. Captains also see every team mailbox; members see only their own inbox. A session without an active Team receives a clean inactive probe. Poll this to watch progress.',
-    parameters: {},
+    description: 'Read Team status. Summary omits task outputs and stable route details; use detail="full" for complete task reports or provider/model evidence. Read-only by default; set acknowledge=true only after processing the displayed mailbox entries. Do not busy-poll. Use wake="recover" only for a captain after restart or clearly stuck ready work/mail. Captains see all mail; members see their own inbox. No active Team returns a clean probe.',
+    parameters: {
+      detail: {
+        type: 'string',
+        enum: ['summary', 'full'],
+        description: 'summary (default) or full for complete task outputs and stable route/profile details.',
+      },
+      wake: {
+        type: 'string',
+        enum: ['recover'],
+        description: 'Captain-only recovery wake after restart or clearly stuck ready work/mail; omit for read-only status.',
+      },
+      acknowledge: {
+        type: 'boolean',
+        description: 'Explicitly consume the displayed unread mailbox entries after processing them; omitted/false is read-only.',
+      },
+    },
     output: {
       schema: { type: 'object', additionalProperties: true, properties: {} },
-      render: (_args, value) => [{
+      render: (args, value) => [{
         type: 'text',
         text: (value as { active?: unknown }).active === false
           ? 'No active Team for this session.'
-          : renderStatus(value),
+          : renderStatus(value, args.detail === 'full' ? 'full' : 'summary'),
       }],
     },
-    async execute(_args, exec) {
+    async execute(args, exec) {
       const caller = requireCaptain(exec)
       const workspace = workspaceOf(caller)
       const stateRoot = stateRootOf(workspace, config)
       const located = await findTeamByParticipant(stateRoot, caller.id)
       if (located === undefined) return { active: false }
-      if (located.captainSessionId === caller.id) {
+      if (args.wake === 'recover' && located.captainSessionId !== caller.id) {
+        throw new Error('agent_teams_status: wake="recover" is captain-only; omit wake for read-only member status')
+      }
+      if (located.captainSessionId === caller.id && args.wake === 'recover') {
         await scheduler.kickTeam(workspace, located.id, caller)
       }
       const { team, identity } = await withTeamLock(
@@ -2109,6 +2130,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       }))
       const mailboxWarnings: string[] = []
       let mailboxWarningCount = 0
+      const mailboxMessageIds = new Map<string, string[]>()
       const reportMalformed = (agentKey: string) => (lineNumber: number): void => {
         mailboxWarningCount += 1
         if (mailboxWarnings.length < 10) {
@@ -2118,6 +2140,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       const captainInbox = identity.kind === 'captain'
         ? await readUnreadMailbox(stateRoot, team.id, CAPTAIN_KEY, reportMalformed(CAPTAIN_KEY))
         : []
+      if (identity.kind === 'captain') mailboxMessageIds.set(CAPTAIN_KEY, captainInbox.map(message => message.id))
       const memberInboxes: Record<string, { count: number; latest: string }> = {}
       const visibleMembers = identity.kind === 'captain'
         ? members
@@ -2129,6 +2152,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           member.name,
           reportMalformed(member.name),
         )
+        mailboxMessageIds.set(member.name, messages.map(message => message.id))
         if (messages.length > 0) {
           memberInboxes[member.name] = {
             count: messages.length,
@@ -2166,7 +2190,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             name: team.profile.name,
             ...team.profile.protocol === undefined
               ? {}
-              : { protocol: team.profile.protocol.slice(0, 240) },
+              : { protocol: team.profile.protocol },
             ...team.profile.taskPlanning === undefined ? {} : { task_planning: team.profile.taskPlanning },
           },
         },
@@ -2182,15 +2206,26 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         mailbox_warnings: mailboxWarnings,
         mailbox_warning_count: mailboxWarningCount,
       }
-      const acknowledged = identity.kind === 'captain'
-        ? captainInbox.map(message => message.id)
-        : await readUnreadMailbox(stateRoot, team.id, identity.name).then(messages => messages.map(message => message.id))
+      const statusKey = `${stateRoot}\u0000${team.id}\u0000${identity.name}`
+      const fingerprint = statusFingerprint(result)
+      const previousFingerprint = statusFingerprints.get(statusKey)
+      statusFingerprints.set(statusKey, fingerprint)
+      if (statusFingerprints.size > maxStatusFingerprints) {
+        const oldestKey = statusFingerprints.keys().next().value
+        if (oldestKey !== undefined) statusFingerprints.delete(oldestKey)
+      }
+      const acknowledged = args.acknowledge === true
+        ? mailboxMessageIds.get(identity.kind === 'captain' ? CAPTAIN_KEY : identity.name) ?? []
+        : []
       if (acknowledged.length > 0) {
         await withTeamLock(teamLockKey(stateRoot, team.id), () => (
           acknowledgeMailbox(stateRoot, team.id, identity.kind === 'captain' ? CAPTAIN_KEY : identity.name, acknowledged)
         ))
       }
-      return result
+      return {
+        ...result,
+        status_summary_unchanged: args.detail !== 'full' && previousFingerprint === fingerprint,
+      }
     },
   }))
 
@@ -2584,85 +2619,4 @@ function memberRuntime(config: ToolsConfig): MemberRuntimeConfig {
     executionPrompt: config.executionPrompt,
     fallback: config.fallback,
   }
-}
-
-/** Render the status snapshot as compact text for the model. */
-function renderStatus(value: JsonValue): string {
-  const team = value as {
-    team_name: string
-    description?: string
-    profile?: { name: string; protocol?: string; task_planning?: string }
-    viewer: string
-    members: {
-      name: string
-      role: string
-      provider: string
-      model: string
-      reasoning_effort: string
-      status: string
-      activity: string
-    }[]
-    tasks: { id: string; subject: string; status: string; assignee: string; dependencies: string[]; attempt: number; attempt_id: string; reassigning: boolean; seed_id?: string; output?: string; kind?: string; round?: number; verdict?: string; findings_open?: number }[]
-    captain_inbox: { from: string; content: string }[]
-    member_inboxes: Record<string, { count: number; latest: string }>
-    mailbox_warnings: string[]
-    mailbox_warning_count: number
-    halted?: boolean
-    escalated?: boolean
-    loop_state?: string
-    loop_summary?: string
-    deliverable?: boolean
-    coverage?: { goal_item: string; status: string; task_ids: string[] }[]
-    delivery?: { ok: boolean; blockers: string[] }
-  }
-  const flags = [
-    team.halted ? 'halted' : undefined,
-    team.escalated ? 'escalated' : undefined,
-    team.deliverable ? 'deliverable' : undefined,
-    team.loop_state && team.loop_state !== 'running' && team.loop_state !== 'halted' && team.loop_state !== 'escalated'
-      ? team.loop_state
-      : undefined,
-  ].filter((item): item is string => item !== undefined)
-  const lines: string[] = [
-    `Team "${team.team_name}"${team.description ? ` — ${team.description}` : ''}${flags.length > 0 ? ` [${flags.join(', ')}]` : ''}`,
-    ...team.profile === undefined ? [] : [`Profile: ${team.profile.name}${team.profile.task_planning ? ` [${team.profile.task_planning}]` : ''}${team.profile.protocol ? ` — ${team.profile.protocol}` : ''}`],
-    ...team.loop_summary ? [`Loop: ${team.loop_state ?? ''} — ${team.loop_summary}`.replace(/^Loop:  — /u, 'Loop: ')] : [],
-    `Viewing as: ${team.viewer}`,
-    `Members (${team.members.length}):`,
-    ...team.members.map((member) => {
-      const route = member.provider && member.model ? ` · ${member.provider}/${member.model}` : ''
-      const effort = member.reasoning_effort ? ` · reasoning ${member.reasoning_effort}` : ''
-      return `  - ${member.name} [${member.role}] ${member.status}/${member.activity}${route}${effort}`
-    }),
-    `Tasks (${team.tasks.length}):`,
-    ...team.tasks.map((task) => {
-      const deps = task.dependencies.length > 0 ? ` (deps: ${task.dependencies.join(',')})` : ''
-      const output = task.output !== undefined ? `\n      output: ${task.output.slice(0, 300)}` : ''
-      const handoff = task.reassigning ? ' (reassigning)' : ''
-      const seed = task.seed_id === undefined || task.seed_id === '' ? '' : ` seed ${task.seed_id}`
-      const kind = task.kind ? ` ${task.kind}` : ''
-      const round = task.round === undefined ? '' : ` r${task.round}`
-      const verdict = task.verdict === undefined ? '' : ` verdict ${task.verdict}`
-      return `  - ${task.id} [${task.status}]${kind}${round}${verdict} attempt ${task.attempt}${handoff}${seed} ${task.subject} → ${task.assignee || 'unassigned'}${deps}${output}`
-    }),
-    ...team.coverage === undefined || team.coverage.length === 0 ? [] : [
-      'Coverage:',
-      ...team.coverage.map((row) => `  - ${row.goal_item}: ${row.status} (${row.task_ids.join(',') || 'none'})`),
-    ],
-    ...team.delivery === undefined ? [] : [
-      `Delivery: ${team.delivery.ok ? 'ok' : `blocked (${team.delivery.blockers.join('; ')})`}`,
-    ],
-    `Captain inbox (${team.captain_inbox.length}):`,
-    ...team.captain_inbox.map((message) => `  - [${message.from}] ${message.content.slice(0, 200)}`),
-  ]
-  for (const [name, inbox] of Object.entries(team.member_inboxes)) {
-    lines.push(`Member inbox ${name} (${inbox.count}): latest — ${inbox.latest.slice(0, 120)}`)
-  }
-  if (team.mailbox_warning_count > 0) {
-    lines.push(
-      `Mailbox warnings (${team.mailbox_warning_count}; malformed lines were skipped; showing up to 10):`,
-      ...team.mailbox_warnings.map((warning) => `  - ${warning}`),
-    )
-  }
-  return lines.join('\n')
 }

@@ -238,7 +238,7 @@ async function completeClaimed(task, outputPrefix = 'stress') {
 async function drain(holdIds = new Set(), requiredHeld = 0) {
   const held = new Map()
   for (let round = 0; round < 400; round += 1) {
-    await call('agent_teams_status', {})
+    await call('agent_teams_status', { wake: 'recover' })
     await settle()
     const snapshot = await state()
     if (snapshot === undefined) throw new Error('team disappeared during drain')
@@ -325,7 +325,7 @@ try {
   for (let round = 0; round < 100; round += 1) {
     if (roots.every(task => task.status === 'claimed')
       && new Set(roots.map(task => task.assignee)).size === 8) break
-    await call('agent_teams_status', {})
+    await call('agent_teams_status', { wake: 'recover' })
     await settle()
     snapshot = await state()
     roots = snapshot.tasks.slice(0, 8)
@@ -409,7 +409,7 @@ try {
   for (const [taskId, held] of heldBeforeRestart) staleAgents.set(taskId, held.owner)
   const previousGeneration = runtime.generation
   runtime = mountRuntime()
-  await call('agent_teams_status', {})
+  await call('agent_teams_status', { wake: 'recover' })
   await settle()
   const afterRestart = await state()
   check('cold runtime restart redelivers every durable open task with a fresh attempt',
@@ -509,7 +509,7 @@ try {
     const agent = await liveMember(name)
     if (agent !== undefined) await idle(agent)
   }
-  await call('agent_teams_status', {})
+  await call('agent_teams_status', { wake: 'recover' })
   await settle()
   const unreadCounts = await Promise.all(activeNames.map(name => readUnreadMailbox(stateRoot, teamId, name)))
   check('all failed message fallbacks are redelivered and acknowledged exactly once',

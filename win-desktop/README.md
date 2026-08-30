@@ -1,6 +1,12 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.28`。
+本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.32`。
+
+## `v0.1.1-rc.32` 更新说明
+
+- AgentTeams 监视默认使用只读紧凑摘要；查看状态不会自动唤醒成员或确认邮箱，处理完显示的消息后显式使用 `acknowledge=true`，只有队长的 `wake="recover"` 才执行恢复唤醒。
+- 任务依赖、attempt/attempt_id、verdict/findings、Coverage、Delivery 阻塞和新消息仍保留在摘要；完整报告、Provider/模型和 Profile 协议用 `detail="full"` 按需查看。
+- 状态没有变化时使用心跳摘要降低总控上下文重复；正常创建/批准/任务更新/成员 idle 调度及质量门禁保持不变。
 
 ## `v0.1.1-rc.28` 更新说明
 
@@ -129,7 +135,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
 - Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后必须重启，才会注入并用于新团队。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.10`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.11`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 

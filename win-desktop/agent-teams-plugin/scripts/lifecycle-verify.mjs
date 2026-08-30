@@ -702,7 +702,10 @@ try {
   const implementer = liveAgents.get(createdProfile.members[1].member_id)
   analyst.status = 'idle'
   implementer.status = 'idle'
+  const readOnlyDeliveries = deliveries.length
   await call('agent_teams_status', {})
+  check('default status is read-only and does not wake members', deliveries.length === readOnlyDeliveries)
+  await call('agent_teams_status', { wake: 'recover' })
   const afterKick = await readTeam(stateRoot, 'profile-demo')
   const firstSeed = afterKick?.tasks[0]
   check('first-stage seed is assigned only to the configured member',
@@ -752,7 +755,7 @@ try {
       && secondText.includes('[requirements]'))
   await call('agent_teams_send_message', { to: 'implementer', content: 'stop and wait for a user answer' })
   const deliveriesAfterMail = deliveries.length
-  await call('agent_teams_status', {})
+  await call('agent_teams_status', { wake: 'recover' })
   check('unread mailbox prevents a same-kick new assignment',
     deliveries.length >= deliveriesAfterMail
       && (await readTeam(stateRoot, 'profile-demo'))?.tasks[1]?.assignee === 'implementer')
@@ -1156,6 +1159,7 @@ try {
       && dynamicTeam.tasks[0]?.status === 'pending'
       && dynamicTeam.tasks[1]?.status === 'pending')
   for (const member of dynamicTeam.members) publishStatus(liveAgents.get(member.id), 'idle')
+  await new Promise(resolve => setTimeout(resolve, 20))
   await call('agent_teams_status', {})
   const dispatchedDynamic = await readTeam(stateRoot, 'dynamic-demo')
   check('approved plan dispatches only after a spawned member becomes idle',
@@ -1427,9 +1431,9 @@ try {
   liveAgents.delete(alpha.id)
   const deliveriesBeforeParkedKicks = deliveries.length
   await Promise.all([
-    call('agent_teams_status', {}),
-    call('agent_teams_status', {}),
-    call('agent_teams_status', {}),
+    call('agent_teams_status', { wake: 'recover' }),
+    call('agent_teams_status', { wake: 'recover' }),
+    call('agent_teams_status', { wake: 'recover' }),
   ])
   await new Promise(resolve => setTimeout(resolve, 20))
   const parkedAlpha = await task(t1.task_id)
@@ -1574,9 +1578,30 @@ try {
   const fallback = await call('agent_teams_send_message', { to: 'gamma', content: 'durable fallback' })
   check('failed live message remains one unread durable fallback',
     fallback.delivered === 'mailbox' && (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 1)
+  const deliveriesBeforeReadOnlyStatus = deliveries.length
   await call('agent_teams_status', {})
+  check('read-only status preserves unread fallback and does not wake members',
+    deliveries.length === deliveriesBeforeReadOnlyStatus
+      && (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 1)
+  await call('agent_teams_status', { acknowledge: true }, gamma)
+  check('explicit status acknowledgement consumes the displayed mailbox',
+    (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 0)
+
+  failNextDelivery.add(gamma.id)
+  const recoveryFallback = await call('agent_teams_send_message', { to: 'gamma', content: 'recoverable fallback' })
+  check('second failed live message remains durable before recovery',
+    recoveryFallback.delivered === 'mailbox' && (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 1)
+  await call('agent_teams_status', { wake: 'recover' })
   check('status kick redelivers and acknowledges fallback exactly once',
     (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 0)
+
+  let memberRecoveryRejected = false
+  try {
+    await call('agent_teams_status', { wake: 'recover' }, gamma)
+  } catch (error) {
+    memberRecoveryRejected = /captain-only/i.test(String(error?.message ?? error))
+  }
+  check('member recovery wake is rejected with an explicit captain-only error', memberRecoveryRejected)
 
   beta.status = 'running'
   gamma.status = 'running'

@@ -26,6 +26,11 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.14-desktop.11
+
+- `agent_teams_status` defaults to a read-only compact summary and never wakes members or acknowledges mail. Use `detail="full"` for complete task reports, provider/model evidence, or profile protocol; set `acknowledge=true` only after processing displayed mailbox entries; use `wake="recover"` only for a captain after restart or clearly stuck ready work/mail.
+- Unchanged status results collapse to a small heartbeat while preserving quality-critical task/dependency/attempt/verdict/findings, coverage, delivery, and mailbox state. Normal creation, approval, task-update, and idle-edge scheduling remains event-driven.
+
 ### v0.1.14-desktop.10
 
 - The captain system guidance is now a lifecycle-first state machine. The complete built-in `software-delivery` prompt is 3,353 characters and retains approval, reasoning-route, dependency, attempt/reassignment, quality, halt/resume, cleanup, and deployment-confirmation rules.

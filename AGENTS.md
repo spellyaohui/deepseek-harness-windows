@@ -120,7 +120,7 @@ evidence that the local capability is preserved.
   documentation. Do not restore it during conflict resolution. Do not migrate
   old AUTO sessions or delete stale user Profile caches.
 
-## AgentTeams `v0.1.14-desktop.10` interaction invariants
+## AgentTeams `v0.1.14-desktop.11` interaction invariants
 
 - Global AgentTeams settings own only Team/Native delegation. Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
@@ -140,6 +140,15 @@ evidence that the local capability is preserved.
   idempotent no-op before the captain creates a Team. Claim, update, and
   messaging tools remain participant-authorized and must not inherit those
   relaxed probe/delete semantics.
+- `agent_teams_status` defaults to a read-only compact summary and never wakes
+  members or acknowledges mail. It retains task/dependency/attempt/attempt_id,
+  verdict/findings, coverage, delivery blockers, and new mailbox information;
+  `detail: "full"` is required for complete task outputs and stable
+  route/profile details. `acknowledge: true` is an explicit mailbox-consume
+  action after the displayed entries have been processed. `wake: "recover"`
+  is captain-only and reserved for post-restart or clearly stuck ready work/mail.
+  Repeated unchanged summaries may collapse to a heartbeat, but full detail
+  remains available on demand.
 - Blank optional task strings from non-GPT tool calls must be omitted before
   strict V2 persistence. Profile and Team state still require
   `schemaVersion: 2`; malformed or older documents are rejected, not migrated.

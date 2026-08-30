@@ -2,7 +2,13 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.31`（开发者预览）
+> 当前版本：`v0.1.1-rc.32`（开发者预览）
+
+## `v0.1.1-rc.32` 更新说明
+
+- AgentTeams 监视降耗：`agent_teams_status` 默认返回紧凑、只读摘要，不会自动唤醒成员或确认邮箱消息；处理完已显示的消息后才显式使用 `acknowledge=true`，只有队长明确使用 `wake="recover"` 才执行冷启动/卡住任务恢复。
+- 摘要仍保留任务、依赖、attempt/attempt_id、verdict/findings、Coverage、Delivery 阻塞和新消息；完整任务报告、Provider/模型、Profile 协议等详细内容通过 `detail="full"` 按需读取。
+- 状态未变化时返回小型心跳摘要，减少总控上下文重复内容；正常的创建、批准、任务更新和成员 idle 事件调度保持不变，并新增 AgentTeams 生命周期、压力和质量门禁回归。
 
 ## `v0.1.1-rc.31` 更新说明
 
@@ -234,7 +240,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.10`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.11`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

@@ -43,18 +43,18 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.1-rc.31')
-  assert.equal(packageLock.version, '0.1.1-rc.31')
-  assert.equal(packageLock.packages[''].version, '0.1.1-rc.31')
+  assert.equal(packageJson.version, '0.1.1-rc.32')
+  assert.equal(packageLock.version, '0.1.1-rc.32')
+  assert.equal(packageLock.packages[''].version, '0.1.1-rc.32')
   assert.equal(modelsPackage.version, '0.1.1-rc.2-desktop.6')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.1.1-rc.2-desktop.6',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.10')
+  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.11')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.14-desktop.10',
+    '0.1.14-desktop.11',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -84,6 +84,7 @@ test('desktop composition retains every independently owned local plugin', () =>
   assertFile('tests/opencode-capabilities-integration.test.js')
   assertFile('tool-call-guidance-plugin/lib/index.js')
   assertFile('tests/tool-call-guidance.test.js')
+  assertFile('agent-teams-plugin/lib/status-render.js')
 })
 
 test('behavioral regressions and ownership records cannot be silently deleted', () => {
@@ -105,7 +106,8 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'cpa-provider-plugin/tests/profile.test.js',
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
-    'agent-teams-plugin/release-notes/v0.1.14-desktop.10.md',
+    'agent-teams-plugin/release-notes/v0.1.14-desktop.11.md',
+    'agent-teams-plugin/src/status-render.ts',
     'agent-teams-plugin/scripts/clean-build.mjs',
     'agent-teams-plugin/scripts/fallback-tdd.mjs',
     'agent-teams-plugin/scripts/lifecycle-verify.mjs',
@@ -143,7 +145,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
 })
 
 test('critical integration markers retain local capability ownership', () => {
-  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.14-desktop\.10` interaction invariants/)
+  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.14-desktop\.11` interaction invariants/)
   assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.6` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)
@@ -189,6 +191,8 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('agent-teams-plugin/src/quality-gates.ts', /every deliverable path must be covered by inScope/)
   assertContains('agent-teams-plugin/src/quality-gates.ts', /actual workspace-relative POSIX path/)
   assertContains('agent-teams-plugin/src/quality-gates.ts', /empty changedPaths requires noChangesReason/)
+  assertContains('agent-teams-plugin/src/status-render.ts', /Task outputs omitted in summary/)
+  assertContains('agent-teams-plugin/src/tools.ts', /wake === 'recover'/)
   assertContains('agent-teams-plugin/src/command.ts', /approval="required"/)
   assertContains('agent-teams-plugin/src/client/ActivityPanel.tsx', /ACTIVITY_HALT_URL/)
   assertContains('agent-teams-plugin/package.json', /@deepseek-ai\/dsh-client-ui-model-selection/)

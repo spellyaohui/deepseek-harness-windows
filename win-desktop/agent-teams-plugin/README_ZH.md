@@ -26,6 +26,11 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.14-desktop.11
+
+- `agent_teams_status` 默认返回只读紧凑摘要，不会唤醒成员或确认邮箱；处理完显示的邮箱消息后才使用 `acknowledge=true`，需要完整任务报告、Provider/模型证据或 Profile 协议时使用 `detail="full"`，只有队长在重启后恢复或明确卡住 ready work/mail 时才使用 `wake="recover"`。
+- 状态未变化时收敛为小型心跳，同时保留任务/依赖/attempt/verdict/findings、Coverage、Delivery 和邮箱等质量关键信息；创建、批准、任务更新和成员 idle 的正常调度仍由事件驱动。
+
 ### v0.1.14-desktop.10
 
 - 队长系统提示改为生命周期优先的状态机；内置 `software-delivery` 完整提示为 3,353 字符，同时保留审批、角色推理路由、依赖、attempt/reassign、质量门禁、停止/恢复、清理和部署确认规则。
