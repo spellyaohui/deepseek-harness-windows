@@ -92,8 +92,8 @@ export interface ModelListEditorProps {
   probeBlocked?: ModelsKey | undefined
   /** Wire face the fetch action calls. */
   api: Pick<IApiClient, 'llm'>
-  /** Host-side, provider-neutral capability probe. */
-  modelCapabilities: ModelCapabilityProbeRemote
+  /** Host-side, provider-neutral capability probe; model editing remains available while it mounts. */
+  modelCapabilities?: ModelCapabilityProbeRemote
   /** Section copy. */
   t: (key: ModelsKey) => string
   /** Disable every control (read-only deployment or a pending write). */
@@ -309,6 +309,10 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   }
 
   const probeSelected = async (): Promise<void> => {
+    if (modelCapabilities === undefined) {
+      setProbeFailure(t('capabilityUnavailable'))
+      return
+    }
     const ids = [...selectedIds].filter(id => selectableIds.includes(id))
     if (ids.length === 0) {
       setProbeFailure(t('capabilitySelectModelFirst'))
@@ -446,6 +450,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // draft with neither has nothing to ask about.
   const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
   const rowDisabled = disabled || probeBusy
+  const capabilityUnavailable = modelCapabilities === undefined
   return (
     <section className={styles['modelCatalog']} aria-label={t('models')}>
       <div className={styles['modelListHead']}>
@@ -512,7 +517,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           <button
             type="button"
             className={styles['linkButton']}
-            disabled={rowDisabled || selectableIds.length === 0}
+            disabled={rowDisabled || capabilityUnavailable || selectableIds.length === 0}
             onClick={toggleAllSelected}
           >
             {t(allSelected ? 'capabilityDeselectAll' : 'capabilitySelectAll')}
@@ -521,7 +526,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             <input
               type="checkbox"
               checked={overwriteExisting}
-              disabled={rowDisabled}
+              disabled={rowDisabled || capabilityUnavailable}
               onChange={(event) => { setOverwriteExisting(event.target.checked) }}
             />
             <span>{t('capabilityOverwrite')}</span>
@@ -540,7 +545,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               <button
                 type="button"
                 className={styles['primaryButton']}
-                disabled={disabled || busy || selectedIds.size === 0}
+                disabled={disabled || busy || capabilityUnavailable || selectedIds.size === 0}
                 onClick={() => { void probeSelected() }}
               >
                 {t('capabilityProbe')}
@@ -548,6 +553,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             )}
         </div>
         <p className={styles['advancedHint']}>{t('capabilityDraftHint')}</p>
+        {capabilityUnavailable ? <p className={styles['error']} role="status">{t('capabilityUnavailable')}</p> : null}
         {probeNotice === undefined ? null : <p className={styles['savedNotice']} role="status" aria-live="polite">{probeNotice}</p>}
         {probeFailure === undefined ? null : <p className={styles['error']} role="alert">{probeFailure}</p>}
       </div>
@@ -559,7 +565,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               type="checkbox"
               checked={selectedIds.has(textOf(model, 'id').trim()) && textOf(model, 'id').trim().length > 0}
               aria-label={`${t('capabilitySelectModel')} ${index + 1}`}
-              disabled={rowDisabled || textOf(model, 'id').trim().length === 0}
+              disabled={rowDisabled || capabilityUnavailable || textOf(model, 'id').trim().length === 0}
               onChange={() => { toggleSelected(textOf(model, 'id').trim()) }}
             />
             <input

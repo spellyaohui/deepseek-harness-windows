@@ -5,7 +5,7 @@
 - Commit: `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
 - Source directory: `packages/client/ui-settings-models`
 - Imported: 2026-08-23
-- Local desktop fork: `0.1.1-rc.2-desktop.4`
+- Local desktop fork: `0.1.1-rc.2-desktop.6`
 
 ## Intentional desktop difference
 
@@ -28,6 +28,18 @@ values unless overwrite is selected, and supports sequential cancellation.
 This is a shared seam for CPA, OpenCode, WOYAOPRO, CommandCode, and custom
 routes; provider/model-name heuristics and protocol fallback remain outside
 this package.
+
+The capability Remote is an optional, late-mounted enhancement at the client
+boundary. Its absence or delayed mount must never suppress the Models section,
+provider editors, model rows, input-mode controls, or Save flow; only the
+capability-probe controls degrade to an unavailable notice. The dedicated
+Models-section availability regression owns this startup-order invariant.
+Gateway registers every generated namespace as a separate Cordis
+`remote.<namespace>` service. This fork therefore resolves the optional probe
+with `ctx.get('remote.model-capabilities')` at action time instead of reading an
+undeclared `ctx.remote` property. This matches the official Gateway tests'
+optional namespace lookup while preserving page availability if the mount is
+late or unavailable.
 
 The desktop fork also owns a provider-neutral per-model image-input editor.
 `auto` removes the model-level `input` override, `image` stores `['text',

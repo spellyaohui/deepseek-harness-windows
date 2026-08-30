@@ -7,6 +7,7 @@ import { createSettingsSchemaOperations } from "./schema-operations.js";
 import { en, zh } from "./locales.js";
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from "../onboarding-copy.js";
 import { TYPERT_REMOTE } from "../remote.js";
+import { createLateBoundCapabilityRemote, resolveCapabilityRemote } from "./models-section-availability.js";
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.models';
 /**
@@ -49,11 +50,12 @@ export function apply(ctx) {
     // Registration-time text (the nav label thunk) and the inject faces share
     // one bound translate; copy freshness rides the locale revision.
     const t = ctx.locale.bind(NS);
+    const modelCapabilities = createLateBoundCapabilityRemote(() => resolveCapabilityRemote(ctx), () => t('capabilityUnavailable'));
     const injected = () => ({
         controller,
         hooks: { snapshot: controller.store },
         api: connection.api,
-        modelCapabilities: ctx.remote['model-capabilities'],
+        modelCapabilities,
         schema,
         t,
         normalizeProviderProfile: normalizeProfile,
@@ -62,7 +64,7 @@ export function apply(ctx) {
         controller,
         hooks: { models: controller.store },
         api: connection.api,
-        modelCapabilities: ctx.remote['model-capabilities'],
+        modelCapabilities,
         schema,
         t,
         normalizeProviderProfile: normalizeProfile,

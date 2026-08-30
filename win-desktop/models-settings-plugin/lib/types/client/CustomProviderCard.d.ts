@@ -40,7 +40,7 @@ export interface CustomProviderCardProps {
     /** Wire faces for the write and for interrogating the endpoint. */
     api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>;
     /** Mounted provider-neutral Host capability probe. */
-    modelCapabilities: ModelCapabilityProbeRemote;
+    modelCapabilities?: ModelCapabilityProbeRemote;
     /** Section copy. */
     t: (key: keyof typeof en) => string;
     /** Disable writes (read-only settings provider). */

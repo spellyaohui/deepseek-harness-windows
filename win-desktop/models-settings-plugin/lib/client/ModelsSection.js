@@ -18,6 +18,7 @@ import { CustomProviderCard } from "./CustomProviderCard.js";
 import { deriveKeyRef, messageOf, protocolChoices, providerUsable } from "./store.js";
 import { ProviderEditor } from "./ProviderEditor.js";
 import styles from './ModelsSection.module.css';
+import { modelsSectionDependenciesReady } from "./models-section-availability.js";
 /** Render an editor for either the setup posture or an expanded provider row. */
 function renderProviderEditor({ target, ...props }) {
     return (_jsx(ProviderEditor, { provider: target.provider, displayName: target.displayName, settingsPath: target.settingsPath, ...target.declared === true ? { declared: true } : {}, ...props }));
@@ -106,12 +107,19 @@ export function providerCopy(template, target) {
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props) {
-    const { controller, useSnapshot, api, modelCapabilities, schema, t, renderSlot, normalizeProviderProfile, } = props;
-    if (controller === undefined || useSnapshot === undefined || api === undefined
-        || schema === undefined || t === undefined || renderSlot === undefined
-        || normalizeProviderProfile === undefined || modelCapabilities === undefined)
+    if (!modelsSectionDependenciesReady(props))
         return null;
-    return _jsx(Loaded, { injected: { controller, useSnapshot, api, modelCapabilities, schema, t, renderSlot, normalizeProviderProfile } });
+    const { controller, useSnapshot, api, modelCapabilities, schema, t, renderSlot, normalizeProviderProfile, } = props;
+    return _jsx(Loaded, { injected: {
+            controller,
+            useSnapshot,
+            api,
+            ...modelCapabilities === undefined ? {} : { modelCapabilities },
+            schema,
+            t,
+            renderSlot,
+            normalizeProviderProfile,
+        } });
 }
 function Loaded({ injected }) {
     const { controller, api, modelCapabilities, schema, t, normalizeProviderProfile } = injected;
@@ -267,11 +275,11 @@ function Loaded({ injected }) {
                                             if (row === undefined)
                                                 return;
                                             setEditing(targetOf(row));
-                                        }, children: addable.map(row => (_jsx("option", { value: row.entry.provider, children: row.entry.displayName }, row.entry.provider))) })] }), _jsx(ProviderEditor, { provider: addTarget.provider, displayName: addTarget.displayName, hideTitle: true, namespace: addNamespace, schema: schema, settingsPath: addTarget.settingsPath, api: api, modelCapabilities: modelCapabilities, t: t, normalizeProviderProfile: normalizeProviderProfile, readOnly: !state.writable, onClose: (changed) => { closeEditor(changed, addTarget); } }, addTarget.provider)] }))
+                                        }, children: addable.map(row => (_jsx("option", { value: row.entry.provider, children: row.entry.displayName }, row.entry.provider))) })] }), _jsx(ProviderEditor, { provider: addTarget.provider, displayName: addTarget.displayName, hideTitle: true, namespace: addNamespace, schema: schema, settingsPath: addTarget.settingsPath, api: api, ...modelCapabilities === undefined ? {} : { modelCapabilities }, t: t, normalizeProviderProfile: normalizeProviderProfile, readOnly: !state.writable, onClose: (changed) => { closeEditor(changed, addTarget); } }, addTarget.provider)] }))
                     : declaring
                         ? (_jsx("div", { className: styles['addCard'], children: _jsx(CustomProviderCard, { taken: state.rows.map(row => row.entry.provider), protocols: protocols, 
                                 /* v8 ignore next -- the card only opens from a button disabled without this namespace */
-                                revision: state.namespaces.get('llm-pi-ai')?.revision ?? 0, api: api, modelCapabilities: modelCapabilities, t: t, normalizeProviderProfile: normalizeProviderProfile, readOnly: !state.writable, onClose: (changed) => {
+                                revision: state.namespaces.get('llm-pi-ai')?.revision ?? 0, api: api, ...modelCapabilities === undefined ? {} : { modelCapabilities }, t: t, normalizeProviderProfile: normalizeProviderProfile, readOnly: !state.writable, onClose: (changed) => {
                                     setDeclaring(false);
                                     if (changed)
                                         void controller.load();

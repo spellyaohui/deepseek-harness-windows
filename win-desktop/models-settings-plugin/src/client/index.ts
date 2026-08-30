@@ -28,7 +28,7 @@ import { en, zh, type ModelsKey } from './locales.ts'
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from '../onboarding-copy.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import { TYPERT_REMOTE } from '../remote.ts'
-import type { ModelCapabilityProbeRemote } from '../remote.ts'
+import { createLateBoundCapabilityRemote, resolveCapabilityRemote } from './models-section-availability.ts'
 
 export type { ModelsSectionInjected, ModelsSectionProps } from './ModelsSection.tsx'
 export type { ModelsKey } from './locales.ts'
@@ -106,11 +106,15 @@ export function apply(ctx: ClientContext): void {
   // Registration-time text (the nav label thunk) and the inject faces share
   // one bound translate; copy freshness rides the locale revision.
   const t = ctx.locale.bind(NS) as ModelsSectionInjected['t']
+  const modelCapabilities = createLateBoundCapabilityRemote(
+    () => resolveCapabilityRemote(ctx),
+    () => t('capabilityUnavailable'),
+  )
   const injected = (): ModelsSectionInjected => ({
     controller,
     hooks: { snapshot: controller.store },
     api: connection.api,
-    modelCapabilities: ctx.remote['model-capabilities'] as ModelCapabilityProbeRemote,
+    modelCapabilities,
     schema,
     t,
     normalizeProviderProfile: normalizeProfile,
@@ -119,7 +123,7 @@ export function apply(ctx: ClientContext): void {
     controller,
     hooks: { models: controller.store },
     api: connection.api,
-    modelCapabilities: ctx.remote['model-capabilities'] as ModelCapabilityProbeRemote,
+    modelCapabilities,
     schema,
     t,
     normalizeProviderProfile: normalizeProfile,

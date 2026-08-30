@@ -481,15 +481,13 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                   defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
                 />
               )
-              : props.modelCapabilities === undefined
-                ? <p className={styles['error']}>{t('capabilityUnavailable')}</p>
-                : <ModelListEditor
-                  {...catalogProps}
-                  probe={probe}
-                  probeBlocked={keyFailure}
-                  api={api}
-                  modelCapabilities={props.modelCapabilities}
-                />}
+              : <ModelListEditor
+                {...catalogProps}
+                probe={probe}
+                probeBlocked={keyFailure}
+                api={api}
+                {...props.modelCapabilities === undefined ? {} : { modelCapabilities: props.modelCapabilities }}
+              />}
           </div>
         </details>}
       </>

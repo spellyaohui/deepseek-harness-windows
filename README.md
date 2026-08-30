@@ -2,7 +2,19 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.29`（开发者预览）
+> 当前版本：`v0.1.1-rc.31`（开发者预览）
+
+## `v0.1.1-rc.31` 更新说明
+
+- 修复点击“模型能力探测”时出现 `cannot get property "remote.model-capabilities" without inject`：能力探测在用户发起操作时通过 Cordis 的可选服务查询解析 Remote namespace，不再读取当前 Fiber 未声明注入的 `ctx.remote` 属性。
+- 保留 rc.30 的页面级降级：能力探测 Remote 缺失或晚到时，模型设置页、Provider 编辑、图片三态、协议、容量与保存仍可使用；Remote 挂载完成后无需重启页面即可发起探测。
+- 已对照官方 Gateway 源码、测试和同插件挂载范例固化回归。官方 `dsh-v0.1.2-alpha.1` 目前只有 GitHub 源码 Release，npm 未发布对应 `@deepseek-ai/dsh*` 包且 Release 无可安装资产，因此本安装包继续使用官方可安装基线 `dsh-v0.1.1-rc.2`；AgentTeams 最新版仍为 `v0.1.14`。
+
+## `v0.1.1-rc.30` 更新说明
+
+- 修复 rc.29 中“设置 → 模型”页面可能完全空白：能力探测 Remote 异步挂载时不再成为整个页面的启动前置条件。
+- Remote 尚未就绪时，Provider、模型列表、协议、容量、图片三态和保存功能仍正常显示与编辑；只有“模型能力探测”局部禁用并显示明确提示，Remote 可用后新打开的编辑器恢复探测。
+- 新增 Remote 缺失/延迟场景回归，继续保留 rc.29 的统一能力探测、AgentTeams、CPA/OpenCode/Kimi、通用 grep、多模态和 AUTO 移除能力。
 
 ## `v0.1.1-rc.29` 更新说明
 

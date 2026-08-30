@@ -182,7 +182,7 @@ evidence that the local capability is preserved.
   must make these tests pass against the classified owner; deleting, skipping,
   or weakening a regression is not an acceptable conflict resolution.
 
-## Models settings fork `v0.1.1-rc.2-desktop.4` interaction invariants
+## Models settings fork `v0.1.1-rc.2-desktop.6` interaction invariants
 
 - Each pi-ai model row owns its image-input choice: `auto`, `image`, or
   `text-only`. Persist `auto` by deleting the model-level `input`, `image` as
@@ -200,6 +200,14 @@ evidence that the local capability is preserved.
   explicit protocol/address, cancellation preserves completed draft results,
   and only an explicit overwrite toggle may replace existing capability
   fields. The probe never writes settings before the parent Save action.
+- The capability Remote is optional at initial render because its mount is
+  asynchronous. Missing or delayed Remote state must leave the Models page,
+  Provider editors, model rows, input modes, and Save flow available; only the
+  probe controls may degrade to an unavailable notice.
+- A Remote namespace is an independent Cordis service named
+  `remote.<namespace>`. Optional or late-bound namespace access must use
+  `ctx.get('remote.<namespace>')` at action time; `ctx.remote.<namespace>` is
+  legal only in a Fiber that declares that exact service in `inject`.
 - Capability outcomes use `supported` / `unsupported` / `inconclusive` /
   `not-applicable`; authentication/proxy-auth failures (401/403/407),
   transient HTTP, timeout, rate-limit, 5xx, and network failures remain

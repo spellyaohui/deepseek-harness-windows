@@ -65,8 +65,8 @@ export interface ModelListEditorProps {
     probeBlocked?: ModelsKey | undefined;
     /** Wire face the fetch action calls. */
     api: Pick<IApiClient, 'llm'>;
-    /** Host-side, provider-neutral capability probe. */
-    modelCapabilities: ModelCapabilityProbeRemote;
+    /** Host-side, provider-neutral capability probe; model editing remains available while it mounts. */
+    modelCapabilities?: ModelCapabilityProbeRemote;
     /** Section copy. */
     t: (key: ModelsKey) => string;
     /** Disable every control (read-only deployment or a pending write). */

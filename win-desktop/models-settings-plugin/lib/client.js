@@ -935,6 +935,10 @@ window.__ModuleLoader__.load({
 				probeController.current?.abort();
 			};
 			const probeSelected = async () => {
+				if (modelCapabilities === void 0) {
+					setProbeFailure(t("capabilityUnavailable"));
+					return;
+				}
 				const ids = [...selectedIds].filter((id) => selectableIds.includes(id));
 				if (ids.length === 0) {
 					setProbeFailure(t("capabilitySelectModelFirst"));
@@ -1049,6 +1053,7 @@ window.__ModuleLoader__.load({
 			};
 			const askable = probe.provider !== void 0 || probe.baseURL !== void 0 && probe.baseURL.length > 0;
 			const rowDisabled = disabled || probeBusy;
+			const capabilityUnavailable = modelCapabilities === void 0;
 			return (0, react_jsx_runtime.jsxs)("section", {
 				className: ModelsSection_module_css_default["modelCatalog"],
 				"aria-label": t("models"),
@@ -1125,7 +1130,7 @@ window.__ModuleLoader__.load({
 									(0, react_jsx_runtime.jsx)("button", {
 										type: "button",
 										className: ModelsSection_module_css_default["linkButton"],
-										disabled: rowDisabled || selectableIds.length === 0,
+										disabled: rowDisabled || capabilityUnavailable || selectableIds.length === 0,
 										onClick: toggleAllSelected,
 										children: t(allSelected ? "capabilityDeselectAll" : "capabilitySelectAll")
 									}),
@@ -1134,7 +1139,7 @@ window.__ModuleLoader__.load({
 										children: [(0, react_jsx_runtime.jsx)("input", {
 											type: "checkbox",
 											checked: overwriteExisting,
-											disabled: rowDisabled,
+											disabled: rowDisabled || capabilityUnavailable,
 											onChange: (event) => {
 												setOverwriteExisting(event.target.checked);
 											}
@@ -1148,7 +1153,7 @@ window.__ModuleLoader__.load({
 									}) : (0, react_jsx_runtime.jsx)("button", {
 										type: "button",
 										className: ModelsSection_module_css_default["primaryButton"],
-										disabled: disabled || busy || selectedIds.size === 0,
+										disabled: disabled || busy || capabilityUnavailable || selectedIds.size === 0,
 										onClick: () => {
 											probeSelected();
 										},
@@ -1160,6 +1165,11 @@ window.__ModuleLoader__.load({
 								className: ModelsSection_module_css_default["advancedHint"],
 								children: t("capabilityDraftHint")
 							}),
+							capabilityUnavailable ? (0, react_jsx_runtime.jsx)("p", {
+								className: ModelsSection_module_css_default["error"],
+								role: "status",
+								children: t("capabilityUnavailable")
+							}) : null,
 							probeNotice === void 0 ? null : (0, react_jsx_runtime.jsx)("p", {
 								className: ModelsSection_module_css_default["savedNotice"],
 								role: "status",
@@ -1187,7 +1197,7 @@ window.__ModuleLoader__.load({
 										type: "checkbox",
 										checked: selectedIds.has(textOf(model, "id").trim()) && textOf(model, "id").trim().length > 0,
 										"aria-label": `${t("capabilitySelectModel")} ${index + 1}`,
-										disabled: rowDisabled || textOf(model, "id").trim().length === 0,
+										disabled: rowDisabled || capabilityUnavailable || textOf(model, "id").trim().length === 0,
 										onChange: () => {
 											toggleSelected(textOf(model, "id").trim());
 										}
@@ -1648,7 +1658,7 @@ window.__ModuleLoader__.load({
 						},
 						probeBlocked: keyFailure === "keyBlank" ? "keyBlankNew" : keyFailure,
 						api,
-						modelCapabilities: props.modelCapabilities,
+						...props.modelCapabilities === void 0 ? {} : { modelCapabilities: props.modelCapabilities },
 						t,
 						disabled: profileDisabled
 					}),
@@ -2009,15 +2019,12 @@ window.__ModuleLoader__.load({
 								...catalogProps,
 								defaultContextWindow: typeof defaultContextWindow === "number" ? defaultContextWindow : void 0,
 								defaultMaxTokens: typeof defaultMaxTokens === "number" ? defaultMaxTokens : void 0
-							}) : props.modelCapabilities === void 0 ? (0, react_jsx_runtime.jsx)("p", {
-								className: ModelsSection_module_css_default["error"],
-								children: t("capabilityUnavailable")
 							}) : (0, react_jsx_runtime.jsx)(ModelListEditor, {
 								...catalogProps,
 								probe,
 								probeBlocked: keyFailure,
 								api,
-								modelCapabilities: props.modelCapabilities
+								...props.modelCapabilities === void 0 ? {} : { modelCapabilities: props.modelCapabilities }
 							})
 						]
 					})]
@@ -2064,6 +2071,39 @@ window.__ModuleLoader__.load({
 					})
 				]
 			});
+		}
+		//#endregion
+		//#region lib/client/models-section-availability.js
+		const REQUIRED_DEPENDENCIES = [
+			"controller",
+			"useSnapshot",
+			"api",
+			"schema",
+			"t",
+			"renderSlot",
+			"normalizeProviderProfile"
+		];
+		/**
+		* The capability probe is intentionally not a page dependency: its Remote can
+		* mount after the settings slot renders, and model editing must still work.
+		*/
+		function modelsSectionDependenciesReady(value) {
+			return REQUIRED_DEPENDENCIES.every((key) => value[key] !== void 0);
+		}
+		/**
+		* Keep the slot injection stable while resolving the asynchronously mounted
+		* Remote at the moment the user actually starts a probe.
+		*/
+		function createLateBoundCapabilityRemote(resolve, unavailableMessage) {
+			return { async probe(request, signal) {
+				const remote = resolve();
+				if (remote === void 0) throw new Error(unavailableMessage());
+				return remote.probe(request, signal);
+			} };
+		}
+		/** Resolve the optional namespace service without Cordis property injection. */
+		function resolveCapabilityRemote(ctx) {
+			return ctx.get("remote.model-capabilities");
 		}
 		//#endregion
 		//#region lib/client/ModelsSection.js
@@ -2160,13 +2200,13 @@ window.__ModuleLoader__.load({
 		* @returns the section, or null while the shell has not injected yet.
 		*/
 		function ModelsSection(props) {
+			if (!modelsSectionDependenciesReady(props)) return null;
 			const { controller, useSnapshot, api, modelCapabilities, schema, t, renderSlot, normalizeProviderProfile } = props;
-			if (controller === void 0 || useSnapshot === void 0 || api === void 0 || schema === void 0 || t === void 0 || renderSlot === void 0 || normalizeProviderProfile === void 0 || modelCapabilities === void 0) return null;
 			return (0, react_jsx_runtime.jsx)(Loaded, { injected: {
 				controller,
 				useSnapshot,
 				api,
-				modelCapabilities,
+				...modelCapabilities === void 0 ? {} : { modelCapabilities },
 				schema,
 				t,
 				renderSlot,
@@ -2405,7 +2445,7 @@ window.__ModuleLoader__.load({
 								schema,
 								settingsPath: addTarget.settingsPath,
 								api,
-								modelCapabilities,
+								...modelCapabilities === void 0 ? {} : { modelCapabilities },
 								t,
 								normalizeProviderProfile,
 								readOnly: !state.writable,
@@ -2421,7 +2461,7 @@ window.__ModuleLoader__.load({
 								/* v8 ignore next -- the card only opens from a button disabled without this namespace */
 								revision: state.namespaces.get("llm-pi-ai")?.revision ?? 0,
 								api,
-								modelCapabilities,
+								...modelCapabilities === void 0 ? {} : { modelCapabilities },
 								t,
 								normalizeProviderProfile,
 								readOnly: !state.writable,
@@ -2628,7 +2668,7 @@ window.__ModuleLoader__.load({
 						schema,
 						settingsPath: row.entry.settingsPath,
 						api,
-						modelCapabilities,
+						...modelCapabilities === void 0 ? {} : { modelCapabilities },
 						t,
 						readOnly: false,
 						hideTitle: true,
@@ -3286,11 +3326,12 @@ window.__ModuleLoader__.load({
 			};
 			const controller = new ModelsSettingsStore(connection.api, schema, ctx.settingsScope.describe());
 			const t = ctx.locale.bind(NS);
+			const modelCapabilities = createLateBoundCapabilityRemote(() => resolveCapabilityRemote(ctx), () => t("capabilityUnavailable"));
 			const injected = () => ({
 				controller,
 				hooks: { snapshot: controller.store },
 				api: connection.api,
-				modelCapabilities: ctx.remote["model-capabilities"],
+				modelCapabilities,
 				schema,
 				t,
 				normalizeProviderProfile: normalizeProfile
@@ -3299,7 +3340,7 @@ window.__ModuleLoader__.load({
 				controller,
 				hooks: { models: controller.store },
 				api: connection.api,
-				modelCapabilities: ctx.remote["model-capabilities"],
+				modelCapabilities,
 				schema,
 				t,
 				normalizeProviderProfile: normalizeProfile

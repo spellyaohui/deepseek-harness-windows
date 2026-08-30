@@ -43,13 +43,13 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.1-rc.29')
-  assert.equal(packageLock.version, '0.1.1-rc.29')
-  assert.equal(packageLock.packages[''].version, '0.1.1-rc.29')
-  assert.equal(modelsPackage.version, '0.1.1-rc.2-desktop.4')
+  assert.equal(packageJson.version, '0.1.1-rc.31')
+  assert.equal(packageLock.version, '0.1.1-rc.31')
+  assert.equal(packageLock.packages[''].version, '0.1.1-rc.31')
+  assert.equal(modelsPackage.version, '0.1.1-rc.2-desktop.6')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.1.1-rc.2-desktop.4',
+    '0.1.1-rc.2-desktop.6',
   )
   assert.equal(agentTeamsPackage.version, '0.1.14-desktop.10')
   assert.equal(
@@ -96,6 +96,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'models-settings-plugin/tests/model-input-ui.test.js',
     'models-settings-plugin/tests/models-card-slot.test.js',
     'models-settings-plugin/tests/capability-ui.test.js',
+    'models-settings-plugin/tests/models-section-availability.test.js',
     'models-settings-plugin/tests/output-link-safety.test.js',
     'models-settings-plugin/scripts/detach-output-links.mjs',
     'cpa-provider-plugin/tests/capacity.test.js',
@@ -143,7 +144,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
 
 test('critical integration markers retain local capability ownership', () => {
   assertContains('../AGENTS.md', /AgentTeams `v0\.1\.14-desktop\.10` interaction invariants/)
-  assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.4` interaction invariants/)
+  assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.6` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /AgentTeams incidents that must not recur/)
@@ -164,6 +165,9 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /modelCapabilities\.probe/)
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyCapabilityProbeResult/)
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /capabilityOverwrite/)
+  assertContains('models-settings-plugin/src/client/models-section-availability.ts', /createLateBoundCapabilityRemote/)
+  assertContains('models-settings-plugin/src/client/models-section-availability.ts', /ctx\.get\('remote\.model-capabilities'\)/)
+  assertContains('../AGENTS.md', /Missing or delayed Remote state must leave the Models page/)
   assertContains('models-settings-plugin/scripts/detach-output-links.mjs', /ERROR_USER_MAPPED_FILE|os error 1224/)
 
   assertContains('cpa-provider-plugin/src/client/index.tsx', /normalize-provider-profile/)

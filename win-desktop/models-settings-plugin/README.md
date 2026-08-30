@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-## Desktop fork `0.1.1-rc.2-desktop.4`
+## Desktop fork `0.1.1-rc.2-desktop.6`
 
 This desktop fork adds a provider-neutral image-input choice to every pi-ai
 model row: **Automatic**, **Text and image**, or **Text only**. The choice is

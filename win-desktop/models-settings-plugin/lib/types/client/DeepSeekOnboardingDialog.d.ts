@@ -24,8 +24,8 @@ export interface DeepSeekOnboardingInjected {
     controller: ModelsSettingsStore;
     /** Existing wire face reused by the Models credential editor. */
     api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>;
-    /** Mounted provider-neutral Host capability probe. */
-    modelCapabilities: ModelCapabilityProbeRemote;
+    /** Mounted provider-neutral Host capability probe, absent while the Remote is still mounting. */
+    modelCapabilities?: ModelCapabilityProbeRemote;
     /** Settings schema and immutable path callbacks. */
     schema: SettingsSchemaOperations;
     /** Feature copy. */

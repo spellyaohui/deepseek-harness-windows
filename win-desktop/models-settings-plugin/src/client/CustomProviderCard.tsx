@@ -63,7 +63,7 @@ export interface CustomProviderCardProps {
   /** Wire faces for the write and for interrogating the endpoint. */
   api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
   /** Mounted provider-neutral Host capability probe. */
-  modelCapabilities: ModelCapabilityProbeRemote
+  modelCapabilities?: ModelCapabilityProbeRemote
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable writes (read-only settings provider). */
@@ -283,7 +283,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         }}
         probeBlocked={keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
         api={api}
-        modelCapabilities={props.modelCapabilities}
+        {...props.modelCapabilities === undefined ? {} : { modelCapabilities: props.modelCapabilities }}
         t={t}
         disabled={profileDisabled}
       />

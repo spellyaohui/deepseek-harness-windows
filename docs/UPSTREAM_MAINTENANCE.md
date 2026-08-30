@@ -7,12 +7,12 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.29`
+- Windows desktop wrapper: `0.1.1-rc.31`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.1`
 - AgentTeams fork: `0.1.14-desktop.10`, based on upstream `0.1.14`
 - CPA provider plugin: `0.1.5`
-- Models settings fork: `0.1.1-rc.2-desktop.4`
+- Models settings fork: `0.1.1-rc.2-desktop.6`
 - Desktop Settings plugin: `0.1.1`
 - Session Markdown export plugin: `0.1.0`
 
@@ -33,7 +33,7 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Additive `settings.models.card` slot, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, and one sequential cancellable capability probe with explicit overwrite | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; the Host Remote and editor are provider-neutral, while CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork | `src/client/ModelsSection.tsx`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
+| Additive `settings.models.card` slot, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, one sequential cancellable capability probe with explicit overwrite, and page-level degradation when that Remote is absent or late | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; the Host Remote and editor are provider-neutral, while CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork. The Remote is never a prerequisite for rendering or editing the Models page. | `src/client/ModelsSection.tsx`, `src/client/models-section-availability.ts`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/models-section-availability.test.js`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
 
 ## Desktop Settings owner
 
@@ -61,6 +61,32 @@ OpenCode 官方客户端在其请求准备代码中会为 `providerID` 以 `open
 `x-opencode-session`；OpenCode Go 网关也以该头作为会话粘性标识。Windows 包装器
 只在 `opencode-go` 的 Pi Completions/Responses 请求中补这一头，Muse Spark 原有的
 `openai-responses` 模型档案保持不变。依据：[OpenCode 请求准备源码](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/llm/request.ts)、[OpenCode Go 会话粘性说明](https://github.com/anomalyco/opencode/issues/35402)。
+
+## Upstream availability audit — 2026-08-30
+
+The official Harness source repository publishes
+[`dsh-v0.1.2-alpha.1`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.1)
+at commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`. The source release is
+1,079 commits and 300 changed files ahead of `dsh-v0.1.1-rc.2`, including
+Remote-only API migration, Models provider-card/footer slots, new subagent
+route controls, Profile startup changes, and a split conversation UI.
+
+That source tag is not yet an installable release for this wrapper: the
+GitHub Release has no assets, npm has no `0.1.2-alpha.1` version for the
+required `@deepseek-ai/dsh*` packages, and their `next` dist-tags still point
+to `0.1.1-rc.2`. Mixing one alpha source package with the rc.2 runtime would
+cross Remote, slot, and startup contracts without a published dependency
+closure. The wrapper therefore retains the latest complete official npm
+baseline, `dsh-v0.1.1-rc.2`; no Harness provenance is advanced by this audit.
+
+AgentTeams' latest official Release remains
+[`v0.1.14`](https://github.com/NanmiCoder/dsh-agent-teams/releases/tag/v0.1.14)
+at source commit `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`, which is already the
+fork baseline. CPA, Desktop Settings, Session Markdown, OpenCode capability
+validation, and tool-call guidance remain independently owned local plugins
+with no newer registered upstream package. Re-run the complete seven-step
+refresh when the official Harness alpha package set is published; do not
+source-build or partially import it during release packaging.
 
 ## Required classification
 
