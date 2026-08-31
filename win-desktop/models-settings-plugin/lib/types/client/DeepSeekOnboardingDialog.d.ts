@@ -6,13 +6,13 @@
  * the onboarding plugin's shared modal, so the key is entered once.
  */
 import type { ReactNode } from 'react';
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client';
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client';
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store';
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts';
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
 import type { ProviderProfileNormalizer } from './provider-profile.ts';
+import type { ModelsOperations } from './operations.ts';
 import type { ModelCapabilityProbeRemote } from '../remote.ts';
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
 export interface DeepSeekOnboardingInjected {
@@ -22,8 +22,8 @@ export interface DeepSeekOnboardingInjected {
     };
     /** Shared Models-page join controller. */
     controller: ModelsSettingsStore;
-    /** Existing wire face reused by the Models credential editor. */
-    api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>;
+    /** Host operations reused by the Models credential editor. */
+    operations: ModelsOperations;
     /** Mounted provider-neutral Host capability probe, absent while the Remote is still mounting. */
     modelCapabilities?: ModelCapabilityProbeRemote;
     /** Settings schema and immutable path callbacks. */

@@ -2,11 +2,13 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 import {
+  AGENT_TEAMS_SETTINGS_NAMESPACE,
   DEFAULT_AGENT_TEAMS_SETTINGS,
   createAgentTeamsSettingsRuntime,
   normalizeAgentTeamsSettings,
 } from '../lib/settings.js'
 
+assert.equal(AGENT_TEAMS_SETTINGS_NAMESPACE, 'agent-teams')
 assert.deepEqual(normalizeAgentTeamsSettings({}), DEFAULT_AGENT_TEAMS_SETTINGS)
 assert.deepEqual(normalizeAgentTeamsSettings({
   delegationMode: 'native',

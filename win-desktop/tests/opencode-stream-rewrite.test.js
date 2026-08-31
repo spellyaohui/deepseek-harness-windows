@@ -25,7 +25,7 @@ test('recovers complete OpenCode tool streams that omit finish_reason', () => {
   assert.notEqual(direct, source)
   const rewritten = rewriteDesktopConsoleSource(source, url)
   assert.match(rewritten, /model\.provider === "opencode-go"/)
-  assert.match(rewritten, /output\.stopReason = blocks\.some/)
+  assert.match(rewritten, /output\.stopReason = output\.content\.some/)
   assert.match(rewritten, /"toolUse"/)
   assert.doesNotMatch(rewritten, /if \(!hasFinishReason\) \{\s*throw new Error\("Stream ended without finish_reason"\);\s*\}/)
   assert.equal(rewriteDesktopConsoleSource(rewritten, url), rewritten)
@@ -52,7 +52,7 @@ test('adds OpenCode Go session affinity even when prompt-cache retention is disa
   assert.match(rewritten, /compat\.sendSessionAffinityHeaders \|\| model\.provider === "opencode-go"/)
   assert.match(rewritten, /headers\["x-opencode-session"\] = sessionId/)
   assert.match(rewritten, /const clientSessionId = model\.provider === "opencode-go" \? options\?\.sessionId : cacheSessionId/)
-  assert.match(rewritten, /createClient\(model, context, apiKey, options\?\.headers, clientSessionId, compat\)/)
+  assert.match(rewritten, /createClient\(model, context, apiKey, options\?\.headers, options\?\.fetch, clientSessionId, compat\)/)
   assert.equal(rewriteOpenCodeGoSessionAffinity(rewritten), rewritten)
 })
 
@@ -63,7 +63,7 @@ test('adds the same session affinity to the OpenAI Responses route used by Muse 
   assert.match(rewritten, /model\.provider === "opencode-go"/)
   assert.match(rewritten, /headers\["x-opencode-session"\] = sessionId/)
   assert.match(rewritten, /const clientSessionId = model\.provider === "opencode-go" \? options\?\.sessionId : cacheSessionId/)
-  assert.match(rewritten, /createClient\(model, context, apiKey, options\?\.headers, clientSessionId\)/)
+  assert.match(rewritten, /createClient\(model, context, apiKey, options\?\.headers, options\?\.fetch, clientSessionId\)/)
   assert.equal(rewriteOpenCodeGoSessionAffinity(rewritten), rewritten)
 })
 

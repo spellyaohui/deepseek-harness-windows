@@ -26,6 +26,7 @@ const RUNNER_DEV_NEEDLE = `return [
 			sourceEntry
 		];`
 const OPENCODE_MISSING_FINISH_PATTERN = /if \(!hasFinishReason\) \{\n\s+throw new Error\("Stream ended without finish_reason"\);\n\s+\}/
+const OPENCODE_MISSING_FINISH_ALPHA2_PATTERN = /if \(\(compat\.supportsFinishReason && !hasFinishReason\) \|\| output\.stopReason === "pending"\) \{\n\s+throw new Error\("Stream ended without finish_reason"\);\n\s+\}/
 const OPENCODE_MISSING_FINISH_PATCH = `if (!hasFinishReason) {
                 // OpenCode Go may close an otherwise complete SSE response
                 // after text/tool deltas without sending finish_reason. Limit
@@ -38,11 +39,24 @@ const OPENCODE_MISSING_FINISH_PATCH = `if (!hasFinishReason) {
                     throw new Error("Stream ended without finish_reason");
                 }
             }`
+const OPENCODE_MISSING_FINISH_ALPHA2_PATCH = `if ((compat.supportsFinishReason && !hasFinishReason) || output.stopReason === "pending") {
+                // OpenCode Go may close an otherwise complete SSE response
+                // after text/tool deltas without sending finish_reason. Limit
+                // recovery to a non-empty response from that provider; empty
+                // or interrupted streams still fail loudly.
+                if (model.provider === "opencode-go" && output.content.length > 0) {
+                    output.stopReason = output.content.some((block) => block.type === "toolCall") ? "toolUse" : "stop";
+                }
+                else {
+                    throw new Error("Stream ended without finish_reason");
+                }
+            }`
 const OPENCODE_ACTIVE_TOOLS_NEEDLE = 'params.tools = convertTools(activeTools, compat);'
 const OPENCODE_DEFERRED_TOOLS_NEEDLE = 'tools: convertTools(deferredTools, compat),'
 const OPENCODE_CONVERT_TOOLS_NEEDLE = 'function convertTools(tools, compat) {'
 const OPENCODE_COMPLETIONS_CACHE_SESSION_NEEDLE = 'const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;'
 const OPENCODE_COMPLETIONS_CLIENT_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, cacheSessionId, compat);'
+const OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, options?.fetch, cacheSessionId, compat);'
 const OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE = `if (sessionId && compat.sendSessionAffinityHeaders) {
         if (compat.sessionAffinityFormat === "openrouter") {`
 const OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH = `if (sessionId && (compat.sendSessionAffinityHeaders || model.provider === "opencode-go")) {
@@ -52,6 +66,7 @@ const OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH = `if (sessionId && (compat.se
         else if (compat.sessionAffinityFormat === "openrouter") {`
 const OPENCODE_RESPONSES_CACHE_SESSION_NEEDLE = 'const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;'
 const OPENCODE_RESPONSES_CLIENT_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, cacheSessionId);'
+const OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, options?.fetch, cacheSessionId);'
 const OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE = `if (sessionId) {
         if (compat.sessionAffinityFormat === "openrouter") {`
 const OPENCODE_RESPONSES_SESSION_AFFINITY_PATCH = `if (sessionId) {
@@ -73,7 +88,11 @@ const OPENCODE_KIMI_SCHEMA_HELPER = `function normalizeOpenCodeKimiToolSchema(sc
 }
 function convertTools(tools, compat, model) {
     const isOpenCodeKimi = model.provider === "opencode-go" && model.id.toLowerCase().includes("kimi");`
+const OPENCODE_LEGACY_TOOL_PARAMETERS_NEEDLE = 'parameters: tool.parameters, // TypeBox already generates JSON Schema'
+const OPENCODE_ALPHA2_TOOL_PARAMETERS_NEEDLE = 'parameters: getJsonSchemaToolParameters(tool, strict),'
+const OPENCODE_STRICT_TOOL_NEEDLE = '...(compat.supportsStrictMode !== false && { strict: strict ?? false }),'
 const TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE = 'async function* toStreamChunks(events, contextWindow) {'
+const TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE = 'async function* toStreamChunks(events, contextWindow, callerSignal) {'
 const TOOL_CALL_END_BLOCK_NEEDLE = `\t\tcase "toolcall_end":
 \t\t\tyield {
 \t\t\t\ttype: "block-end",
@@ -95,6 +114,18 @@ const TOOL_CALL_END_BLOCK_PATCH = `\t\tcase "toolcall_end":
 \t\t\t\t\tid: CallId(event.toolCall.id),
 \t\t\t\t\tname: event.toolCall.name,
 \t\t\t\t\targuments: JSON.stringify(normalizeKnownToolArgumentAliases(event.toolCall.name, event.toolCall.arguments))
+\t\t\t\t}
+\t\t\t};
+\t\t\tbreak;`
+const TOOL_CALL_END_BLOCK_ALPHA2_NEEDLE = `\t\tcase "toolcall_end":
+\t\t\tyield {
+\t\t\t\ttype: "block-end",
+\t\t\t\tindex: event.contentIndex,
+\t\t\t\tblock: {
+\t\t\t\t\ttype: "tool-call",
+\t\t\t\t\tid: brandString(event.toolCall.id),
+\t\t\t\t\tname: event.toolCall.name,
+\t\t\t\t\targuments: JSON.stringify(event.toolCall.arguments)
 \t\t\t\t}
 \t\t\t};
 \t\t\tbreak;`
@@ -159,9 +190,68 @@ function rewriteFsEscalationSource(source) {
   return source.includes(needle) ? source.replace(needle, patch) : source
 }
 
+/**
+ * Hide the duplicate native Subagent settings card at the browser bundle
+ * boundary without changing the Host namespace or any Subagent runtime.
+ * The replacement is byte-length equal so the authored source map stays
+ * aligned. All unrelated client bundles are returned by identity.
+ */
+export function rewriteDesktopClientBundle(id, bundle) {
+  const targetId = '@deepseek-ai/dsh-client-ui-settings-plugins'
+  if (id !== targetId) return bundle
+
+  const needle = 'key: SUBAGENT_MODEL_SELECTION_NS,'
+  const patch = 'key: "__windows_hidden_subagent",'
+  const source = Buffer.isBuffer(bundle) ? bundle.toString('utf8') : String(bundle)
+  if (source.includes(patch)) return bundle
+
+  const first = source.indexOf(needle)
+  const unique = first !== -1 && source.indexOf(needle, first + needle.length) === -1
+  if (!unique || Buffer.byteLength(needle) !== Buffer.byteLength(patch)) {
+    throw new Error('Subagent settings card rewrite anchor drift')
+  }
+  const rewritten = source.replace(needle, patch)
+  return Buffer.isBuffer(bundle) ? Buffer.from(rewritten) : rewritten
+}
+
+/**
+ * Route both initial and HMR client artifact snapshots through the same
+ * package-scoped transformer in the official Alpha.2 client-module Host.
+ */
+export function rewriteDesktopClientModuleHostSource(source) {
+  const marker = 'function rewriteDesktopClientBundle(id, bundle)'
+  if (source.includes(marker)) return source
+
+  const classNeedle = 'var ClientModuleRegistry = class extends Service {'
+  const initialNeedle = 'const bundle = readFileSync(clientPath);'
+  const rebuiltNeedle = 'const bundle = readFileSync(record.meta.clientPath);'
+  const unique = (needle) => {
+    const first = source.indexOf(needle)
+    return first !== -1 && source.indexOf(needle, first + needle.length) === -1
+  }
+  if (![classNeedle, initialNeedle, rebuiltNeedle].every(unique)) {
+    throw new Error('Subagent settings card Host rewrite anchor drift')
+  }
+  return source
+    .replace(classNeedle, `${rewriteDesktopClientBundle.toString()}\n${classNeedle}`)
+    .replace(
+      initialNeedle,
+      'const bundle = rewriteDesktopClientBundle(pkgName, readFileSync(clientPath));',
+    )
+    .replace(
+      rebuiltNeedle,
+      'const bundle = rewriteDesktopClientBundle(id, readFileSync(record.meta.clientPath));',
+    )
+}
+
 export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUrl = '') {
   const url = decodeURIComponent(String(moduleUrl))
   let next = source
+
+  const normalizedUrl = url.replaceAll('\\', '/')
+  if (normalizedUrl.includes('@deepseek-ai/dsh-client-modules/lib/index.js')) {
+    next = rewriteDesktopClientModuleHostSource(next)
+  }
 
   if (url.includes('@deepseek-ai/dsh-subprocess-local')) {
     if (next.includes(SUBPROCESS_SPAWN_NEEDLE) && !next.includes(SUBPROCESS_SPAWN_PATCH)) {
@@ -172,7 +262,7 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
     }
   }
 
-  if (url.includes('@deepseek-ai/dsh-sandbox-windows-acl')) {
+  if (url.includes('@deepseek-ai/dsh-win32-process')) {
     if (next.includes(SANDBOX_DWFLAGS_NEEDLE)) {
       next = next.replaceAll(SANDBOX_DWFLAGS_NEEDLE, SANDBOX_DWFLAGS_PATCH)
     }
@@ -232,8 +322,13 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
  * pi-ai's normal fail-closed behavior.
  */
 export function rewriteOpenCodeMissingFinishReason(source) {
-  if (!OPENCODE_MISSING_FINISH_PATTERN.test(source)) return source
-  return source.replace(OPENCODE_MISSING_FINISH_PATTERN, OPENCODE_MISSING_FINISH_PATCH)
+  if (OPENCODE_MISSING_FINISH_ALPHA2_PATTERN.test(source)) {
+    return source.replace(OPENCODE_MISSING_FINISH_ALPHA2_PATTERN, OPENCODE_MISSING_FINISH_ALPHA2_PATCH)
+  }
+  if (OPENCODE_MISSING_FINISH_PATTERN.test(source)) {
+    return source.replace(OPENCODE_MISSING_FINISH_PATTERN, OPENCODE_MISSING_FINISH_PATCH)
+  }
+  return source
 }
 
 /**
@@ -255,12 +350,20 @@ function rewriteOpenCodeGoCompletionsSessionAffinity(source) {
     && next.includes(OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE)) {
     next = next.replace(OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE, OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH)
   }
+  const clientNeedle = next.includes(OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE)
+    ? OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE
+    : next.includes(OPENCODE_COMPLETIONS_CLIENT_NEEDLE)
+      ? OPENCODE_COMPLETIONS_CLIENT_NEEDLE
+      : undefined
   if (!next.includes('const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId')
     && next.includes(OPENCODE_COMPLETIONS_CACHE_SESSION_NEEDLE)
-    && next.includes(OPENCODE_COMPLETIONS_CLIENT_NEEDLE)) {
+    && clientNeedle !== undefined) {
+    const clientPatch = clientNeedle === OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE
+      ? 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, options?.fetch, clientSessionId, compat);'
+      : 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId, compat);'
     next = next.replace(
-      OPENCODE_COMPLETIONS_CLIENT_NEEDLE,
-      'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId, compat);',
+      clientNeedle,
+      clientPatch,
     )
   }
   return next
@@ -272,12 +375,20 @@ function rewriteOpenCodeGoResponsesSessionAffinity(source) {
     && next.includes(OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE)) {
     next = next.replace(OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE, OPENCODE_RESPONSES_SESSION_AFFINITY_PATCH)
   }
+  const clientNeedle = next.includes(OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE)
+    ? OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE
+    : next.includes(OPENCODE_RESPONSES_CLIENT_NEEDLE)
+      ? OPENCODE_RESPONSES_CLIENT_NEEDLE
+      : undefined
   if (!next.includes('const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId')
     && next.includes(OPENCODE_RESPONSES_CACHE_SESSION_NEEDLE)
-    && next.includes(OPENCODE_RESPONSES_CLIENT_NEEDLE)) {
+    && clientNeedle !== undefined) {
+    const clientPatch = clientNeedle === OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE
+      ? 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, options?.fetch, clientSessionId);'
+      : 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId);'
     next = next.replace(
-      OPENCODE_RESPONSES_CLIENT_NEEDLE,
-      'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId);',
+      clientNeedle,
+      clientPatch,
     )
   }
   return next
@@ -290,21 +401,34 @@ function rewriteOpenCodeGoResponsesSessionAffinity(source) {
  */
 export function rewriteOpenCodeKimiToolSchemas(source) {
   if (source.includes('function normalizeOpenCodeKimiToolSchema(schema)')) return source
+  const parametersNeedle = source.includes(OPENCODE_ALPHA2_TOOL_PARAMETERS_NEEDLE)
+    ? OPENCODE_ALPHA2_TOOL_PARAMETERS_NEEDLE
+    : source.includes(OPENCODE_LEGACY_TOOL_PARAMETERS_NEEDLE)
+      ? OPENCODE_LEGACY_TOOL_PARAMETERS_NEEDLE
+      : undefined
   if (!source.includes(OPENCODE_ACTIVE_TOOLS_NEEDLE)
     || !source.includes(OPENCODE_DEFERRED_TOOLS_NEEDLE)
     || !source.includes(OPENCODE_CONVERT_TOOLS_NEEDLE)
-    || !source.includes('parameters: tool.parameters, // TypeBox already generates JSON Schema')) {
+    || parametersNeedle === undefined) {
     return source
   }
 
-  return source
+  const parametersPatch = parametersNeedle === OPENCODE_ALPHA2_TOOL_PARAMETERS_NEEDLE
+    ? 'parameters: isOpenCodeKimi ? normalizeOpenCodeKimiToolSchema(getJsonSchemaToolParameters(tool, strict)) : getJsonSchemaToolParameters(tool, strict),'
+    : 'parameters: isOpenCodeKimi ? normalizeOpenCodeKimiToolSchema(tool.parameters) : tool.parameters, // TypeBox already generates JSON Schema'
+
+  let next = source
     .replace(OPENCODE_ACTIVE_TOOLS_NEEDLE, 'params.tools = convertTools(activeTools, compat, model);')
     .replace(OPENCODE_DEFERRED_TOOLS_NEEDLE, 'tools: convertTools(deferredTools, compat, model),')
     .replace(OPENCODE_CONVERT_TOOLS_NEEDLE, OPENCODE_KIMI_SCHEMA_HELPER)
-    .replace(
-      'parameters: tool.parameters, // TypeBox already generates JSON Schema',
-      'parameters: isOpenCodeKimi ? normalizeOpenCodeKimiToolSchema(tool.parameters) : tool.parameters, // TypeBox already generates JSON Schema',
+    .replace(parametersNeedle, parametersPatch)
+  if (next.includes(OPENCODE_STRICT_TOOL_NEEDLE)) {
+    next = next.replace(
+      OPENCODE_STRICT_TOOL_NEEDLE,
+      '...(!isOpenCodeKimi && compat.supportsStrictMode !== false && { strict: strict ?? false }),',
     )
+  }
+  return next
 }
 
 /**
@@ -322,16 +446,31 @@ export function rewriteKnownToolArgumentAliases(source) {
     if (first === -1 || source.indexOf(needle, first + needle.length) !== -1) return -1
     return first
   }
-  const signatureAt = uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE)
-  const blockAt = uniqueIndex(TOOL_CALL_END_BLOCK_NEEDLE)
+  const signatureNeedle = uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE) !== -1
+    ? TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE
+    : uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE) !== -1
+      ? TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE
+      : undefined
+  const blockNeedle = uniqueIndex(TOOL_CALL_END_BLOCK_ALPHA2_NEEDLE) !== -1
+    ? TOOL_CALL_END_BLOCK_ALPHA2_NEEDLE
+    : uniqueIndex(TOOL_CALL_END_BLOCK_NEEDLE) !== -1
+      ? TOOL_CALL_END_BLOCK_NEEDLE
+      : undefined
+  if (signatureNeedle === undefined || blockNeedle === undefined) return source
+  const signatureAt = uniqueIndex(signatureNeedle)
+  const blockAt = uniqueIndex(blockNeedle)
   if (signatureAt === -1 || blockAt <= signatureAt) return source
+  const blockPatch = blockNeedle.replace(
+    'arguments: JSON.stringify(event.toolCall.arguments)',
+    'arguments: JSON.stringify(normalizeKnownToolArgumentAliases(event.toolCall.name, event.toolCall.arguments))',
+  )
 
   return source
     .replace(
-      TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE,
-      `${normalizeKnownToolArgumentAliases.toString()}\n${TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE}`,
+      signatureNeedle,
+      `${normalizeKnownToolArgumentAliases.toString()}\n${signatureNeedle}`,
     )
-    .replace(TOOL_CALL_END_BLOCK_NEEDLE, TOOL_CALL_END_BLOCK_PATCH)
+    .replace(blockNeedle, blockPatch)
 }
 
 function injectWindowsHide(options) {

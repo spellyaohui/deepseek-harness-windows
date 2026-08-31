@@ -1,5 +1,5 @@
 import type { ModelCapabilityProbeRemote } from '../remote.ts'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 
 const REQUIRED_DEPENDENCIES = [
   'controller',

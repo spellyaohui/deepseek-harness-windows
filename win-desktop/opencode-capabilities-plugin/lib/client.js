@@ -52,8 +52,8 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
-      ctx.slots.inject('settings.models.card', () => ctx.slots.register({
-        name: 'settings.models.card',
+      ctx.slots.inject('settings.models.footer', () => ctx.slots.register({
+        name: 'settings.models.footer',
         id: 'opencode-capabilities',
         order: -20,
       }, OpenCodeCapabilitiesCard))

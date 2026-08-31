@@ -17,6 +17,7 @@ import { readArchivedTeam, readTeam, readUnreadMailbox, writeTeam } from '../lib
 import { assembleTeamSnapshot, collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
 import { stagedPlanMutationFromPayload } from '../lib/staged-plan-payload.js'
 import { buildStagedTaskMutationPayload } from '../lib/client/staged-task-mutation.js'
+import { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
 import {
   NATIVE_DELEGATION_TOOLS,
   policyMarker,
@@ -323,14 +324,13 @@ const ctx = {
       const child = makeAgent(id, captain.id)
       child.session.events.push({
         type: 'subagent/descriptor',
-        data: {
-          version: 2,
+        data: snapshotSubagentDescriptor({
           mode: 'continuable',
           provider: spec.provider,
           label: spec.label,
           agentProvider: spec.request.agentOptions.provider,
           agentModel: spec.request.agentOptions.model,
-        },
+        }),
       })
       lifecycleDenials.set(child, new Set(spec.request.toolFilter?.deny ?? []))
       for (const setup of continuableSetups) setup(child.ctx)

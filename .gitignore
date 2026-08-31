@@ -47,6 +47,7 @@
 **/*~
 **/.DS_Store
 **/Thumbs.db
+**/* (SFConflict *)*
 
 # Local editor and agent configuration
 /.cursor/

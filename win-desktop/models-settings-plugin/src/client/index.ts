@@ -6,15 +6,18 @@
  * Export discipline:
  * packages/client/AGENTS.md.
  */
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the shell's SlotMap merge (the 'settings.section' entry).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face
 // (settings/credentials invalidations ride the allowlist) into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: contributes the generated credentials/settings and llm Remote namespaces.
+import type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
+import type {} from '@deepseek-ai/dsh-llm/remote'
 import { ModelsSection } from './ModelsSection.tsx'
 import type { ModelsSectionInjected } from './ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from './DeepSeekOnboardingDialog.tsx'
@@ -23,26 +26,27 @@ import { WelcomeNotice } from './WelcomeNotice.tsx'
 import type { WelcomeNoticeInjected } from './WelcomeNotice.tsx'
 import { decodeWelcomeSection, WelcomeNoticeStore } from './welcome-store.ts'
 import { ModelsSettingsStore } from './store.ts'
+import { createModelsOperations, type ModelsRemoteContext } from './operations.ts'
 import { createSettingsSchemaOperations } from './schema-operations.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from '../onboarding-copy.ts'
-import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import { TYPERT_REMOTE } from '../remote.ts'
 import { createLateBoundCapabilityRemote, resolveCapabilityRemote } from './models-section-availability.ts'
+import type {
+  ProviderProfileNormalizer, ProviderProfileNormalizationPayload,
+} from './provider-profile.ts'
 
 export type { ModelsSectionInjected, ModelsSectionProps } from './ModelsSection.tsx'
+export type { ModelsFooterOwnerProps, ProviderCardExtrasOwnerProps } from './slot-contract.ts'
 export type { ModelsKey } from './locales.ts'
+export type {
+  ProviderProfileDraft,
+  ProviderProfileNormalization,
+  ProviderProfileNormalizationPayload,
+  ProviderProfileNormalizer,
+} from './provider-profile.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
-  interface SlotMap {
-    /** Additive provider-preset cards rendered by the Models page. */
-    'settings.models.card': {
-      kind: 'list'
-      scope: 'root'
-      inject: ModelsSectionInjected
-    }
-  }
-
   interface LocaleNamespaceMap {
     /** The Models page + product-onboarding copy. */
     'settings.models': ModelsKey
@@ -51,13 +55,19 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.models'
-export type { ModelsSettingsState, ProviderRow } from './store.ts'
+
+/** Forwarded Alpha.2 events consumed by this independently packed client. */
+interface ModelsRemoteEvents {
+  $on(
+    event: 'settings/document-updated' | 'credentials/reference-updated' | 'llm/adapters-updated',
+    listener: (...args: unknown[]) => void,
+  ): () => void
+}
+
 export type {
-  ProviderProfileDraft,
-  ProviderProfileNormalization,
-  ProviderProfileNormalizationPayload,
-  ProviderProfileNormalizer,
-} from './provider-profile.ts'
+  ModelsSettingsState, ProviderDirectoryEntry, ProviderRow,
+} from './store.ts'
+export type { ModelDiscoveryOutcome, ModelsOperations, SettingsWriteOutcome } from './operations.ts'
 
 /**
  * Refetch the page snapshot only after its first load: an unopened Models
@@ -74,7 +84,10 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registration depends on each slot through `slots.inject()`.
  */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope', 'settingsSchema']
+export const inject = [
+  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
+  'settingsScope', 'settingsSchema',
+]
 
 /**
  * Register the Models section once the `settings.section` declaration is on
@@ -90,19 +103,26 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 
-  const connection = ctx.get('connection') as ConnectionHandle
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)
+  // Bound once here, where the Remote namespaces are declared in this plugin's
+  // own `inject`; the cards receive callbacks and never a context.
+  // Generated Remote declarations may resolve through distinct pnpm peer
+  // instances in this independently packed fork. Runtime namespaces are the
+  // official Alpha.2 faces; adapt them once to the structural consumer seam.
+  const remoteContext = ctx as unknown as ModelsRemoteContext
+  const remoteEvents = ctx.remote as unknown as ModelsRemoteEvents
+  const operations = createModelsOperations(remoteContext)
+  const controller = new ModelsSettingsStore(remoteContext, schema, ctx.settingsScope.describe())
   const normalizeProfile: ProviderProfileNormalizer = (provider, value) => {
     const payload = ctx.waterfall(
       'settings.models/normalize-provider-profile',
       { provider, value },
-      () => ({ provider, value }),
+      (): ProviderProfileNormalizationPayload => ({ provider, value }),
     )
     return payload.failure === undefined
       ? { ok: true, value: payload.value }
       : { ok: false, message: payload.failure }
   }
-  const controller = new ModelsSettingsStore(connection.api, schema, ctx.settingsScope.describe())
   // Registration-time text (the nav label thunk) and the inject faces share
   // one bound translate; copy freshness rides the locale revision.
   const t = ctx.locale.bind(NS) as ModelsSectionInjected['t']
@@ -113,20 +133,19 @@ export function apply(ctx: ClientContext): void {
   const injected = (): ModelsSectionInjected => ({
     controller,
     hooks: { snapshot: controller.store },
-    api: connection.api,
+    operations,
     modelCapabilities,
+    normalizeProviderProfile: normalizeProfile,
     schema,
     t,
-    normalizeProviderProfile: normalizeProfile,
   })
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
     controller,
     hooks: { models: controller.store },
-    api: connection.api,
-    modelCapabilities,
+    operations,
+    normalizeProviderProfile: normalizeProfile,
     schema,
     t,
-    normalizeProviderProfile: normalizeProfile,
   })
   // The scope's own memory mode is what keeps a remote browser process-local,
   // so the store needs no isLoopback branch of its own.
@@ -148,9 +167,9 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const refreshModels = (): void => { refreshIfLoaded(controller) }
     const disposers = [
-      ctx.remote.$on('settings/document-updated', () => { refreshModels() }),
-      ctx.remote.$on('credentials/reference-updated', refreshModels),
-      ctx.remote.$on('llm/adapters-updated', refreshModels),
+      remoteEvents.$on('settings/document-updated', () => { refreshModels() }),
+      remoteEvents.$on('credentials/reference-updated', refreshModels),
+      remoteEvents.$on('llm/adapters-updated', refreshModels),
       ctx.on('connection/reset', refreshModels),
     ]
     return () => {
@@ -166,11 +185,8 @@ export function apply(ctx: ClientContext): void {
     label: () => t('nav'),
     inject: injected,
     children: {
-      'settings.models.card': {
-        kind: 'list',
-        scope: 'root',
-        inject: injected(),
-      },
+      'settings.models.provider-card': { kind: 'keyed', scope: 'root' },
+      'settings.models.footer': { kind: 'list', scope: 'root' },
     },
   }, ModelsSection))
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({

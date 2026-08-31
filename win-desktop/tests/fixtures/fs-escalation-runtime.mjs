@@ -24,7 +24,7 @@ function createRuntime(currentMode, requestApproval = async () => 'allowed-once'
         return { version: 'edit-v1', before: input.oldString, after: input.newString }
       },
     },
-    systemPrompt: { section: () => {} },
+    systemPrompt: { getSectionOrder: () => 0, section: () => {} },
     tools: { register: (tool) => tools.set(tool.name, tool) },
     inject: () => {},
     waterfall: async (...args) => args.at(-1)(),

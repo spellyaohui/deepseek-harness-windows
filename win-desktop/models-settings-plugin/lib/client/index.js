@@ -3,6 +3,7 @@ import { DeepSeekOnboardingDialog } from "./DeepSeekOnboardingDialog.js";
 import { WelcomeNotice } from "./WelcomeNotice.js";
 import { decodeWelcomeSection, WelcomeNoticeStore } from "./welcome-store.js";
 import { ModelsSettingsStore } from "./store.js";
+import { createModelsOperations } from "./operations.js";
 import { createSettingsSchemaOperations } from "./schema-operations.js";
 import { en, zh } from "./locales.js";
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from "../onboarding-copy.js";
@@ -25,7 +26,10 @@ export function refreshIfLoaded(controller) {
  * ui-settings' apply, whose activation order relative to this one is NOT
  * constrained; registration depends on each slot through `slots.inject()`.
  */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope', 'settingsSchema'];
+export const inject = [
+    'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
+    'settingsScope', 'settingsSchema',
+];
 /**
  * Register the Models section once the `settings.section` declaration is on
  * the ledger, wire its store to the connection, and keep it fresh on every
@@ -38,15 +42,22 @@ export function apply(ctx) {
         return () => dispose();
     }, 'ui-settings-models: capability probe Remote');
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries');
-    const connection = ctx.get('connection');
     const schema = createSettingsSchemaOperations(ctx.settingsSchema);
+    // Bound once here, where the Remote namespaces are declared in this plugin's
+    // own `inject`; the cards receive callbacks and never a context.
+    // Generated Remote declarations may resolve through distinct pnpm peer
+    // instances in this independently packed fork. Runtime namespaces are the
+    // official Alpha.2 faces; adapt them once to the structural consumer seam.
+    const remoteContext = ctx;
+    const remoteEvents = ctx.remote;
+    const operations = createModelsOperations(remoteContext);
+    const controller = new ModelsSettingsStore(remoteContext, schema, ctx.settingsScope.describe());
     const normalizeProfile = (provider, value) => {
         const payload = ctx.waterfall('settings.models/normalize-provider-profile', { provider, value }, () => ({ provider, value }));
         return payload.failure === undefined
             ? { ok: true, value: payload.value }
             : { ok: false, message: payload.failure };
     };
-    const controller = new ModelsSettingsStore(connection.api, schema, ctx.settingsScope.describe());
     // Registration-time text (the nav label thunk) and the inject faces share
     // one bound translate; copy freshness rides the locale revision.
     const t = ctx.locale.bind(NS);
@@ -54,20 +65,19 @@ export function apply(ctx) {
     const injected = () => ({
         controller,
         hooks: { snapshot: controller.store },
-        api: connection.api,
+        operations,
         modelCapabilities,
+        normalizeProviderProfile: normalizeProfile,
         schema,
         t,
-        normalizeProviderProfile: normalizeProfile,
     });
     const deepSeekOnboardingInjected = () => ({
         controller,
         hooks: { models: controller.store },
-        api: connection.api,
-        modelCapabilities,
+        operations,
+        normalizeProviderProfile: normalizeProfile,
         schema,
         t,
-        normalizeProviderProfile: normalizeProfile,
     });
     // The scope's own memory mode is what keeps a remote browser process-local,
     // so the store needs no isLoopback branch of its own.
@@ -88,9 +98,9 @@ export function apply(ctx) {
     ctx.effect(() => {
         const refreshModels = () => { refreshIfLoaded(controller); };
         const disposers = [
-            ctx.remote.$on('settings/document-updated', () => { refreshModels(); }),
-            ctx.remote.$on('credentials/reference-updated', refreshModels),
-            ctx.remote.$on('llm/adapters-updated', refreshModels),
+            remoteEvents.$on('settings/document-updated', () => { refreshModels(); }),
+            remoteEvents.$on('credentials/reference-updated', refreshModels),
+            remoteEvents.$on('llm/adapters-updated', refreshModels),
             ctx.on('connection/reset', refreshModels),
         ];
         return () => {
@@ -106,11 +116,8 @@ export function apply(ctx) {
         label: () => t('nav'),
         inject: injected,
         children: {
-            'settings.models.card': {
-                kind: 'list',
-                scope: 'root',
-                inject: injected(),
-            },
+            'settings.models.provider-card': { kind: 'keyed', scope: 'root' },
+            'settings.models.footer': { kind: 'list', scope: 'root' },
         },
     }, ModelsSection));
     ctx.slots.inject('settings.onboarding', () => ctx.slots.register({

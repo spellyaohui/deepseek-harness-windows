@@ -13,8 +13,8 @@ import {
 
 const { app } = electron
 
-/** 官方 Web 服务就绪后会打印这一行，同时给出实际监听地址。 */
-const READY_PATTERN = /^dsh web: (http:\/\/127\.0\.0\.1:\d+)\b/m
+/** Alpha.2 prints the canonical loopback URL with its one-time process token. */
+const READY_PATTERN = /^dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+)(?:\s|$)/m
 
 export function resolveDshEntry() {
   return fileURLToPath(import.meta.resolve('@deepseek-ai/dsh/lib/bin.js'))
@@ -103,7 +103,7 @@ export function healDesktopPluginFallback({
   installAnchor = resolveDesktopInstallAnchor(),
   home = resolveDshHome(),
 } = {}) {
-  healProfilesModuleFallback(installAnchor, home)
+  return healProfilesModuleFallback({ installAnchor, home })
 }
 
 export function extractReadyUrl(output) {
@@ -138,7 +138,7 @@ export function buildDshArgs(entry, {
  * 用 Electron 自带的 Node（ELECTRON_RUN_AS_NODE）拉起官方 dsh Web。
  * 这样原生模块与打包进应用的运行时 ABI 一致，无需再附带一份 node.exe。
  */
-export function startDshService({
+export async function startDshService({
   electronExecutable,
   entry = resolveDshEntry(),
   environment = process.env,
@@ -149,7 +149,7 @@ export function startDshService({
     throw new Error('缺少 Electron 可执行文件路径')
   }
 
-  healDesktopPluginFallback({
+  await healDesktopPluginFallback({
     home: resolveDshHome(undefined, environment),
   })
 

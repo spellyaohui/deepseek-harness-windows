@@ -79,6 +79,7 @@ import { steerCaptainReport } from '../lib/tools.js'
 import { renderStatus, statusFingerprint } from '../lib/status-render.js'
 import { usageSectionText } from '../lib/index.js'
 import { parseProfileInvocation, resolveTeamProfile, formatProfilesForPrompt } from '../lib/profiles.js'
+import { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
 import { memberPersona, memberWelcome } from '../lib/members.js'
 import { collectCompletedDependencyOutputs, formatDependencyOutputs, assignmentPrompt } from '../lib/scheduler.js'
 import {
@@ -112,7 +113,7 @@ check(
 )
 check(
   'usage prompt omits profile when no profile is configured',
-  builtIndex.includes('When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".'),
+  builtIndex.includes('If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.'),
 )
 
 const softwareDeliveryPrompt = usageSectionText(
@@ -144,6 +145,7 @@ for (const [label, pattern] of [
   ['state running', /running[^\n]*(?:create-task|create_task)[^\n]*message[^\n]*reassign/i],
   ['state halted', /halted[^\n]*resume/i],
   ['approval boundary', /approval="required"[^\n]*never[^\n]*(?:self-approve|approve it)/i],
+  ['approval preflight', /agent_teams_status[^\n]*active=true[^\n]*phase=staged/i],
   ['profile omission', /omit the profile property[^\n]*profile=""/i],
   ['reasoning ownership', /target-default[^\n]*route-aware[^\n]*explicit/i],
   ['route pairing', /provider\/model[^\n]*(?:both|pair)/i],
@@ -366,7 +368,7 @@ check(
 check(
   'client registers the official locale namespace on all three visible slots',
   AGENT_TEAMS_LOCALE_NAMESPACE === 'agentTeams'
-    && clientIndexSource.includes("'conversationEvents', 'slots', 'sessions', 'locale', 'modelDirectories'")
+    && clientIndexSource.includes("'uiConversation', 'slots', 'sessions', 'locale', 'modelDirectories'")
     && clientIndexSource.includes('ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en })')
     && clientIndexSource.match(/locale:\s*AGENT_TEAMS_LOCALE_NAMESPACE/gu)?.length === 3,
 )
@@ -1616,14 +1618,13 @@ check(
 function descriptorEvent(label, agentProvider = 'descriptor-provider', agentModel = 'descriptor-model') {
   return {
     type: 'subagent/descriptor',
-    data: {
-      version: 2,
+    data: snapshotSubagentDescriptor({
       mode: 'continuable',
       provider: 'spawn',
       label,
       agentProvider,
       agentModel,
-    },
+    }),
   }
 }
 

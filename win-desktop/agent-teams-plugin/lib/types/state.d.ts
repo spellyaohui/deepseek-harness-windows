@@ -62,6 +62,8 @@ export declare const TASK_TRANSITIONS: Readonly<Record<TaskStatus, readonly Task
  * @returns the transition error, or undefined when allowed.
  */
 export declare function transitionError(current: TaskStatus, next: TaskStatus): string | undefined;
+/** Reject a stale model/tool mutation before it changes the task. */
+export declare function assertExpectedTaskRevision(task: TeamTask, expectedRevision: number): void;
 /** Activate the task's current generation for one owner and return its capability id. */
 export declare function activateTaskAttempt(task: TeamTask, assignee: string): string;
 /** Start a fresh task generation for one owner. */

@@ -6,7 +6,9 @@ const source = readFileSync(new URL('../src/client/index.ts', import.meta.url), 
 const section = readFileSync(new URL('../src/client/ModelsSection.tsx', import.meta.url), 'utf8')
 
 test('Models section owns and renders the provider-card extension slot', () => {
-  assert.match(source, /'settings\.models\.card'/)
-  assert.match(source, /children:[\s\S]*settings\.models\.card/)
-  assert.match(section, /renderSlot\('settings\.models\.card'/)
+  assert.match(source, /children:[\s\S]*settings\.models\.provider-card/)
+  assert.match(source, /children:[\s\S]*settings\.models\.footer/)
+  assert.match(section, /renderSlot\([\s\S]*'settings\.models\.provider-card'/)
+  assert.match(section, /renderSlot\('settings\.models\.footer'/)
+  assert.doesNotMatch(source, /'settings\.models\.card'/)
 })

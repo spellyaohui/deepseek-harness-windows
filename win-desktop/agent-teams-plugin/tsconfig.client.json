@@ -6,5 +6,5 @@
     "types": []
   },
   "include": ["src/client", "src/event-types.ts", "src/css-modules.d.ts"],
-  "exclude": []
+  "exclude": ["**/*SFConflict*"]
 }

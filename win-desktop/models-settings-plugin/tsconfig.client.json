@@ -6,5 +6,5 @@
     "types": []
   },
   "include": ["src/client", "src/onboarding-copy.ts", "src/css-modules.d.ts"],
-  "exclude": []
+  "exclude": ["src/**/*SFConflict*"]
 }

@@ -177,7 +177,7 @@ State first:
 - running -> use status, create-task, message, reassign, and delete; never create a replacement Team, edit-plan, or approve.
 - halted -> agent_teams_resume(reason) before work. Escalated remains running; ask the user when its review loop reaches the ceiling.
 
-Approval/Profile: approval="automatic" runs normally. approval="required" stages the full roster/dependency DAG; wait for the user/Web control and never self-approve in that turn. Return/discard forbids replacement. An exact requested Profile expands its roster plus seed tasks or captain guardrails; do not recreate members and only its eligible fallback may retry. When no configured profile is listed above, omit the profile property entirely; never send profile="" or placeholders such as "default", "none", or "captain".
+Approval/Profile: approval="automatic" runs; approval="required" stages roster/DAG. Never self-approve in the create/edit turn. Call agent_teams_approve only after agent_teams_status shows active=true and phase=staged; “继续/确认” alone is insufficient. Return/discard forbids replacement. Exact Profiles add their roster plus seed tasks or guardrails; only an eligible fallback retries. If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.
 
 Reasoning/routes: each role owns target-default, route-aware, or explicit. target-default uses its role/captain route with no effort; route-aware inherits captain effort only on the same provider/model; explicit requires role provider/model and effort. Omit provider/model for the captain route or provide both as a pair for another route.
 

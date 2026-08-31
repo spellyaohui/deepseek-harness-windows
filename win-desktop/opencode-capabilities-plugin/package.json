@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-opencode-capabilities",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
@@ -13,7 +13,7 @@
   "dsh": {
     "client": {
       "platform": "web",
-      "inject": ["@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-client-ui-settings-models"]
+      "inject": ["@deepseek-ai/dsh-client-ui-settings-models"]
     }
   }
 }

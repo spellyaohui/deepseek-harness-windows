@@ -1,14 +1,23 @@
 /** Browser plugin for the AgentTeams activity floater and conversation card. */
 
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { Context } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: pulls the generated settings Remote and ctx.remote merge.
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: pulls the Alpha.2 sessions service into Context.
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-// Type-only: pulls the official browser locale service into ClientContext.
+// Type-only: pulls the official browser locale service into Context.
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Module-loading import: the card registers into the conversation chat-node
 // slot, whose keyed renderer map lives in the ui-conversation contract.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
+// Type-only: official renderer owns ctx.slots; ui-session owns session-scoped
+// standard props such as sessionId used by the keyed AgentTeams card.
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 // The frame-level overlay is declared by ui-layout. This import is type-only;
 // ctx.slots.inject below owns the runtime wait for the declaration.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -35,7 +44,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Required services: conversation nodes, slots, sessions navigation, and locale. */
 export const inject = [
-  'conversationEvents', 'slots', 'sessions', 'locale', 'modelDirectories', 'settingsScope', 'connection',
+  'uiConversation', 'slots', 'sessions', 'locale', 'modelDirectories', 'settingsScope',
+  'remote', 'remote.settings',
 ]
 
 /** The replayed user message is the canonical transcript entry. */
@@ -48,16 +58,15 @@ function HiddenAgentTeamsCommand(): null {
  * in-conversation team card. The card's activity button re-opens a folded
  * monitor via a window event.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: Context): void {
   ctx.effect(
     () => ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en }),
     'agent-teams: dictionaries',
   )
   const settings = ctx.settingsScope.bind<AgentTeamsSettings>({ namespace: 'agent-teams' })
   const settingsDescribe = ctx.settingsScope.describe()
-  const connection = ctx.get('connection') as ConnectionHandle
   const writer = createAgentTeamsSettingsWriter({
-    api: connection.api,
+    api: { settings: (ctx.remote as unknown as { settings: Parameters<typeof createAgentTeamsSettingsWriter>[0]['api']['settings'] }).settings },
     scope: settings,
     describe: settingsDescribe,
   })
@@ -99,7 +108,7 @@ export function apply(ctx: ClientContext): void {
     key: 'agent-teams',
   }, HiddenAgentTeamsCommand))
 
-  ctx.conversationEvents.register(agentTeamsCardDefinition)
+  ctx.uiConversation.events.register(agentTeamsCardDefinition)
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
     key: 'agent-teams',

@@ -19,7 +19,6 @@ import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { formatCapacity, parseCapacity } from "./DeepSeekModelsEditor.js";
 import { applyImageInputChoice, applyImageInputChoiceToAll, readImageInputChoice, } from "./model-input.js";
 import { applyCapabilityProbeResult, capabilityResultStatus } from "./model-capabilities.js";
-import { messageOf } from "./store.js";
 import styles from './ModelsSection.module.css';
 /** A row's text field, or the empty string when unset or not a string. */
 function textOf(model, key) {
@@ -101,13 +100,16 @@ function probeCandidate(model) {
         ? { reasoningEfforts: model['reasoningEfforts'] }
         : {};
 }
+function messageOf(error) {
+    return error instanceof Error ? error.message : String(error);
+}
 /**
  * Render the model list with its fetch action.
  * @param props - the drafted rows, probe target, wire face, and copy.
  * @returns the model-list editor.
  */
 export function ModelListEditor(props) {
-    const { models, onChange, probe, api, modelCapabilities, t, disabled } = props;
+    const { models, onChange, probe, operations, modelCapabilities, t, disabled } = props;
     const [busy, setBusy] = useState(false);
     const [failure, setFailure] = useState(undefined);
     const [probeBusy, setProbeBusy] = useState(false);
@@ -268,18 +270,17 @@ export function ModelListEditor(props) {
         setBusy(true);
         setFailure(undefined);
         try {
-            const response = await api.llm.discoverModels({
-                settingsNs: probe.settingsNs,
+            const answer = await operations.discoverModels(probe.settingsNs, {
                 ...probe.provider === undefined ? {} : { provider: probe.provider },
                 ...probe.baseURL === undefined || probe.baseURL.length === 0 ? {} : { baseURL: probe.baseURL },
                 ...probe.api === undefined ? {} : { api: probe.api },
                 ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
             });
-            if (!response.result.ok) {
-                setFailure(response.result.error.message);
+            if (answer.kind === 'refused') {
+                setFailure(answer.message);
                 return;
             }
-            const found = response.result.value.models;
+            const found = answer.models;
             if (found.length === 0) {
                 setFailure(t('fetchEmpty'));
                 return;
@@ -289,11 +290,6 @@ export function ModelListEditor(props) {
             const known = new Set(models.map(model => textOf(model, 'id')));
             setCandidates(found);
             setPicked(new Set(found.filter(model => !known.has(model.id)).map(model => model.id)));
-        }
-        catch (error) {
-            // The transport rejected rather than answering; without this the button
-            // would stay busy with nothing shown.
-            setFailure(messageOf(error));
         }
         finally {
             setBusy(false);
@@ -373,13 +369,13 @@ export function ModelListEditor(props) {
                                             const imageChoice = readImageInputChoice(model);
                                             return (_jsxs(_Fragment, { children: [_jsxs("select", { className: `${styles['input']} ${styles['selectInput']} ${styles['modelInputChoice']}`, value: imageChoice, "aria-invalid": imageChoice === 'invalid', disabled: rowDisabled, onChange: (event) => { setImageInputChoice(index, event.target.value); }, children: [imageChoice === 'invalid'
                                                                 ? _jsx("option", { value: "invalid", disabled: true, children: t('modelImageInvalid') })
-                                                                : null, _jsx("option", { value: "auto", children: t('modelImageAuto') }), _jsx("option", { value: "image", children: t('modelImageSupported') }), _jsx("option", { value: "text-only", children: t('modelImageTextOnly') })] }), _jsx("span", { className: styles['modelFieldHint'], children: t((imageChoice === 'auto'
+                                                                : null, _jsx("option", { value: "auto", children: t('modelImageAuto') }), _jsx("option", { value: "image", children: t('modelImageSupported') }), _jsx("option", { value: "text-only", children: t('modelImageTextOnly') })] }), _jsx("span", { className: styles['modelFieldHint'], children: t(imageChoice === 'auto'
                                                             ? 'modelImageAutoHint'
                                                             : imageChoice === 'image'
                                                                 ? 'modelImageSupportedHint'
                                                                 : imageChoice === 'text-only'
                                                                     ? 'modelImageTextOnlyHint'
-                                                                    : 'modelImageInvalid')) }), _jsx("span", { className: styles['modelFieldHint'], children: t('modelImageRestartHint') })] }));
+                                                                    : 'modelImageInvalid') }), _jsx("span", { className: styles['modelFieldHint'], children: t('modelImageRestartHint') })] }));
                                         })()] })] }))
                         : null, (() => {
                         const id = textOf(model, 'id').trim();

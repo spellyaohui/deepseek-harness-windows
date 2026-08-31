@@ -39,7 +39,7 @@ function createRuntime(currentMode, requestApproval = async () => 'allowed-once'
       },
     },
     shellEnv: { collect: () => ({}) },
-    systemPrompt: { section: () => {} },
+    systemPrompt: { getSectionOrder: () => 0, section: () => {} },
     tools: { register: (registered) => { tool = registered } },
     get(name) {
       if (name === 'sandboxPolicy') {

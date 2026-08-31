@@ -26,6 +26,13 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.14-desktop.12
+
+- 适配 DeepSeek Harness `dsh-v0.1.2-alpha.2` 的 Remote、Slot、会话与客户端接口，并保留角色级 Provider、模型、思考策略、严格 V2、质量门禁和桌面 Profile 编辑。
+- 迁入经过验证的 wait、身份作用域、Revision/CAS 和活动事件恢复结构；不把实验性 AgentTeams 包直接加入安装依赖。
+- 紧凑只读状态、显式 mailbox acknowledgement、队长恢复唤醒和所有 rc.26+ 错误治理回归继续生效。
+- 没有 staged Team 时误触发 `agent_teams_approve` 会返回可处理的 inactive 提示，不会再抛出“请先 create”工具错误，也不会隐式创建 Team；只有用户确实要启用 AgentTeams 时才提示调用 `agent_teams_create`。
+
 ### v0.1.14-desktop.11
 
 - `agent_teams_status` 默认返回只读紧凑摘要，不会唤醒成员或确认邮箱；处理完显示的邮箱消息后才使用 `acknowledge=true`，需要完整任务报告、Provider/模型证据或 Profile 协议时使用 `detail="full"`，只有队长在重启后恢复或明确卡住 ready work/mail 时才使用 `wake="recover"`。

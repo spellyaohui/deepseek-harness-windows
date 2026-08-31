@@ -23,6 +23,16 @@ const localDependencies = {
   '@nanmicoder/dsh-agent-teams': 'agent-teams-plugin',
 }
 
+const localVersions = {
+  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.2-alpha.2-desktop.1',
+  '@deepseek-ai/dsh-cpa-provider': '0.1.7',
+  '@deepseek-ai/dsh-desktop-settings': '0.1.2',
+  '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
+  '@deepseek-ai/dsh-session-markdown-export': '0.1.1',
+  '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
+  '@nanmicoder/dsh-agent-teams': '0.1.14-desktop.12',
+}
+
 const sourcePluginDirectories = [
   'models-settings-plugin',
   'cpa-provider-plugin',
@@ -43,33 +53,44 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.1-rc.32')
-  assert.equal(packageLock.version, '0.1.1-rc.32')
-  assert.equal(packageLock.packages[''].version, '0.1.1-rc.32')
-  assert.equal(modelsPackage.version, '0.1.1-rc.2-desktop.6')
+  assert.equal(packageJson.version, '0.1.2-rc.1')
+  assert.equal(packageLock.version, '0.1.2-rc.1')
+  assert.equal(packageLock.packages[''].version, '0.1.2-rc.1')
+  assert.equal(modelsPackage.version, '0.1.2-alpha.2-desktop.1')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.1.1-rc.2-desktop.6',
+    '0.1.2-alpha.2-desktop.1',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.11')
+  assert.equal(agentTeamsPackage.version, '0.1.14-desktop.12')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.14-desktop.11',
+    '0.1.14-desktop.12',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
     const fileReference = `file:${directory}`
     assert.equal(packageJson.dependencies[dependency], fileReference, `${dependency} must use its local owner`)
     assert.equal(
-      packageLock.packages[`node_modules/${dependency}`]?.resolved,
+      packageLock.packages['']?.dependencies?.[dependency],
       fileReference,
-      `${dependency} lockfile entry must use its local owner`,
+      `${dependency} root lock dependency must use its local owner`,
+    )
+    assert.notEqual(
+      packageLock.packages[`node_modules/${dependency}`]?.link,
+      true,
+      `${dependency} must be packed as a real dependency instead of a development link`,
     )
 
     const manifestPath = join(wrapperRoot, directory, 'package.json')
     assert.equal(existsSync(manifestPath), true, `${directory}/package.json must remain present`)
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
     assert.equal(manifest.name, dependency, `${directory} must keep its package identity`)
+    assert.equal(manifest.version, localVersions[dependency], `${directory} version must match this release`)
+    assert.equal(
+      packageLock.packages[`node_modules/${dependency}`]?.version,
+      localVersions[dependency],
+      `${dependency} installed version must match its local owner`,
+    )
   }
 
   for (const directory of sourcePluginDirectories) {
@@ -91,6 +112,14 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
   const requiredFiles = [
     '../AGENTS.md',
     '../docs/UPSTREAM_MAINTENANCE.md',
+    '../docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md',
+    'release-notes/v0.1.2-rc.1.md',
+    'scripts/verify-alpha2-source.mjs',
+    'scripts/verify-alpha2-runtime-closure.mjs',
+    'scripts/verify-alpha2-zip-closure.mjs',
+    'tests/alpha2-source-manifest.test.js',
+    'tests/verify-alpha2-runtime-closure.test.js',
+    'tests/verify-alpha2-zip-closure.test.js',
     'models-settings-plugin/UPSTREAM.md',
     'models-settings-plugin/src/client/model-input.ts',
     'models-settings-plugin/tests/model-input.test.js',
@@ -106,7 +135,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'cpa-provider-plugin/tests/profile.test.js',
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
-    'agent-teams-plugin/release-notes/v0.1.14-desktop.11.md',
+    'agent-teams-plugin/release-notes/v0.1.14-desktop.12.md',
     'agent-teams-plugin/src/status-render.ts',
     'agent-teams-plugin/scripts/clean-build.mjs',
     'agent-teams-plugin/scripts/fallback-tdd.mjs',
@@ -126,6 +155,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'tests/agent-teams-integration.test.js',
     'tests/cpa-provider-integration.test.js',
     'tests/desktop-settings.test.js',
+    'tests/dsh-web-auth-url.test.js',
     'tests/grep-tool-argument-compatibility.test.js',
     'tests/heal-desktop-plugins.test.js',
     'tests/model-fetcher.test.js',
@@ -133,6 +163,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'tests/opencode-capabilities-integration.test.js',
     'tests/opencode-stream-rewrite.test.js',
     'tests/session-markdown-export-integration.test.js',
+    'tests/subagent-settings-card-visibility.test.js',
     'tests/fixtures/fs-escalation-runtime.mjs',
     'tests/win-hide-console.test.js',
   ]
@@ -156,11 +187,14 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('../AGENTS.md', /Wrapper tool-call guidance/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /tool-call guidance/i)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /blank optional Profile/i)
+  assertContains('../AGENTS.md', /Alpha\.2 Web authentication startup invariant/)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /authenticated startup URL/i)
   for (const relativePath of ['../README.md', 'README.md', '../docs/UPSTREAM_MAINTENANCE.md']) {
     assert.doesNotMatch(read(relativePath), /@nanmicoder\/dsh-auto-mode|Auto Mode/)
   }
 
-  assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.card/)
+  assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.provider-card/)
+  assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.footer/)
   assertContains('models-settings-plugin/src/client/model-input.ts', /ImageInputChoice = 'auto' \| 'image' \| 'text-only'/)
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'image'\)/)
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'auto'\)/)
@@ -216,11 +250,25 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /normalizeOpenCodeKimiToolSchema/)
   assertContains('src/win-hide-console-rewrite.js', /normalizeKnownToolArgumentAliases/)
   assertContains('src/win-hide-console-rewrite.js', /rewriteKnownToolArgumentAliases/)
+  assertContains('src/win-hide-console-rewrite.js', /rewriteDesktopClientBundle/)
+  assertContains('src/win-hide-console-rewrite.js', /__windows_hidden_subagent/)
   assertContains('src/win-hide-console-rewrite.js', /x-opencode-session/)
+  assertContains('../AGENTS.md', /hide only the native Subagent plugin settings card/i)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /native Subagent plugin settings card/i)
+  for (const dependency of [
+    '@deepseek-ai/dsh-subagent',
+    '@deepseek-ai/dsh-subagent-fork-in-process',
+    '@deepseek-ai/dsh-subagent-in-process-driver',
+    '@deepseek-ai/dsh-subagent-spawn-in-process',
+  ]) {
+    assert.equal(typeof packageJson.dependencies[dependency], 'string')
+    assert.equal(typeof packageLock.packages['']?.dependencies?.[dependency], 'string')
+    assert.equal(typeof packageLock.packages[`node_modules/${dependency}`]?.version, 'string')
+  }
   assertContains('src/model-fetcher.js', /OPENCODE_GO_PROTOCOL_PROFILES/)
   assertContains('src/model-fetcher.js', /OPENCODE_GO_COMPATIBILITY_INPUTS/)
   assertContains('src/model-fetcher.js', /reconcileOpencodeCatalog/)
-  assertContains('opencode-capabilities-plugin/lib/client.js', /settings\.models\.card/)
+  assertContains('opencode-capabilities-plugin/lib/client.js', /settings\.models\.footer/)
   assertContains('src/preload.cjs', /opencode-capabilities:validate/)
   assertContains('src/settings-window.js', /validateOpencodeCatalog/)
   assertContains('scripts/sync-local-plugin-artifacts.mjs', /LOCAL_PLUGIN_ARTIFACTS/)
@@ -239,6 +287,11 @@ test('the complete upstream regression gate remains registered', () => {
     'node scripts/sync-local-plugin-artifacts.mjs',
     'package.json must retain local plugin artifact synchronization',
   )
+  assert.equal(
+    packageJson.scripts?.['verify:runtime-closure'],
+    'node scripts/verify-alpha2-runtime-closure.mjs --from node_modules',
+    'package.json must retain the source runtime-closure check',
+  )
   const runner = read('scripts/verify-upstream-regressions.mjs')
   for (const directory of [
     'models-settings-plugin',
@@ -255,5 +308,7 @@ test('the complete upstream regression gate remains registered', () => {
   assert.match(runner, /\[upstream-regression\] PASS/)
   assert.match(runner, /\[upstream-regression\] FAIL/)
   assert.match(runner, /sync:local-plugin-artifacts/)
+  assert.match(runner, /verify-alpha2-runtime-closure\.mjs/)
+  assert.match(runner, /command === 'node' \? process\.execPath/)
   assert.doesNotMatch(runner, /\b(?:install|publish|dist:win|electron-builder)\b/)
 })

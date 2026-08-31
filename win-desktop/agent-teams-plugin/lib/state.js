@@ -16,6 +16,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { deepEqualJson } from '@deepseek-ai/dsh-util-values';
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, TERMINAL_TASK_STATUSES } from "./types.js";
 import { hasValidQualityTaskFields, isReviewPolicy } from "./quality-gates.js";
 export { buildCoverageMatrix, canDeclareDelivery, classifyChangedPath, collectChangedPaths, defaultQualityDeliveryGraph, describeQualityLoop, evaluateQualityCompletion, hasValidQualityTaskFields, isQualityKind, pathMatchesScope, planQualityFollowUp, qualityPlanningPrompt, resumeTeamState, sanitizeReviewAcceptance, sanitizeReviewObjective, taskKindOf, validateCreateTask, } from "./quality-gates.js";
@@ -119,6 +120,73 @@ export function transitionError(current, next) {
     }
     return undefined;
 }
+/** Reject a stale model/tool mutation before it changes the task. */
+export function assertExpectedTaskRevision(task, expectedRevision) {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+        throw new Error('expected_revision must be a positive safe integer');
+    }
+    if (task.revision !== expectedRevision) {
+        throw new Error(`stale task ${task.id} revision ${expectedRevision}; current revision is ${task.revision}`);
+    }
+}
+function taskWithoutRevision(task) {
+    const { revision: _revision, ...content } = task;
+    return content;
+}
+/** Materialize revision 1 for new tasks and advance changed persisted tasks exactly once. */
+function advanceTaskRevisions(previous, next) {
+    const previousById = new Map(previous?.tasks.map((task) => [task.id, task]) ?? []);
+    for (const task of next.tasks) {
+        const prior = previousById.get(task.id);
+        if (prior === undefined) {
+            if (task.revision === undefined)
+                task.revision = 1;
+            if (task.revision !== 1)
+                throw new Error(`new task ${task.id} must begin at revision 1`);
+            continue;
+        }
+        const changed = !deepEqualJson(taskWithoutRevision(prior), taskWithoutRevision(task));
+        const expected = changed ? prior.revision + 1 : prior.revision;
+        if (task.revision !== prior.revision && task.revision !== expected) {
+            throw new Error(`task ${task.id} revision is not contiguous: expected ${expected}, got ${task.revision}`);
+        }
+        task.revision = expected;
+    }
+}
+/**
+ * Read only the prior task revisions needed by the write path.
+ *
+ * This deliberately does not call {@link readTeam}: tests and recovery code
+ * must be able to persist a malformed V2 fixture so that the strict read /
+ * authorization boundary can reject it on the next load. The schema and task
+ * revision fields still remain fail-closed, so this is not a legacy migration
+ * path.
+ */
+async function readTaskRevisionSnapshot(stateRoot, teamId) {
+    try {
+        const raw = await readFile(join(stateRoot, teamId, 'team.json'), 'utf8');
+        const parsed = JSON.parse(stripLeadingBom(raw));
+        if (!isRecord(parsed) || parsed['schemaVersion'] !== AGENT_TEAMS_STATE_SCHEMA_VERSION) {
+            throw new Error(`旧版 AgentTeams 状态不受支持，请创建新 Team`);
+        }
+        if (!Array.isArray(parsed['tasks'])) {
+            throw new Error(`AgentTeams V2 状态无效: ${teamId}`);
+        }
+        if (parsed['tasks'].some((task) => (!isRecord(task)
+            || typeof task['id'] !== 'string'
+            || !Number.isSafeInteger(task['revision'])
+            || task['revision'] < 1))) {
+            throw new Error(`AgentTeams V2 状态无效: ${teamId}`);
+        }
+        return { tasks: parsed['tasks'] };
+    }
+    catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+            return undefined;
+        }
+        throw error;
+    }
+}
 /** Activate the task's current generation for one owner and return its capability id. */
 export function activateTaskAttempt(task, assignee) {
     const attemptId = randomUUID();
@@ -169,6 +237,7 @@ export function invalidateTaskAttempt(task, nextAssignee, reassigning = false) {
 export async function createTeamDir(stateRoot, state) {
     const dir = join(stateRoot, state.id);
     await mkdir(join(dir, 'inbox'), { recursive: true });
+    advanceTaskRevisions(undefined, state);
     await atomicWriteText(join(dir, 'team.json'), JSON.stringify(state, null, 2));
 }
 /**
@@ -227,7 +296,10 @@ export function readTeamSync(stateRoot, teamId) {
  * @param state - the record to persist.
  */
 export async function writeTeam(stateRoot, state) {
-    await atomicWriteText(join(stateRoot, state.id, 'team.json'), JSON.stringify(state, null, 2));
+    const teamId = state.id;
+    const previous = await readTaskRevisionSnapshot(stateRoot, teamId);
+    advanceTaskRevisions(previous, state);
+    await atomicWriteText(join(stateRoot, teamId, 'team.json'), JSON.stringify(state, null, 2));
 }
 /** Read the durable set of member session ids retired by remove/delete. */
 export async function readRetiredMemberIds(stateRoot) {
@@ -600,6 +672,8 @@ export function isTeamTask(value) {
     const attempt = value['attempt'];
     const attemptId = value['attemptId'];
     return typeof value['id'] === 'string'
+        && Number.isSafeInteger(value['revision'])
+        && value['revision'] >= 1
         && isOptionalString(value['profileSeedId'])
         && (value['profileSeedId'] === undefined || value['profileSeedId'].trim() !== '')
         && typeof value['subject'] === 'string'

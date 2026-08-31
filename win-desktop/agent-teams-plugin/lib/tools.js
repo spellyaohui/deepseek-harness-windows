@@ -457,6 +457,7 @@ export function registerAgentTeamsTools(ctx, config) {
                         subject,
                         status: 'pending',
                         dependencies: trimmedStringList(mutation.dependencies) ?? [],
+                        revision: 1,
                         attempt: 0,
                         kind: mutation.kind ?? 'work',
                         createdAt: now,
@@ -1002,7 +1003,7 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_approve',
-        description: 'Approve and start a staged team plan. Call this only in response to an explicit user approval in a new user turn; never call it during the turn that created or edited the plan. The Web Approve & Run button uses the same runtime directly.',
+        description: 'Approve and start a staged team plan. Call this only after agent_teams_status has confirmed active=true and phase=staged for this captain, and only in response to explicit user approval in a new user turn; generic phrases such as “继续” or “确认” alone do not establish a staged plan. Never call it during the turn that created or edited the plan. The Web Approve & Run button uses the same runtime directly. If no Team exists, return the inactive guidance and do not create or approve anything.',
         parameters: {
             confirmation: { type: 'string', required: true, description: 'The user\'s explicit approval statement.' },
         },
@@ -1015,11 +1016,15 @@ export function registerAgentTeamsTools(ctx, config) {
                     team_id: { type: 'string', required: true },
                     members: { type: 'number', required: true },
                     tasks: { type: 'number', required: true },
+                    message: { type: 'string' },
+                    next_step: { type: 'string' },
                 },
             },
             render: (_args, value) => [{
                     type: 'text',
-                    text: `Team ${value.team_id} approved and running (${value.members} members, ${value.tasks} tasks).`,
+                    text: value.status === 'inactive'
+                        ? `${value.message}\n${value.next_step}`
+                        : `Team ${value.team_id} approved and running (${value.members} members, ${value.tasks} tasks).`,
                 }],
         },
         async execute(args, exec) {
@@ -1027,7 +1032,17 @@ export function registerAgentTeamsTools(ctx, config) {
                 throw new Error('explicit user approval text is required');
             const captain = requireCaptain(exec);
             const workspace = workspaceOf(captain);
-            const team = await requireCaptainTeam(workspace, config, captain);
+            const team = await findTeamByCaptain(stateRootOf(workspace, config), captain.id);
+            if (team === undefined) {
+                return {
+                    status: 'inactive',
+                    team_id: '',
+                    members: 0,
+                    tasks: 0,
+                    message: 'No staged AgentTeams plan exists for this session; approval was ignored.',
+                    next_step: 'If the user wants AgentTeams, call agent_teams_create first; otherwise continue normally.',
+                };
+            }
             const approved = await approveStagedTeam(captain, team.id, exec.signal);
             return { status: 'running', team_id: approved.teamId, members: approved.members, tasks: approved.tasks };
         },
@@ -1316,6 +1331,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     status: 'pending',
                     assignee,
                     dependencies,
+                    revision: 1,
                     attempt: 0,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
@@ -2223,6 +2239,7 @@ async function initializeProfileTeam(input) {
             status: 'pending',
             assignee: template.assignee,
             dependencies: template.dependencies.map((dependency) => seedToActual.get(dependency) ?? dependency),
+            revision: 1,
             attempt: 0,
             kind: 'work',
             createdAt: now,
@@ -2386,6 +2403,7 @@ export function applyQualityFollowUp(team, closed) {
             status: 'pending',
             assignee: draft.assignee,
             dependencies,
+            revision: 1,
             attempt: 0,
             createdAt: now,
             updatedAt: now,

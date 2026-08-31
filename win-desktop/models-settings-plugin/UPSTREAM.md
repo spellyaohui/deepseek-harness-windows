@@ -1,17 +1,18 @@
 # Upstream baseline
 
 - Package: `@deepseek-ai/dsh-client-ui-settings-models`
-- Version/tag: `0.1.1-rc.2` / `dsh-v0.1.1-rc.2`
-- Commit: `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`
+- Version/tag: `0.1.2-alpha.2` / `dsh-v0.1.2-alpha.2`
+- Commit: `0a53fb55bea101816fa226bb964ae2bed71c343b`
 - Source directory: `packages/client/ui-settings-models`
-- Imported: 2026-08-23
-- Local desktop fork: `0.1.1-rc.2-desktop.6`
+- Imported: 2026-08-31
+- Local desktop fork: `0.1.2-alpha.2-desktop.1`
 
 ## Intentional desktop difference
 
-This fork adds one additive client slot, `settings.models.card`, rendered inside
-the Models settings page before the standard provider rows. The slot receives
-the Models page's existing controller, snapshot, API and schema inject face.
+Alpha.2 replaces the rc.2 Models page with provider-card/footer slots, a new
+Onboarding flow, and Remote-only client APIs. The desktop fork follows that
+upstream design and contributes through `settings.models.provider-card` while
+retaining the Models page's existing controller, snapshot, API and schema face.
 It also exposes a provider-neutral `settings.models/normalize-provider-profile`
 waterfall so an independent provider plugin can normalize its own profile just
 before the native editor validates and persists it. No CPA rules live in this
@@ -54,9 +55,10 @@ malformed input intact for this fork's shared save gate.
 
 ## Refresh rule
 
-Import the same upstream directory from a newer Harness tag, reapply only the
-slot declaration/rendering, provider-neutral normalization seam, and the
-provider-neutral model-input editor when upstream does not provide an
-equivalent. Then run `pnpm typecheck` and `pnpm test`; the native CPA row,
-model-input, and wrapper ownership regressions must remain green after every
-refresh.
+Import the same upstream directory from a newer Harness tag and first classify
+the current provider-card/footer, Onboarding and Remote design. Reapply only
+the provider-neutral normalization seam, model-input/reasoning capability
+editor, late Remote degradation and generated-output safety when upstream does
+not provide an equivalent. Then run `pnpm typecheck` and `pnpm test`; the
+Alpha.2 base, native CPA row, model-input and wrapper ownership regressions
+must remain green after every refresh.

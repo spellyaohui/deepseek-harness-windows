@@ -104,6 +104,8 @@ export interface TeamTask {
   assignee?: string
   /** Task ids that must reach `completed` before this task can be claimed. */
   dependencies: string[]
+  /** Monotonic durable revision used by task mutation compare-and-swap checks. */
+  revision: number
   /** The worker's written result, set when the task completes or fails. */
   output?: string
   /** Monotonic execution generation. Reassignment/retry invalidates every older attempt. */

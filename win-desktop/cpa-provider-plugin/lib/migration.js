@@ -1,4 +1,4 @@
-import { deepEqualJson } from '@deepseek-ai/dsh-settings';
+import { deepEqualJson } from '@deepseek-ai/dsh-util-values';
 import { normalizeCpaProviderProfile } from "./profile.js";
 function isRecord(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);

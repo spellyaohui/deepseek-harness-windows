@@ -8,7 +8,8 @@ import { openAgentTeamMember } from "./session-navigation.js";
 import { createAgentTeamsSettingsWriter } from "./settings-write.js";
 /** Required services: conversation nodes, slots, sessions navigation, and locale. */
 export const inject = [
-    'conversationEvents', 'slots', 'sessions', 'locale', 'modelDirectories', 'settingsScope', 'connection',
+    'uiConversation', 'slots', 'sessions', 'locale', 'modelDirectories', 'settingsScope',
+    'remote', 'remote.settings',
 ];
 /** The replayed user message is the canonical transcript entry. */
 function HiddenAgentTeamsCommand() {
@@ -23,9 +24,8 @@ export function apply(ctx) {
     ctx.effect(() => ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en }), 'agent-teams: dictionaries');
     const settings = ctx.settingsScope.bind({ namespace: 'agent-teams' });
     const settingsDescribe = ctx.settingsScope.describe();
-    const connection = ctx.get('connection');
     const writer = createAgentTeamsSettingsWriter({
-        api: connection.api,
+        api: { settings: ctx.remote.settings },
         scope: settings,
         describe: settingsDescribe,
     });
@@ -58,7 +58,7 @@ export function apply(ctx) {
         name: 'conversation.chat.commandview',
         key: 'agent-teams',
     }, HiddenAgentTeamsCommand));
-    ctx.conversationEvents.register(agentTeamsCardDefinition);
+    ctx.uiConversation.events.register(agentTeamsCardDefinition);
     ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
         name: 'conversation.chat.node',
         key: 'agent-teams',

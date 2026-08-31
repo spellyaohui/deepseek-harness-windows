@@ -1232,6 +1232,28 @@ console.log('quality-gates TDD — tool-level closed loop')
         && statusBeforeCreateRender?.[0]?.text === 'No active Team for this session.',
     )
 
+    let approveBeforeCreate
+    let approveBeforeCreateRender
+    try {
+      approveBeforeCreate = await call('agent_teams_approve', { confirmation: '继续' })
+      approveBeforeCreateRender = definitions
+        .get('agent_teams_approve')
+        ?.output?.render?.({ confirmation: '继续' }, approveBeforeCreate)
+    } catch {
+      approveBeforeCreate = undefined
+      approveBeforeCreateRender = undefined
+    }
+    check(
+      'tdd.approve.without-active-team-is-a-clean-noop.tool',
+      approveBeforeCreate?.status === 'inactive'
+        && approveBeforeCreate?.team_id === ''
+        && approveBeforeCreate?.members === 0
+        && approveBeforeCreate?.tasks === 0
+        && /no staged AgentTeams plan/i.test(approveBeforeCreate?.message ?? '')
+        && /agent_teams_create/i.test(approveBeforeCreate?.next_step ?? '')
+        && /no staged AgentTeams plan/i.test(approveBeforeCreateRender?.[0]?.text ?? ''),
+    )
+
     await call('agent_teams_create', { name: 'Gates', description: 'tool loop' })
     await call('agent_teams_add_member', { name: 'implementer', role: 'implementer' })
     await call('agent_teams_add_member', { name: 'reviewer', role: 'correctness-reviewer' })

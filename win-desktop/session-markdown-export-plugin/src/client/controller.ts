@@ -1,8 +1,8 @@
 import {
   createSnapshotStore,
-  type SessionId,
   type SnapshotStore,
-} from '@deepseek-ai/dsh-client-runtime/client'
+} from '@deepseek-ai/dsh-client-store'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 export type SessionMarkdownExportStatus = 'preparing' | 'success' | 'error'
 

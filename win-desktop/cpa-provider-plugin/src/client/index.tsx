@@ -1,4 +1,4 @@
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context } from '@deepseek-ai/cordis'
 import { normalizeCpaProviderProfile } from '../profile.ts'
 
 interface ProviderProfileNormalizationPayload {
@@ -16,7 +16,7 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: Context): void {
   ctx.on('settings.models/normalize-provider-profile', (payload, next) => {
     if (payload.provider !== 'cpa') return next()
     try {

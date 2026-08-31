@@ -53,6 +53,14 @@ evidence that the local capability is preserved.
   durable boundary, OpenCode stream recovery, verified OpenCode model-protocol
   and image-capability reconciliation, the manual capability-validation bridge,
   plugin mounting, and startup integration.
+- The Windows wrapper may hide only the native Subagent plugin settings card by
+  rewriting the exact Alpha.2 client-module bundle snapshot boundary. The
+  Subagent Host namespace, saved settings, official runtime dependencies, and
+  AgentTeams `memberProvider: spawn` path must remain installed and active. The
+  replacement Slot key stays byte-length equal to preserve the authored source
+  map, and both initial and HMR snapshot paths use the same package-ID-scoped
+  transformer. Future upstream refreshes must retain the focused regression or
+  prove an `UPSTREAM_EQUIVALENT` single-card composition control.
 
 ## Release `v0.1.1-rc.17` interaction invariants
 
@@ -105,6 +113,19 @@ evidence that the local capability is preserved.
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.
 
+## Alpha.2 Web authentication startup invariant
+
+- Alpha.2 prints a canonical loopback URL containing a fresh process token.
+  The Windows wrapper must pass the complete `http://127.0.0.1:<port>/?token=...`
+  URL from the `dsh web:` readiness line to Electron; capturing only the origin
+  produces the upstream authentication-required page instead of the Web UI.
+- A bare loopback origin and the browser-opening notice are not valid readiness
+  signals. The process token is used only for local navigation and must not be
+  persisted, copied to documentation, or emitted by wrapper diagnostics.
+- Future Web/startup refreshes must retain `tests/dsh-web-auth-url.test.js` or
+  prove an `UPSTREAM_EQUIVALENT` authenticated handoff before changing this
+  boundary.
+
 ## Wrapper tool-call guidance and AUTO removal invariants
 
 - `@deepseek-ai/dsh-tool-call-guidance` registers one system-prompt section at
@@ -149,6 +170,10 @@ evidence that the local capability is preserved.
   is captain-only and reserved for post-restart or clearly stuck ready work/mail.
   Repeated unchanged summaries may collapse to a heartbeat, but full detail
   remains available on demand.
+- `agent_teams_approve` must first observe `active=true` and `phase=staged` for
+  the current captain. A generic “继续”/“确认” message without a staged Team
+  is not approval evidence; when no Team exists, the tool returns an inactive
+  no-op with the `agent_teams_create` next step and must not write state.
 - Blank optional task strings from non-GPT tool calls must be omitted before
   strict V2 persistence. Profile and Team state still require
   `schemaVersion: 2`; malformed or older documents are rejected, not migrated.

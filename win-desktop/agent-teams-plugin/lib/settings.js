@@ -1,6 +1,7 @@
 import z from '@deepseek-ai/schemastery';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
-export const AGENT_TEAMS_SETTINGS_NAMESPACE = settingsNamespace('agent-teams');
+// Alpha.2 validates the namespace at the SettingsProvider boundary and no
+// longer exports the rc.2 settingsNamespace constructor.
+export const AGENT_TEAMS_SETTINGS_NAMESPACE = 'agent-teams';
 export const DEFAULT_AGENT_TEAMS_SETTINGS = {
     delegationMode: 'teams',
 };

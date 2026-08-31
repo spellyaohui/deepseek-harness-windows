@@ -103,11 +103,11 @@ function deferred() {
 }
 
 function success(value) {
-  return { result: { ok: true, value } }
+  return { ok: true, value }
 }
 
 function failure(message) {
-  return { result: { ok: false, error: { message } } }
+  return { ok: false, error: { code: 'settings/conflict', message } }
 }
 
 const serialRequests = []
@@ -117,8 +117,8 @@ const secondWrite = deferred()
 const serialWriter = createAgentTeamsSettingsWriter({
   api: {
     settings: {
-      mutate: async (request) => {
-        serialRequests.push(request)
+      mutate: async (ns, ops, expectedRevision) => {
+        serialRequests.push({ ns, ops, expectedRevision })
         return serialRequests.length === 1 ? firstWrite.promise : secondWrite.promise
       },
       describe: async () => success({ writable: true, hasDocument: true, namespaces: [view(99)] }),
@@ -153,13 +153,13 @@ const staleSuccessCalls = []
 const staleSuccessWriter = createAgentTeamsSettingsWriter({
   api: {
     settings: {
-      mutate: async (request) => {
-        staleSuccessCalls.push({ kind: 'mutate', request })
+      mutate: async (ns, ops, expectedRevision) => {
+        staleSuccessCalls.push({ kind: 'mutate', ns, ops, expectedRevision })
         advancedScopeRevision = 44
         return success(view(43))
       },
-      describe: async (request) => {
-        staleSuccessCalls.push({ kind: 'describe', request })
+      describe: async () => {
+        staleSuccessCalls.push({ kind: 'describe' })
         return success({ writable: true, hasDocument: true, namespaces: [view(44)] })
       },
     },
@@ -208,8 +208,8 @@ for (const scenario of [
     api: {
       settings: {
         mutate: scenario.mutate,
-        describe: async (request) => {
-          calls.push({ kind: 'describe', request })
+        describe: async () => {
+          calls.push({ kind: 'describe' })
           return success({ writable: true, hasDocument: true, namespaces: [view(8)] })
         },
       },
@@ -222,7 +222,7 @@ for (const scenario of [
   const result = await writer.write(orderedOps)
   assert.deepEqual(result, { status: 'error', error: scenario.expected }, `${scenario.name} is terminal and visible`)
   assert.ok(performance.now() - started < 150, `${scenario.name} must leave busy state within the bound`)
-  assert.deepEqual(calls, [{ kind: 'describe', request: {} }], `${scenario.name} refreshes Host truth`)
+  assert.deepEqual(calls, [{ kind: 'describe' }], `${scenario.name} refreshes Host truth`)
   assert.deepEqual(accepted.map((entry) => entry.revision), [8], `${scenario.name} accepts the recovered namespace`)
 }
 

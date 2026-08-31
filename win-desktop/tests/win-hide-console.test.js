@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -21,10 +21,7 @@ function packageRoot(name) {
 }
 
 function sandboxAclBundleSource() {
-  const dir = join(packageRoot('@deepseek-ai/dsh-sandbox-windows-acl'), 'lib')
-  const file = readdirSync(dir).find((name) => name.startsWith('types-') && name.endsWith('.js'))
-  assert.ok(file, 'expected dsh-sandbox-windows-acl bundled types-*.js')
-  return readFileSync(join(dir, file), 'utf8')
+  return readFileSync(require.resolve('@deepseek-ai/dsh-win32-process'), 'utf8')
 }
 
 const subprocessSource = readFileSync(require.resolve('@deepseek-ai/dsh-subprocess-local'), 'utf8')
@@ -219,7 +216,7 @@ test('rewrite adds windowsHide to official subprocess-local spawn', () => {
 test('rewrite hides sandbox CreateProcess windows without CREATE_NO_WINDOW', () => {
   const rewritten = rewriteDesktopConsoleSource(
     sandboxAclSource,
-    'file:///x/node_modules/@deepseek-ai/dsh-sandbox-windows-acl/lib/types-CNjZgO4h.js',
+    'file:///x/node_modules/@deepseek-ai/dsh-win32-process/lib/index.js',
   )
   assert.equal(HIDDEN_CONSOLE_STARTF, 257)
   assert.equal([...rewritten.matchAll(/dwFlags: 257,/g)].length, 2)

@@ -1,7 +1,7 @@
 /**
  * One provider's editor card, hand-written per adapter family: the primary
  * field is a single write-only **API key** input (the page never asks for an
- * environment-variable name — a typed key stores through `credentials.set`
+ * environment-variable name — a typed key stores through `credentials/set`
  * under the profile's reference, deriving `<ROUTE>_API_KEY` when the profile
  * has none. The pi-ai profile records that derivation as `apiKeyEnv` only when
  * a key is entered; a blank key materializes a reference-free profile for
@@ -21,11 +21,12 @@
  * see instead of rebuilding the whole subtree from a partial descriptor.
  */
 import type { ReactNode } from 'react';
-import type { IApiClient, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client';
+import type { SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client';
+import type { ModelsOperations } from './operations.ts';
 import type { SettingsSchemaOperations } from './schema-operations.ts';
 import type { en } from './locales.ts';
-import type { ProviderProfileNormalizer } from './provider-profile.ts';
 import type { ModelCapabilityProbeRemote } from '../remote.ts';
+import type { ProviderProfileNormalizer } from './provider-profile.ts';
 /** Props of {@link ProviderEditor}. */
 export interface ProviderEditorProps {
     /** Provider route id. */
@@ -48,10 +49,12 @@ export interface ProviderEditorProps {
     schema: SettingsSchemaOperations;
     /** Path from the section root to this provider's profile. */
     settingsPath: readonly string[];
-    /** Wire faces for writes and for interrogating a provider endpoint. */
-    api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>;
-    /** Mounted provider-neutral Host capability probe. */
+    /** The Host operations this card writes and interrogates through. */
+    operations: ModelsOperations;
+    /** Provider-neutral capability probe; ordinary editing remains available while it mounts. */
     modelCapabilities?: ModelCapabilityProbeRemote;
+    /** Adapter-owned profile normalization before schema validation and write. */
+    normalizeProviderProfile?: ProviderProfileNormalizer;
     /** Section copy. */
     t: (key: keyof typeof en) => string;
     /** Disable writes (read-only settings provider). */
@@ -63,15 +66,13 @@ export interface ProviderEditorProps {
     /** Give the credential field initial focus when this editor mounts. */
     autoFocusCredential?: boolean;
     /** Override the dismiss action copy. */
-    cancelLabel?: keyof typeof en;
+    cancelLabelKey?: keyof typeof en;
     /** Override the idle commit action copy. */
-    submitLabel?: keyof typeof en;
+    submitLabelKey?: keyof typeof en;
     /** Override the in-flight commit action copy. */
-    submitBusyLabel?: keyof typeof en;
+    submitBusyLabelKey?: keyof typeof en;
     /** Close the editor; `changed` reports whether an Apply committed. */
     onClose: (changed: boolean) => void;
-    /** Adapter-owned profile normalization before schema validation and write. */
-    normalizeProviderProfile: ProviderProfileNormalizer;
 }
 /**
  * The minimal path ops carrying `after` over `before`, both as the card sees

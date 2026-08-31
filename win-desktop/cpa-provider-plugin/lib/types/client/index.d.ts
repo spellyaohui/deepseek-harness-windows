@@ -1,4 +1,4 @@
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client';
+import type { Context } from '@deepseek-ai/cordis';
 interface ProviderProfileNormalizationPayload {
     provider: string;
     value: Record<string, unknown>;
@@ -9,5 +9,5 @@ declare module '@deepseek-ai/cordis' {
         'settings.models/normalize-provider-profile'(payload: ProviderProfileNormalizationPayload, next: () => ProviderProfileNormalizationPayload): ProviderProfileNormalizationPayload;
     }
 }
-export declare function apply(ctx: ClientContext): void;
+export declare function apply(ctx: Context): void;
 export {};

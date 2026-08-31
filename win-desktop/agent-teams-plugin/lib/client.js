@@ -5060,20 +5060,16 @@ window.__ModuleLoader__.load({
 				const generation = ++this.generation;
 				let response;
 				try {
-					response = await bounded(this.options.api.settings.mutate({
-						ns: SETTINGS_NAMESPACE,
-						ops: [...ops],
-						expectedRevision
-					}), "settings mutation", this.timeoutMs);
+					response = await bounded(this.options.api.settings.mutate(SETTINGS_NAMESPACE, [...ops], expectedRevision), "settings mutation", this.timeoutMs);
 				} catch (error) {
 					if (generation === this.generation) this.generation += 1;
 					return this.failAndRecover(errorMessage(error));
 				}
-				if (!response.result.ok) {
+				if (!response.ok) {
 					if (generation === this.generation) this.generation += 1;
-					return this.failAndRecover(response.result.error.message);
+					return this.failAndRecover(response.error.message);
 				}
-				const next = response.result.value;
+				const next = response.value;
 				const knownRevision = laterRevision(expectedRevision, laterRevision(this.revision, this.options.scope.getSnapshot().revision)) ?? expectedRevision;
 				if (generation !== this.generation || next.ns !== SETTINGS_NAMESPACE || next.revision < knownRevision) return this.failAndRecover("settings mutation returned a stale or mismatched view");
 				this.revision = next.revision;
@@ -5096,12 +5092,12 @@ window.__ModuleLoader__.load({
 				++this.generation;
 				let response;
 				try {
-					response = await bounded(this.options.api.settings.describe({}), "settings recovery", this.timeoutMs);
+					response = await bounded(this.options.api.settings.describe(), "settings recovery", this.timeoutMs);
 				} catch (error) {
 					return errorMessage(error);
 				}
-				if (!response.result.ok) return response.result.error.message;
-				const recovered = response.result.value.namespaces.find((entry) => entry.ns === SETTINGS_NAMESPACE);
+				if (!response.ok) return response.error.message;
+				const recovered = response.value.namespaces.find((entry) => entry.ns === SETTINGS_NAMESPACE);
 				if (recovered === void 0) return "agent-teams namespace is unavailable";
 				const heldRevision = laterRevision(this.revision, this.options.scope.getSnapshot().revision);
 				if (heldRevision === void 0 || recovered.revision >= heldRevision) {
@@ -6022,13 +6018,14 @@ window.__ModuleLoader__.load({
 		//#region lib/client/index.js
 		/** Required services: conversation nodes, slots, sessions navigation, and locale. */
 		const inject = [
-			"conversationEvents",
+			"uiConversation",
 			"slots",
 			"sessions",
 			"locale",
 			"modelDirectories",
 			"settingsScope",
-			"connection"
+			"remote",
+			"remote.settings"
 		];
 		/** The replayed user message is the canonical transcript entry. */
 		function HiddenAgentTeamsCommand() {
@@ -6047,7 +6044,7 @@ window.__ModuleLoader__.load({
 			const settings = ctx.settingsScope.bind({ namespace: "agent-teams" });
 			const settingsDescribe = ctx.settingsScope.describe();
 			const writer = createAgentTeamsSettingsWriter({
-				api: ctx.get("connection").api,
+				api: { settings: ctx.remote.settings },
 				scope: settings,
 				describe: settingsDescribe
 			});
@@ -6085,7 +6082,7 @@ window.__ModuleLoader__.load({
 				name: "conversation.chat.commandview",
 				key: "agent-teams"
 			}, HiddenAgentTeamsCommand));
-			ctx.conversationEvents.register(agentTeamsCardDefinition);
+			ctx.uiConversation.events.register(agentTeamsCardDefinition);
 			ctx.slots.inject("conversation.chat.node", () => ctx.slots.register({
 				name: "conversation.chat.node",
 				key: "agent-teams",

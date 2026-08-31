@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-cpa-provider",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
@@ -23,7 +23,6 @@
   "dsh": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-settings-models",
         "@deepseek-ai/dsh-api-remotes"
@@ -32,31 +31,31 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && tsdown",
+    "build": "node scripts/detach-output-links.mjs && tsc -p tsconfig.json && tsc -p tsconfig.client.json && tsdown",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "test": "pnpm build && node --test tests/*.test.js"
   },
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-api-remotes": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-locale": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings-models": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2",
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-api-remotes": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-locale": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-settings-models": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-settings": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-util-values": "^0.1.2-alpha.2",
     "react": "^18.2.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-api-remotes": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.1.1-rc.2",
+    "@deepseek-ai/cordis": "file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz",
+    "@deepseek-ai/dsh-api-remotes": "file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-alpha.2.tgz",
+    "@deepseek-ai/dsh-client-locale": "file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-alpha.2.tgz",
+    "@deepseek-ai/dsh-client-ui-primitives": "file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.2.tgz",
     "@deepseek-ai/dsh-client-ui-settings-models": "file:../models-settings-plugin",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-settings": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.2.tgz",
+    "@deepseek-ai/dsh-settings": "file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-alpha.2.tgz",
+    "@deepseek-ai/dsh-util-values": "file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-alpha.2.tgz",
     "@types/node": "^24.13.3",
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.7",

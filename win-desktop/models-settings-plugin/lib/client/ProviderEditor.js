@@ -1,8 +1,8 @@
-import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { jsxs as _jsxs, jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
 /**
  * One provider's editor card, hand-written per adapter family: the primary
  * field is a single write-only **API key** input (the page never asks for an
- * environment-variable name — a typed key stores through `credentials.set`
+ * environment-variable name — a typed key stores through `credentials/set`
  * under the profile's reference, deriving `<ROUTE>_API_KEY` when the profile
  * has none. The pi-ai profile records that derivation as `apiKeyEnv` only when
  * a key is entered; a blank key materializes a reference-free profile for
@@ -26,7 +26,8 @@ import { DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels, } from "./De
 import { apiKeyFailure } from "./apiKey.js";
 import { EditorFooter } from "./EditorFooter.js";
 import { ModelListEditor } from "./ModelListEditor.js";
-import { deriveKeyRef, messageOf, protocolChoices } from "./store.js";
+import { deriveKeyRef, protocolChoices } from "./store.js";
+import { normalizeProviderProfile } from "./provider-profile.js";
 import styles from './ModelsSection.module.css';
 /** The public DeepSeek endpoint shown as the deepseek base-URL placeholder. */
 const DEEPSEEK_PUBLIC_BASE_URL = 'https://api.deepseek.com';
@@ -55,7 +56,7 @@ export function pathOps(base, before, after) {
     for (const [key, value] of Object.entries(after)) {
         if (JSON.stringify(previous[key]) === JSON.stringify(value))
             continue;
-        ops.push({ op: 'set', path: [...base, key], value });
+        ops.push({ op: 'set', path: [...base, key], value: value });
     }
     for (const key of Object.keys(previous)) {
         if (!(key in after))
@@ -85,7 +86,7 @@ function refFor(schema, namespace, path, provider) {
  * @returns the editor card.
  */
 export function ProviderEditor(props) {
-    const { namespace, schema, settingsPath, api, t } = props;
+    const { namespace, schema, settingsPath, operations, t } = props;
     const [draft, setDraft] = useState(() => draftAt(schema, namespace, settingsPath));
     const [keyDraft, setKeyDraft] = useState('');
     const [keyState, setKeyState] = useState(undefined);
@@ -110,17 +111,15 @@ export function ProviderEditor(props) {
     useEffect(() => {
         let stale = false;
         setKeyState(undefined);
-        // The key state is a placeholder hint, not a precondition for editing:
-        // neither a business rejection nor a transport failure may reach the
-        // browser as an unhandled rejection, so the card simply renders without
-        // the "already configured" hint.
-        void api.credentials.describe({ refs: [keyRef] }).then((response) => {
-            if (stale || !response.result.ok)
+        // The key state is a placeholder hint, not a precondition for editing: a
+        // refused describe leaves the card without the "already configured" hint.
+        void operations.describeCredential(keyRef).then((described) => {
+            if (stale)
                 return;
-            setKeyState(response.result.value.credentials[keyRef]);
-        }, () => undefined);
+            setKeyState(described);
+        });
         return () => { stale = true; };
-    }, [api.credentials, keyRef]);
+    }, [operations, keyRef]);
     const stringAt = (source, key) => {
         const value = schema.getPath(source, [key]);
         return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
@@ -177,7 +176,7 @@ export function ProviderEditor(props) {
             && stringAt(fallback, 'apiKeyEnv') === undefined && keyValue.length > 0
             ? schema.setPath(draft, ['apiKeyEnv'], keyRef)
             : draft;
-        const normalized = props.normalizeProviderProfile(props.provider, next);
+        const normalized = normalizeProviderProfile(props.provider, next, props.normalizeProviderProfile);
         if (!normalized.ok)
             return normalized.message;
         const normalizedNext = normalized.value;
@@ -208,20 +207,17 @@ export function ProviderEditor(props) {
                 ? [{ op: 'set', path: [...settingsPath], value: {} }]
                 : pathOps(settingsPath, committedOriginal, normalizedNext);
         if (ops.length > 0) {
-            const response = await api.settings.mutate({ ns, ops, expectedRevision });
-            if (!response.result.ok) {
-                return response.result.error.code === 'settings-conflict'
-                    ? t('conflict')
-                    : response.result.error.message;
-            }
-            setCommittedOriginal(schema.getPath(response.result.value.user, settingsPath));
-            setExpectedRevision(response.result.value.revision);
+            const written = await operations.writeSettings(ns, ops, expectedRevision);
+            if (written.kind !== 'written')
+                return written.kind === 'conflict' ? t('conflict') : written.message;
+            setCommittedOriginal(schema.getPath(written.view.user, settingsPath));
+            setExpectedRevision(written.view.revision);
             setDraft(normalizedNext);
         }
         if (keyValue.length > 0) {
-            const stored = await api.credentials.set({ ref: keyRef, value: keyValue });
-            if (!stored.result.ok)
-                return stored.result.error.message;
+            const stored = await operations.storeCredential(keyRef, keyValue);
+            if (stored !== undefined)
+                return stored;
         }
         setKeyDraft('');
         return undefined;
@@ -237,12 +233,6 @@ export function ProviderEditor(props) {
             }
             props.onClose(true);
         }
-        catch (error) {
-            // A transport failure (disconnect, a request the host refuses) rejects
-            // rather than answering; without this the card would stay busy forever
-            // with no error shown.
-            setFailure(messageOf(error));
-        }
         finally {
             setBusy(false);
         }
@@ -250,7 +240,7 @@ export function ProviderEditor(props) {
     if (node === undefined) {
         // A directory entry addressing a position its schema cannot resolve is a
         // host-side inconsistency; showing it beats a blank card.
-        return _jsx("p", { className: styles['error'], children: `${props.provider}: unresolvable settings path` });
+        return _jsxs("p", { className: styles['error'], children: [props.provider, ": ", props.t('settingsPathUnresolvable')] });
     }
     const keyLocked = keyState?.writable === false;
     /**
@@ -316,7 +306,7 @@ export function ProviderEditor(props) {
                                     ? (_jsx(DeepSeekModelsEditor, { ...catalogProps, defaultContextWindow: typeof defaultContextWindow === 'number'
                                             ? defaultContextWindow
                                             : undefined, defaultMaxTokens: typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined }))
-                                    : _jsx(ModelListEditor, { ...catalogProps, probe: probe, probeBlocked: keyFailure, api: api, ...props.modelCapabilities === undefined ? {} : { modelCapabilities: props.modelCapabilities } })] })] })] }));
+                                    : (_jsx(ModelListEditor, { ...catalogProps, probe: probe, probeBlocked: keyFailure, operations: operations, ...props.modelCapabilities === undefined ? {} : { modelCapabilities: props.modelCapabilities } }))] })] })] }));
     };
     return (_jsxs("div", { className: props.credentialOnly === true ? styles['addBlock'] : styles['editor'], children: [props.hideTitle === true
                 ? null
@@ -329,5 +319,5 @@ export function ProviderEditor(props) {
                 : (_jsx("p", { className: styles['advancedHint'], children: `${t('model')} ${String(modelFailure.index + 1)}: ${t(modelFailure.key)}` })), _jsx(EditorFooter, { t: t, busy: busy, submitDisabled: disabled || layout === 'unknown'
                     || (props.credentialOnly !== true && modelFailure !== undefined)
                     || shownKeyFailure !== undefined
-                    || (props.credentialRequired === true && keyValue.length === 0), submitLabel: props.submitLabel ?? 'apply', submitBusyLabel: props.submitBusyLabel ?? 'applying', ...props.cancelLabel === undefined ? {} : { cancelLabel: props.cancelLabel }, onCancel: () => { props.onClose(false); }, onSubmit: () => { void apply(); } })] }));
+                    || (props.credentialRequired === true && keyValue.length === 0), submitLabelKey: props.submitLabelKey ?? 'apply', submitBusyLabelKey: props.submitBusyLabelKey ?? 'applying', ...props.cancelLabelKey === undefined ? {} : { cancelLabelKey: props.cancelLabelKey }, onCancel: () => { props.onClose(false); }, onSubmit: () => { void apply(); } })] }));
 }

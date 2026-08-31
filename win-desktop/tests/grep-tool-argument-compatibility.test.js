@@ -21,7 +21,7 @@ const toolCallEndBlock = `\t\tcase "toolcall_end":
 \t\t\t\tindex: event.contentIndex,
 \t\t\t\tblock: {
 \t\t\t\t\ttype: "tool-call",
-\t\t\t\t\tid: CallId(event.toolCall.id),
+\t\t\t\t\tid: brandString(event.toolCall.id),
 \t\t\t\t\tname: event.toolCall.name,
 \t\t\t\t\targuments: JSON.stringify(event.toolCall.arguments)
 \t\t\t\t}
@@ -82,11 +82,9 @@ test('rewrites the installed pi-ai adapter once at the durable tool-call boundar
 
   assert.notEqual(rewritten, adapterSource)
   assert.match(rewritten, /function normalizeKnownToolArgumentAliases\(toolName, args\)/)
-  assert.match(rewritten, /async function\* toStreamChunks\(events, contextWindow\)/)
-  assert.doesNotMatch(rewritten, /toStreamChunks\(events, contextWindow, model\)/)
+  assert.match(rewritten, /async function\* toStreamChunks\(events, contextWindow, callerSignal\)/)
   assert.match(rewritten, /JSON\.stringify\(normalizeKnownToolArgumentAliases\(event\.toolCall\.name, event\.toolCall\.arguments\)\)/)
-  assert.match(rewritten, /\}\), model\.contextWindow\)\[Symbol\.asyncIterator\]\(\)/)
-  assert.doesNotMatch(rewritten, /model\.contextWindow, model/)
+  assert.match(rewritten, /\}\), model\.contextWindow, options\.signal\)\[Symbol\.asyncIterator\]\(\)/)
   assert.equal(rewriteKnownToolArgumentAliases(rewritten), rewritten)
 
   const routed = rewriteDesktopConsoleSource(adapterSource, pathToFileURL(fileURLToPath(adapterUrl)).href)
@@ -97,7 +95,7 @@ test('fails closed on ambiguous or drifted durable-boundary anchors', () => {
   const duplicateBlock = `${toolCallEndBlock}\n${adapterSource}`
   assert.equal(rewriteKnownToolArgumentAliases(duplicateBlock), duplicateBlock)
 
-  const duplicateSignature = `async function* toStreamChunks(events, contextWindow) {}\n${adapterSource}`
+  const duplicateSignature = `async function* toStreamChunks(events, contextWindow, callerSignal) {}\n${adapterSource}`
   assert.equal(rewriteKnownToolArgumentAliases(duplicateSignature), duplicateSignature)
 
   const drifted = adapterSource.replace(

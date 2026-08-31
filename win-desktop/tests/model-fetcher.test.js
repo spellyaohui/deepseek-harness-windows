@@ -351,7 +351,7 @@ test('live discovery gives a documented OpenCode profile its verified transport'
 test('desktop waits for OpenCode catalog preparation before starting Harness', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
   const prepareAt = source.indexOf('await prepareOpencodeCatalog()')
-  const startAt = source.indexOf('service = startDshService(')
+  const startAt = source.indexOf('service = await startDshService(')
   assert.ok(prepareAt >= 0)
   assert.ok(startAt > prepareAt)
 })

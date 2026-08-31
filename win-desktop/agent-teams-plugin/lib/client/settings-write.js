@@ -72,23 +72,19 @@ class SerializedAgentTeamsSettingsWriter {
         const generation = ++this.generation;
         let response;
         try {
-            response = await bounded(this.options.api.settings.mutate({
-                ns: SETTINGS_NAMESPACE,
-                ops: [...ops],
-                expectedRevision,
-            }), 'settings mutation', this.timeoutMs);
+            response = await bounded(this.options.api.settings.mutate(SETTINGS_NAMESPACE, [...ops], expectedRevision), 'settings mutation', this.timeoutMs);
         }
         catch (error) {
             if (generation === this.generation)
                 this.generation += 1;
             return this.failAndRecover(errorMessage(error));
         }
-        if (!response.result.ok) {
+        if (!response.ok) {
             if (generation === this.generation)
                 this.generation += 1;
-            return this.failAndRecover(response.result.error.message);
+            return this.failAndRecover(response.error.message);
         }
-        const next = response.result.value;
+        const next = response.value;
         const knownRevision = laterRevision(expectedRevision, laterRevision(this.revision, this.options.scope.getSnapshot().revision)) ?? expectedRevision;
         if (generation !== this.generation
             || next.ns !== SETTINGS_NAMESPACE
@@ -114,14 +110,14 @@ class SerializedAgentTeamsSettingsWriter {
         ++this.generation;
         let response;
         try {
-            response = await bounded(this.options.api.settings.describe({}), 'settings recovery', this.timeoutMs);
+            response = await bounded(this.options.api.settings.describe(), 'settings recovery', this.timeoutMs);
         }
         catch (error) {
             return errorMessage(error);
         }
-        if (!response.result.ok)
-            return response.result.error.message;
-        const recovered = response.result.value.namespaces.find((entry) => entry.ns === SETTINGS_NAMESPACE);
+        if (!response.ok)
+            return response.error.message;
+        const recovered = response.value.namespaces.find((entry) => entry.ns === SETTINGS_NAMESPACE);
         if (recovered === undefined)
             return 'agent-teams namespace is unavailable';
         const heldRevision = laterRevision(this.revision, this.options.scope.getSnapshot().revision);

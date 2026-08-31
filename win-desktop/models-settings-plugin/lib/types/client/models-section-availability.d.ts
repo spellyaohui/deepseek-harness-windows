@@ -1,5 +1,5 @@
 import type { ModelCapabilityProbeRemote } from '../remote.ts';
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client';
+import type { Context as ClientContext } from '@deepseek-ai/cordis';
 declare const REQUIRED_DEPENDENCIES: readonly ["controller", "useSnapshot", "api", "schema", "t", "renderSlot", "normalizeProviderProfile"];
 type RequiredDependency = typeof REQUIRED_DEPENDENCIES[number];
 type WithPresentDependencies<T extends Partial<Record<RequiredDependency, unknown>>> = T & {

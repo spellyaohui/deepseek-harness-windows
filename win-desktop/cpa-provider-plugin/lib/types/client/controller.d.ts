@@ -1,6 +1,26 @@
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client';
+import type { LlmDiscoveredModel, LlmModelDiscoveryRequest, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client';
 import type { CpaDraft, CpaModelCandidate } from '../types.ts';
-type CpaApi = Pick<IApiClient, 'llm' | 'settings' | 'credentials'>;
+type RemoteResult<Value> = {
+    readonly ok: true;
+    readonly value: Value;
+} | {
+    readonly ok: false;
+    readonly error: {
+        readonly code: string;
+        readonly message: string;
+    };
+};
+interface CpaApi {
+    readonly llm: {
+        discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<RemoteResult<LlmDiscoveredModel[]>>;
+    };
+    readonly settings: {
+        mutate(ns: string, ops: SettingsPathOpView[], expectedRevision: number | undefined): Promise<RemoteResult<unknown>>;
+    };
+    readonly credentials: {
+        set(ref: string, value: string): Promise<RemoteResult<void>>;
+    };
+}
 export type CpaSaveResult = {
     ok: true;
 } | {

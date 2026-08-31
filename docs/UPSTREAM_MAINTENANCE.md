@@ -7,14 +7,15 @@ prove it still exists.
 
 ## Current local identities
 
-- Windows desktop wrapper: `0.1.1-rc.32`
+- Official Harness source closure: `dsh-v0.1.2-alpha.2` at `0a53fb55bea101816fa226bb964ae2bed71c343b`
+- Windows desktop wrapper: `0.1.2-rc.1`
 - Tool-call guidance plugin: `0.1.0`
-- OpenCode capability validation plugin: `0.1.1`
-- AgentTeams fork: `0.1.14-desktop.11`, based on upstream `0.1.14`
-- CPA provider plugin: `0.1.5`
-- Models settings fork: `0.1.1-rc.2-desktop.6`
-- Desktop Settings plugin: `0.1.1`
-- Session Markdown export plugin: `0.1.0`
+- OpenCode capability validation plugin: `0.1.2`
+- AgentTeams fork: `0.1.14-desktop.12`, based on upstream `0.1.14`
+- CPA provider plugin: `0.1.7`
+- Models settings fork: `0.1.2-alpha.2-desktop.1`
+- Desktop Settings plugin: `0.1.2`
+- Session Markdown export plugin: `0.1.1`
 
 ## AgentTeams owner
 
@@ -27,13 +28,13 @@ prove it still exists.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| CLIProxyAPI address and Token flow, `/v1/models` discovery, `openai-responses` profile, text/image input modalities, current-profile `auto` preservation, invalid-input pass-through to the shared save gate, revision-guarded migration limited to legacy CPA defaults, seven-level R vocabulary, GPT-5.6 effort filtering, per-model raw context/output capacities, redacted persistence, and exactly one native Models provider row | `win-desktop/cpa-provider-plugin` | Independent local Provider plugin; native editor is rendered by the Models fork through a provider-profile normalization seam. The seam sets the Provider default but must not reinterpret current missing/empty model input or hide malformed input. | `src/index.ts`, `src/migration.ts`, `src/address.ts`, `src/profile.ts`, `src/reasoning.ts`, `src/client/index.tsx`, `src/client/capacity.ts`, `src/client/controller.ts` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` and `tests/agent-teams-integration.test.js` |
+| CLIProxyAPI address and Token flow, `/v1/models` discovery, `openai-responses` profile, text/image input modalities, current-profile `auto` preservation, invalid-input pass-through to the shared save gate, revision-guarded migration limited to legacy CPA defaults, seven-level R vocabulary, GPT-5.6 effort filtering, per-model raw context/output capacities, redacted persistence, exactly one native Models provider row, and Windows-safe generated-output detachment before compilation | `win-desktop/cpa-provider-plugin` | Independent local Provider plugin; native editor is rendered by the Models fork through a provider-profile normalization seam. The seam sets the Provider default but must not reinterpret current missing/empty model input or hide malformed input. | `src/index.ts`, `src/migration.ts`, `src/address.ts`, `src/profile.ts`, `src/reasoning.ts`, `src/client/index.tsx`, `src/client/capacity.ts`, `src/client/controller.ts`, `scripts/detach-output-links.mjs`, `tests/output-link-safety.test.js` | `pnpm test`; wrapper `tests/cpa-provider-integration.test.js` and `tests/agent-teams-integration.test.js` |
 
 ## Models settings owner
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Additive `settings.models.card` slot, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, one sequential cancellable capability probe with explicit overwrite, and page-level degradation when that Remote is absent or late | `win-desktop/models-settings-plugin` | Minimal fork of upstream `@deepseek-ai/dsh-client-ui-settings-models@0.1.1-rc.2`; the Host Remote and editor are provider-neutral, while CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork. The Remote is never a prerequisite for rendering or editing the Models page. | `src/client/ModelsSection.tsx`, `src/client/models-section-availability.ts`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/models-section-availability.test.js`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
+| Alpha.2 `settings.models.provider-card`/footer slot integration, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, one sequential cancellable capability probe with explicit overwrite, and page-level degradation when that Remote is absent or late | `win-desktop/models-settings-plugin` | `SUPERSEDED_BY_DESIGN + REAPPLY`: Alpha.2 replaces the rc.2 Models/Onboarding/Slot architecture; the fork is rebased onto that design and reapplies only provider-neutral image/reasoning capability contracts and the late Remote seam. CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork. | `src/client/ModelsSection.tsx`, `src/client/models-section-availability.ts`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/alpha2-base.test.js`, `tests/models-section-availability.test.js`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/alpha2-client-contract.test.js`, `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
 
 ## Desktop Settings owner
 
@@ -53,6 +54,8 @@ prove it still exists.
 | --- | --- | --- | --- | --- |
 | Wrapper-wide tool-call guidance: derive arguments from current schemas/context, omit unknown or blank optional properties unless empty is explicitly meaningful, and never repeat failed invalid arguments unchanged | `win-desktop/tool-call-guidance-plugin` | Independent local system-prompt plugin. It registers no tools, settings, Provider behavior, or lifecycle state and stays at or below 500 characters. | `tool-call-guidance-plugin/lib/index.js`, `package.json`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `scripts/sync-local-plugin-artifacts.mjs` | `tests/tool-call-guidance.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest test |
 | Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | Compatibility rewrites over official Windows runtime packages | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
+| Hide only the native Subagent plugin settings card while retaining the Host namespace, saved settings, official Subagent runtime closure, and AgentTeams spawn path | `win-desktop` | `REAPPLY`: Alpha.2 provides no single-card visibility control. The Wrapper rewrites the client-module initial/HMR bundle snapshot boundary and changes only the exact Subagent Slot key to an equal-length unserved internal key. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/subagent-settings-card-visibility.test.js`, `tests/agent-teams-integration.test.js`, and the local capability manifest test |
+| Alpha.2 authenticated startup URL handoff: retain the complete canonical `http://127.0.0.1:<port>/?token=...` readiness URL, reject a bare loopback origin, and never persist or document the process token | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: Alpha.2 owns token issuance, cookie exchange, and clean-root redirect; the wrapper owns lossless capture of the official `dsh web:` URL and passes it directly to Electron. | `src/dsh-service.js`, `src/main.js` | `tests/dsh-web-auth-url.test.js` and the local capability manifest test |
 | Provider-neutral `grep` argument alias normalization at the `dsh-llm-pi-ai` durable tool-call boundary, limited to a missing `pattern` plus an exact single-line `description: "pattern: <non-empty value>"` shape | `win-desktop` | `REAPPLY` until upstream performs an equivalent deterministic normalization. No provider/model routing or optional settings toggle owns this behavior; existing `pattern` values and every ambiguous malformed call remain under the strict upstream Schema. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/grep-tool-argument-compatibility.test.js` and the local capability manifest test |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |
 | Local plugin installation, patch graph, startup healing, compiled-local-plugin artifact synchronization, OpenCode model-catalog preparation, verified OpenCode protocol/image-capability reconciliation (static, persisted and live catalogs), including Kimi K3's tool-compatible first-request profile, official-client Schema lowering, provider-wide OpenCode Go session affinity, and the narrow manual validation bridge | `win-desktop` plus `opencode-capabilities-plugin` | `REAPPLY` until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; known legacy modality mappings may correct only input capability, while unknown models retain text-only fallback. Every OpenCode Go model must receive `x-opencode-session` from the active Harness session, including with `cacheRetention: "none"`; generic providers remain unchanged. Kimi K3 must keep `supportsStrictMode: false`, reasoning-content replay, deferred-tool handling, and Kimi Schema normalization for ref siblings and tuple-style `items`. Do not infer an unknown model's protocol or retry a 500 over another endpoint. | `package.json`, `package-lock.json`, `scripts/sync-local-plugin-artifacts.mjs`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js`, `src/win-hide-console-rewrite.js`, `src/preload.cjs`, `src/settings-window.js`, `opencode-capabilities-plugin/lib/client.js` | `tests/heal-desktop-plugins.test.js`, `tests/local-plugin-artifacts.test.js`, `tests/model-fetcher.test.js`, `tests/opencode-stream-rewrite.test.js`, `tests/opencode-capabilities-integration.test.js`, and the local capability manifest test |
@@ -62,56 +65,31 @@ OpenCode 官方客户端在其请求准备代码中会为 `providerID` 以 `open
 只在 `opencode-go` 的 Pi Completions/Responses 请求中补这一头，Muse Spark 原有的
 `openai-responses` 模型档案保持不变。依据：[OpenCode 请求准备源码](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/llm/request.ts)、[OpenCode Go 会话粘性说明](https://github.com/anomalyco/opencode/issues/35402)。
 
-## Upstream availability audit — 2026-08-30
+## Alpha.2 migration classification — 2026-08-31
 
-The official Harness source repository publishes
-[`dsh-v0.1.2-alpha.1`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.1)
-at commit `cd5ef8148158c3a752a658978873241fdf8e2bbc`. The source release is
-1,079 commits and 300 changed files ahead of `dsh-v0.1.1-rc.2`, including
-Remote-only API migration, Models provider-card/footer slots, new subagent
-route controls, Profile startup changes, and a split conversation UI.
+The official Harness tag `dsh-v0.1.2-alpha.2` resolves exactly to
+`0a53fb55bea101816fa226bb964ae2bed71c343b`. The source was built with the
+official pnpm `11.7.0` contract, packed as 9 vendor plus 245 dsh tarballs, and
+verified in a temporary packed-install environment. The wrapper consumes only
+those stable ignored tarball paths; the checked-in
+`UPSTREAM_ALPHA2_SOURCE_MANIFEST.md` records all package identities and hashes.
 
-That source tag is not yet an installable release for this wrapper: the
-GitHub Release has no assets, npm has no `0.1.2-alpha.1` version for the
-required `@deepseek-ai/dsh*` packages, and their `next` dist-tags still point
-to `0.1.1-rc.2`. Mixing one alpha source package with the rc.2 runtime would
-cross Remote, slot, and startup contracts without a published dependency
-closure. The wrapper therefore retains the latest complete official npm
-baseline, `dsh-v0.1.1-rc.2`; no Harness provenance is advanced by this audit.
-
-AgentTeams' latest official Release remains
-[`v0.1.14`](https://github.com/NanmiCoder/dsh-agent-teams/releases/tag/v0.1.14)
-at source commit `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`, which is already the
-fork baseline. CPA, Desktop Settings, Session Markdown, OpenCode capability
-validation, and tool-call guidance remain independently owned local plugins
-with no newer registered upstream package. Re-run the complete seven-step
-refresh when the official Harness alpha package set is published; do not
-source-build or partially import it during release packaging.
-
-## Required classification
-
-### Refresh classification — 2026-08-28
-
-The live upstream check found AgentTeams `v0.1.14` at source commit
-`5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`. Official Harness remains pinned at
-`0.1.1-rc.2`. The seven registered owner rows were
-classified as follows:
+The current migration classification is:
 
 | Registered owner row | Result | Refresh action |
 | --- | --- | --- |
-| AgentTeams | `REAPPLY` | Imported upstream v0.1.14, then reapplied role-level Provider/model/reasoning policy, strict Profile/Team V2, shared catalog, route policy, Team/Native tool boundary, claim compatibility, and Windows verification seams. |
-| CPA | `REAPPLY` | No upstream owner change; retained the independent CPA plugin and its migration, modality, capacity, and native-row regressions. |
-| Models settings | `REAPPLY` | No upstream owner change; retained the provider-neutral native editor, additive slot seam, model-level image-input contract, Host capability Remote, draft-only probe application, and generated-output mapping protection without adding provider/model rules. |
-| Desktop Settings | `REAPPLY` | No upstream owner change; retained the Harness-native desktop section and immediate-save IPC bridge. |
-| Session Markdown | `REAPPLY` | No upstream owner change; retained continuation export ownership and regression coverage. |
-| Windows wrapper | `REAPPLY` | No upstream owner change; retained shell, OpenCode, plugin-mount, startup-healing, and artifact synchronization compatibility. |
+| Harness core runtime | `UPSTREAM_EQUIVALENT` | Use the complete fixed Alpha.2 release families and their official app boot, Remote, session, Web, tool, and Windows package graph; do not maintain an rc.2 fallback runtime. |
+| AgentTeams | `UPSTREAM_EQUIVALENT + REAPPLY` | Retain upstream v0.1.14 execution semantics; adapt to Alpha.2 client seams and migrate only verified wait/scoped identity/Revision-CAS/event behavior from experimental source without installing experimental packages. Reapply role-level Provider/model/reasoning, strict V2, quality, compact status, shared catalog, Team/Native and desktop editor contracts. |
+| CPA | `REAPPLY` | Retain the independent Provider plugin, native single-row editor seam, revision-guarded migration, image default, capacity and reasoning vocabulary against Alpha.2 Models APIs. |
+| Models settings | `SUPERSEDED_BY_DESIGN + REAPPLY` | Rebase onto Alpha.2 provider-card/footer, Onboarding and Remote architecture, then reapply provider-neutral image modes, reasoning/capability probes, late Remote availability and output-link safety. |
+| Desktop Settings | `REAPPLY` | Retain the Harness-native desktop section and immediate-save IPC bridge on the Alpha.2 settings slot. |
+| Session Markdown | `REAPPLY` | Adapt renderer/session/todo type ownership to Alpha.2 while retaining deterministic continuation export and lineage behavior. |
+| Windows wrapper | `SUPERSEDED_BY_DESIGN + REAPPLY` | Move CreateProcess hiding to Alpha.2's `dsh-win32-process` owner boundary; retain provider-neutral grep normalization, OpenCode/Kimi rewrites, stream recovery, session affinity, plugin healing and startup integration. |
 | Tool-call guidance | `REAPPLY` | Retained the independent compact system-prompt plugin and its 500-character contract before AgentTeams. |
 
-The former AUTO permission integration was removed by explicit product
-decision, including dependency, launch Patch, healing expectations, prompt,
-UI ownership claims, and documentation. It is not an upstream-equivalent
-classification and must not be restored during a refresh. Old AUTO sessions
-are not migrated, and stale user Profile cache files remain untouched and inert.
+AUTO remains intentionally removed. It is not an Owner, dependency, Patch
+entry, prompt section, settings surface, or migration target. Stale user data
+is left untouched and inert.
 
 AgentTeams' mixed upstream/local capability row is further split here so that
 an upstream-equivalent behavior is not mistaken for ownership of the local
@@ -123,9 +101,7 @@ fork's settings contract:
 | Strict Profile/Team `schemaVersion: 2`, required role routes, and rejection of older on-disk data without migration | `REAPPLY` | Kept V2-only validation, explicit role cards, old-data error handling, restart-required injection, and profile/store/YAML regressions. |
 | Local `子智能体` settings, shared catalog including CPA/OpenCode, role-level `target-default`/`route-aware`/`explicit` reasoning, and explicit route authority | `REAPPLY` | Kept the local settings runtime, shared Harness catalog, role selection policy, and settings-client regressions; global member-model/reasoning controls are absent. |
 | Team/Native durable markers, native-tool suppression, member claim compatibility, and local desktop mounting | `REAPPLY` | Kept the routing policy, tolerant claim behavior, client injection, and wrapper integration regressions. |
-| Durable task/member/attempt recovery core | `UPSTREAM_EQUIVALENT` | Reconciled the v0.1.14 lifecycle implementation and passed the lifecycle and complex stress suites; local claim/policy seams remain reapplied. |
-
-No registered capability required `SUPERSEDED_BY_DESIGN` in this refresh.
+| Durable task/member/attempt recovery core plus Alpha.2-compatible wait, identity scope, revision/CAS and activity events | `UPSTREAM_EQUIVALENT + REAPPLY` | Keep upstream v0.1.14 lifecycle behavior, use the verified Alpha.2 architecture where equivalent, and retain local lifecycle/quality/stress/build-path regressions without installing experimental packages. |
 
 ### AgentTeams incidents that must not recur
 
@@ -133,6 +109,7 @@ No registered capability required `SUPERSEDED_BY_DESIGN` in this refresh.
 | --- | --- | --- |
 | `you are not leading any team yet — call agent_teams_create first` during cleanup | `agent_teams_delete` returns an idempotent no-op when no captain Team exists | `tdd.delete.without-active-team-is-idempotent.tool` |
 | `you do not lead or belong to any active team yet` during a status probe | `agent_teams_status` returns `active: false`; participant mutation and messaging remain strict | `tdd.status.without-active-team-is-a-clean-probe.tool` plus lifecycle identity checks |
+| `you are not leading any team yet — call agent_teams_create first` during an approval-like “继续/确认” turn | `agent_teams_approve` requires a freshly observed staged Team; without one it returns an inactive no-op and the create next step, without writing state | `tdd.approve.without-active-team-is-a-clean-noop.tool` and `usage prompt preserves approval preflight` |
 | A non-GPT model supplied blank optional strings and the newly written Team then failed strict V2 loading | Blank optional task strings are omitted before persistence; V2 validation remains strict and no compatibility migration is added | `tdd.create.blank-optional-strings-do-not-corrupt-v2-team.tool` and strict-state verification |
 | `implementation is blocked until a requirements task completes with verdict=pass` while constructing a safe running DAG | Implementation may be queued only when it explicitly depends on the open requirements task; dispatch still waits for `completed + verdict=pass` | `tdd.create.running-implementation-can-queue-behind-requirements` and requirements scheduling checks |
 | `team ... is already running; its plan can no longer be edited` surfaced as a red tool error | `agent_teams_edit_plan` returns structured `already_running` guidance and performs no write; only staged plans can be edited atomically | `tdd.edit-plan.running-team-returns-guidance-without-tool-error` and staged atomic lifecycle checks |
@@ -217,9 +194,12 @@ release-blocking procedure:
 3. Resolve those packages with Node `createRequire` from
    `dist/win-unpacked/resources/app/src/dsh-service.js`; filesystem presence
    alone is insufficient.
-4. Inspect the ZIP archive for the same package manifests, then record SHA-256
-   for the EXE and ZIP. Code-signing status is an independent release property
-   and must not be confused with dependency closure.
+4. Run `scripts/verify-alpha2-zip-closure.mjs` against the ZIP and
+   `win-unpacked`; it must reject unsafe archive paths, resolve the same
+   release-critical runtime packages, and match every package/app manifest by
+   SHA-256. Then record SHA-256 for the EXE, ZIP, and blockmap. Code-signing
+   status is an independent release property and must not be confused with
+   dependency closure.
 5. Do not hot-overwrite an installed running copy. Close old processes before
    installing the verified artifact; the screenshot path of an old install is
    not evidence about the newly built package.
@@ -231,20 +211,20 @@ requirement; they do not replace it. Future upstream refreshes must rerun the
 full `npm run verify:upstream` gate before package generation and repeat these
 closure checks before release publication.
 
-## Generated-output mapping incident — 2026-08-30
+## Generated-output mapping incident — 2026-08-30 / 2026-08-31
 
-The Models plugin build intermittently failed on Windows with TypeScript
+The Models and CPA plugin builds intermittently failed on Windows with TypeScript
 `TS5033` or Rolldown `os error 1224` while writing files under `lib/`. The
 generated files were hardlinked into another local plugin's installed
 `node_modules`, and a consumer/indexer could hold a user-mapped section over
 one of those directory entries. This was a build-environment race, not a
 provider or model capability failure.
 
-The Models package now runs
+Both packages now run their own
 `scripts/detach-output-links.mjs` before TypeScript/Rolldown. It recursively
 replaces each existing regular `lib` output with a byte-identical private copy,
 never follows symlinks, and leaves the consumer's old inode untouched. The
-`output-link-safety.test.js` regression proves the bytes and unrelated hardlink
+`output-link-safety.test.js` regressions prove the bytes and unrelated hardlink
 remain intact. Future refreshes must retain this prebuild step and regression;
 do not solve the error by deleting generated outputs, weakening the upstream
 gate, or killing user processes.

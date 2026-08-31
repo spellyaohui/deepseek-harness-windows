@@ -1,4 +1,9 @@
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
+import type {
+  LlmDiscoveredModel,
+  LlmModelDiscoveryRequest,
+  SettingsPathOpView,
+} from '@deepseek-ai/dsh-api-remotes/client'
+import { snapshotJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
 import { normalizeCpaBaseURL } from '../address.ts'
 import { buildCpaProfile } from '../profile.ts'
 import type { CpaDraft, CpaModelCandidate } from '../types.ts'
@@ -6,12 +11,39 @@ import type { CpaDraft, CpaModelCandidate } from '../types.ts'
 const SETTINGS_NAMESPACE = 'llm-pi-ai'
 const PROVIDER = 'cpa'
 const CREDENTIAL_REF = 'CPA_API_KEY'
-type CpaApi = Pick<IApiClient, 'llm' | 'settings' | 'credentials'>
+type RemoteResult<Value> =
+  | { readonly ok: true; readonly value: Value }
+  | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
+
+interface CpaApi {
+  readonly llm: {
+    discoverModels(
+      settingsNs: string,
+      request: LlmModelDiscoveryRequest,
+      signal?: AbortSignal,
+    ): Promise<RemoteResult<LlmDiscoveredModel[]>>
+  }
+  readonly settings: {
+    mutate(
+      ns: string,
+      ops: SettingsPathOpView[],
+      expectedRevision: number | undefined,
+    ): Promise<RemoteResult<unknown>>
+  }
+  readonly credentials: {
+    set(ref: string, value: string): Promise<RemoteResult<void>>
+  }
+}
 export type CpaSaveResult =
   | { ok: true }
   | { ok: false; stage: 'profile' | 'credential'; message: string }
 export interface CpaControllerOptions { timeoutMs?: number; setTimeoutFn?: typeof setTimeout; clearTimeoutFn?: typeof clearTimeout }
 function messageOf(error: unknown): string { return error instanceof Error ? error.message : String(error) }
+function profileValue(draft: CpaDraft): JsonValue {
+  const profile = snapshotJsonValue(buildCpaProfile(draft))
+  if (profile === undefined) throw new Error('CPA profile is not losslessly JSON-serializable')
+  return profile as unknown as JsonValue
+}
 async function within<T>(promise: Promise<T>, timeoutMs: number, setTimeoutFn: typeof setTimeout, clearTimeoutFn: typeof clearTimeout): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
@@ -27,10 +59,10 @@ export function createCpaController(api: CpaApi, options: CpaControllerOptions =
     async discover(draft: Pick<CpaDraft, 'baseURL' | 'token'>): Promise<CpaModelCandidate[]> {
       const baseURL = normalizeCpaBaseURL(draft.baseURL)
       const apiKey = draft.token.trim()
-      const response = await within(api.llm.discoverModels({ settingsNs: SETTINGS_NAMESPACE, provider: PROVIDER, api: 'openai-responses', baseURL, ...apiKey === '' ? {} : { apiKey } }), timeoutMs, setTimeoutFn, clearTimeoutFn)
-      if (!response.result.ok) throw new Error(response.result.error.message)
+      const response = await within(api.llm.discoverModels(SETTINGS_NAMESPACE, { provider: PROVIDER, api: 'openai-responses', baseURL, ...apiKey === '' ? {} : { apiKey } }), timeoutMs, setTimeoutFn, clearTimeoutFn)
+      if (!response.ok) throw new Error(response.error.message)
       const seen = new Set<string>(); const models: CpaModelCandidate[] = []
-      for (const candidate of response.result.value.models) {
+      for (const candidate of response.value) {
         const id = typeof candidate.id === 'string' ? candidate.id.trim() : ''
         if (id === '' || seen.has(id)) continue
         seen.add(id)
@@ -43,8 +75,8 @@ export function createCpaController(api: CpaApi, options: CpaControllerOptions =
       if (!profileCommitted) {
         onStage('profile')
         try {
-          const response = await api.settings.mutate({ ns: SETTINGS_NAMESPACE, expectedRevision, ops: [{ op: 'set', path: ['providers', PROVIDER], value: buildCpaProfile(draft) }] })
-          if (!response.result.ok) return { ok: false, stage: 'profile', message: response.result.error.message }
+          const response = await api.settings.mutate(SETTINGS_NAMESPACE, [{ op: 'set', path: ['providers', PROVIDER], value: profileValue(draft) }], expectedRevision)
+          if (!response.ok) return { ok: false, stage: 'profile', message: response.error.message }
           profileCommitted = true
         } catch (error) { return { ok: false, stage: 'profile', message: messageOf(error) }
         }
@@ -53,8 +85,8 @@ export function createCpaController(api: CpaApi, options: CpaControllerOptions =
       if (value !== '') {
         onStage('credential')
         try {
-          const response = await api.credentials.set({ ref: CREDENTIAL_REF, value })
-          if (!response.result.ok) return { ok: false, stage: 'credential', message: response.result.error.message }
+          const response = await api.credentials.set(CREDENTIAL_REF, value)
+          if (!response.ok) return { ok: false, stage: 'credential', message: response.error.message }
         } catch (error) { return { ok: false, stage: 'credential', message: messageOf(error) }
         }
       }

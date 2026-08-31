@@ -25,8 +25,8 @@ const PLATFORM_MODULES = [
   '@deepseek-ai/dsh-client-ui-primitives',
 ]
 
-/** Dynamic rows whose factories the rc.8 shell preloads before boot. */
-const PRELOADED_CLIENT_EXTERNALS = ['@deepseek-ai/dsh-client-runtime/client']
+/** Alpha.2 browser services whose factories are preloaded before boot. */
+const PRELOADED_CLIENT_EXTERNALS = ['@deepseek-ai/dsh-client-store']
 
 /** Externals resolved from the loader module table. */
 const CLIENT_EXTERNALS: readonly string[] = [...PLATFORM_MODULES, ...PRELOADED_CLIENT_EXTERNALS]

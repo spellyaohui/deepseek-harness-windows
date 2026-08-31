@@ -4,16 +4,16 @@ import test from 'node:test'
 import { createCpaController } from '../lib/client/controller.js'
 
 function ok(value) {
-  return { result: { ok: true, value } }
+  return { ok: true, value }
 }
 
 test('discovers CPA models with the normalized Responses draft and one-shot Token', async () => {
   let payload
   const api = {
     llm: {
-      async discoverModels(next) {
-        payload = next
-        return ok({ models: [{ id: 'gpt-5.6-sol' }, { id: 'model-b', name: 'Model B' }] })
+      async discoverModels(settingsNs, next) {
+        payload = { settingsNs, ...next }
+        return ok([{ id: 'gpt-5.6-sol' }, { id: 'model-b', name: 'Model B' }])
       },
     },
     settings: { mutate: async () => ok({}) },
@@ -40,14 +40,14 @@ test('saves the redacted profile before the Token', async () => {
   const api = {
     llm: { discoverModels: async () => ok({ models: [] }) },
     settings: {
-      async mutate(payload) {
-        calls.push({ kind: 'settings', payload })
+      async mutate(ns, ops, expectedRevision) {
+        calls.push({ kind: 'settings', payload: { ns, ops, expectedRevision } })
         return ok({ revision: 8 })
       },
     },
     credentials: {
-      async set(payload) {
-        calls.push({ kind: 'credential', payload })
+      async set(ref, value) {
+        calls.push({ kind: 'credential', payload: { ref, value } })
         return ok({})
       },
     },
@@ -82,7 +82,7 @@ test('retries only credential storage after the profile has committed', async ()
       async set() {
         credentialCalls += 1
         return credentialCalls === 1
-          ? { result: { ok: false, error: { message: 'credential unavailable' } } }
+          ? { ok: false, error: { code: 'credentials/unavailable', message: 'credential unavailable' } }
           : ok({})
       },
     },

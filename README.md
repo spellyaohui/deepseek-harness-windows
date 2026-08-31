@@ -2,7 +2,17 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.1-rc.32`（开发者预览）
+> 当前版本：`v0.1.2-rc.1`（开发者预览）
+
+## `v0.1.2-rc.1` 更新说明
+
+- 主运行时迁移到官方 `dsh-v0.1.2-alpha.2` 固定提交 `0a53fb55bea101816fa226bb964ae2bed71c343b`。官方源码以 Node 26 / pnpm 11.7.0 完成 `build:official`，分别打包 9 个 vendor 与 245 个 dsh 包，并在脱离源码目录的临时环境通过 packed-install；Windows Wrapper 只引用这 254 个已记录 SHA-256 的固定本地 tarball，不混用 rc.2 运行时。
+- 保留并适配模型统一兼容层：每模型 `自动 / 文本和图像 / 仅文本`、显式协议、容量、reasoning 档位与兼容字段仍由同一原生 Models 编辑器管理；能力探测继续按当前 Provider/地址/协议串行运行，认证、超时、限流、5xx 和网络失败不会被误判为“不支持”。
+- AgentTeams 适配 Alpha.2 的 Remote/Slot 与会话接口，并迁入已验证的 wait、身份作用域、Revision/CAS 和事件恢复结构；角色级 Provider/模型/思考策略、严格 V2、质量门禁、紧凑只读状态、Team/Native 路由和桌面 Profile 编辑仍由本地 fork 独立维护。
+- Windows 兼容重写迁移到 Alpha.2 实际模块边界，保留通用 `grep` 参数归一化、OpenCode/Kimi Schema/流恢复/会话头、隐藏控制台、启动 healing 和 Session Markdown。AUTO 继续完全移除，也不增加旧 Team/旧对话迁移层。
+- Windows 启动器会保留 Alpha.2 就绪地址中的一次性认证 token，再由 Electron 完成 cookie 交换和干净根页面跳转，避免无认证 loopback 地址造成黑屏提示。
+- “插件 → 插件配置”隐藏了与独立“子智能体”设置页重复的原生 Subagent 卡；官方 Subagent 服务、已有设置和 AgentTeams 成员运行链保持不变。
+- 新增源码与安装包依赖闭包门禁：从 `src/dsh-service.js` 使用 Node `createRequire` 遍历实际生产依赖，并在打包后复核 `dsh-app-boot`、Cordis loader/include、`js-yaml`、`argparse` 及 Alpha.2 运行时闭包。完整来源见 [Alpha.2 来源清单](docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md)。
 
 ## `v0.1.1-rc.32` 更新说明
 
@@ -65,6 +75,7 @@
 - 运行中的 Team 允许把 `implementation` 任务预先排在尚未完成的 requirements 任务之后；只有明确依赖该 requirements 才能创建，调度仍须等待其 `completed + verdict=pass`，不会绕过质量门。
 - 修复非 GPT 模型在 `agent_teams_create_task` 中补出空可选字段后，Team 虽创建成功却在下一次读取时报“AgentTeams V2 状态无效”的问题；空的 `objective`、`reviewedTaskId`、`sourceTaskId` 现在会在持久化前省略。
 - `agent_teams_delete` 在当前会话尚未创建 Team 时改为幂等返回“无需删除”，不再显示 `you are not leading any team yet` 红色错误。
+- 没有 staged Team 时，模型把“继续/确认”误判为审批会得到 inactive 引导，不再显示同类红色工具错误；不会隐式创建或写入 Team。
 - 继续严格使用 V2 Profile/Team 与角色级 Provider、模型、思考强度设置；不新增旧状态迁移或旧对话兼容层。
 
 ## `v0.1.1-rc.22` 更新说明
@@ -97,7 +108,7 @@
 
 ## 核心卖点
 
-- **上游兼容，而不是另起炉灶**：运行时核心来自锁定版本的官方 DeepSeek Harness npm 包，本项目主要负责 Windows 包装、插件组合和窄范围兼容修复。
+- **上游兼容，而不是另起炉灶**：运行时核心来自锁定提交构建并逐包校验的官方 DeepSeek Harness release family，本项目主要负责 Windows 包装、插件组合和窄范围兼容修复。
 - **开箱即用的 Windows 桌面入口**：随机本地端口避免冲突，隐藏 Node/命令行窗口，启动失败提供更清晰的恢复路径。
 - **CPA 多模型与多模态**：通过 `CPA / CLIProxyAPI` 原生提供方接入 OpenAI Responses 兼容网关，自动获取模型；CPA 模型默认声明 `text + image`，支持图片附件和模型级纯文本覆盖。
 - **完整的思考协议映射**：支持 `off / low / medium / high / xhigh / max`，其他模型保留完整七档词汇，GPT-5.6 按其可用档位过滤。
@@ -124,7 +135,7 @@
 - `docs/superpowers/specs/`：已确认的功能设计。
 - `docs/superpowers/plans/`：分阶段实施计划。
 
-官方 DeepSeek Harness 源码仅作为本地核对材料使用，不纳入本仓库。运行时能力来自锁定版本的官方 npm 包。
+官方 DeepSeek Harness checkout、构建缓存和 tarball 仅作为本地核对材料使用，不纳入本仓库；仓库内保留固定 tag/commit、工具链、包身份与全部 SHA-256 的可审计清单。
 
 ## 当前能力
 
@@ -240,7 +251,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.11`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.12`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

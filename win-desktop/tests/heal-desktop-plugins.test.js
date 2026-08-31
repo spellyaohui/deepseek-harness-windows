@@ -44,10 +44,10 @@ test('profile directory cannot resolve desktop plugins before healing', () => {
   }
 })
 
-test('healing the desktop install anchor makes desktop plugins resolvable from the profile', () => {
+test('healing the desktop install anchor makes desktop plugins resolvable from the profile', async () => {
   const { home, profileDir } = makeHome()
   try {
-    healDesktopPluginFallback({
+    await healDesktopPluginFallback({
       installAnchor: resolveDesktopInstallAnchor(),
       home,
     })
@@ -60,6 +60,15 @@ test('healing the desktop install anchor makes desktop plugins resolvable from t
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
+})
+
+test('service launch awaits Alpha.2 module healing before spawning dsh', () => {
+  const source = readFileSync(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
+  assert.match(source, /export async function startDshService/)
+  const heal = source.indexOf('await healDesktopPluginFallback')
+  const spawn = source.indexOf('const child = spawn(')
+  assert.ok(heal >= 0, 'service launch must await module fallback healing')
+  assert.ok(spawn > heal, 'dsh must spawn only after module fallback healing settles')
 })
 
 test('dsh web args omit AUTO and retain the Windows and desktop patches', () => {
@@ -86,9 +95,10 @@ test('wrapper dependency graph contains no AUTO plugin', () => {
 })
 
 test('desktop shell declares dsh-app-boot as a direct runtime dependency', () => {
-  assert.equal(packageJson.dependencies['@deepseek-ai/dsh-app-boot'], '0.1.1-rc.2')
-  assert.equal(packageLock.packages[''].dependencies['@deepseek-ai/dsh-app-boot'], '0.1.1-rc.2')
-  assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.1.1-rc.2')
+  const alpha2Boot = 'file:../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-app-boot-0.1.2-alpha.2.tgz'
+  assert.equal(packageJson.dependencies['@deepseek-ai/dsh-app-boot'], alpha2Boot)
+  assert.equal(packageLock.packages[''].dependencies['@deepseek-ai/dsh-app-boot'], alpha2Boot)
+  assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.1.2-alpha.2')
 })
 
 test('desktop shell declares the boot loader runtime closure directly', () => {

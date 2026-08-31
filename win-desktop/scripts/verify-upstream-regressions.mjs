@@ -9,16 +9,17 @@ const gates = [
   ['agent-teams-plugin', 'pnpm', ['test']],
   ['session-markdown-export-plugin', 'pnpm', ['test']],
   ['.', 'npm', ['run', 'sync:local-plugin-artifacts']],
+  ['.', 'node', ['scripts/verify-alpha2-runtime-closure.mjs', '--from', 'node_modules']],
   ['.', 'npm', ['test']],
 ]
 
 function platformCommand(command) {
-  return process.platform === 'win32' ? `${command}.cmd` : command
+  return command === 'node' ? process.execPath : process.platform === 'win32' ? `${command}.cmd` : command
 }
 
 function runGate(command, args, options) {
   const executable = platformCommand(command)
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' && command !== 'node') {
     return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', executable, ...args], options)
   }
   return spawnSync(executable, args, options)

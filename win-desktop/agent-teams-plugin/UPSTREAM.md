@@ -10,7 +10,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.11`.
+- Desktop fork version is `0.1.14-desktop.12`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -67,6 +67,12 @@
   requires explicit `wake="recover"`. Normal creation, approval, task-update,
   and member-idle scheduling remains event-driven, and the status renderer is
   isolated in `src/status-render.ts` for future upstream conflict review.
+- `.desktop.12` adapts the client, settings and activity surfaces to Harness
+  `dsh-v0.1.2-alpha.2`, and ports the verified wait, identity-scoping,
+  Revision/CAS and event-recovery structure needed by the desktop fork. It does
+  not install the upstream experimental AgentTeams packages; role-level model
+  authority, strict V2 state, quality gates and desktop Profile editing remain
+  local owners with their existing regressions.
 - `.desktop.5` makes each Profile role the authority for Provider, model, and
   reasoning policy, removes global member-model/reasoning settings, and
   requires strict Profile/Team `schemaVersion: 2`. Older persisted documents

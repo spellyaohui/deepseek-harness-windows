@@ -1,6 +1,16 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 npm 包 `@deepseek-ai/dsh@0.1.1-rc.2` 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.1-rc.32`。
+本目录把官方 `dsh-v0.1.2-alpha.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.2-rc.1`。
+
+## `v0.1.2-rc.1` 更新说明
+
+- 固定官方 tag `dsh-v0.1.2-alpha.2` / commit `0a53fb55bea101816fa226bb964ae2bed71c343b`，以 pnpm 11.7.0 构建并验证 9 个 vendor 与 245 个 dsh tarball；Wrapper 只使用这套已记录 SHA-256 的本地包，不保留 rc.2 双运行时。
+- Models、CPA、OpenCode、Desktop Settings、Session Markdown 与 AgentTeams 均适配 Alpha.2 的 Remote、Slot、会话和启动边界；模型图片三态、协议、容量、reasoning 探测和角色级模型策略继续保留。
+- AgentTeams 本地 fork 更新到 `0.1.14-desktop.12`：使用 Alpha.2 client seams，并迁入经过验证的 wait、身份作用域、Revision/CAS 和事件恢复结构；不安装实验性 AgentTeams 包。
+- “插件 → 插件配置”隐藏了与独立“子智能体”设置页重复的原生 Subagent 卡；官方 Subagent 服务、已有设置和 AgentTeams 成员运行链保持不变。
+- Windows 兼容层继续负责通用 `grep`、OpenCode/Kimi、流恢复、会话头和隐藏控制台；AUTO 保持完全移除，旧 Team/会话不做迁移。
+- Alpha.2 `dsh web:` 就绪行中的一次性认证 URL 会被完整交给 Electron，首次加载先换取签名 cookie，再进入干净根页面。
+- `scripts/verify-alpha2-runtime-closure.mjs` 从 `src/dsh-service.js` 用 `createRequire` 验证源码依赖树和打包后的 `resources/app`，不是只检查文件存在。
 
 ## `v0.1.1-rc.32` 更新说明
 
@@ -43,6 +53,7 @@
 - `implementation` 可以在 running Team 中作为 pending 节点排到活跃 requirements 之后；必须声明依赖，且调度仍等待 requirements 以 `verdict=pass` 完成，避免把安全的 DAG 预创建误报为门禁失败。
 - 修复非 GPT 模型补出空任务可选字段时，新 Team 随后被严格 V2 校验拒绝的问题；创建边界会省略空的 `objective`、`reviewedTaskId` 和 `sourceTaskId`，并保留有效的角色级模型与思考强度。
 - 创建 Team 前调用 `agent_teams_delete` 现在幂等返回“无需删除”，不再产生 `you are not leading any team yet` 红错。
+- 没有 staged Team 时，模型把“继续/确认”误判为审批也会得到 inactive 引导，不再产生同类红色工具错误；不会隐式创建或写入 Team。
 - 仍然不迁移旧 Profile、旧 Team 或旧对话状态；新版本继续强制 V2 数据和角色级路由策略。
 
 ## `v0.1.1-rc.22` 更新说明
@@ -135,7 +146,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
 - Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后必须重启，才会注入并用于新团队。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.11`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.12`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 
@@ -204,8 +215,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.1-rc.28-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.1-rc.28-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.2-rc.1-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.2-rc.1-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

@@ -35,12 +35,14 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
   )
   assert.equal(packageJson.dependencies['@deepseek-ai/dsh-cpa-provider'], 'file:cpa-provider-plugin')
   assert.equal(
-    lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.resolved,
+    lockfile.packages['']?.dependencies?.['@deepseek-ai/dsh-cpa-provider'],
     'file:cpa-provider-plugin',
   )
-  assert.equal(sourceCpaPackage.version, '0.1.5')
-  assert.equal(cpaPackage.version, '0.1.5')
-  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.5')
+  assert.notEqual(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.link, true)
+  assert.equal(sourceCpaPackage.version, '0.1.7')
+  assert.equal(cpaPackage.version, '0.1.7')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.7')
+  assert.match(sourceCpaPackage.scripts.build, /^node scripts\/detach-output-links\.mjs && /)
 })
 
 test('static and generated desktop patches both mount CPA', () => {
@@ -50,12 +52,12 @@ test('static and generated desktop patches both mount CPA', () => {
 })
 
 test('built browser packages expose the native Models slot without a duplicate CPA card', () => {
-  assert.match(modelsBundle, /settings\.models\.card/)
+  assert.match(modelsBundle, /settings\.models\.provider-card/)
   assert.match(modelsBundle, /modelImageAuto/)
   assert.match(modelsBundle, /modelImageSupported/)
   assert.match(modelsBundle, /modelImageTextOnly/)
   assert.match(cpaBundle, /normalize-provider-profile/)
-  assert.doesNotMatch(cpaBundle, /name:\s*["']settings\.models\.card["']/)
+  assert.doesNotMatch(cpaBundle, /name:\s*["']settings\.models\.(?:card|provider-card)["']/)
   assert.doesNotMatch(cpaBundle, /id:\s*["']cpa["']/)
 })
 

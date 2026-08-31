@@ -1,4 +1,5 @@
 import type { SessionLogSnapshot, SessionSurfaceSnapshot } from '@deepseek-ai/dsh-session-query'
+import type { TodoItem } from '@deepseek-ai/dsh-tool-todo'
 
 export type ExportBlock =
   | { type: 'text'; text: string }
@@ -44,10 +45,7 @@ export interface ExportRequestConfiguration {
   tools: string[]
 }
 
-export interface ExportTodo {
-  content: string
-  status: 'pending' | 'in_progress' | 'completed'
-}
+export type ExportTodo = TodoItem
 
 export interface ExportOpenTurn {
   turn: number

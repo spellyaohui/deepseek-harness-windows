@@ -195,7 +195,7 @@ async function launch() {
   }
   if (quitting) return
 
-  service = startDshService({
+  service = await startDshService({
     electronExecutable: process.execPath,
     environment: {
       ...process.env,

@@ -8,8 +8,7 @@
 
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
 import { onboardingReadiness } from './store.ts'
@@ -17,6 +16,7 @@ import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
+import type { ModelsOperations } from './operations.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './DeepSeekOnboardingDialog.module.css'
 import type { ModelCapabilityProbeRemote } from '../remote.ts'
@@ -29,8 +29,8 @@ export interface DeepSeekOnboardingInjected {
   }
   /** Shared Models-page join controller. */
   controller: ModelsSettingsStore
-  /** Existing wire face reused by the Models credential editor. */
-  api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  /** Host operations reused by the Models credential editor. */
+  operations: ModelsOperations
   /** Mounted provider-neutral Host capability probe, absent while the Remote is still mounting. */
   modelCapabilities?: ModelCapabilityProbeRemote
   /** Settings schema and immutable path callbacks. */
@@ -57,7 +57,7 @@ function assertNever(_value: never): never {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, api, modelCapabilities, schema, t, normalizeProviderProfile } = props
+  const { complete, controller, useModels, operations, modelCapabilities, schema, t, normalizeProviderProfile } = props
   const state = useModels(snapshot => snapshot)
   const readiness = onboardingReadiness(state)
 
@@ -112,7 +112,7 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           namespace={namespace}
           schema={schema}
           settingsPath={row.entry.settingsPath}
-          api={api}
+          operations={operations}
           {...modelCapabilities === undefined ? {} : { modelCapabilities }}
           t={t}
           readOnly={false}
@@ -120,9 +120,9 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           credentialOnly
           credentialRequired
           autoFocusCredential
-          cancelLabel="onboardingLater"
-          submitLabel="onboardingSave"
-          submitBusyLabel="onboardingSaving"
+          cancelLabelKey="onboardingLater"
+          submitLabelKey="onboardingSave"
+          submitBusyLabelKey="onboardingSaving"
           onClose={finishCredential}
           normalizeProviderProfile={normalizeProviderProfile}
         />

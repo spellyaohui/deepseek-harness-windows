@@ -1,8 +1,8 @@
 import type {
-  IApiClient, SettingsPathOpView,
-} from '@deepseek-ai/dsh-client-connection/client'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
-import type { SettingsDescribeFace } from '@deepseek-ai/dsh-client-ui-settings/client'
+  SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView,
+} from '@deepseek-ai/dsh-api-remotes/client'
+import type { SettingsDescribeFace, SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
 
 const SETTINGS_NAMESPACE = 'agent-teams'
@@ -19,7 +19,19 @@ export type SettingsWriteView =
 export type SettingsWritePlan =
   | { ok: true; ops: readonly SettingsPathOpView[] }
 
-type SettingsApi = Pick<IApiClient, 'settings'>
+type RemoteResult<Value> =
+  | { readonly ok: true; readonly value: Value }
+  | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
+export interface SettingsApi {
+  readonly settings: {
+    mutate(
+      ns: string,
+      ops: SettingsPathOpView[],
+      expectedRevision: number | undefined,
+    ): Promise<RemoteResult<SettingsNamespaceView>>
+    describe(): Promise<RemoteResult<SettingsDescribeValue>>
+  }
+}
 type SettingsReadScope = Pick<SettingsScope<AgentTeamsSettings>, 'getSnapshot'>
 
 export interface AgentTeamsSettingsWriter {
@@ -108,22 +120,22 @@ class SerializedAgentTeamsSettingsWriter implements AgentTeamsSettingsWriter {
     const generation = ++this.generation
     let response: Awaited<ReturnType<SettingsApi['settings']['mutate']>>
     try {
-      response = await bounded(this.options.api.settings.mutate({
-        ns: SETTINGS_NAMESPACE,
-        ops: [...ops],
-        expectedRevision,
-      }), 'settings mutation', this.timeoutMs)
+      response = await bounded(
+        this.options.api.settings.mutate(SETTINGS_NAMESPACE, [...ops], expectedRevision),
+        'settings mutation',
+        this.timeoutMs,
+      )
     } catch (error: unknown) {
       if (generation === this.generation) this.generation += 1
       return this.failAndRecover(errorMessage(error))
     }
 
-    if (!response.result.ok) {
+    if (!response.ok) {
       if (generation === this.generation) this.generation += 1
-      return this.failAndRecover(response.result.error.message)
+      return this.failAndRecover(response.error.message)
     }
 
-    const next = response.result.value
+    const next = response.value
     const knownRevision = laterRevision(
       expectedRevision,
       laterRevision(this.revision, this.options.scope.getSnapshot().revision),
@@ -158,16 +170,16 @@ class SerializedAgentTeamsSettingsWriter implements AgentTeamsSettingsWriter {
     let response: Awaited<ReturnType<SettingsApi['settings']['describe']>>
     try {
       response = await bounded(
-        this.options.api.settings.describe({}),
+        this.options.api.settings.describe(),
         'settings recovery',
         this.timeoutMs,
       )
     } catch (error: unknown) {
       return errorMessage(error)
     }
-    if (!response.result.ok) return response.result.error.message
+    if (!response.ok) return response.error.message
 
-    const recovered = response.result.value.namespaces.find((entry) => entry.ns === SETTINGS_NAMESPACE)
+    const recovered = response.value.namespaces.find((entry) => entry.ns === SETTINGS_NAMESPACE)
     if (recovered === undefined) return 'agent-teams namespace is unavailable'
 
     const heldRevision = laterRevision(this.revision, this.options.scope.getSnapshot().revision)
@@ -186,7 +198,7 @@ export function createAgentTeamsSettingsWriter(options: WriterOptions): AgentTea
   return new SerializedAgentTeamsSettingsWriter(options)
 }
 
-function set(field: keyof Pick<AgentTeamsSettings, 'delegationMode'>, value: unknown): SettingsPathOpView {
+function set(field: keyof Pick<AgentTeamsSettings, 'delegationMode'>, value: JsonValue): SettingsPathOpView {
   return { op: 'set', path: [field], value }
 }
 

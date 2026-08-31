@@ -14,10 +14,11 @@ test('Models settings mount the local OpenCode capability validation action thro
   const patch = yaml.load(read('config/agent-teams.patch.yml')).flatMap(entry => entry.insert ?? [])
   const pluginRoot = new URL('../opencode-capabilities-plugin/', import.meta.url)
 
-  assert.equal(packageJson.version, '0.1.1-rc.32')
+  assert.equal(packageJson.version, '0.1.2-rc.1')
   assert.equal(packageJson.dependencies['@deepseek-ai/dsh-opencode-capabilities'], 'file:opencode-capabilities-plugin')
   assert.equal(existsSync(pluginRoot), true)
-  assert.equal(JSON.parse(read('opencode-capabilities-plugin/package.json')).version, '0.1.1')
+  assert.equal(JSON.parse(read('opencode-capabilities-plugin/package.json')).version, '0.1.2')
+  assert.doesNotMatch(read('opencode-capabilities-plugin/package.json'), /dsh-client-runtime/)
   assert.deepEqual(patch.find(entry => entry.id === 'opencode-capabilities'), {
     id: 'opencode-capabilities',
     name: '@deepseek-ai/dsh-opencode-capabilities',
@@ -37,7 +38,8 @@ test('Models settings mount the local OpenCode capability validation action thro
   })
 
   const client = read('opencode-capabilities-plugin/lib/client.js')
-  assert.match(client, /settings\.models\.card/)
+  assert.match(client, /settings\.models\.footer/)
+  assert.doesNotMatch(client, /settings\.models\.card/)
   assert.match(client, /validateOpencodeCapabilities/)
   assert.match(client, /重启/)
   assert.doesNotMatch(client, /settings\.section/)

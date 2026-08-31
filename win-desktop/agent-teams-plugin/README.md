@@ -46,6 +46,7 @@ Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/re
 ### v0.1.14-desktop.8
 
 - A running Team now returns structured next-step guidance when `agent_teams_edit_plan` is called by mistake; the approved plan remains immutable and no tool exception is raised.
+- An approval-like turn with no staged Team now returns inactive guidance instead of a tool exception; the tool never creates state implicitly and points to `agent_teams_create` only when the user actually wants AgentTeams.
 - The staged member editor preserves `target-default`, `route-aware`, and `explicit` reasoning authority; switching away from `explicit` clears the old explicit effort.
 - Staged task editing can replace the complete quality contract, including task kind, objective, scope, acceptance, verification commands, deliverables, and coverage; the Host rejects non-string list items while empty lists explicitly clear fields.
 - Implementation/repair deliverables must be covered by `inScope`; empty `changedPaths` requires `noChangesReason` and cannot hide declared deliverables.
