@@ -31,8 +31,11 @@ function textContent(event: SessionEvent): string {
   const content = event.data?.content
   if (!Array.isArray(content)) return ''
   return content
-    .filter((block): block is { readonly type?: unknown; readonly text: string } => (
-      typeof block === 'object' && block !== null && typeof (block as { text?: unknown }).text === 'string'
+    .filter((block): block is { readonly type: 'text'; readonly text: string } => (
+      typeof block === 'object'
+      && block !== null
+      && (block as { type?: unknown }).type === 'text'
+      && typeof (block as { text?: unknown }).text === 'string'
     ))
     .map((block) => block.text)
     .join('\n')

@@ -37,11 +37,11 @@ function assertBinding(binding: ApprovalBinding): void {
     typeof binding !== 'object'
     || binding === null
     || typeof binding.workspace !== 'string'
-    || binding.workspace === ''
+    || binding.workspace.trim() === ''
     || typeof binding.captainSessionId !== 'string'
-    || binding.captainSessionId === ''
+    || binding.captainSessionId.trim() === ''
     || typeof binding.teamId !== 'string'
-    || binding.teamId === ''
+    || binding.teamId.trim() === ''
     || !Number.isSafeInteger(binding.planRevision)
     || binding.planRevision <= 0
   ) throw new Error('approval binding is invalid')
@@ -64,20 +64,35 @@ export function createApprovalCredentialStore(options: ApprovalCredentialStoreOp
   if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new Error('approval credential TTL is invalid')
 
   const records = new Map<string, CredentialRecord>()
+  const receiptExpiries = new Map<string, number>()
+
+  function cleanupExpired(currentTime: number): void {
+    for (const [token, record] of records) {
+      if (currentTime > record.expiresAt) records.delete(token)
+    }
+    for (const [receiptId, expiresAt] of receiptExpiries) {
+      if (currentTime > expiresAt) receiptExpiries.delete(receiptId)
+    }
+  }
 
   return {
     prepare(binding: ApprovalBinding): PreparedApprovalCredential {
       assertBinding(binding)
       const issuedAt = now()
       if (!Number.isFinite(issuedAt)) throw new Error('approval credential clock is invalid')
+      cleanupExpired(issuedAt)
       const token = randomToken()
       const receiptId = randomReceiptId()
       if (typeof token !== 'string' || token === '' || typeof receiptId !== 'string' || receiptId === '') {
         throw new Error('approval credential factory is invalid')
       }
-      if (records.has(token)) throw new Error('approval credential factory is invalid')
+      if (records.has(token) || receiptExpiries.has(receiptId)) {
+        throw new Error('approval credential factory is invalid')
+      }
       const expiresAt = issuedAt + ttlMs
+      if (!Number.isFinite(expiresAt)) throw new Error('approval credential TTL is invalid')
       records.set(token, { ...binding, receiptId, expiresAt })
+      receiptExpiries.set(receiptId, expiresAt)
       return { token, receiptId, expiresAt, planRevision: binding.planRevision }
     },
 
@@ -86,6 +101,7 @@ export function createApprovalCredentialStore(options: ApprovalCredentialStoreOp
       const record = typeof token === 'string' ? records.get(token) : undefined
       if (typeof token === 'string') records.delete(token)
       const currentTime = now()
+      if (Number.isFinite(currentTime)) cleanupExpired(currentTime)
       if (
         record === undefined
         || !Number.isFinite(currentTime)
