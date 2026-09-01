@@ -16,10 +16,9 @@ export interface ChatApprovalEvidence {
   readonly evidenceId: string
 }
 
-const AFFIRMATIVE_ENGLISH_INTENT = /\b(?:approve(?:d|s)?|approval|start(?:ing|ed)?|run(?:ning)?)\b/iu
-const AFFIRMATIVE_CHINESE_INTENT = /(?:批准|同意|按.{0,12}计划.{0,12}(?:执行|开始))/iu
-const PLAN_REFERENCE = /(?:计划|方案|团队|team|agentteams)/iu
-const REFUSAL_POLARITY = /(?:\b(?:do\s+not|don't|dont|never|cannot|can't|won't|will\s+not|not)\b|\b(?:disapprove|reject|refuse|deny|decline|cancel|oppose|object|pause|postpone|defer|stop|halt|hold\s+off)\b|(?:不|未|不要|别|拒绝|否决|反对|不同意|取消|不予|无需|不需要|不用|暂停|停止|暂缓))/iu
+const AFFIRMATIVE_ENGLISH_APPROVAL = /^(?:(?:i\s+)?(?:approve|approved)|(?:please\s+)?(?:start|run))\s+(?:(?:the|this|that)\s+)?(?:agentteams|team)\s+plan(?:\s+(?:to\s+)?(?:start|run|execute))?[.!]?$/iu
+const AFFIRMATIVE_CHINESE_APPROVAL = /^(?:(?:批准|同意)(?:这个|该|本)?\s*AgentTeams\s*(?:计划|方案)(?:开始)?(?:执行|运行)?|按.{0,12}(?:计划|方案).{0,12}(?:执行|开始|运行))$/iu
+const REFUSAL_POLARITY = /(?:\b(?:do\s+not|don't|dont|never|cannot|can't|won't|will\s+not|not|no|disapprove|reject|refuse|deny|decline|cancel|oppose|object|pause|postpone|defer|stop|halt|hold\s+off|disagree)\b|(?:不|未|不要|别|拒绝|否决|反对|不同意|取消|不予|无需|不需要|不用|暂停|停止|暂缓|不赞成|否定))/iu
 
 function invalidApproval(): never {
   throw new Error('chat approval requires explicit approval of the plan or Team')
@@ -95,8 +94,7 @@ export function chatApprovalEvidence(
     messageText === ''
     || messageText !== confirmation
     || REFUSAL_POLARITY.test(messageText)
-    || (!AFFIRMATIVE_ENGLISH_INTENT.test(messageText) && !AFFIRMATIVE_CHINESE_INTENT.test(messageText))
-    || !PLAN_REFERENCE.test(messageText)
+    || (!AFFIRMATIVE_ENGLISH_APPROVAL.test(messageText) && !AFFIRMATIVE_CHINESE_APPROVAL.test(messageText))
   ) invalidApproval()
 
   return { eventSeq: message.seq, evidenceId: `chat:user-event:${message.seq}` }

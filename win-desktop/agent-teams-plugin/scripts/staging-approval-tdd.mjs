@@ -89,6 +89,8 @@ for (const [label, confirmation] of [
   ['Chinese disagreement with intervening words', '我不同意这个 AgentTeams 计划开始执行'],
   ['English disapproval cannot match approve substring', 'I disapprove the AgentTeams plan'],
   ['Chinese opposition refuses approval', '我反对批准这个 AgentTeams 计划开始执行'],
+  ['English says no with intervening words', 'I say no to starting the AgentTeams plan'],
+  ['English disagreement with intervening words', 'I disagree with starting the AgentTeams plan'],
 ]) {
   const negatedEvents = events.map((event) => event.type === 'user/message'
     ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
@@ -108,6 +110,23 @@ for (const confirmation of ['继续', '确认', 'continue', 'confirm']) {
       ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
       : event)
     assert.throws(() => chatApprovalEvidence(genericConfirmationEvents, {
+      rootCallId: 'root-1',
+      confirmation,
+      planReadyAt: 100,
+    }), /explicit approval.*plan or Team/i)
+  })
+}
+
+for (const confirmation of [
+  'Can you start the AgentTeams plan?',
+  'The AgentTeams plan will run now',
+  'I approve discussing whether to start the AgentTeams plan',
+]) {
+  reviewCase(`ambiguous natural prose ${confirmation} cannot authorize approval`, () => {
+    const ambiguousEvents = events.map((event) => event.type === 'user/message'
+      ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
+      : event)
+    assert.throws(() => chatApprovalEvidence(ambiguousEvents, {
       rootCallId: 'root-1',
       confirmation,
       planReadyAt: 100,
@@ -156,6 +175,9 @@ reviewCase('化验单 context fails closed', () => {
 })
 reviewCase('病例 context fails closed', () => {
   assert.equal(automaticTeamName('归档病例李四资料', 'a1b2c3'), 'agent-team-a1b2c3')
+})
+reviewCase('patient name plus 检查结果 context fails closed', () => {
+  assert.equal(automaticTeamName('张三检查结果', 'a1b2c3'), 'agent-team-a1b2c3')
 })
 
 const imageAuthoredEvents = events.map((event) => event.type === 'user/message'
