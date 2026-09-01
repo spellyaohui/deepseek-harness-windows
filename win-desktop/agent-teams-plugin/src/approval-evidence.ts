@@ -18,6 +18,7 @@ export interface ChatApprovalEvidence {
 
 const APPROVAL_INTENT = /(?:批准|同意|按.{0,12}计划.{0,12}(?:执行|开始)|approve|approved|start|run)/iu
 const PLAN_REFERENCE = /(?:计划|方案|团队|team|agentteams)/iu
+const APPROVAL_NEGATION = /(?:\b(?:do\s+not|don't|dont|never|cannot|can't|won't|will\s+not|not)\s+(?:to\s+)?(?:approve|approved|start|run)\b|\b(?:refuse|reject|deny|decline|cancel)\s+(?:to\s+)?(?:approve|approved|start|run)\b|(?:不|未|不要|别|拒绝|否决|取消|不予|无需|不需要|不用)\s*(?:批准|同意|通过|按.{0,12}计划.{0,12}(?:执行|开始)|开始|执行|运行|启动)|(?:批准|同意|通过|开始|执行|运行|启动)[^。！？.!?\r\n]{0,20}(?:不了|不行|不要|别|拒绝|取消))/iu
 
 function invalidApproval(): never {
   throw new Error('chat approval requires explicit approval of the plan or Team')
@@ -92,6 +93,7 @@ export function chatApprovalEvidence(
   if (
     messageText === ''
     || messageText !== confirmation
+    || APPROVAL_NEGATION.test(messageText)
     || !APPROVAL_INTENT.test(messageText)
     || !PLAN_REFERENCE.test(messageText)
   ) invalidApproval()

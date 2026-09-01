@@ -67,6 +67,22 @@ assert.throws(
   /explicit approval.*plan or Team/i,
 )
 
+for (const [label, confirmation] of [
+  ['Chinese negation', '不批准这个 AgentTeams 计划开始执行'],
+  ['English negation', 'do not start the AgentTeams plan'],
+]) {
+  const negatedEvents = events.map((event) => event.type === 'user/message'
+    ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
+    : event)
+  reviewCase(`${label} cannot authorize approval`, () => {
+    assert.throws(() => chatApprovalEvidence(negatedEvents, {
+      rootCallId: 'root-1',
+      confirmation,
+      planReadyAt: 100,
+    }), /explicit approval.*plan or Team/i)
+  })
+}
+
 reviewCase('medical patient terms fail closed', () => {
   assert.equal(automaticTeamName('复核病人检查结果', 'a1b2c3'), 'agent-team-a1b2c3')
 })
@@ -102,6 +118,12 @@ reviewCase('short prefixed tokens are scrubbed', () => {
 })
 reviewCase('readable non-sensitive names remain readable', () => {
   assert.equal(automaticTeamName('修复 AgentTeams 审批异常', 'a1b2c3'), '修复-AgentTeams-审批异常-a1b2c3')
+})
+reviewCase('化验单 context fails closed', () => {
+  assert.equal(automaticTeamName('整理化验单张三结果', 'a1b2c3'), 'agent-team-a1b2c3')
+})
+reviewCase('病例 context fails closed', () => {
+  assert.equal(automaticTeamName('归档病例李四资料', 'a1b2c3'), 'agent-team-a1b2c3')
 })
 
 const imageAuthoredEvents = events.map((event) => event.type === 'user/message'
