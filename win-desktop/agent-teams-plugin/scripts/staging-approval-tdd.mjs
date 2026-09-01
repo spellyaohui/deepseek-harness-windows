@@ -134,6 +134,24 @@ for (const confirmation of [
   })
 }
 
+for (const [label, confirmation] of [
+  ['Chinese interrogative whether form', '按这个计划是否执行'],
+  ['Chinese interrogative ability form', '按这个计划能否开始'],
+  ['Chinese conditional form', '按这个计划可以开始'],
+  ['Chinese discussion form', '按这个计划讨论是否执行'],
+]) {
+  reviewCase(`${label} cannot authorize approval`, () => {
+    const ambiguousChineseEvents = events.map((event) => event.type === 'user/message'
+      ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
+      : event)
+    assert.throws(() => chatApprovalEvidence(ambiguousChineseEvents, {
+      rootCallId: 'root-1',
+      confirmation,
+      planReadyAt: 100,
+    }), /explicit approval.*plan or Team/i)
+  })
+}
+
 reviewCase('medical patient terms fail closed', () => {
   assert.equal(automaticTeamName('复核病人检查结果', 'a1b2c3'), 'agent-team-a1b2c3')
 })
