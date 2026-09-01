@@ -87,12 +87,27 @@ for (const [label, confirmation] of [
   ['English refuse with intervening words', 'I refuse the AgentTeams plan to start'],
   ['Chinese refusal with intervening words', '我拒绝去批准这个 AgentTeams 计划开始执行'],
   ['Chinese disagreement with intervening words', '我不同意这个 AgentTeams 计划开始执行'],
+  ['English disapproval cannot match approve substring', 'I disapprove the AgentTeams plan'],
+  ['Chinese opposition refuses approval', '我反对批准这个 AgentTeams 计划开始执行'],
 ]) {
   const negatedEvents = events.map((event) => event.type === 'user/message'
     ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
     : event)
   reviewCase(`${label} cannot authorize approval`, () => {
     assert.throws(() => chatApprovalEvidence(negatedEvents, {
+      rootCallId: 'root-1',
+      confirmation,
+      planReadyAt: 100,
+    }), /explicit approval.*plan or Team/i)
+  })
+}
+
+for (const confirmation of ['继续', '确认', 'continue', 'confirm']) {
+  reviewCase(`generic acknowledgement ${confirmation} cannot authorize approval`, () => {
+    const genericConfirmationEvents = events.map((event) => event.type === 'user/message'
+      ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
+      : event)
+    assert.throws(() => chatApprovalEvidence(genericConfirmationEvents, {
       rootCallId: 'root-1',
       confirmation,
       planReadyAt: 100,
