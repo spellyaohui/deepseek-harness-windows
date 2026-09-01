@@ -1,6 +1,6 @@
 # AgentTeams 分阶段审批与自动命名设计
 
-状态：用户已确认设计方向，等待书面规格复核。
+状态：用户已复核确认，进入实施规划。
 
 ## 背景
 
@@ -118,13 +118,15 @@ staged Team 不得携带批准字段。进入 running 时一次性写入：
 
 - `approvedAt`：Host 完成批准提交的时间；
 - `approvedPlanRevision`：实际批准的 `planRevision`；
-- `approvalSource`：`web` 或 `chat`；
-- `approvalEvidenceId`：Web 一次性凭据的非秘密 receipt ID，或聊天直接用户事件的
-  Session seq 标识。
+- `approvalSource`：`web`、`chat` 或 `automatic`；前两者用于 required-approval，
+  `automatic` 只记录调用方明确选择 `approval=automatic` 的既有即时执行策略；
+- `approvalEvidenceId`：Web 一次性凭据的非秘密 receipt ID、聊天直接用户事件的
+  Session seq 标识，或 `automatic:create:<team-id>` 策略标识。
 
 运行态校验要求这四个字段同时存在，且 `approvedPlanRevision === planRevision`。
-staged 状态出现任一批准字段、running 状态缺字段或 revision 不一致都视为严格 V2
-状态无效。
+Web/Chat running Team 还必须保留有限的 `planReadyAt`；automatic Team 没有人工审核
+时不得伪造该时间。staged 状态出现任一批准字段、running 状态缺字段或 revision
+不一致都视为严格 V2 状态无效。
 
 `planReadyAt` 在每次进入 `ready_for_review` 时刷新，用于聊天审批确认用户消息发生
 在最新计划可审核之后。它不是用户输入，也不作为授权本身。
@@ -168,8 +170,9 @@ assignee 和所需质量合同，优先一次 `agent_teams_edit_plan` 原子提�
 1. 主模型应根据用户目标生成简短、可读、无凭据和患者标识的 Team 名。
 2. 省略、空白或非字符串在 Host 边界都视为“未提供”，不会报空名称错误。
 3. Host 兜底从 `description` 的首个有效短语生成有限长度 Unicode 可读前缀；没有
-   可用目标时使用 `agent-team`。随后添加短唯一后缀，并在 captain lock 内分配未占
-   用的 Team ID。
+   可用目标时使用 `agent-team`。生成前剔除 URL、邮箱、UUID、长数字和 token-like
+   片段；命中患者/凭据类敏感标记时直接使用通用前缀。随后添加短唯一后缀，并在
+   captain lock 内分配未占用的 Team ID。
 4. 模型显式提供的非空名称继续保持原样；若其 ID 已占用仍返回冲突，不静默改名。
 5. 自动名称只用于 Team 展示和本地状态目录，不写入用户配置，也不影响 Profile。
 
@@ -229,6 +232,11 @@ runtime 接收可区分的审批证据：
 
 - Web：一次性 Host credential + expected revision；
 - Chat：已验证的直接用户 event seq + expected revision。
+
+`approval=automatic` 不伪装成 Web/Chat 用户审批，也不进入 staged 批准 runtime；
+它沿用现有即时创建路径，并以 `approvalSource=automatic` 和策略 evidence ID 写入
+同一严格 provenance 结构。这样所有 running Team 形状一致，同时不会把自动策略
+误报为人类批准。
 
 runtime 在 lock 内完成最终 graph 校验、模型路由校验、成员 spawn、phase/provenance
 提交和 scheduler kick。任一步在 durable commit 前失败时沿用现有成员清理逻辑；
