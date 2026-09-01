@@ -83,6 +83,10 @@ assert.throws(
 for (const [label, confirmation] of [
   ['Chinese negation', '不批准这个 AgentTeams 计划开始执行'],
   ['English negation', 'do not start the AgentTeams plan'],
+  ['English reject with intervening words', 'I reject starting the AgentTeams plan'],
+  ['English refuse with intervening words', 'I refuse the AgentTeams plan to start'],
+  ['Chinese refusal with intervening words', '我拒绝去批准这个 AgentTeams 计划开始执行'],
+  ['Chinese disagreement with intervening words', '我不同意这个 AgentTeams 计划开始执行'],
 ]) {
   const negatedEvents = events.map((event) => event.type === 'user/message'
     ? { ...event, data: { ...event.data, content: [{ type: 'text', text: confirmation }] } }
