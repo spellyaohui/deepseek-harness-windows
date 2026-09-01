@@ -424,6 +424,13 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
       ],
       tasks: [],
     },
+    'software-delivery': {
+      taskPlanning: 'captain',
+      members: [
+        { name: 'implementer', role: 'builder', provider: 'fake', model: 'fake-implementer', reasoning_mode: 'target-default' },
+      ],
+      tasks: [],
+    },
     'role-policy': {
       taskPlanning: 'captain',
       members: [
@@ -440,14 +447,14 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
     },
   },})
 
-function execFor(subject) {
-  return { agent: subject, signal: new AbortController().signal }
+function execFor(subject, extra = {}) {
+  return { agent: subject, signal: new AbortController().signal, ...extra }
 }
 
-async function call(name, args, subject = captain) {
+async function call(name, args, subject = captain, extra = {}) {
   const definition = definitions.get(name)
   if (!definition) throw new Error(`missing tool ${name}`)
-  return definition.execute(args, execFor(subject))
+  return definition.execute(args, execFor(subject, extra))
 }
 
 function deliveryText(delivery) {
@@ -462,6 +469,55 @@ const state = () => readTeam(stateRoot, teamId)
 const task = async id => (await state())?.tasks.find(candidate => candidate.id === id)
 
 console.log('dsh-agent-teams lifecycle verification')
+
+const createdStaged = await call('agent_teams_create', {
+  description: 'Implement trusted staged approval',
+  profile: 'software-delivery',
+  approval: 'required',
+})
+let stagedApprovalTeam = await readTeam(stateRoot, createdStaged.team_id)
+check('omitted Team name is generated', createdStaged.team_name.length > 8)
+check('required approval begins building', stagedApprovalTeam?.phase === 'staged' && stagedApprovalTeam.planReviewState === 'building')
+
+const submittedStaged = await call('agent_teams_edit_plan', {
+  operations: [{ action: 'add_task', subject: 'Implement approval', dependencies: [], assignee: 'implementer' }],
+  submit_for_review: true,
+})
+check('atomic submission becomes ready', submittedStaged.review_state === 'ready_for_review')
+
+const genericApproval = await call('agent_teams_approve', {
+  confirmation: '继续',
+  expected_plan_revision: submittedStaged.plan_revision,
+}, captain, { rootCallId: 'generic-approval-without-user-evidence' })
+stagedApprovalTeam = await readTeam(stateRoot, createdStaged.team_id)
+check('generic approval is rejected without writes', genericApproval.status === 'approval_required' && stagedApprovalTeam?.phase === 'staged')
+let staleWebPrepareRejected = false
+try {
+  await agentTeamsRuntime.prepareWebApproval(captain, createdStaged.team_id, submittedStaged.plan_revision - 1)
+} catch (error) {
+  staleWebPrepareRejected = /stale plan revision/i.test(String(error?.message ?? error))
+}
+check('Web approval preparation rejects a stale plan revision without writes',
+  staleWebPrepareRejected && (await readTeam(stateRoot, createdStaged.team_id))?.phase === 'staged')
+const preparedWebApproval = await agentTeamsRuntime.prepareWebApproval(
+  captain,
+  createdStaged.team_id,
+  submittedStaged.plan_revision,
+)
+const approvedWebTeam = await agentTeamsRuntime.approveStagedTeam(captain, createdStaged.team_id, {
+  source: 'web',
+  token: preparedWebApproval.token,
+  expectedPlanRevision: preparedWebApproval.planRevision,
+})
+const persistedWebTeam = await readTeam(stateRoot, createdStaged.team_id)
+check('prepared Web approval commits receipt provenance through the unified barrier',
+  approvedWebTeam.approvalSource === 'web'
+    && persistedWebTeam?.phase === 'running'
+    && persistedWebTeam.approvalSource === 'web'
+    && persistedWebTeam.approvedPlanRevision === submittedStaged.plan_revision
+    && persistedWebTeam.planRevision === submittedStaged.plan_revision
+    && /^web:receipt:/.test(persistedWebTeam.approvalEvidenceId))
+await call('agent_teams_delete', {})
 
 const createProfileDescription = definitions.get('agent_teams_create')
   ?.parameters?.properties?.profile?.description ?? ''
@@ -524,6 +580,7 @@ check('unknown non-empty Profile rejects before state write or member spawn',
     && profilePersistenceCalls.writeTeam === persistenceBeforeUnknownProfile.writeTeam)
 
 const modelResolutionCallsBeforeRolePolicy = modelResolutionCalls.length
+const persistenceBeforeRolePolicy = { ...profilePersistenceCalls }
 const rolePolicyCreation = await call('agent_teams_create', {
   name: 'Role Policy',
   description: 'role policy preflight',
@@ -541,8 +598,8 @@ check('profile members resolve from their own role policies',
     && rolePolicyCalls[1]?.model === 'review-model'
     && rolePolicyCalls[1]?.reasoningEffort === 'max'
     && rolePolicyTeam?.members.find(member => member.name === 'reviewer')?.provider === 'opencode-go'
-    && profilePersistenceCalls.createTeamDir === 1
-    && profilePersistenceCalls.writeTeam === 1)
+    && profilePersistenceCalls.createTeamDir === persistenceBeforeRolePolicy.createTeamDir + 1
+    && profilePersistenceCalls.writeTeam === persistenceBeforeRolePolicy.writeTeam + 1)
 await call('agent_teams_delete', {})
 const stateEntriesBeforeInvalidProfile = (await readdir(stateRoot)).sort()
 const childrenBeforeInvalidProfile = children.length
@@ -846,7 +903,7 @@ try {
       sourceTaskId: dynamicFirst.task_id,
       sourceFindingIds: 'finding-1',
       coverageOf: 'goal-1',
-    })))
+    })), { origin: 'captain', submitForReview: false })
   }
   const roundTrippedTask = (await readTeam(stateRoot, 'dynamic-demo'))?.tasks.find(item => item.id === dynamicSecond.task_id)
   check('snapshot and browser-shaped Host payload persist the complete staged task contract',
@@ -895,7 +952,7 @@ try {
       sourceTaskId: '',
       sourceFindingIds: '',
       coverageOf: '',
-    })))
+    })), { origin: 'captain', submitForReview: false })
   }
   const clearedTask = (await readTeam(stateRoot, 'dynamic-demo'))?.tasks.find(item => item.id === dynamicSecond.task_id)
   check('browser-shaped empty lists and strings clear every optional staged task field durably',
@@ -924,7 +981,7 @@ try {
     reasoningMode: 'explicit',
     reasoningEffort: 'high',
     executionPrompt: 'Review security-sensitive changes only.',
-  })
+  }, { origin: 'captain', submitForReview: false })
   await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', {
     action: 'update_member',
     memberName: 'reviewer',
@@ -933,7 +990,7 @@ try {
     model: 'fake-reviewer-updated',
     reasoningMode: 'explicit',
     executionPrompt: 'Review security-sensitive changes only.',
-  })
+  }, { origin: 'captain', submitForReview: false })
   const preservedExplicitStagedMember = (await readTeam(stateRoot, 'dynamic-demo'))?.members.find(member => member.name === 'reviewer')
   check('direct staged member edit may retain omitted explicit effort',
     preservedExplicitStagedMember?.reasoningMode === 'explicit'
@@ -948,7 +1005,7 @@ try {
       model: 'fake-reviewer-updated',
       reasoningMode: 'target-default',
       executionPrompt: 'Review security-sensitive changes only.',
-    }))
+    }), { origin: 'captain', submitForReview: false })
   } catch (error) {
     browserTargetDefaultError = error
   }
@@ -966,7 +1023,7 @@ try {
     reasoningMode: 'explicit',
     reasoningEffort: 'high',
     executionPrompt: 'Review security-sensitive changes only.',
-  })
+  }, { origin: 'captain', submitForReview: false })
   let modelRouteAwareEdit
   let modelRouteAwareError
   try {
@@ -993,7 +1050,7 @@ try {
     description: 'Use the analyst output.',
     assignee: 'implementer',
     dependencies: [dynamicFirst.task_id],
-  })
+  }, { origin: 'captain', submitForReview: false })
   const editedDynamic = await readTeam(stateRoot, 'dynamic-demo')
   check('staged roster and DAG are editable without spawning or dispatching',
     editedDynamic?.members.find(member => member.name === 'reviewer')?.model === 'fake-reviewer-updated'
@@ -1040,7 +1097,7 @@ try {
       role: 'implementation engineer',
       provider: legacyMember?.provider ?? '',
       model: legacyMember?.model ?? '',
-    })
+    }, { origin: 'captain', submitForReview: false })
   } catch (error) {
     directLegacyPolicyRejected = /missing reasoningMode|AgentTeams V2 状态无效/i.test(String(error?.message ?? error))
   }
@@ -1078,7 +1135,7 @@ try {
     description: 'Use the analyst output.',
     assignee: 'implementer',
     dependencies: [obsoleteReview.task_id],
-  })
+  }, { origin: 'captain', submitForReview: false })
   let rejectedAtomicEdit = false
   try {
     await call('agent_teams_edit_plan', {
@@ -1097,6 +1154,7 @@ try {
       && unchangedAfterRejectedEdit?.tasks.some(item => item.id === obsoleteReview.task_id)
       && unchangedAfterRejectedEdit.tasks.find(item => item.id === dynamicSecond.task_id)?.dependencies.join(',') === obsoleteReview.task_id
       && unchangedAfterRejectedEdit.members.some(member => member.name === 'reviewer'))
+  await call('agent_teams_edit_plan', { operations: [], submit_for_review: true })
   const captainCancelsBeforeContinue = captain.cancelCount ?? 0
   const captainFollowupsBeforeContinue = captain.followups.length
   const continuedPlan = await agentTeamsRuntime.continueStagedPlanning(captain, 'dynamic-demo')
@@ -1131,6 +1189,7 @@ try {
       { action: 'remove_task', task_id: obsoleteReview.task_id },
       { action: 'remove_member', member_name: 'reviewer' },
     ],
+    submit_for_review: true,
   })
   const modelEditedDynamic = await readTeam(stateRoot, 'dynamic-demo')
   const editedImplementation = modelEditedDynamic?.tasks.find(item => item.id === dynamicSecond.task_id)
@@ -1147,21 +1206,42 @@ try {
       && modelEditedDynamic.members.every(member => member.name !== 'reviewer')
       && modelEditedDynamic.members.every(member => member.id === '')
       && modelEditedDynamic.tasks.every(item => item.status === 'pending')
-      && modelEditedDynamic.planReviewState === 'awaiting_review'
+      && modelEditedDynamic.planReviewState === 'ready_for_review'
       && deliveries.length === deliveriesBeforePlan)
-  const approvedDynamic = await call('agent_teams_approve', { confirmation: 'user clicked Approve & Run' })
+  const approvalBase = Date.now()
+  captain.session.events.push(
+    { type: 'turn/start', seq: 7001, time: approvalBase, data: { turn: 701 } },
+    { type: 'user/message', seq: 7002, time: approvalBase + 1, data: { source: { kind: 'user' }, content: [{ type: 'text', text: 'I approve the AgentTeams plan' }] } },
+    { type: 'tool/call', seq: 7003, time: approvalBase + 2, data: { turn: 701, callId: 'dynamic-approval', name: 'agent_teams_approve', arguments: '{}' } },
+  )
+  const approvedDynamic = await call('agent_teams_approve', {
+    confirmation: 'I approve the AgentTeams plan',
+    expected_plan_revision: modelEditedDynamic.planRevision,
+  }, captain, { rootCallId: 'dynamic-approval' })
   const dynamicTeam = await readTeam(stateRoot, 'dynamic-demo')
+  const approvedDynamicRevision = dynamicTeam?.planRevision
   check('approval atomically spawns the final roster before dispatch',
     approvedDynamic.status === 'running'
       && dynamicTeam?.phase === 'running'
       && typeof dynamicTeam.approvedAt === 'number'
+      && dynamicTeam.approvalSource === 'chat'
+      && dynamicTeam.approvedPlanRevision === dynamicTeam.planRevision
+      && dynamicTeam.approvalEvidenceId === 'chat:user-event:7002'
       && dynamicTeam.members.every(member => member.id !== '')
       && dynamicTeam.tasks[0]?.status === 'pending'
       && dynamicTeam.tasks[1]?.status === 'pending')
+  const approvalInjectionText = captain.injections.at(-1)?.content?.map(block => block.text ?? '').join('\n') ?? ''
+  check('chat approval injects only sanitized provenance context',
+    approvalInjectionText.includes('dynamic-demo')
+      && approvalInjectionText.includes('chat')
+      && approvalInjectionText.includes(String(approvedDynamicRevision))
+      && approvalInjectionText.includes('chat:user-event:7002')
+      && !approvalInjectionText.includes('I approve the AgentTeams plan'))
   for (const member of dynamicTeam.members) publishStatus(liveAgents.get(member.id), 'idle')
   await new Promise(resolve => setTimeout(resolve, 20))
   await call('agent_teams_status', {})
   const dispatchedDynamic = await readTeam(stateRoot, 'dynamic-demo')
+  check('approved plan revision remains unchanged after member spawn', dispatchedDynamic?.planRevision === approvedDynamicRevision)
   check('approved plan dispatches only after a spawned member becomes idle',
     dispatchedDynamic?.tasks[0]?.status === 'claimed'
       && dispatchedDynamic.tasks[1]?.status === 'pending')
@@ -1795,11 +1875,21 @@ try {
   await call('agent_teams_add_member', { name: 'valid', role: 'writer', provider: 'fake', model: 'fake-model' })
   await call('agent_teams_add_member', { name: 'invalid', role: 'reviewer', provider: 'fake', model: 'typo-model' })
   await call('agent_teams_create_task', { subject: 'must remain staged', assignee: 'valid' })
+  const atomicApprovalReady = await call('agent_teams_edit_plan', { operations: [], submit_for_review: true })
+  const atomicWebApproval = await agentTeamsRuntime.prepareWebApproval(
+    captain,
+    'atomic-approval',
+    atomicApprovalReady.plan_revision,
+  )
   const childrenBeforeRejectedApproval = children.length
   advertisedModels = ['fake-model']
   let invalidApprovalRejected = false
   try {
-    await call('agent_teams_approve', { confirmation: 'user clicked Approve & Run' })
+    await agentTeamsRuntime.approveStagedTeam(captain, 'atomic-approval', {
+      source: 'web',
+      token: atomicWebApproval.token,
+      expectedPlanRevision: atomicWebApproval.planRevision,
+    })
   } catch (error) {
     invalidApprovalRejected = /unknown member model.*typo-model/i.test(String(error?.message ?? error))
   }

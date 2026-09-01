@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 
 import { automaticTeamName } from '../lib/team-name.js'
 import { chatApprovalEvidence } from '../lib/approval-evidence.js'
@@ -395,4 +396,10 @@ if (reviewFailures.length > 0) {
   throw new AggregateError(reviewFailures, `Task 2 review regressions failed (${reviewFailures.length})`)
 }
 
-console.log('Task 2 approval primitives contract TDD passed')
+const runtimeTypes = await readFile(new URL('../lib/types/tools.d.ts', import.meta.url), 'utf8')
+assert.match(runtimeTypes, /export type StagedPlanUpdateOptions/)
+assert.match(runtimeTypes, /export type ApprovalEvidence/)
+assert.match(runtimeTypes, /prepareWebApproval\(captain: Agent, teamId: string, expectedPlanRevision: number\)/)
+assert.match(runtimeTypes, /approveStagedTeam\(captain: Agent, teamId: string, evidence: ApprovalEvidence/)
+
+console.log('Staging approval contract TDD passed: trusted primitives and unified runtime types')

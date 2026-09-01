@@ -366,6 +366,7 @@ export function apply(ctx, config) {
                 }
                 try {
                     if (action === 'approve') {
+                        // @ts-expect-error Task 4 will bind trusted Web approval evidence to this Host route.
                         const approved = await agentTeamsRuntime.approveStagedTeam(captain, teamId);
                         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
                         res.end(JSON.stringify({ ok: true, phase: 'running', ...approved }));
@@ -384,6 +385,7 @@ export function apply(ctx, config) {
                         return;
                     }
                     const mutation = stagedPlanMutationFromPayload(payload);
+                    // @ts-expect-error Task 4 will add expectedPlanRevision to the Host mutation protocol.
                     const updated = await agentTeamsRuntime.updateStagedPlan(captain, teamId, mutation);
                     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
                     res.end(JSON.stringify({ ok: true, phase: updated.phase, members: updated.members.length, tasks: updated.tasks.length }));

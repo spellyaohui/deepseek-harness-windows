@@ -5,7 +5,7 @@
  * Imports compiled `lib/` exports. Missing functions or old tool behavior
  * must fail the matching label — do not delete or rename these prefixes.
  */
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
@@ -117,6 +117,7 @@ function member(name, role, extra = {}) {
 }
 
 function team(partial = {}) {
+  const phase = partial.phase ?? 'running'
   return {
     schemaVersion: 2,
     name: 'Quality',
@@ -130,7 +131,16 @@ function team(partial = {}) {
     ],
     tasks: [],
     taskSeq: 0,
-    phase: 'running',
+    planRevision: 1,
+    phase,
+    ...phase === 'running'
+      ? {
+          approvedAt: now(),
+          approvedPlanRevision: 1,
+          approvalSource: 'automatic',
+          approvalEvidenceId: 'automatic:create:quality',
+        }
+      : { planReviewState: 'building' },
     reviewPolicy: {
       requirementsMinRounds: 1,
       requirementsMaxRounds: 4,
@@ -937,7 +947,8 @@ console.log('quality-gates TDD — G. persistence / prompts')
       }],
       taskSeq: 1,
     }
-    await createTeamDir(workspace, legacy)
+    await mkdir(join(workspace, legacy.id, 'inbox'), { recursive: true })
+    await writeFile(join(workspace, legacy.id, 'team.json'), JSON.stringify(legacy, null, 2), 'utf8')
     let rejected = false
     try {
       await readTeam(workspace, 'legacy')
@@ -1235,7 +1246,7 @@ console.log('quality-gates TDD — tool-level closed loop')
     let approveBeforeCreate
     let approveBeforeCreateRender
     try {
-      approveBeforeCreate = await call('agent_teams_approve', { confirmation: '继续' })
+      approveBeforeCreate = await call('agent_teams_approve', { confirmation: '继续', expected_plan_revision: 1 })
       approveBeforeCreateRender = definitions
         .get('agent_teams_approve')
         ?.output?.render?.({ confirmation: '继续' }, approveBeforeCreate)

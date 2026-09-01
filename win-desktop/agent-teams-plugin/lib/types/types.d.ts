@@ -171,6 +171,8 @@ export interface TeamProfileSnapshot {
     /** Frozen review-loop policy from the creating profile. */
     reviewPolicy?: ReviewPolicy;
 }
+export type PlanReviewState = 'building' | 'ready_for_review' | 'awaiting_feedback';
+export type ApprovalSource = 'web' | 'chat' | 'automatic';
 /** The full durable team record. */
 export interface TeamState {
     /** Durable state schema version. */
@@ -191,6 +193,8 @@ export interface TeamState {
     tasks: TeamTask[];
     /** Monotonic task id counter. */
     taskSeq: number;
+    /** Monotonic revision of the user-reviewable roster and task graph. */
+    planRevision: number;
     /** Two-phase execution lifecycle. */
     phase: 'staged' | 'running';
     /**
@@ -198,9 +202,17 @@ export interface TeamState {
      * `awaiting_feedback` means the user returned to chat and the Captain must
      * ask what should change before editing this same draft.
      */
-    planReviewState?: 'awaiting_review' | 'awaiting_feedback';
-    /** Timestamp written only after a staged plan is explicitly approved. */
+    planReviewState?: PlanReviewState;
+    /** Timestamp written when a staged plan becomes reviewable. */
+    planReadyAt?: number;
+    /** Timestamp written only after a staged plan is approved. */
     approvedAt?: number;
+    /** Exact reviewed plan revision committed into the running Team. */
+    approvedPlanRevision?: number;
+    /** Trusted provenance path that authorized the running Team. */
+    approvalSource?: ApprovalSource;
+    /** Non-secret durable evidence identifier for the approval decision. */
+    approvalEvidenceId?: string;
     /**
      * Human halt from the captain chat. The team remains on disk, members stay
      * available, and unfinished work is cancelled until the captain resumes.

@@ -15,11 +15,13 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
+import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
   acknowledgeMailbox,
   appendMailbox,
+  assertExpectedPlanRevision,
   archiveTeamDir,
   beginTaskAttempt,
   CAPTAIN_KEY,
@@ -69,6 +71,9 @@ import type { AgentTeamsSettingsRuntime } from './settings.ts'
 import type { DelegationPolicyRuntime } from './routing-policy.ts'
 import { listConfiguredProfiles, resolveTeamProfile } from './profiles.ts'
 import { renderStatus, statusFingerprint } from './status-render.ts'
+import { automaticTeamName } from './team-name.ts'
+import { chatApprovalEvidence } from './approval-evidence.ts'
+import { createApprovalCredentialStore } from './approval-credentials.ts'
 
 /** Resolved plugin config consumed by the tools. */
 export interface ToolsConfig {
@@ -152,11 +157,36 @@ export type StagedPlanMutation =
   | { action: 'remove_task'; taskId: string }
   | { action: 'remove_member'; memberName: string }
 
+export type StagedPlanUpdateOptions =
+  | { origin: 'captain'; submitForReview: boolean }
+  | { origin: 'web'; expectedPlanRevision: number }
+
+export type ApprovalEvidence =
+  | { source: 'web'; token: string; expectedPlanRevision: number }
+  | { source: 'chat'; eventSeq: number; evidenceId: string; expectedPlanRevision: number }
+
+export interface PreparedWebApproval {
+  token: string
+  receiptId: string
+  expiresAt: number
+  planRevision: number
+}
+
+export interface ApprovedTeamResult {
+  teamId: string
+  members: number
+  tasks: number
+  planRevision: number
+  approvalSource: 'web' | 'chat'
+  approvalEvidenceId: string
+}
+
 /** Runtime bridge shared by model-facing tools and the Web staging surface. */
 export interface AgentTeamsRuntime {
-  updateStagedPlan(captain: Agent, teamId: string, mutation: StagedPlanMutation, signal?: AbortSignal): Promise<TeamState>
-  updateStagedPlanBatch(captain: Agent, teamId: string, mutations: readonly StagedPlanMutation[], signal?: AbortSignal): Promise<TeamState>
-  approveStagedTeam(captain: Agent, teamId: string, signal?: AbortSignal): Promise<{ teamId: string; members: number; tasks: number }>
+  updateStagedPlan(captain: Agent, teamId: string, mutation: StagedPlanMutation, options: StagedPlanUpdateOptions, signal?: AbortSignal): Promise<TeamState>
+  updateStagedPlanBatch(captain: Agent, teamId: string, mutations: readonly StagedPlanMutation[], options: StagedPlanUpdateOptions, signal?: AbortSignal): Promise<TeamState>
+  prepareWebApproval(captain: Agent, teamId: string, expectedPlanRevision: number): Promise<PreparedWebApproval>
+  approveStagedTeam(captain: Agent, teamId: string, evidence: ApprovalEvidence, signal?: AbortSignal): Promise<ApprovedTeamResult>
   continueStagedPlanning(captain: Agent, teamId: string): Promise<{ teamId: string; alreadyWaiting: boolean }>
   discardStagedTeam(captain: Agent, teamId: string): Promise<{ teamId: string }>
 }
@@ -550,14 +580,27 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
   const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt })
   const statusFingerprints = new Map<string, string>()
   const maxStatusFingerprints = 256
+  const approvalCredentials = createApprovalCredentialStore()
 
-  const updateStagedPlanBatch: AgentTeamsRuntime['updateStagedPlanBatch'] = async (captain, teamId, mutations, signal) => {
-    if (mutations.length === 0) throw new Error('at least one staged plan operation is required')
+  const updateStagedPlanBatch: AgentTeamsRuntime['updateStagedPlanBatch'] = async (captain, teamId, mutations, options, signal) => {
+    if (options === undefined) throw new Error('staged plan update requires revision-aware options')
+    if (mutations.length === 0 && !(options.origin === 'captain' && options.submitForReview)) {
+      throw new Error('at least one staged plan operation is required')
+    }
     const workspace = workspaceOf(captain)
     const stateRoot = stateRootOf(workspace, config)
     return withTeamLock(teamLockKey(stateRoot, teamId), async () => {
       const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id)
       requireStagedTeam(fresh)
+      if (options.origin === 'web') {
+        if (fresh.planReviewState !== 'ready_for_review') {
+          throw new Error(`team "${fresh.name}" is not ready for Web plan editing`)
+        }
+        assertExpectedPlanRevision(fresh, options.expectedPlanRevision)
+      } else {
+        fresh.planReviewState = 'building'
+        delete fresh.planReadyAt
+      }
       for (const mutation of mutations) {
         if (mutation.action === 'update_member') {
           const member = requireMember(fresh, mutation.memberName)
@@ -659,24 +702,68 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           fresh.members = fresh.members.filter((candidate) => candidate !== member)
         }
       }
-      validateStagedGraph(fresh, false)
-      fresh.planReviewState = 'awaiting_review'
-      await writeTeam(stateRoot, fresh)
-      return fresh
+      if (options.origin === 'web') {
+        validateStagedGraph(fresh, true)
+        fresh.planReviewState = 'ready_for_review'
+        fresh.planReadyAt = Date.now()
+      } else if (options.submitForReview) {
+        validateStagedGraph(fresh, true)
+        fresh.planReviewState = 'ready_for_review'
+        fresh.planReadyAt = Date.now()
+      } else {
+        validateStagedGraph(fresh, false)
+        fresh.planReviewState = 'building'
+        delete fresh.planReadyAt
+      }
+      return writeTeam(stateRoot, fresh)
     })
   }
 
-  const updateStagedPlan: AgentTeamsRuntime['updateStagedPlan'] = async (captain, teamId, mutation, signal) => (
-    updateStagedPlanBatch(captain, teamId, [mutation], signal)
+  const updateStagedPlan: AgentTeamsRuntime['updateStagedPlan'] = async (captain, teamId, mutation, options, signal) => (
+    updateStagedPlanBatch(captain, teamId, [mutation], options, signal)
   )
 
-  const approveStagedTeam: AgentTeamsRuntime['approveStagedTeam'] = async (captain, teamId, signal) => {
+  const prepareWebApproval: AgentTeamsRuntime['prepareWebApproval'] = async (captain, teamId, expectedPlanRevision) => {
+    const workspace = workspaceOf(captain)
+    const stateRoot = stateRootOf(workspace, config)
+    return withTeamLock(teamLockKey(stateRoot, teamId), async () => {
+      const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id)
+      requireStagedTeam(fresh)
+      if (fresh.planReviewState !== 'ready_for_review') {
+        throw new Error(`team "${fresh.name}" is not ready for approval`)
+      }
+      assertExpectedPlanRevision(fresh, expectedPlanRevision)
+      validateStagedGraph(fresh, true)
+      return approvalCredentials.prepare({
+        workspace,
+        captainSessionId: captain.id,
+        teamId: fresh.id,
+        planRevision: fresh.planRevision,
+      })
+    })
+  }
+
+  const approveStagedTeam: AgentTeamsRuntime['approveStagedTeam'] = async (captain, teamId, evidence, signal) => {
+    if (evidence === undefined) throw new Error('trusted approval evidence is required')
     const workspace = workspaceOf(captain)
     const stateRoot = stateRootOf(workspace, config)
     const runSignal = signal ?? new AbortController().signal
     const approved = await withTeamLock(teamLockKey(stateRoot, teamId), async () => {
       const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id)
       requireStagedTeam(fresh)
+      if (fresh.planReviewState !== 'ready_for_review') {
+        throw new Error(`team "${fresh.name}" is not ready for approval`)
+      }
+      assertExpectedPlanRevision(fresh, evidence.expectedPlanRevision)
+      const receipt = evidence.source === 'web'
+        ? approvalCredentials.consume({
+            workspace,
+            captainSessionId: captain.id,
+            teamId: fresh.id,
+            planRevision: fresh.planRevision,
+            token: evidence.token,
+          })
+        : undefined
       // A staged removal has no child session to retain in history. Drop those
       // placeholders before transitioning to the stricter running shape.
       fresh.members = fresh.members.filter((member) => member.status !== 'removed')
@@ -724,8 +811,21 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         fresh.phase = 'running'
         delete fresh.planReviewState
         fresh.approvedAt = Date.now()
-        await writeTeam(stateRoot, fresh)
-        return { teamId: fresh.id, members: fresh.members.length, tasks: fresh.tasks.length }
+        fresh.approvedPlanRevision = fresh.planRevision
+        fresh.approvalSource = evidence.source
+        const approvalEvidenceId = evidence.source === 'web'
+          ? `web:receipt:${receipt?.receiptId ?? ''}`
+          : evidence.evidenceId
+        fresh.approvalEvidenceId = approvalEvidenceId
+        const persisted = await writeTeam(stateRoot, fresh)
+        return {
+          teamId: persisted.id,
+          members: persisted.members.length,
+          tasks: persisted.tasks.length,
+          planRevision: persisted.planRevision,
+          approvalSource: evidence.source,
+          approvalEvidenceId,
+        }
       } catch (error: unknown) {
         await recordRetiredMemberIds(stateRoot, spawned.map((member) => member.id)).catch(() => undefined)
         for (const member of spawned) {
@@ -735,12 +835,23 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       }
     })
     try {
+      captain.inject(createUserMessage({
+        content: [{
+          type: 'text',
+          text: `AgentTeams approval committed: team=${approved.teamId}; source=${approved.approvalSource}; planRevision=${approved.planRevision}; evidence=${approved.approvalEvidenceId}.`,
+        }],
+        source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+      }))
+    } catch {
+      ctx.logger.warn(`agent-teams: post-approval context injection failed for "${teamId}"; the running Team remains committed`)
+    }
+    try {
       await scheduler.kickTeam(workspace, teamId, captain)
-    } catch (error: unknown) {
+    } catch {
       // Approval is already durably committed. A transient wake-up failure is
       // recoverable by the next status/member lifecycle kick and must not make
       // the UI report that an already-running team failed to approve.
-      ctx.logger.warn(`agent-teams: post-approval kick failed for "${teamId}": ${String(error)}`)
+      ctx.logger.warn(`agent-teams: post-approval kick failed for "${teamId}"; recovery remains available`)
     }
     return approved
   }
@@ -753,6 +864,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       requireStagedTeam(fresh)
       if (fresh.planReviewState === 'awaiting_feedback') {
         return { teamName: fresh.name, alreadyWaiting: true }
+      }
+      if (fresh.planReviewState !== 'ready_for_review') {
+        throw new Error(`team "${fresh.name}" is not ready for feedback`)
       }
       fresh.planReviewState = 'awaiting_feedback'
       await writeTeam(stateRoot, fresh)
@@ -776,7 +890,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id)
         requireStagedTeam(fresh)
         if (fresh.planReviewState === 'awaiting_feedback') {
-          fresh.planReviewState = 'awaiting_review'
+          fresh.planReviewState = 'ready_for_review'
           await writeTeam(stateRoot, fresh)
         }
       })
@@ -820,6 +934,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
   const runtime: AgentTeamsRuntime = {
     updateStagedPlan,
     updateStagedPlanBatch,
+    prepareWebApproval,
     approveStagedTeam,
     continueStagedPlanning,
     discardStagedTeam,
@@ -834,7 +949,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
     name: 'agent_teams_create',
     description: 'Create a team. Use approval=required for a two-phase plan: members and tasks remain unspawned/unclaimed until the user reviews the Web plan and explicitly approves it. Optional profiles expand their configured roster; seed profiles also expand template tasks, while captain profiles leave the graph for the Captain to design. approval=automatic preserves the legacy immediate-execution path.',
     parameters: {
-      name: { type: 'string', required: true, description: 'Name for the new team (used as its stable id).' },
+      name: { type: 'string', description: 'Optional Team name. Omit it to generate a privacy-safe name from the description.' },
       description: { type: 'string', description: 'Team purpose / the goal the team will work on.' },
       profile: { type: 'string', description: profileDescription },
       approval: {
@@ -869,9 +984,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       const captain = requireCaptain(exec)
       const workspace = workspaceOf(captain)
       const stateRoot = stateRootOf(workspace, config)
-      const teamName = args.name.trim()
-      if (teamName === '') throw new Error('team name must not be empty')
-      const teamId = sanitizeKey(teamName)
+      const explicitName = trimmedOptional(args.name)
       const staged = args.approval === 'required'
       const normalizedProfileName = args.profile?.trim()
       const profileName = normalizedProfileName === '' ? undefined : normalizedProfileName
@@ -881,48 +994,66 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           const relationship = current.captainSessionId === captain.id ? 'lead' : 'belong to'
           throw new Error(`you already ${relationship} team "${current.name}" — end or leave it before creating another`)
         }
-        return withTeamLock(teamLockKey(stateRoot, teamId), async () => {
-          const existing = await readTeam(stateRoot, teamId)
-          if (existing !== undefined) {
+        for (let attempt = 0; attempt < 16; attempt += 1) {
+          const teamName = explicitName ?? automaticTeamName(args.description, randomBytes(3).toString('hex'))
+          const teamId = sanitizeKey(teamName)
+          const result = await withTeamLock(teamLockKey(stateRoot, teamId), async () => {
+            const existing = await readTeam(stateRoot, teamId)
+            if (existing !== undefined) return { collision: true as const }
+            if (profileName === undefined) {
+              const now = Date.now()
+              const state: TeamState = {
+                schemaVersion: AGENT_TEAMS_STATE_SCHEMA_VERSION,
+                name: teamName,
+                id: teamId,
+                description: args.description,
+                captainSessionId: captain.id,
+                createdAt: now,
+                members: [],
+                tasks: [],
+                taskSeq: 0,
+                planRevision: 1,
+                phase: staged ? 'staged' as const : 'running' as const,
+                ...staged
+                  ? { planReviewState: 'building' as const }
+                  : {
+                      approvedAt: now,
+                      approvedPlanRevision: 1,
+                      approvalSource: 'automatic' as const,
+                      approvalEvidenceId: `automatic:create:${teamId}`,
+                    },
+              }
+              await createTeamDir(stateRoot, state)
+              return { committed: true as const, state }
+            }
+            return initializeProfileTeam({
+              ctx,
+              config,
+              memberSelections,
+              captain,
+              exec,
+              stateRoot,
+              teamName,
+              teamId,
+              profileName,
+              description: args.description,
+              staged,
+            })
+          })
+          if (!('collision' in result)) return result
+          if (explicitName !== undefined) {
             throw new Error(`team id "${teamId}" is taken by another captain — pick a different team name`)
           }
-          if (profileName === undefined) {
-            const state: TeamState = {
-              schemaVersion: AGENT_TEAMS_STATE_SCHEMA_VERSION,
-              name: teamName,
-              id: teamId,
-              description: args.description,
-              captainSessionId: captain.id,
-              createdAt: Date.now(),
-              members: [],
-              tasks: [],
-              taskSeq: 0,
-              phase: staged ? 'staged' as const : 'running' as const,
-              ...staged ? { planReviewState: 'awaiting_review' as const } : {},
-            }
-            await createTeamDir(stateRoot, state)
-            return { committed: true as const, state }
-          }
-          return initializeProfileTeam({
-            ctx,
-            config,
-            memberSelections,
-            captain,
-            exec,
-            stateRoot,
-            teamName,
-            teamId,
-            profileName,
-            description: args.description,
-            staged,
-          })
-        })
+        }
+        throw new Error('could not allocate a unique automatic Team name after 16 attempts')
       })
       if (created.committed) {
+        if (created.state.phase === 'running') {
         try {
           await scheduler.kickTeam(workspace, created.state.id, captain)
         } catch (error: unknown) {
           ctx.logger.warn(`agent-teams: post-create kick failed for "${created.state.id}": ${String(error)}`)
+        }
         }
         try {
           appendTeamEvent(ctx, captain.session, 'agent-teams/team-created', {
@@ -1036,6 +1167,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           },
         },
       },
+      submit_for_review: { type: 'boolean', description: 'Validate the complete graph and atomically mark it ready for user review.' },
     },
     output: {
       schema: {
@@ -1049,6 +1181,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           dependencies: { type: 'number' },
           roster: { type: 'array', items: { type: 'string' } },
           graph: { type: 'array', items: { type: 'string' } },
+          plan_revision: { type: 'number' },
+          review_state: { type: 'string' },
           message: { type: 'string' },
           next_step: { type: 'string' },
         },
@@ -1073,7 +1207,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         }
       }
       requireStagedTeam(team)
-      if (args.operations.length === 0) throw new Error('at least one staged plan operation is required')
+      if (args.operations.length === 0 && args.submit_for_review !== true) {
+        throw new Error('at least one staged plan operation is required')
+      }
 
       const mutations: StagedPlanMutation[] = args.operations.map((operation, index) => {
         const label = `operation ${index + 1} (${operation.action})`
@@ -1154,7 +1290,10 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (memberName === '') throw new Error(`${label} requires member_name`)
         return { action: 'remove_member', memberName }
       })
-      const updated = await updateStagedPlanBatch(captain, team.id, mutations, exec.signal)
+      const updated = await updateStagedPlanBatch(captain, team.id, mutations, {
+        origin: 'captain',
+        submitForReview: args.submit_for_review === true,
+      }, exec.signal)
       return {
         status: 'staged',
         team_id: updated.id,
@@ -1163,6 +1302,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         dependencies: updated.tasks.reduce((sum, task) => sum + task.dependencies.length, 0),
         roster: updated.members.map((member) => `${member.name} (${member.role || 'member'}; ${member.provider ?? ''}/${member.model ?? ''})`),
         graph: updated.tasks.map((task) => `${task.id}: ${task.subject} -> ${task.assignee || 'shared'}${task.dependencies.length === 0 ? '' : `; depends on ${task.dependencies.join(', ')}`}`),
+        plan_revision: updated.planRevision,
+        review_state: updated.planReviewState,
       }
     },
   }))
@@ -1172,6 +1313,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
     description: 'Approve and start a staged team plan. Call this only after agent_teams_status has confirmed active=true and phase=staged for this captain, and only in response to explicit user approval in a new user turn; generic phrases such as “继续” or “确认” alone do not establish a staged plan. Never call it during the turn that created or edited the plan. The Web Approve & Run button uses the same runtime directly. If no Team exists, return the inactive guidance and do not create or approve anything.',
     parameters: {
       confirmation: { type: 'string', required: true, description: 'The user\'s explicit approval statement.' },
+      expected_plan_revision: { type: 'number', required: true, description: 'Exact positive plan revision shown to the user.' },
     },
     output: {
       schema: {
@@ -1188,7 +1330,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       },
       render: (_args, value) => [{
         type: 'text',
-        text: value.status === 'inactive'
+        text: value.status !== 'running'
           ? `${value.message}\n${value.next_step}`
           : `Team ${value.team_id} approved and running (${value.members} members, ${value.tasks} tasks).`,
       }],
@@ -1208,8 +1350,76 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           next_step: 'If the user wants AgentTeams, call agent_teams_create first; otherwise continue normally.',
         }
       }
-      const approved = await approveStagedTeam(captain, team.id, exec.signal)
-      return { status: 'running', team_id: approved.teamId, members: approved.members, tasks: approved.tasks }
+      if (team.phase !== 'staged' || team.planReviewState !== 'ready_for_review' || team.planReadyAt === undefined) {
+        return {
+          status: 'not_ready',
+          team_id: team.id,
+          members: 0,
+          tasks: 0,
+          message: 'The AgentTeams plan is not ready for approval; no changes were made.',
+          next_step: 'Finish the staged roster and graph, then submit it for review before asking for approval.',
+        }
+      }
+      if (!Number.isSafeInteger(args.expected_plan_revision) || args.expected_plan_revision < 1
+        || args.expected_plan_revision !== team.planRevision) {
+        return {
+          status: 'stale_plan',
+          team_id: team.id,
+          members: 0,
+          tasks: 0,
+          message: `The requested plan revision is stale; current revision is ${team.planRevision}. No changes were made.`,
+          next_step: 'Present the current staged plan and wait for explicit approval of that revision.',
+        }
+      }
+      let trusted
+      try {
+        trusted = chatApprovalEvidence(captain.session.events as unknown as Parameters<typeof chatApprovalEvidence>[0], {
+          rootCallId: exec.rootCallId,
+          confirmation: args.confirmation,
+          planReadyAt: team.planReadyAt,
+        })
+      } catch {
+        return {
+          status: 'approval_required',
+          team_id: team.id,
+          members: 0,
+          tasks: 0,
+          message: 'Trusted explicit approval evidence was not found; no changes were made.',
+          next_step: 'Present the plan and wait for a new direct user message that explicitly approves the AgentTeams plan.',
+        }
+      }
+      try {
+        const approved = await approveStagedTeam(captain, team.id, {
+          source: 'chat',
+          eventSeq: trusted.eventSeq,
+          evidenceId: trusted.evidenceId,
+          expectedPlanRevision: args.expected_plan_revision,
+        }, exec.signal)
+        return { status: 'running', team_id: approved.teamId, members: approved.members, tasks: approved.tasks }
+      } catch (error: unknown) {
+        const message = String(error instanceof Error ? error.message : error)
+        if (/stale plan revision/i.test(message)) {
+          return {
+            status: 'stale_plan',
+            team_id: team.id,
+            members: 0,
+            tasks: 0,
+            message: 'The staged plan changed before approval could commit; no running state was written.',
+            next_step: 'Read the current plan revision, present it, and wait for explicit approval again.',
+          }
+        }
+        if (/not ready for approval/i.test(message)) {
+          return {
+            status: 'not_ready',
+            team_id: team.id,
+            members: 0,
+            tasks: 0,
+            message: 'The AgentTeams plan is no longer ready for approval; no changes were made.',
+            next_step: 'Finish and submit the current staged plan for review.',
+          }
+        }
+        throw error
+      }
     },
   }))
 
@@ -1285,6 +1495,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           joinedAt: Date.now(),
           status: 'idle',
         }
+        markStagedPlanBuilding(fresh)
         if (fresh.phase !== 'staged') {
           await spawnMember(
             ctx,
@@ -1363,6 +1574,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       const revoked = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
         const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id)
         const member = requireMember(fresh, args.name)
+        markStagedPlanBuilding(fresh)
         const requeued: string[] = []
         for (const task of fresh.tasks) {
           if (task.assignee !== member.name || task.status === 'completed') continue
@@ -1522,6 +1734,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           ...args.sourceFindingIds === undefined ? {} : { sourceFindingIds: args.sourceFindingIds },
           ...args.coverageOf === undefined ? {} : { coverageOf: args.coverageOf },
         }
+        markStagedPlanBuilding(fresh)
         fresh.taskSeq += 1
         fresh.tasks.push(task)
         await writeTeam(stateRoot, fresh)
@@ -2406,8 +2619,9 @@ async function initializeProfileTeam(input: {
     ...profile.reviewPolicy === undefined ? {} : { reviewPolicy: profile.reviewPolicy },
     captainSessionId: input.captain.id,
     createdAt: now,
+    planRevision: 1,
     phase: 'staged' as const,
-    planReviewState: 'awaiting_review' as const,
+    planReviewState: 'building' as const,
     members: profile.members.map((template, index) => {
       const selection = selections[index]!
       return {
@@ -2471,6 +2685,10 @@ async function initializeProfileTeam(input: {
     }
     draft.phase = 'running'
     delete draft.planReviewState
+    draft.approvedAt = Date.now()
+    draft.approvedPlanRevision = draft.planRevision
+    draft.approvalSource = 'automatic'
+    draft.approvalEvidenceId = `automatic:create:${draft.id}`
     input.config.testObserver?.onInitializeProfileTeamPersistence?.('writeTeam')
     await writeTeam(input.stateRoot, draft)
     return { committed: true, state: draft }
@@ -2637,4 +2855,10 @@ function memberRuntime(config: ToolsConfig): MemberRuntimeConfig {
     executionPrompt: config.executionPrompt,
     fallback: config.fallback,
   }
+}
+
+function markStagedPlanBuilding(team: TeamState): void {
+  if (team.phase !== 'staged') return
+  team.planReviewState = 'building'
+  delete team.planReadyAt
 }

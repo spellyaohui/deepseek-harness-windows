@@ -89,6 +89,16 @@ import {
   validateMemberLlmSelections,
 } from '../lib/members.js'
 
+function automaticRunningProvenance(teamId, approvedAt = Date.now()) {
+  return {
+    planRevision: 1,
+    approvedAt,
+    approvedPlanRevision: 1,
+    approvalSource: 'automatic',
+    approvalEvidenceId: `automatic:create:${teamId}`,
+  }
+}
+
 let failures = 0
 function check(label, condition, detail = '') {
   if (condition) {
@@ -706,6 +716,7 @@ try {
     ],
     tasks: [],
     taskSeq: 0,
+    ...automaticRunningProvenance(sanitizeKey('Verify Team')),
     phase: 'running',
   }
   await createTeamDir(stateRoot, team)
@@ -724,6 +735,7 @@ try {
       id: 'v2-team',
       captainSessionId: 'captain-session',
       createdAt: now,
+      ...automaticRunningProvenance('v2-team', now),
       phase: 'running',
       members: [{
         id: 'member-1',
@@ -1714,6 +1726,7 @@ try {
     }],
     tasks: [],
     taskSeq: 0,
+    ...automaticRunningProvenance('restore-team'),
     phase: 'running',
   })
   const updatedSettingsFallback = {
@@ -1764,6 +1777,7 @@ try {
       }],
       tasks: [],
       taskSeq: 0,
+      ...automaticRunningProvenance(teamId),
       phase: 'running',
     })
     const validChild = fakeChildContext({
@@ -1812,6 +1826,7 @@ try {
       }],
       tasks: [],
       taskSeq: 0,
+      ...automaticRunningProvenance(teamId),
       phase: 'running',
     })
     const invalidChild = fakeChildContext({
@@ -1918,6 +1933,7 @@ try {
       members: [],
       tasks: [],
       taskSeq: 0,
+      ...automaticRunningProvenance('locked-team'),
       phase: 'running',
     }
     await createTeamDir(atomicStateRoot, lockedTeam)
@@ -1978,6 +1994,7 @@ try {
         members: [],
         tasks: [],
         taskSeq: 0,
+        ...automaticRunningProvenance('transient-lock'),
         phase: 'running',
       }
       await createTeamDir(atomicStateRoot, transientTeam)

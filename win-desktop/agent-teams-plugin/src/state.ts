@@ -157,9 +157,55 @@ export function assertExpectedTaskRevision(task: TeamTask, expectedRevision: num
   }
 }
 
+/** Reject a stale staged-plan mutation before it changes the reviewable graph. */
+export function assertExpectedPlanRevision(team: TeamState, expected: number): void {
+  if (!Number.isSafeInteger(expected) || expected < 1) {
+    throw new Error('expected_plan_revision must be a positive safe integer')
+  }
+  if (team.planRevision !== expected) {
+    throw new Error(`stale plan revision ${expected}; current revision is ${team.planRevision}`)
+  }
+}
+
 function taskWithoutRevision(task: TeamTask): Omit<TeamTask, 'revision'> {
   const { revision: _revision, ...content } = task
   return content
+}
+
+function reviewablePlan(team: Pick<TeamState, 'members' | 'tasks'>): unknown {
+  return {
+    members: team.members.map((member) => ({
+      name: member.name,
+      role: member.role,
+      provider: member.provider,
+      model: member.model,
+      reasoningMode: member.reasoningMode,
+      reasoningEffort: member.reasoningEffort,
+      executionPrompt: member.executionPrompt,
+      fallback: member.fallback,
+    })),
+    tasks: team.tasks.map((task) => ({
+      id: task.id,
+      profileSeedId: task.profileSeedId,
+      subject: task.subject,
+      description: task.description,
+      assignee: task.assignee,
+      dependencies: task.dependencies,
+      kind: task.kind,
+      round: task.round,
+      objective: task.objective,
+      inScope: task.inScope,
+      outOfScope: task.outOfScope,
+      acceptance: task.acceptance,
+      verify: task.verify,
+      deliverables: task.deliverables,
+      nonGoals: task.nonGoals,
+      reviewedTaskId: task.reviewedTaskId,
+      sourceTaskId: task.sourceTaskId,
+      sourceFindingIds: task.sourceFindingIds,
+      coverageOf: task.coverageOf,
+    })),
+  }
 }
 
 /** Materialize revision 1 for new tasks and advance changed persisted tasks exactly once. */
@@ -181,6 +227,23 @@ function advanceTaskRevisions(previous: Pick<TeamState, 'tasks'> | undefined, ne
   }
 }
 
+type RevisionSnapshot = Pick<TeamState, 'members' | 'tasks' | 'planRevision' | 'phase'>
+
+function advancePlanRevision(previous: RevisionSnapshot | undefined, next: TeamState): void {
+  if (previous === undefined) {
+    if (next.planRevision !== 1) throw new Error('new Team planRevision must begin at 1')
+    return
+  }
+  const changed = previous.phase === 'staged'
+    && next.phase === 'staged'
+    && !deepEqualJson(reviewablePlan(previous), reviewablePlan(next))
+  const expected = changed ? previous.planRevision + 1 : previous.planRevision
+  if (next.planRevision !== previous.planRevision && next.planRevision !== expected) {
+    throw new Error(`Team planRevision is not contiguous: expected ${expected}, got ${next.planRevision}`)
+  }
+  next.planRevision = expected
+}
+
 /**
  * Read only the prior task revisions needed by the write path.
  *
@@ -190,17 +253,17 @@ function advanceTaskRevisions(previous: Pick<TeamState, 'tasks'> | undefined, ne
  * revision fields still remain fail-closed, so this is not a legacy migration
  * path.
  */
-async function readTaskRevisionSnapshot(
+async function readRevisionSnapshot(
   stateRoot: string,
   teamId: string,
-): Promise<Pick<TeamState, 'tasks'> | undefined> {
+): Promise<RevisionSnapshot | undefined> {
   try {
     const raw = await readFile(join(stateRoot, teamId, 'team.json'), 'utf8')
     const parsed: unknown = JSON.parse(stripLeadingBom(raw))
     if (!isRecord(parsed) || parsed['schemaVersion'] !== AGENT_TEAMS_STATE_SCHEMA_VERSION) {
       throw new Error(`旧版 AgentTeams 状态不受支持，请创建新 Team`)
     }
-    if (!Array.isArray(parsed['tasks'])) {
+    if (!Array.isArray(parsed['members']) || !Array.isArray(parsed['tasks'])) {
       throw new Error(`AgentTeams V2 状态无效: ${teamId}`)
     }
     if (parsed['tasks'].some((task) => (
@@ -211,7 +274,18 @@ async function readTaskRevisionSnapshot(
     ))) {
       throw new Error(`AgentTeams V2 状态无效: ${teamId}`)
     }
-    return { tasks: parsed['tasks'] as TeamTask[] }
+    if (!Number.isSafeInteger(parsed['planRevision']) || (parsed['planRevision'] as number) < 1) {
+      throw new Error(`AgentTeams V2 状态无效: ${teamId}`)
+    }
+    if (parsed['phase'] !== 'staged' && parsed['phase'] !== 'running') {
+      throw new Error(`AgentTeams V2 状态无效: ${teamId}`)
+    }
+    return {
+      members: parsed['members'] as TeamMember[],
+      tasks: parsed['tasks'] as TeamTask[],
+      planRevision: parsed['planRevision'] as number,
+      phase: parsed['phase'],
+    }
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
       return undefined
@@ -277,6 +351,7 @@ export async function createTeamDir(stateRoot: string, state: TeamState): Promis
   const dir = join(stateRoot, state.id)
   await mkdir(join(dir, 'inbox'), { recursive: true })
   advanceTaskRevisions(undefined, state)
+  advancePlanRevision(undefined, state)
   await atomicWriteText(join(dir, 'team.json'), JSON.stringify(state, null, 2))
 }
 
@@ -333,11 +408,13 @@ export function readTeamSync(stateRoot: string, teamId: string): TeamState | und
  * @param stateRoot - resolved absolute state root directory.
  * @param state - the record to persist.
  */
-export async function writeTeam(stateRoot: string, state: TeamState): Promise<void> {
+export async function writeTeam(stateRoot: string, state: TeamState): Promise<TeamState> {
   const teamId = state.id
-  const previous = await readTaskRevisionSnapshot(stateRoot, teamId)
+  const previous = await readRevisionSnapshot(stateRoot, teamId)
   advanceTaskRevisions(previous, state)
+  advancePlanRevision(previous, state)
   await atomicWriteText(join(stateRoot, teamId, 'team.json'), JSON.stringify(state, null, 2))
+  return state
 }
 
 /** Read the durable set of member session ids retired by remove/delete. */
@@ -837,11 +914,9 @@ function isTeamState(value: unknown, expectedId: string): value is TeamState {
     && value['tasks'].every(isTeamTask)
     && Number.isSafeInteger(value['taskSeq'])
     && (value['taskSeq'] as number) >= 0
+    && Number.isSafeInteger(value['planRevision'])
+    && (value['planRevision'] as number) >= 1
     && (value['phase'] === 'staged' || value['phase'] === 'running')
-    && (value['planReviewState'] === undefined
-      || value['planReviewState'] === 'awaiting_review'
-      || value['planReviewState'] === 'awaiting_feedback')
-    && (value['approvedAt'] === undefined || isFiniteNumber(value['approvedAt']))
     && (value['halted'] === undefined || typeof value['halted'] === 'boolean')
     && (value['haltedAt'] === undefined || isFiniteNumber(value['haltedAt']))
     && (value['reviewPolicy'] === undefined || isReviewPolicy(value['reviewPolicy']))
@@ -853,8 +928,33 @@ function isTeamState(value: unknown, expectedId: string): value is TeamState {
   const memberIds = new Set<string>()
   const memberKeys = new Set<string>()
   const staged = value['phase'] === 'staged'
-  if (staged && (value['planReviewState'] !== 'awaiting_review' && value['planReviewState'] !== 'awaiting_feedback')) return false
-  if (!staged && value['planReviewState'] !== undefined) return false
+  const approvalFields = [
+    value['approvedAt'],
+    value['approvedPlanRevision'],
+    value['approvalSource'],
+    value['approvalEvidenceId'],
+  ]
+  const approvalCount = approvalFields.filter((item) => item !== undefined).length
+  if (staged) {
+    if (value['planReviewState'] !== 'building'
+      && value['planReviewState'] !== 'ready_for_review'
+      && value['planReviewState'] !== 'awaiting_feedback') return false
+    if (approvalCount !== 0) return false
+    if (value['planReviewState'] === 'building' && value['planReadyAt'] !== undefined) return false
+    if (value['planReviewState'] !== 'building' && !isFiniteNumber(value['planReadyAt'])) return false
+  } else {
+    if (value['planReviewState'] !== undefined) return false
+    if (approvalCount !== 4) return false
+    if (!isFiniteNumber(value['approvedAt'])) return false
+    if (!Number.isSafeInteger(value['approvedPlanRevision']) || value['approvedPlanRevision'] !== value['planRevision']) return false
+    if (value['approvalSource'] !== 'web'
+      && value['approvalSource'] !== 'chat'
+      && value['approvalSource'] !== 'automatic') return false
+    if (typeof value['approvalEvidenceId'] !== 'string' || value['approvalEvidenceId'].trim() === '') return false
+    if (value['approvalSource'] === 'automatic') {
+      if (value['planReadyAt'] !== undefined) return false
+    } else if (!isFiniteNumber(value['planReadyAt'])) return false
+  }
   for (const member of members) {
     const key = sanitizeKey(member.name)
     if ((!staged && member.id === '') || key === CAPTAIN_KEY || memberKeys.has(key)) return false

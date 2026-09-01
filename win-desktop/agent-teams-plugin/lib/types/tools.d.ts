@@ -96,15 +96,43 @@ export type StagedPlanMutation = {
     action: 'remove_member';
     memberName: string;
 };
+export type StagedPlanUpdateOptions = {
+    origin: 'captain';
+    submitForReview: boolean;
+} | {
+    origin: 'web';
+    expectedPlanRevision: number;
+};
+export type ApprovalEvidence = {
+    source: 'web';
+    token: string;
+    expectedPlanRevision: number;
+} | {
+    source: 'chat';
+    eventSeq: number;
+    evidenceId: string;
+    expectedPlanRevision: number;
+};
+export interface PreparedWebApproval {
+    token: string;
+    receiptId: string;
+    expiresAt: number;
+    planRevision: number;
+}
+export interface ApprovedTeamResult {
+    teamId: string;
+    members: number;
+    tasks: number;
+    planRevision: number;
+    approvalSource: 'web' | 'chat';
+    approvalEvidenceId: string;
+}
 /** Runtime bridge shared by model-facing tools and the Web staging surface. */
 export interface AgentTeamsRuntime {
-    updateStagedPlan(captain: Agent, teamId: string, mutation: StagedPlanMutation, signal?: AbortSignal): Promise<TeamState>;
-    updateStagedPlanBatch(captain: Agent, teamId: string, mutations: readonly StagedPlanMutation[], signal?: AbortSignal): Promise<TeamState>;
-    approveStagedTeam(captain: Agent, teamId: string, signal?: AbortSignal): Promise<{
-        teamId: string;
-        members: number;
-        tasks: number;
-    }>;
+    updateStagedPlan(captain: Agent, teamId: string, mutation: StagedPlanMutation, options: StagedPlanUpdateOptions, signal?: AbortSignal): Promise<TeamState>;
+    updateStagedPlanBatch(captain: Agent, teamId: string, mutations: readonly StagedPlanMutation[], options: StagedPlanUpdateOptions, signal?: AbortSignal): Promise<TeamState>;
+    prepareWebApproval(captain: Agent, teamId: string, expectedPlanRevision: number): Promise<PreparedWebApproval>;
+    approveStagedTeam(captain: Agent, teamId: string, evidence: ApprovalEvidence, signal?: AbortSignal): Promise<ApprovedTeamResult>;
     continueStagedPlanning(captain: Agent, teamId: string): Promise<{
         teamId: string;
         alreadyWaiting: boolean;

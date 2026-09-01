@@ -7,6 +7,7 @@ import { join } from 'node:path'
 
 import { TeamActivity } from '../lib/activity.js'
 import {
+  assertExpectedPlanRevision,
   assertExpectedTaskRevision,
   createTeamDir,
   readTeam,
@@ -33,8 +34,35 @@ function team(id = 'alpha2-contract') {
       updatedAt: now,
     }],
     taskSeq: 1,
+    planRevision: 1,
     phase: 'running',
+    approvedAt: now,
+    approvedPlanRevision: 1,
+    approvalSource: 'automatic',
+    approvalEvidenceId: `automatic:create:${id}`,
   }
+}
+
+function stagedTeam(id = 'staged-plan') {
+  return {
+    schemaVersion: 2,
+    id,
+    name: 'Staged plan',
+    captainSessionId: 'captain-session',
+    createdAt: Date.now(),
+    members: [],
+    tasks: [],
+    taskSeq: 0,
+    planRevision: 1,
+    phase: 'staged',
+    planReviewState: 'building',
+  }
+}
+
+async function writeRawTeamFixture(stateRoot, value) {
+  const dir = join(stateRoot, value.id)
+  await mkdir(join(dir, 'inbox'), { recursive: true })
+  await writeFile(join(dir, 'team.json'), JSON.stringify(value, null, 2), 'utf8')
 }
 
 const workspace = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-alpha2-'))
@@ -58,6 +86,36 @@ try {
     () => assertExpectedTaskRevision(changed.tasks[0], 1),
     /stale task t1 revision 1; current revision is 2/,
   )
+
+  const staged = stagedTeam()
+  await createTeamDir(stateRoot, staged)
+  staged.tasks.push({
+    id: 't1',
+    subject: 'planned work',
+    status: 'pending',
+    dependencies: [],
+    revision: 1,
+    attempt: 0,
+    kind: 'work',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  })
+  staged.taskSeq = 1
+  await writeTeam(stateRoot, staged)
+  assert.equal((await readTeam(stateRoot, staged.id))?.planRevision, 2)
+  assert.throws(() => assertExpectedPlanRevision(staged, 1), /stale plan revision 1; current revision is 2/)
+
+  const oldReviewState = { ...stagedTeam('old-review'), planReviewState: 'awaiting_review' }
+  await writeRawTeamFixture(stateRoot, oldReviewState)
+  await assert.rejects(() => readTeam(stateRoot, oldReviewState.id), /AgentTeams V2 状态无效/)
+
+  const incompleteRunning = {
+    ...stagedTeam('bad-running'),
+    phase: 'running',
+    planReviewState: undefined,
+  }
+  await writeRawTeamFixture(stateRoot, incompleteRunning)
+  await assert.rejects(() => readTeam(stateRoot, incompleteRunning.id), /AgentTeams V2 状态无效/)
 
   const legacy = team('legacy-no-revision')
   const legacyDir = join(stateRoot, legacy.id)
@@ -89,4 +147,4 @@ try {
   await rm(workspace, { recursive: true, force: true })
 }
 
-console.log('Alpha.2 AgentTeams contract TDD passed: task revision/CAS and post-call activity waits')
+console.log('Alpha.2 AgentTeams contract TDD passed: task revision/CAS, Team plan revision/CAS, and post-call activity waits')

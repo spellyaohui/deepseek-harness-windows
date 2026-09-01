@@ -86,6 +86,7 @@ export async function assembleTeamSnapshot(ctx, stateRoot, workspace, state, opt
         };
     });
     const captainInbox = await readUnreadMailbox(stateRoot, state.id, CAPTAIN_KEY);
+    // @ts-expect-error Task 4 will extend the Host snapshot review-state contract.
     return {
         workspace,
         teamId: state.id,

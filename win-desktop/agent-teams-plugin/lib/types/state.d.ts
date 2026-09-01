@@ -64,6 +64,8 @@ export declare const TASK_TRANSITIONS: Readonly<Record<TaskStatus, readonly Task
 export declare function transitionError(current: TaskStatus, next: TaskStatus): string | undefined;
 /** Reject a stale model/tool mutation before it changes the task. */
 export declare function assertExpectedTaskRevision(task: TeamTask, expectedRevision: number): void;
+/** Reject a stale staged-plan mutation before it changes the reviewable graph. */
+export declare function assertExpectedPlanRevision(team: TeamState, expected: number): void;
 /** Activate the task's current generation for one owner and return its capability id. */
 export declare function activateTaskAttempt(task: TeamTask, assignee: string): string;
 /** Start a fresh task generation for one owner. */
@@ -102,7 +104,7 @@ export declare function readTeamSync(stateRoot: string, teamId: string): TeamSta
  * @param stateRoot - resolved absolute state root directory.
  * @param state - the record to persist.
  */
-export declare function writeTeam(stateRoot: string, state: TeamState): Promise<void>;
+export declare function writeTeam(stateRoot: string, state: TeamState): Promise<TeamState>;
 /** Read the durable set of member session ids retired by remove/delete. */
 export declare function readRetiredMemberIds(stateRoot: string): Promise<Set<string>>;
 /** Atomically add session ids to the durable retired-member deny-list. */
