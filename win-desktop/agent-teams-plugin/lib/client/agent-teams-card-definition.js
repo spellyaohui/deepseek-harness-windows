@@ -32,6 +32,9 @@ export const agentTeamsCardDefinition = {
     kind: 'agent-teams',
     target: 'chat',
     match: (event) => {
+        if (event.type === 'agent-teams/team-created' && event.data.generated === true) {
+            return { id: event.data.teamId, role: 'start' };
+        }
         if (event.type === 'tool/call' && event.data.name === 'agent_teams_create') {
             return parseAgentTeamsCreateArgs(event.data.arguments) === undefined
                 ? null
@@ -43,6 +46,13 @@ export const agentTeamsCardDefinition = {
         return null;
     },
     start: (_context, match) => {
+        if (match.event.type === 'agent-teams/team-created') {
+            return {
+                teamId: match.event.data.teamId,
+                name: match.event.data.name,
+                accepted: true,
+            };
+        }
         if (match.event.type !== 'tool/call') {
             throw new Error('agent-teams card start requires agent_teams_create tool/call');
         }

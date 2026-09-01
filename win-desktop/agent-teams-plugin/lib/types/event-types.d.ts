@@ -15,6 +15,8 @@ export interface AgentTeamsTeamCreatedData {
     /** The captain session that owns this team (UI follows it). */
     readonly captainSessionId: string;
     readonly name: string;
+    /** True when the runtime generated the display name after the tool call. */
+    readonly generated?: boolean;
     readonly description?: string;
     readonly profile?: string;
 }

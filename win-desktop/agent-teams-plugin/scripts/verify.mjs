@@ -68,7 +68,7 @@ import {
   resolvePanelGeometry,
 } from '../lib/client/panel-geometry.js'
 import { memberArtUrl } from '../lib/client/artwork.js'
-import { parseAgentTeamsCreateArgs } from '../lib/client/agent-teams-card-definition.js'
+import { agentTeamsCardDefinition, parseAgentTeamsCreateArgs } from '../lib/client/agent-teams-card-definition.js'
 import {
   AGENT_TEAMS_LOCALE_NAMESPACE,
   en as agentTeamsEn,
@@ -1363,6 +1363,28 @@ check(
     === JSON.stringify({ teamId: 'repo-review-2w', name: 'Repo Review 2W!' }),
 )
 check('malformed create tool arguments do not create a card', parseAgentTeamsCreateArgs('{bad') === undefined)
+const generatedTeamCreatedEvent = {
+  type: 'agent-teams/team-created',
+  seq: 21,
+  time: 1_700_000_000_000,
+  data: {
+    teamId: 'generated-safe-team-ab12cd',
+    captainSessionId: 'captain-session',
+    name: 'Generated Safe Team AB12CD',
+    generated: true,
+  },
+}
+const generatedTeamCardMatch = agentTeamsCardDefinition.match(generatedTeamCreatedEvent)
+const generatedTeamCardState = generatedTeamCardMatch === null
+  ? undefined
+  : agentTeamsCardDefinition.start({}, { ...generatedTeamCardMatch, event: generatedTeamCreatedEvent })
+check(
+  'generated Team creation event starts a card with the persisted id and name',
+  generatedTeamCardMatch?.role === 'start'
+    && generatedTeamCardState?.teamId === 'generated-safe-team-ab12cd'
+    && generatedTeamCardState?.name === 'Generated Safe Team AB12CD'
+    && generatedTeamCardState?.accepted === true,
+)
 
 const captainDeliveries = []
 const captainSteered = steerCaptainReport(

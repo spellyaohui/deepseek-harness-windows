@@ -470,6 +470,94 @@ const task = async id => (await state())?.tasks.find(candidate => candidate.id =
 
 console.log('dsh-agent-teams lifecycle verification')
 
+const stagedExecutionGuard = await call('agent_teams_create', {
+  name: 'Staged Execution Guard',
+  description: 'Prove staged task execution cannot bypass approval',
+  profile: 'software-delivery',
+  approval: 'required',
+})
+const stagedExecutionPlan = await call('agent_teams_edit_plan', {
+  operations: [
+    { action: 'add_task', subject: 'Must remain pending', dependencies: [], assignee: 'implementer' },
+    { action: 'add_task', subject: 'Must not be taken over', dependencies: [], assignee: 'implementer' },
+  ],
+  submit_for_review: true,
+})
+const stagedExecutionBefore = JSON.stringify(await readTeam(stateRoot, stagedExecutionGuard.team_id))
+const stagedExecutionChildrenBefore = childSeq
+const stagedExecutionDeliveriesBefore = deliveries.length
+let stagedClaimRejected = false
+try {
+  await call('agent_teams_claim_task', { task_id: 't1' })
+} catch (error) {
+  stagedClaimRejected = /staged|approval|running/i.test(String(error?.message ?? error))
+}
+let stagedReassignRejected = false
+try {
+  await call('agent_teams_reassign_task', {
+    task_id: 't2', assignee: 'captain', reason: 'must not bypass staged approval',
+  })
+} catch (error) {
+  stagedReassignRejected = /staged|approval|running/i.test(String(error?.message ?? error))
+}
+const stagedExecutionAfter = JSON.stringify(await readTeam(stateRoot, stagedExecutionGuard.team_id))
+check('staged execution tools fail closed without task, spawn, or delivery side effects',
+  stagedExecutionPlan.review_state === 'ready_for_review'
+    && stagedClaimRejected
+    && stagedReassignRejected
+    && stagedExecutionAfter === stagedExecutionBefore
+    && childSeq === stagedExecutionChildrenBefore
+    && deliveries.length === stagedExecutionDeliveriesBefore)
+await call('agent_teams_delete', {})
+
+const stagedRosterGuard = await call('agent_teams_create', {
+  name: 'Staged Roster Revision Guard',
+  description: 'Prove staged member removal invalidates prepared approval',
+  profile: 'dynamic-delivery',
+  approval: 'required',
+})
+const stagedRosterPlan = await call('agent_teams_edit_plan', {
+  operations: [
+    { action: 'add_task', subject: 'Keep implementer task', dependencies: [], assignee: 'implementer' },
+  ],
+  submit_for_review: true,
+})
+const staleRosterCredential = await agentTeamsRuntime.prepareWebApproval(
+  captain,
+  stagedRosterGuard.team_id,
+  stagedRosterPlan.plan_revision,
+)
+const stagedRosterChildrenBefore = childSeq
+await call('agent_teams_remove_member', { name: 'reviewer' })
+const stagedRosterAfterRemoval = await readTeam(stateRoot, stagedRosterGuard.team_id)
+const resubmittedRosterPlan = await call('agent_teams_edit_plan', {
+  operations: [],
+  submit_for_review: true,
+})
+let staleRosterApprovalRejected = false
+try {
+  await agentTeamsRuntime.approveStagedTeam(captain, stagedRosterGuard.team_id, {
+    source: 'web',
+    token: staleRosterCredential.token,
+    expectedPlanRevision: staleRosterCredential.planRevision,
+  })
+} catch (error) {
+  staleRosterApprovalRejected = /stale plan revision|credential invalid/i.test(String(error?.message ?? error))
+}
+const stagedRosterAfterRejectedApproval = await readTeam(stateRoot, stagedRosterGuard.team_id)
+check('staged member removal changes the roster revision and invalidates old approval',
+  stagedRosterAfterRemoval?.phase === 'staged'
+    && stagedRosterAfterRemoval.planReviewState === 'building'
+    && stagedRosterAfterRemoval.planRevision === stagedRosterPlan.plan_revision + 1
+    && !stagedRosterAfterRemoval.members.some(member => member.name === 'reviewer')
+    && stagedRosterAfterRemoval.tasks[0]?.assignee === 'implementer'
+    && resubmittedRosterPlan.review_state === 'ready_for_review'
+    && resubmittedRosterPlan.plan_revision === stagedRosterAfterRemoval.planRevision
+    && staleRosterApprovalRejected
+    && stagedRosterAfterRejectedApproval?.phase === 'staged'
+    && childSeq === stagedRosterChildrenBefore)
+await call('agent_teams_delete', {})
+
 const createdStaged = await call('agent_teams_create', {
   description: 'Implement trusted staged approval',
   profile: 'software-delivery',
@@ -490,7 +578,11 @@ const genericApproval = await call('agent_teams_approve', {
   expected_plan_revision: submittedStaged.plan_revision,
 }, captain, { rootCallId: 'generic-approval-without-user-evidence' })
 stagedApprovalTeam = await readTeam(stateRoot, createdStaged.team_id)
-check('generic approval is rejected without writes', genericApproval.status === 'approval_required' && stagedApprovalTeam?.phase === 'staged')
+check('generic approval is rejected without writes, spawns, or deliveries',
+  genericApproval.status === 'approval_required'
+    && stagedApprovalTeam?.phase === 'staged'
+    && childSeq === stagedRosterChildrenBefore
+    && deliveries.length === stagedExecutionDeliveriesBefore)
 let staleWebPrepareRejected = false
 try {
   await agentTeamsRuntime.prepareWebApproval(captain, createdStaged.team_id, submittedStaged.plan_revision - 1)

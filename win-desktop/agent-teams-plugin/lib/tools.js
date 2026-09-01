@@ -115,6 +115,11 @@ function requireStagedTeam(team) {
     if (team.halted === true)
         throw new Error(`team "${team.name}" is halted, not awaiting plan approval`);
 }
+function requireRunningTeam(team) {
+    if (team.phase !== 'running') {
+        throw new Error(`team "${team.name}" is staged; approve the plan before executing tasks`);
+    }
+}
 function trimmedOptional(value) {
     const trimmed = value?.trim();
     return trimmed === undefined || trimmed === '' ? undefined : trimmed;
@@ -869,6 +874,7 @@ export function registerAgentTeamsTools(ctx, config) {
                         teamId: created.state.id,
                         captainSessionId: captain.id,
                         name: created.state.name,
+                        ...explicitName === undefined ? { generated: true } : {},
                         ...created.state.description !== undefined ? { description: created.state.description } : {},
                         ...created.state.profile?.name === undefined ? {} : { profile: created.state.profile.name },
                     });
@@ -1381,6 +1387,22 @@ export function registerAgentTeamsTools(ctx, config) {
                 const member = requireMember(fresh, args.name);
                 markStagedPlanBuilding(fresh);
                 const requeued = [];
+                if (fresh.phase === 'staged') {
+                    fresh.members = fresh.members.filter(candidate => candidate !== member);
+                    for (const task of fresh.tasks) {
+                        if (task.assignee !== member.name)
+                            continue;
+                        delete task.assignee;
+                        task.updatedAt = Date.now();
+                        requeued.push(task.id);
+                    }
+                    await writeTeam(stateRoot, fresh);
+                    appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, captain.session), 'agent-teams/member-removed', {
+                        teamId: fresh.id,
+                        memberId: member.id,
+                    });
+                    return { member: { ...member, status: 'removed' }, requeued };
+                }
                 for (const task of fresh.tasks) {
                     if (task.assignee !== member.name || task.status === 'completed')
                         continue;
@@ -1601,6 +1623,7 @@ export function registerAgentTeamsTools(ctx, config) {
                 throw new Error('reassignment assignee must not be empty');
             const revoked = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
                 const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                requireRunningTeam(fresh);
                 const task = requireTask(fresh, args.task_id);
                 if (task.status === 'completed')
                     throw new Error(`completed task ${task.id} is immutable and cannot be reassigned`);
@@ -1718,6 +1741,7 @@ export function registerAgentTeamsTools(ctx, config) {
             const team = await requireParticipantTeam(workspace, config, caller);
             return withTeamLock(teamLockKey(stateRoot, team.id), async () => {
                 const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, caller.id);
+                requireRunningTeam(fresh);
                 const task = requireTask(fresh, args.task_id);
                 if (task.reassigning === true) {
                     throw new Error(`task ${task.id} is being reassigned; wait for the handoff to finish`);
@@ -1882,6 +1906,7 @@ export function registerAgentTeamsTools(ctx, config) {
             const team = await requireParticipantTeam(workspace, config, caller);
             const updated = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
                 const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, caller.id);
+                requireRunningTeam(fresh);
                 const task = requireTask(fresh, args.task_id);
                 if (identity.kind === 'captain'
                     && task.assignee !== undefined
