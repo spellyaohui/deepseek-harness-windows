@@ -85,7 +85,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "sync:skill": "node scripts/sync-skill.mjs",
     "verify:skill": "node scripts/sync-skill.mjs --check",
-    "verify": "node scripts/settings-verify.mjs && node scripts/settings-client-verify.mjs && node scripts/profile-editor-verify.mjs && node scripts/selection-policy-verify.mjs && node scripts/verify.mjs && node scripts/alpha2-contract-tdd.mjs && node scripts/fallback-tdd.mjs && node scripts/quality-gates-tdd.mjs && node scripts/lifecycle-verify.mjs && node scripts/stress-verify.mjs && node scripts/build-path-verify.mjs && pnpm verify:skill",
+    "verify": "node scripts/settings-verify.mjs && node scripts/settings-client-verify.mjs && node scripts/profile-editor-verify.mjs && node scripts/selection-policy-verify.mjs && node scripts/verify.mjs && node scripts/alpha2-contract-tdd.mjs && node scripts/staging-approval-tdd.mjs && node scripts/fallback-tdd.mjs && node scripts/quality-gates-tdd.mjs && node scripts/lifecycle-verify.mjs && node scripts/stress-verify.mjs && node scripts/build-path-verify.mjs && pnpm verify:skill",
     "test": "pnpm build && pnpm verify",
     "prepublishOnly": "pnpm build && pnpm verify"
   },
