@@ -1,12 +1,31 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.1.2-alpha.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.2-rc.1`。
+本目录把官方 `dsh-v0.1.2-alpha.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.2-rc.4`。
+
+## `v0.1.2-rc.4` 更新说明
+
+- 动态新增的编号规则角色从当前 Team 的基础角色快照继承 Provider、模型和思考策略，覆盖 `reviewer2/3/4/5/6`、`analyst2`、`implementer2`、`tester2` 及更高编号。
+- 显式模型策略优先；未匹配或角色描述歧义时 fail-closed，不随机继承其他成员模型。
+- AgentTeams fork 更新到 `0.1.15-desktop.4`，新增纯策略与真实工具生命周期回归。
+
+## `v0.1.2-rc.3` 更新说明
+
+- 普通 `captain-planning` 委派现在自动创建并启动 Team，由主模型生成 Team 名称和任务图，不再要求 Web 输入任务名称或确认；只有明确要求先审计划时才保留 staged 审核。
+- staged Team 仍在 `building` 或等待反馈时，Web 成员/任务编辑、新增任务和批准按钮全部禁用，避免提前提交导致 `team ... is not ready for Web plan editing`。
+- AgentTeams fork 更新到 `0.1.15-desktop.3`，补充自动委派和 staged 编辑状态回归；其余角色模型、思考强度、严格 V2、质量门禁、Revision/CAS 和 Alpha.2 适配保持不变。
+
+## `v0.1.2-rc.2` 更新说明
+
+- 普通 AgentTeams 委派默认使用 `approval="automatic"`，省略 Team 名称并由主模型自行建立任务；只有用户明确要求先审计划时才显示 staged Web 确认。
+- 修复 Web 任务新增/编辑/删除和确认遗漏 `planRevision` 的问题，Host 使用 CAS 与一次性 Web 审批凭据提交，避免 `staged plan update requires revision-aware options`。
+- 恢复上游 `v0.1.15` 的 Alpha.2 Web authentication、Host 与 Origin 门禁；未认证和跨站请求不会进入 Team 状态或计划处理器。
+- AgentTeams fork 更新到 `0.1.15-desktop.2`，角色模型、思考强度、严格 V2、质量门禁、紧凑状态和成员失败结算保持不变。
 
 ## `v0.1.2-rc.1` 更新说明
 
 - 固定官方 tag `dsh-v0.1.2-alpha.2` / commit `0a53fb55bea101816fa226bb964ae2bed71c343b`，以 pnpm 11.7.0 构建并验证 9 个 vendor 与 245 个 dsh tarball；Wrapper 只使用这套已记录 SHA-256 的本地包，不保留 rc.2 双运行时。
 - Models、CPA、OpenCode、Desktop Settings、Session Markdown 与 AgentTeams 均适配 Alpha.2 的 Remote、Slot、会话和启动边界；模型图片三态、协议、容量、reasoning 探测和角色级模型策略继续保留。
-- AgentTeams 本地 fork 更新到 `0.1.14-desktop.12`：使用 Alpha.2 client seams，并迁入经过验证的 wait、身份作用域、Revision/CAS 和事件恢复结构；不安装实验性 AgentTeams 包。
+- AgentTeams 本地 fork 更新到 `0.1.15-desktop.1`：基于固定上游提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6`，保留 Alpha.2 client seams、wait、身份作用域、Revision/CAS、事件恢复和本地角色策略；新增最终成员失败安全结算与新工具输入边界归一化，不安装实验性 AgentTeams 包。
 - “插件 → 插件配置”隐藏了与独立“子智能体”设置页重复的原生 Subagent 卡；官方 Subagent 服务、已有设置和 AgentTeams 成员运行链保持不变。
 - Windows 兼容层继续负责通用 `grep`、OpenCode/Kimi、流恢复、会话头和隐藏控制台；AUTO 保持完全移除，旧 Team/会话不做迁移。
 - Alpha.2 `dsh web:` 就绪行中的一次性认证 URL 会被完整交给 Electron，首次加载先换取签名 cookie，再进入干净根页面。
@@ -146,7 +165,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
 - Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后必须重启，才会注入并用于新团队。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.14`、`v0.1.14`、提交 `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`，桌面 fork 版本是 `0.1.14-desktop.12`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.15`、固定提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6`，桌面 fork 版本是 `0.1.15-desktop.4`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 
@@ -215,8 +234,8 @@ npm run dist:win
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.1.2-rc.1-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.1.2-rc.1-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.1.2-rc.2-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.1.2-rc.2-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
 
 ## 使用注意
 

@@ -31,6 +31,7 @@ export {
   evaluateQualityCompletion,
   hasValidQualityTaskFields,
   isQualityKind,
+  normalizeBlankOptionalTaskFields,
   pathMatchesScope,
   planQualityFollowUp,
   qualityPlanningPrompt,

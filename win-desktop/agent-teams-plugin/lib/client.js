@@ -542,6 +542,7 @@ window.__ModuleLoader__.load({
 			return {
 				sessionId: draft.sessionId,
 				teamId: draft.teamId,
+				expectedPlanRevision: draft.expectedPlanRevision,
 				action: "update_task",
 				taskId: draft.taskId,
 				subject: draft.subject,
@@ -758,13 +759,19 @@ window.__ModuleLoader__.load({
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify(payload)
 			});
-			if (response.ok) return;
-			let message = `HTTP ${response.status}`;
+			let body = {};
 			try {
-				const body = await response.json();
-				if (typeof body.error === "string" && body.error.trim() !== "") message = body.error;
+				body = await response.json();
 			} catch {}
+			if (response.ok) return Number.isSafeInteger(body.planRevision) && body.planRevision > 0 ? { planRevision: body.planRevision } : {};
+			let message = `HTTP ${response.status}`;
+			if (typeof body.error === "string" && body.error.trim() !== "") message = body.error;
 			throw new Error(message);
+		}
+		async function mutateRevisionedPlan(payload) {
+			const result = await mutatePlan(payload);
+			if (result.planRevision === void 0) throw new Error("plan operation did not return a revision");
+			return result.planRevision;
 		}
 		function errorMessage$1(error) {
 			return error instanceof Error ? error.message : String(error);
@@ -1064,7 +1071,7 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
-		function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }) {
+		function StagedMemberEditor({ team, member, modelDirectory, editable, expectedPlanRevision, onPlanRevision, onPendingChange, t }) {
 			const bodyId = (0, react.useId)();
 			const [open, setOpen] = (0, react.useState)(false);
 			const [role, setRole] = (0, react.useState)(member.role);
@@ -1145,9 +1152,10 @@ window.__ModuleLoader__.load({
 				setBusy(true);
 				setFeedback(void 0);
 				try {
-					await mutatePlan({
+					onPlanRevision(await mutateRevisionedPlan({
 						sessionId: team.captainSessionId,
 						teamId: team.teamId,
+						expectedPlanRevision,
 						action: "update_member",
 						memberName: member.name,
 						role,
@@ -1156,7 +1164,7 @@ window.__ModuleLoader__.load({
 						reasoningMode: selection.reasoningMode,
 						...selection.reasoningMode === "explicit" ? { reasoningEffort: selection.reasoningEffort } : {},
 						executionPrompt
-					});
+					}));
 					setSavedSignature(nextSignature);
 					setFeedback({
 						tone: "success",
@@ -1211,7 +1219,7 @@ window.__ModuleLoader__.load({
 						save(event);
 					},
 					children: [(0, react_jsx_runtime.jsxs)("fieldset", {
-						disabled: busy,
+						disabled: !editable || busy,
 						children: [
 							(0, react_jsx_runtime.jsxs)("label", { children: [t("plan.member.role"), (0, react_jsx_runtime.jsx)("input", {
 								name: "role",
@@ -1227,7 +1235,7 @@ window.__ModuleLoader__.load({
 								model,
 								reasoningMode,
 								reasoningEffort,
-								busy,
+								busy: !editable || busy,
 								onChange: (selection) => {
 									persist(selection);
 								},
@@ -1247,14 +1255,14 @@ window.__ModuleLoader__.load({
 						className: ActivityPanel_module_css_default.planActions,
 						children: [(0, react_jsx_runtime.jsx)(Feedback, { value: feedback }), (0, react_jsx_runtime.jsx)("button", {
 							type: "submit",
-							disabled: busy || !dirty || provider.trim() === "" || model.trim() === "" || reasoningMode === "explicit" && reasoningEffort.trim() === "",
+							disabled: !editable || busy || !dirty || provider.trim() === "" || model.trim() === "" || reasoningMode === "explicit" && reasoningEffort.trim() === "",
 							children: busy ? t("plan.saving") : t("plan.save")
 						})]
 					})]
 				})]
 			});
 		}
-		function StagedTaskEditor({ team, task, onPendingChange, t }) {
+		function StagedTaskEditor({ team, task, editable, expectedPlanRevision, onPlanRevision, onPendingChange, t }) {
 			const bodyId = (0, react.useId)();
 			const taskDependencies = task.dependencies.join(", ");
 			const [open, setOpen] = (0, react.useState)(false);
@@ -1362,9 +1370,10 @@ window.__ModuleLoader__.load({
 				setBusy(true);
 				setFeedback(void 0);
 				try {
-					await mutatePlan(buildStagedTaskMutationPayload({
+					onPlanRevision(await mutateRevisionedPlan(buildStagedTaskMutationPayload({
 						sessionId: team.captainSessionId,
 						teamId: team.teamId,
+						expectedPlanRevision,
 						taskId: task.id,
 						subject,
 						description,
@@ -1383,7 +1392,7 @@ window.__ModuleLoader__.load({
 						sourceTaskId,
 						sourceFindingIds,
 						coverageOf
-					}));
+					})));
 					setSavedSignature(signature);
 					setFeedback({
 						tone: "success",
@@ -1402,12 +1411,13 @@ window.__ModuleLoader__.load({
 				setBusy(true);
 				setFeedback(void 0);
 				try {
-					await mutatePlan({
+					onPlanRevision(await mutateRevisionedPlan({
 						sessionId: team.captainSessionId,
 						teamId: team.teamId,
+						expectedPlanRevision,
 						action: "remove_task",
 						taskId: task.id
-					});
+					}));
 					setFeedback({
 						tone: "success",
 						message: t("plan.removed")
@@ -1466,7 +1476,7 @@ window.__ModuleLoader__.load({
 					},
 					children: [
 						(0, react_jsx_runtime.jsxs)("fieldset", {
-							disabled: busy,
+							disabled: !editable || busy,
 							children: [
 								(0, react_jsx_runtime.jsxs)("label", { children: [t("plan.task.subject"), (0, react_jsx_runtime.jsx)("input", {
 									name: "subject",
@@ -1715,12 +1725,12 @@ window.__ModuleLoader__.load({
 										setConfirmingRemove(true);
 										setFeedback(void 0);
 									},
-									disabled: busy || confirmingRemove,
+									disabled: !editable || busy || confirmingRemove,
 									children: t("plan.remove")
 								}),
 								(0, react_jsx_runtime.jsx)("button", {
 									type: "submit",
-									disabled: busy || !dirty || subject.trim() === "" || !roundValid,
+									disabled: !editable || busy || !dirty || subject.trim() === "" || !roundValid,
 									children: busy ? t("plan.saving") : t("plan.save")
 								})
 							]
@@ -1739,14 +1749,22 @@ window.__ModuleLoader__.load({
 			const [discardArmed, setDiscardArmed] = (0, react.useState)(false);
 			const [pendingEditors, setPendingEditors] = (0, react.useState)(/* @__PURE__ */ new Set());
 			const [feedback, setFeedback] = (0, react.useState)();
+			const [planRevision, setPlanRevision] = (0, react.useState)(team.planRevision);
 			useDismissSuccess(feedback, setFeedback);
 			const dependencyLinks = team.tasks.reduce((total, task) => total + task.dependencies.length, 0);
 			const runnable = team.members.length > 0 && team.tasks.length > 0;
 			const hasPendingEdits = pendingEditors.size > 0 || newTask.trim() !== "";
+			const webEditable = team.planReviewState === "ready_for_review";
 			const waitingForFeedback = team.planReviewState === "awaiting_feedback";
 			(0, react.useEffect)(() => {
 				modelDirectory.load().catch(() => void 0);
 			}, [modelDirectory]);
+			(0, react.useEffect)(() => {
+				setPlanRevision((current) => Math.max(current, team.planRevision));
+			}, [team.planRevision]);
+			const acceptPlanRevision = (0, react.useCallback)((revision) => {
+				setPlanRevision((current) => Math.max(current, revision));
+			}, []);
 			const onPendingChange = (0, react.useCallback)((key, pending) => {
 				setPendingEditors((current) => {
 					if (pending === current.has(key)) return current;
@@ -1761,13 +1779,15 @@ window.__ModuleLoader__.load({
 				setBusy(true);
 				setFeedback(void 0);
 				try {
-					await mutatePlan({
+					const nextPlanRevision = await mutateRevisionedPlan({
 						sessionId: team.captainSessionId,
 						teamId: team.teamId,
+						expectedPlanRevision: planRevision,
 						action: "add_task",
 						subject: newTask,
 						dependencies: []
 					});
+					acceptPlanRevision(nextPlanRevision);
 					setNewTask("");
 					setFeedback({
 						tone: "success",
@@ -1787,9 +1807,10 @@ window.__ModuleLoader__.load({
 				setBusy(true);
 				setFeedback(void 0);
 				try {
-					await mutatePlan({
+					await mutateRevisionedPlan({
 						sessionId: team.captainSessionId,
 						teamId: team.teamId,
+						expectedPlanRevision: planRevision,
 						action: "approve"
 					});
 				} catch (error) {
@@ -1847,11 +1868,18 @@ window.__ModuleLoader__.load({
 				children: [
 					(0, react_jsx_runtime.jsxs)("header", {
 						className: ActivityPanel_module_css_default.planHeader,
-						children: [(0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("strong", { children: t("plan.title") }), (0, react_jsx_runtime.jsx)("small", { children: t("plan.readySummary", {
-							members: team.members.length,
-							tasks: team.tasks.length,
-							links: dependencyLinks
-						}) })] }), (0, react_jsx_runtime.jsx)("em", { children: t("plan.badge") })] }), (0, react_jsx_runtime.jsx)("p", { children: t("plan.description") })]
+						children: [
+							(0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("strong", { children: t("plan.title") }), (0, react_jsx_runtime.jsx)("small", { children: t("plan.readySummary", {
+								members: team.members.length,
+								tasks: team.tasks.length,
+								links: dependencyLinks
+							}) })] }), (0, react_jsx_runtime.jsx)("em", { children: t("plan.badge") })] }),
+							(0, react_jsx_runtime.jsx)("p", { children: t("plan.description") }),
+							!webEditable && (0, react_jsx_runtime.jsx)("p", {
+								role: "status",
+								children: t(team.planReviewState === "awaiting_feedback" ? "plan.waitingForFeedback" : "plan.waitingForCaptain")
+							})
+						]
 					}),
 					(0, react_jsx_runtime.jsxs)("ol", {
 						className: ActivityPanel_module_css_default.planFlow,
@@ -1886,6 +1914,9 @@ window.__ModuleLoader__.load({
 								team,
 								member,
 								modelDirectory,
+								editable: webEditable,
+								expectedPlanRevision: planRevision,
+								onPlanRevision: acceptPlanRevision,
 								onPendingChange,
 								t
 							}, member.name))
@@ -1914,6 +1945,9 @@ window.__ModuleLoader__.load({
 							}) : team.tasks.map((task) => (0, react_jsx_runtime.jsx)(StagedTaskEditor, {
 								team,
 								task,
+								editable: webEditable,
+								expectedPlanRevision: planRevision,
+								onPlanRevision: acceptPlanRevision,
 								onPendingChange,
 								t
 							}, task.id))
@@ -1932,10 +1966,10 @@ window.__ModuleLoader__.load({
 								setFeedback(void 0);
 							},
 							placeholder: t("plan.newTask"),
-							disabled: busy
+							disabled: !webEditable || busy
 						})] }), (0, react_jsx_runtime.jsx)("button", {
 							type: "submit",
-							disabled: busy || newTask.trim() === "",
+							disabled: !webEditable || busy || newTask.trim() === "",
 							children: busy ? t("plan.adding") : t("plan.addTask")
 						})]
 					}),
@@ -1978,7 +2012,7 @@ window.__ModuleLoader__.load({
 								children: [(0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									"data-plan-approve": true,
-									disabled: busy || !runnable || hasPendingEdits,
+									disabled: !webEditable || busy || !runnable || hasPendingEdits,
 									onClick: () => {
 										approve();
 									},
@@ -5477,6 +5511,8 @@ window.__ModuleLoader__.load({
 			"plan.badge": "待确认",
 			"plan.title": "执行前计划审查",
 			"plan.description": "成员尚未创建、任务尚未调度。可直接调整计划，也可返回对话告诉队长哪里需要修改。",
+			"plan.waitingForCaptain": "队长正在生成计划，请返回对话继续规划；计划就绪后才能在此编辑。",
+			"plan.waitingForFeedback": "请在对话中回答队长的问题；计划更新并就绪后才能在此编辑。",
 			"plan.member.role": "角色",
 			"plan.member.provider": "Provider",
 			"plan.member.model": "模型",
@@ -5783,6 +5819,8 @@ window.__ModuleLoader__.load({
 			"plan.badge": "Awaiting approval",
 			"plan.title": "Pre-run plan review",
 			"plan.description": "Members have not been spawned and tasks have not been scheduled. Edit the draft here, or return to chat and tell the Captain what should change.",
+			"plan.waitingForCaptain": "The Captain is still building the plan. Return to chat to continue planning; Web editing will unlock when it is ready.",
+			"plan.waitingForFeedback": "Answer the Captain in chat. Web editing will unlock after the revised plan is ready.",
 			"plan.member.role": "Role",
 			"plan.member.provider": "Provider",
 			"plan.member.model": "Model",

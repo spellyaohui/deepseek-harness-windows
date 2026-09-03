@@ -17,6 +17,48 @@ function requestBody(call) {
   return JSON.parse(call.init.body)
 }
 
+function imageDataFor(protocol, body) {
+  if (protocol === 'anthropic-messages') {
+    return body.messages?.[0]?.content?.find(block => block.type === 'image')?.source?.data
+  }
+  if (protocol === 'openai-responses') {
+    const url = body.input?.[0]?.content?.find(block => block.type === 'input_image')?.image_url
+    return typeof url === 'string' ? url.split(',', 2)[1] : undefined
+  }
+  const url = body.messages?.[0]?.content?.find(block => block.type === 'image_url')?.image_url?.url
+  return typeof url === 'string' ? url.split(',', 2)[1] : undefined
+}
+
+function pngDimensions(base64) {
+  const bytes = Buffer.from(base64, 'base64')
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+}
+
+test('image probes use a valid sample larger than gateways minimum image dimensions', async () => {
+  for (const protocol of ['openai-completions', 'openai-responses', 'anthropic-messages']) {
+    const result = await probeModelCapabilities({
+      modelId: `dimension-gated-${protocol}`,
+      protocol,
+      baseURL: 'https://provider.example/v1',
+    }, {
+      fetch: async (_url, init) => {
+        const body = requestBody({ init })
+        const image = imageDataFor(protocol, body)
+        if (image !== undefined) {
+          const { width, height } = pngDimensions(image)
+          return width > 10 && height > 10
+            ? response(200)
+            : response(400, { message: 'image dimensions must be greater than 10' })
+        }
+        return response(200)
+      },
+    })
+
+    assert.equal(result.checks.image.status, 'supported', protocol)
+    assert.deepEqual(result.patch.input, ['text', 'image'], protocol)
+  }
+})
+
 test('openai-responses probes all generic capability categories using the current route', async () => {
   const calls = []
   const result = await probeModelCapabilities({

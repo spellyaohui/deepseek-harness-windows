@@ -52,6 +52,15 @@ function optionalPayloadRound(payload: Record<string, unknown>): number | null |
   return value
 }
 
+/** Read the optimistic-concurrency revision observed by the browser snapshot. */
+export function expectedPlanRevisionFromPayload(payload: Record<string, unknown>): number {
+  const value = payload['expectedPlanRevision']
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+    throw new Error('expectedPlanRevision must be a positive safe integer')
+  }
+  return value
+}
+
 type StagedTaskContract = Omit<
 Extract<StagedPlanMutation, { action: 'update_task' }>,
 'action' | 'taskId' | 'subject'

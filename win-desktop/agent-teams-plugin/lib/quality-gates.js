@@ -176,6 +176,43 @@ export function inScopeOverlap(left, right) {
 function nonemptyString(value) {
     return typeof value === 'string' && value.trim() !== '';
 }
+const BLANK_SENSITIVE_STRING_FIELDS = [
+    'description',
+    'objective',
+    'reviewedTaskId',
+    'sourceTaskId',
+];
+const BLANK_SENSITIVE_STRING_LIST_FIELDS = [
+    'inScope',
+    'outOfScope',
+    'acceptance',
+    'verify',
+    'deliverables',
+    'nonGoals',
+    'changedPaths',
+    'sourceFindingIds',
+    'coverageOf',
+];
+/** Normalize blank optional values on new tool input without repairing durable state. */
+export function normalizeBlankOptionalTaskFields(task) {
+    const next = { ...task };
+    for (const key of BLANK_SENSITIVE_STRING_FIELDS) {
+        const value = next[key];
+        if (typeof value === 'string' && value.trim() === '')
+            delete next[key];
+    }
+    for (const key of BLANK_SENSITIVE_STRING_LIST_FIELDS) {
+        const value = next[key];
+        if (!Array.isArray(value))
+            continue;
+        const kept = value.filter((item) => !(typeof item === 'string' && item.trim() === ''));
+        if (kept.length === 0)
+            delete next[key];
+        else
+            next[key] = kept;
+    }
+    return next;
+}
 function omitBlankOptionalString(value) {
     return nonemptyString(value) ? value : undefined;
 }

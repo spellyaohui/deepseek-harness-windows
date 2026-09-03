@@ -120,6 +120,8 @@ export declare function pathMatchesScope(path: string, pattern: string): boolean
 export declare function classifyChangedPath(path: string, inScope?: readonly string[], outOfScope?: readonly string[]): PathClassification;
 export declare function collectChangedPaths(gitStatusText: string): string[];
 export declare function inScopeOverlap(left: readonly string[] | undefined, right: readonly string[] | undefined): string[];
+/** Normalize blank optional values on new tool input without repairing durable state. */
+export declare function normalizeBlankOptionalTaskFields<T extends object>(task: T): T;
 export declare function validateCreateTask(team: TeamState, input: CreateTaskInput): ValidateCreateTaskResult;
 export declare function evaluateQualityCompletion(task: TeamTask, update: QualityCompletionUpdate): QualityCompletionResult;
 export declare function planQualityFollowUp(team: TeamState, closed: TeamTask): PlanQualityFollowUpResult;

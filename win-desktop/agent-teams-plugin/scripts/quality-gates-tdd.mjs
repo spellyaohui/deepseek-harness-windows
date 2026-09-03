@@ -76,6 +76,7 @@ function loadStateApi() {
     resumeTeamState: state.resumeTeamState,
     isTeamTask: state.isTeamTask,
     validateCreateTask: state.validateCreateTask,
+    normalizeBlankOptionalTaskFields: state.normalizeBlankOptionalTaskFields,
     defaultQualityDeliveryGraph: state.defaultQualityDeliveryGraph,
     qualityPlanningPrompt: state.qualityPlanningPrompt,
     sanitizeReviewAcceptance: state.sanitizeReviewAcceptance,
@@ -177,6 +178,28 @@ function reviewContract(extra = {}) {
 const api = loadStateApi()
 
 console.log('quality-gates TDD — A. create contract')
+
+{
+  const normalize = api.normalizeBlankOptionalTaskFields
+  const normalized = typeof normalize === 'function'
+    ? normalize({
+        description: '   ',
+        objective: '',
+        reviewedTaskId: ' ',
+        inScope: ['', 'src/a.ts', 42],
+        coverageOf: [' ', 'goal'],
+      })
+    : undefined
+  check(
+    'tdd.input.blank-optionals-are-omitted-with-invalid-list-items-preserved',
+    normalized !== undefined
+      && !Object.hasOwn(normalized, 'description')
+      && !Object.hasOwn(normalized, 'objective')
+      && !Object.hasOwn(normalized, 'reviewedTaskId')
+      && JSON.stringify(normalized.inScope) === JSON.stringify(['src/a.ts', 42])
+      && JSON.stringify(normalized.coverageOf) === JSON.stringify(['goal']),
+  )
+}
 
 {
   const created = api.validateCreateTask?.(team(), { subject: 'legacy work' })
@@ -1269,6 +1292,22 @@ console.log('quality-gates TDD — tool-level closed loop')
     await call('agent_teams_add_member', { name: 'implementer', role: 'implementer' })
     await call('agent_teams_add_member', { name: 'reviewer', role: 'correctness-reviewer' })
 
+    const memberAgent = liveAgents.get(children[0]?.id)
+    let memberStatusWithCaptainWake
+    let memberStatusWakeError
+    try {
+      memberStatusWithCaptainWake = await call('agent_teams_status', { wake: 'recover' }, memberAgent)
+    } catch (error) {
+      memberStatusWakeError = error
+    }
+    check(
+      'tdd.status.member-captain-wake-degrades-to-read-only',
+      memberStatusWakeError === undefined
+        && memberStatusWithCaptainWake?.active === true
+        && memberStatusWithCaptainWake?.wake_ignored === 'recover'
+        && memberStatusWithCaptainWake?.recovery_started === false,
+    )
+
     const runningPlanEdit = await call('agent_teams_edit_plan', {
       operations: [{ action: 'update_task', task_id: 'not-created-yet' }],
     })
@@ -1332,20 +1371,21 @@ console.log('quality-gates TDD — tool-level closed loop')
     try {
       const created = await call('agent_teams_create_task', {
         subject: 'work with blank optional fields',
+        description: '   ',
         assignee: 'implementer',
         kind: 'work',
         round: 1,
         objective: '',
-        inScope: [],
-        outOfScope: [],
-        acceptance: [],
-        verify: [],
-        deliverables: [],
-        nonGoals: [],
+        inScope: [''],
+        outOfScope: ['   '],
+        acceptance: [''],
+        verify: [' '],
+        deliverables: [''],
+        nonGoals: [''],
         reviewedTaskId: '',
         sourceTaskId: '',
-        sourceFindingIds: [],
-        coverageOf: ['goal'],
+        sourceFindingIds: [''],
+        coverageOf: ['', 'goal'],
       })
       blankOptionalTask = (await readTeam(join(workspace, '.agent-teams'), 'gates'))
         ?.tasks.find((item) => item.id === created.task_id)
@@ -1355,9 +1395,51 @@ console.log('quality-gates TDD — tool-level closed loop')
     check(
       'tdd.create.blank-optional-strings-do-not-corrupt-v2-team.tool',
       blankOptionalTask !== undefined
+        && !Object.hasOwn(blankOptionalTask, 'description')
         && !Object.hasOwn(blankOptionalTask, 'objective')
         && !Object.hasOwn(blankOptionalTask, 'reviewedTaskId')
-        && !Object.hasOwn(blankOptionalTask, 'sourceTaskId'),
+        && !Object.hasOwn(blankOptionalTask, 'sourceTaskId')
+        && !Object.hasOwn(blankOptionalTask, 'inScope')
+        && !Object.hasOwn(blankOptionalTask, 'outOfScope')
+        && !Object.hasOwn(blankOptionalTask, 'acceptance')
+        && !Object.hasOwn(blankOptionalTask, 'verify')
+        && !Object.hasOwn(blankOptionalTask, 'deliverables')
+        && !Object.hasOwn(blankOptionalTask, 'nonGoals')
+        && !Object.hasOwn(blankOptionalTask, 'sourceFindingIds')
+        && JSON.stringify(blankOptionalTask.coverageOf) === JSON.stringify(['goal']),
+    )
+
+    const completionTask = await call('agent_teams_create_task', {
+      subject: 'completion with blank optional evidence',
+      assignee: 'captain',
+    })
+    const completionClaim = await call('agent_teams_claim_task', { task_id: completionTask.task_id })
+    await call('agent_teams_update_task', {
+      task_id: completionTask.task_id,
+      status: 'in_progress',
+      attempt_id: completionClaim.attempt_id,
+    })
+    await call('agent_teams_update_task', {
+      task_id: completionTask.task_id,
+      status: 'completed',
+      output: 'done',
+      attempt_id: completionClaim.attempt_id,
+      changedPaths: ['', 'src/result.ts', '   '],
+      findings: [{
+        id: 'f1',
+        severity: 'low',
+        problem: 'blank optional file must be omitted',
+        requiredFix: 'none',
+        file: '   ',
+      }],
+    })
+    const persistedCompletionTask = (await readTeam(join(workspace, '.agent-teams'), 'gates'))
+      ?.tasks.find((item) => item.id === completionTask.task_id)
+    check(
+      'tdd.complete.blank-paths-and-finding-file-are-omitted.tool',
+      JSON.stringify(persistedCompletionTask?.changedPaths) === JSON.stringify(['src/result.ts'])
+        && persistedCompletionTask?.findings?.length === 1
+        && !Object.hasOwn(persistedCompletionTask.findings[0], 'file'),
     )
   } finally {
     await rm(workspace, { recursive: true, force: true })

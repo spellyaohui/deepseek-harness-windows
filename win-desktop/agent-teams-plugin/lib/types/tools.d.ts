@@ -12,7 +12,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import { type TaskKind } from './types.ts';
 import { type TeamState, type TeamTask } from './types.ts';
-import type { RoleReasoningMode } from './selection-policy.ts';
+import { type RoleReasoningMode } from './selection-policy.ts';
 import type { AgentTeamsSettingsRuntime } from './settings.ts';
 import type { DelegationPolicyRuntime } from './routing-policy.ts';
 /** Resolved plugin config consumed by the tools. */
@@ -152,7 +152,6 @@ export declare function haltTeamWork(input: {
     cancelledTasks: number;
     alreadyHalted: boolean;
 }>;
-export declare function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string): boolean;
 /** Context queued after the human rejects a staged plan. */
 export declare function stagedPlanDiscardContext(teamName: string): string;
 /** Model-facing continuation that turns the review UI back into a conversation. */

@@ -75,10 +75,12 @@ import {
   zh as agentTeamsZh,
 } from '../lib/client/locales.js'
 import { openAgentTeamMember } from '../lib/client/session-navigation.js'
-import { steerCaptainReport } from '../lib/tools.js'
+import { buildStagedTaskMutationPayload } from '../lib/client/staged-task-mutation.js'
+import { steerCaptainReport } from '../lib/members.js'
 import { renderStatus, statusFingerprint } from '../lib/status-render.js'
 import { usageSectionText } from '../lib/index.js'
 import { parseProfileInvocation, resolveTeamProfile, formatProfilesForPrompt } from '../lib/profiles.js'
+import { buildActivationDirective } from '../lib/command.js'
 import { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
 import { memberPersona, memberWelcome } from '../lib/members.js'
 import { collectCompletedDependencyOutputs, formatDependencyOutputs, assignmentPrompt } from '../lib/scheduler.js'
@@ -114,8 +116,10 @@ console.log('dsh-agent-teams offline verification')
 const builtTools = await readFile(new URL('../lib/tools.js', import.meta.url), 'utf8')
 const builtIndex = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')
 check(
-  'tool schema exposes role reasoning policy',
-  builtTools.includes('Role reasoning policy') && builtTools.includes('explicit requires provider/model/reasoning_effort'),
+  'tool schema leaves role reasoning policy optional for numbered-role inheritance',
+  builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matching numbered base role; otherwise use the captain route.' }")
+    && builtTools.includes('explicit requires provider/model/reasoning_effort')
+    && !builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], default: 'target-default'"),
 )
 check(
   'usage prompt says model policy is role-specific',
@@ -124,6 +128,48 @@ check(
 check(
   'usage prompt omits profile when no profile is configured',
   builtIndex.includes('If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.'),
+)
+check(
+  'ordinary delegation defaults to automatic startup and model-owned naming/planning',
+  builtIndex.includes('Default delegation uses approval="automatic"')
+    && builtIndex.includes('omit name so AgentTeams generates it')
+    && builtIndex.includes('never ask the user to name a task')
+    && builtTools.includes('Default to approval=automatic')
+    && builtTools.includes('Use approval=required only when the user explicitly asks to review the plan before startup.'),
+)
+const captainPlanningDirective = buildActivationDirective('ship the goal', 'software-delivery', 'captain')
+check(
+  'captain-planning slash commands default to automatic startup',
+  captainPlanningDirective.includes('approval="automatic"')
+    && !captainPlanningDirective.includes('approval="required" so this captain-planning profile'),
+)
+
+const revisionedBrowserTaskPayload = buildStagedTaskMutationPayload({
+  sessionId: 'captain-session',
+  teamId: 'revision-demo',
+  expectedPlanRevision: 7,
+  taskId: 't1',
+  subject: 'Verify revision forwarding',
+  description: '',
+  assignee: '',
+  dependencies: '',
+  kind: 'work',
+  round: '',
+  objective: '',
+  inScope: '',
+  outOfScope: '',
+  acceptance: '',
+  verify: '',
+  deliverables: '',
+  nonGoals: '',
+  reviewedTaskId: '',
+  sourceTaskId: '',
+  sourceFindingIds: '',
+  coverageOf: '',
+})
+check(
+  'browser staged task payload forwards the observed plan revision',
+  revisionedBrowserTaskPayload.expectedPlanRevision === 7,
 )
 
 const softwareDeliveryPrompt = usageSectionText(
@@ -287,6 +333,7 @@ check('captain planning keeps the roster and drops seed tasks', captainPlanned.t
 check('profile prompt marks captain planning instead of unused seed counts', formatProfilesForPrompt({ dynamic: { taskPlanning: 'captain', members: [{ name: 'solo', provider: 'p', model: 'm', reasoning_mode: 'target-default' }], tasks: [{ id: 'work', subject: 'Work', assignee: 'solo' }] } }).includes('captain planning'))
 const profilePersona = memberPersona({ name: 'Demo', id: 'demo', description: 'goal', profile: { name: 'demo', protocol: 'p'.repeat(600) }, captainSessionId: 'c', createdAt: 0, members: [], tasks: [], taskSeq: 0 }, { name: 'Implementer', id: 'm', role: 'builder', joinedAt: 0, status: 'idle' }, '.agent-teams')
 check('member persona includes completed/failed and claimed transition rules', profilePersona.includes('status=completed') && profilePersona.includes('status=failed') && profilePersona.includes('claimed') && profilePersona.includes('in_progress'))
+check('member persona keeps recovery wake captain-only', profilePersona.includes('omit wake and acknowledge') && profilePersona.includes('wake="recover" is captain-only'))
 const welcome = memberWelcome({ name: 'Demo', id: 'demo', captainSessionId: 'c', createdAt: 0, members: [], tasks: [{ id: 't1', subject: 'x', status: 'pending', assignee: 'Implementer', dependencies: [], createdAt: 0, updatedAt: 0 }], taskSeq: 1 }, 'Implementer')
 check('member welcome reports assigned pending count', welcome.includes('1 pending task(s) assigned to you') && !welcome.includes('none assigned to you yet'))
 const truncated = formatDependencyOutputs([
@@ -363,6 +410,7 @@ const agentTeamsCardCss = await readFile(new URL('../src/client/AgentTeamsCard.m
 const agentTeamsCardSource = await readFile(new URL('../src/client/AgentTeamsCard.tsx', import.meta.url), 'utf8')
 const artworkSource = await readFile(new URL('../src/client/artwork.ts', import.meta.url), 'utf8')
 const hostSource = await readFile(new URL('../src/index.ts', import.meta.url), 'utf8')
+const snapshotSource = await readFile(new URL('../src/snapshot.ts', import.meta.url), 'utf8')
 const toolsSource = await readFile(new URL('../src/tools.ts', import.meta.url), 'utf8')
 const localesSource = await readFile(new URL('../src/client/locales.ts', import.meta.url), 'utf8')
 const localeKeys = Object.keys(agentTeamsZh).sort()
@@ -443,6 +491,30 @@ check(
     && hostSource.includes("if (action === 'discard')"),
 )
 check(
+  'building staged plans do not expose Web mutation controls',
+  stagingPlanSource.includes("const webEditable = team.planReviewState === 'ready_for_review'")
+    && stagingPlanSource.includes('disabled={!webEditable || busy')
+    && stagingPlanSource.includes('disabled={!webEditable || busy || newTask.trim() ==='),
+)
+check(
+  'staged Web edits and approval use the current snapshot revision end to end',
+  snapshotSource.includes('readonly planRevision: number')
+    && snapshotSource.includes('planRevision: state.planRevision')
+    && activityMonitorSource.includes('readonly planRevision: number')
+    && stagingPlanSource.includes('expectedPlanRevision')
+    && hostSource.includes("{ origin: 'web', expectedPlanRevision }")
+    && hostSource.includes('prepareWebApproval(captain, teamId, expectedPlanRevision)')
+    && hostSource.includes("source: 'web'")
+    && !hostSource.includes('Task 4 will add expectedPlanRevision')
+    && !hostSource.includes('Task 4 will bind trusted Web approval evidence'),
+)
+check(
+  'Alpha.2 raw AgentTeams Web routes retain the upstream authentication gate',
+  existsSync(new URL('../src/web-routes.ts', import.meta.url))
+    && hostSource.includes("from './web-routes.ts'")
+    && hostSource.includes('authenticatedWebRoutes(rawWebServer'),
+)
+check(
   'review decisions control the Captain turn instead of relying on front-end state alone',
   toolsSource.includes('stagedPlanFeedbackContext')
     && toolsSource.includes('stagedPlanDiscardContext')
@@ -474,7 +546,7 @@ check(
 check(
   'staged plan browser and host preserve the complete quality task contract',
   stagingPlanSource.includes("from './staged-task-mutation.ts'")
-    && stagingPlanSource.includes('await mutatePlan(buildStagedTaskMutationPayload({')
+    && stagingPlanSource.includes('buildStagedTaskMutationPayload({')
     && stagedTaskMutationSource.includes('inScope: parseLineList(draft.inScope)')
     && stagedTaskMutationSource.includes('outOfScope: parseLineList(draft.outOfScope)')
     && stagedTaskMutationSource.includes('acceptance: parseLineList(draft.acceptance)')
@@ -812,6 +884,12 @@ try {
       objective: '',
       reviewedTaskId: '',
       sourceTaskId: '',
+    }],
+  }))
+  await assertStrictReject('strict V2 rejects legacy blank optional list entries without rewriting', teamV2({
+    tasks: [{
+      ...teamV2().tasks[0],
+      coverageOf: ['goal', ''],
     }],
   }))
   await assertStrictReject('strict V2 rejects round zero', teamV2({

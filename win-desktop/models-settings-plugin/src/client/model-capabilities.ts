@@ -7,6 +7,7 @@ import type {
   ModelCapabilityProbeResult,
 } from '../capability-contract.ts'
 import { capabilityPatchFromChecks } from '../capability-contract.ts'
+import { readImageInputChoice } from './model-input.ts'
 
 export type { CapabilityCheck, CapabilityCompatValue, CapabilityPatchSource, CapabilityStatus, ModelCapabilityPatch }
 export { capabilityPatchFromChecks }
@@ -54,7 +55,7 @@ export function applyCapabilityPatch<T extends Record<string, unknown>>(
   const { overwriteExisting, source: _source } = options
 
   if (patch.input !== undefined && isCapabilityInput(patch.input)
-    && (!Object.hasOwn(model, 'input') || overwriteExisting)) {
+    && (readImageInputChoice(model) === 'auto' || overwriteExisting)) {
     next['input'] = [...patch.input]
   }
 

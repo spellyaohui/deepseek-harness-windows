@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values';
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, TERMINAL_TASK_STATUSES } from "./types.js";
 import { hasValidQualityTaskFields, isReviewPolicy } from "./quality-gates.js";
-export { buildCoverageMatrix, canDeclareDelivery, classifyChangedPath, collectChangedPaths, defaultQualityDeliveryGraph, describeQualityLoop, evaluateQualityCompletion, hasValidQualityTaskFields, isQualityKind, pathMatchesScope, planQualityFollowUp, qualityPlanningPrompt, resumeTeamState, sanitizeReviewAcceptance, sanitizeReviewObjective, taskKindOf, validateCreateTask, } from "./quality-gates.js";
+export { buildCoverageMatrix, canDeclareDelivery, classifyChangedPath, collectChangedPaths, defaultQualityDeliveryGraph, describeQualityLoop, evaluateQualityCompletion, hasValidQualityTaskFields, isQualityKind, normalizeBlankOptionalTaskFields, pathMatchesScope, planQualityFollowUp, qualityPlanningPrompt, resumeTeamState, sanitizeReviewAcceptance, sanitizeReviewObjective, taskKindOf, validateCreateTask, } from "./quality-gates.js";
 /** Mailbox key of the captain. */
 export const CAPTAIN_KEY = 'captain';
 /** A crashed live-delivery attempt becomes retryable after this interval. */

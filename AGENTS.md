@@ -141,7 +141,7 @@ evidence that the local capability is preserved.
   documentation. Do not restore it during conflict resolution. Do not migrate
   old AUTO sessions or delete stale user Profile caches.
 
-## AgentTeams `v0.1.14-desktop.11` interaction invariants
+## AgentTeams `v0.1.15-desktop.4` interaction invariants
 
 - Global AgentTeams settings own only Team/Native delegation. Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
@@ -174,6 +174,18 @@ evidence that the local capability is preserved.
   the current captain. A generic “继续”/“确认” message without a staged Team
   is not approval evidence; when no Team exists, the tool returns an inactive
   no-op with the `agent_teams_create` next step and must not write state.
+- Ordinary delegation defaults to `approval="automatic"`: omit the optional
+  Team name so the plugin generates it, and when a captain-planning Profile has
+  no seed tasks the Captain must create the task names/contracts itself instead
+  of asking the user to type one in the Web panel. Use `approval="required"`
+  only when the user explicitly requests plan review before startup; its
+  trusted user-approval boundary remains strict and cannot be self-approved.
+- Every staged Web member/task mutation and Web approval must carry the current
+  activity snapshot `planRevision`. The Host validates it with the Team CAS
+  contract, and Web approval must prepare and consume a one-time credential for
+  that same revision. Raw AgentTeams state, plan, halt, artwork and model-catalog
+  routes must remain behind Alpha.2 Connection authentication plus Host/Origin
+  checks and fail closed while Connection is unavailable.
 - Blank optional task strings from non-GPT tool calls must be omitted before
   strict V2 persistence. Profile and Team state still require
   `schemaVersion: 2`; malformed or older documents are rejected, not migrated.
@@ -215,6 +227,21 @@ evidence that the local capability is preserved.
   and the wrapper capability manifest. Future Harness or AgentTeams refreshes
   must make these tests pass against the classified owner; deleting, skipping,
   or weakening a regression is not an acceptable conflict resolution.
+- Normalize blank optional task fields only at new model-facing tool-write
+  boundaries; strict V2 durable reads and malformed legacy state remain
+  fail-closed with no migration layer.
+- A member attempt becomes failed only from final `agent/error`, never from an
+  intermediate retry signal. Settlement must match the Team, Captain, member,
+  task, attempt, and `attemptId`; reports are bounded and sanitized, and the
+  scheduler may continue only after the real child reaches idle.
+- When `agent_teams_add_member` receives a new name formed from an unnumbered
+  role plus a positive numeric suffix, it must inherit the frozen base-role
+  Provider/model/reasoning policy from the current Team. This is generic for
+  every configured role and any suffix length; `-`/`_`/space separators are
+  accepted. The unnumbered base member wins over numbered members, explicit
+  request fields win over inheritance, unmatched custom names keep captain
+  routing, and ambiguous role-description fallback must fail closed. Keep the
+  focused selection and lifecycle regressions through every upstream refresh.
 
 ## Models settings fork `v0.1.1-rc.2-desktop.6` interaction invariants
 
@@ -285,3 +312,35 @@ make the gate green. The gate compiles local plugins and synchronizes their
 `lib` outputs into the already-installed `file:` dependencies; it must not run
 a package-manager install. If ownership moves upstream, preserve the
 regression and point it at the new implementation.
+
+---
+
+## Windows 桌面版发布规则
+
+这套规则已与当前 Alpha.2 架构和本地能力登记同步。AUTO 权限插件已永久移除，
+后续上游刷新不得重新引入它。
+
+### 发布前检查
+
+- 分别核对官方 Harness 与 AgentTeams 的当前发布信息，并与仓库中固定的
+  provenance、版本和锁文件对照；不得把浮动 `latest` 直接写入运行时依赖。
+- 先从 `win-desktop/` 运行 `npm run verify:upstream`。该门禁必须保持离线、无安装、
+  无网络、无打包，并覆盖所有本地插件回归、Alpha.2 运行时闭包和包装器测试。
+- AgentTeams 的升级必须逐项复核 `docs/UPSTREAM_MAINTENANCE.md` 中的
+  `UPSTREAM_EQUIVALENT`、`REAPPLY` 和 `SUPERSEDED_BY_DESIGN`；不得因上游冲突删除
+  Profiles、角色模型策略、严格 V2、质量门禁、等待/恢复或本地兼容回归。
+- AUTO 不在依赖、锁文件、Patch、healing、提示词、设置界面、文档或迁移目标中；
+  不迁移旧 AUTO 会话，也不清理用户 Profile 缓存。
+
+### 图标与打包
+
+- 保留官方鲸鱼图标：`win-desktop/assets/icon.ico`、`icon.png` 和 `src/icon.ico`。
+- `build.win.icon` 必须是 `assets/icon.ico`，`build.files` 必须包含该文件，
+  `signAndEditExecutable` 必须为 `true`。
+- 从真实 `win-desktop/` checkout 打包，`node_modules` 必须是实际目录，不得是
+  Junction 或 symlink；打包后必须验证 `win-unpacked` 与 ZIP 的真实模块解析闭包。
+- 记录 EXE、ZIP 和 blockmap 的大小及 SHA-256。安装包只作为 Release 资产交付，
+  不进入源码树，不提交、不打 tag、不创建 Release 或上传资产，除非用户另行授权。
+
+打包入口为 `win-desktop/npm run dist:win`；只有完整回归和运行时闭包验证均通过后，
+才能报告本地安装包构建完成。

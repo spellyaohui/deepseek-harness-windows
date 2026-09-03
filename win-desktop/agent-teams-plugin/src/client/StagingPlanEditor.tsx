@@ -21,6 +21,10 @@ type PlanFeedback = {
   readonly tone: 'success' | 'error'
   readonly message: string
 }
+
+type PlanMutationResult = {
+  readonly planRevision?: number
+}
 type PlanModelSelection = {
   readonly provider: string
   readonly model: string
@@ -67,20 +71,31 @@ function useDismissSuccess(
   }, [feedback, setFeedback])
 }
 
-async function mutatePlan(payload: Record<string, unknown>): Promise<void> {
+async function mutatePlan(payload: Record<string, unknown>): Promise<PlanMutationResult> {
   const response = await fetch(PLAN_URL, {
     method: 'POST',
     cache: 'no-store',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  if (response.ok) return
-  let message = `HTTP ${response.status}`
+  let body: { error?: unknown; planRevision?: unknown } = {}
   try {
-    const body = await response.json() as { error?: unknown }
-    if (typeof body.error === 'string' && body.error.trim() !== '') message = body.error
+    body = await response.json() as { error?: unknown; planRevision?: unknown }
   } catch {}
+  if (response.ok) {
+    return Number.isSafeInteger(body.planRevision) && (body.planRevision as number) > 0
+      ? { planRevision: body.planRevision as number }
+      : {}
+  }
+  let message = `HTTP ${response.status}`
+  if (typeof body.error === 'string' && body.error.trim() !== '') message = body.error
   throw new Error(message)
+}
+
+async function mutateRevisionedPlan(payload: Record<string, unknown>): Promise<number> {
+  const result = await mutatePlan(payload)
+  if (result.planRevision === undefined) throw new Error('plan operation did not return a revision')
+  return result.planRevision
 }
 
 function errorMessage(error: unknown): string {
@@ -390,10 +405,13 @@ function StagedModelPicker({
   )
 }
 
-function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }: {
+function StagedMemberEditor({ team, member, modelDirectory, editable, expectedPlanRevision, onPlanRevision, onPendingChange, t }: {
   readonly team: ActivityTeam
   readonly member: ActivityMember
   readonly modelDirectory: ModelDirectory
+  readonly editable: boolean
+  readonly expectedPlanRevision: number
+  readonly onPlanRevision: (revision: number) => void
   readonly onPendingChange: EditorPendingChange
   readonly t: AgentTeamsTranslate
 }) {
@@ -452,9 +470,10 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
     setBusy(true)
     setFeedback(undefined)
     try {
-      await mutatePlan({
+      const nextPlanRevision = await mutateRevisionedPlan({
         sessionId: team.captainSessionId,
         teamId: team.teamId,
+        expectedPlanRevision,
         action: 'update_member',
         memberName: member.name,
         role,
@@ -464,6 +483,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
         ...selection.reasoningMode === 'explicit' ? { reasoningEffort: selection.reasoningEffort } : {},
         executionPrompt,
       })
+      onPlanRevision(nextPlanRevision)
       setSavedSignature(nextSignature)
       setFeedback({ tone: 'success', message: t('plan.saved') })
     } catch (error: unknown) {
@@ -497,7 +517,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
       </button>
       {open && (
         <form id={bodyId} className={css.planCardBody} onSubmit={(event) => { void save(event) }}>
-          <fieldset disabled={busy}>
+          <fieldset disabled={!editable || busy}>
             <label>{t('plan.member.role')}<input name="role" value={role} onChange={(event) => { setRole(event.currentTarget.value); markEdited() }} /></label>
             <StagedModelPicker
               directory={modelDirectory}
@@ -505,7 +525,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
               model={model}
               reasoningMode={reasoningMode}
               reasoningEffort={reasoningEffort}
-              busy={busy}
+              busy={!editable || busy}
               onChange={(selection) => { void persist(selection) }}
               t={t}
             />
@@ -513,7 +533,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
           </fieldset>
           <span className={css.planActions}>
             <Feedback value={feedback} />
-            <button type="submit" disabled={busy || !dirty || provider.trim() === '' || model.trim() === '' || (reasoningMode === 'explicit' && reasoningEffort.trim() === '')}>
+            <button type="submit" disabled={!editable || busy || !dirty || provider.trim() === '' || model.trim() === '' || (reasoningMode === 'explicit' && reasoningEffort.trim() === '')}>
               {busy ? t('plan.saving') : t('plan.save')}
             </button>
           </span>
@@ -523,9 +543,12 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
   )
 }
 
-function StagedTaskEditor({ team, task, onPendingChange, t }: {
+function StagedTaskEditor({ team, task, editable, expectedPlanRevision, onPlanRevision, onPendingChange, t }: {
   readonly team: ActivityTeam
   readonly task: ActivityTask
+  readonly editable: boolean
+  readonly expectedPlanRevision: number
+  readonly onPlanRevision: (revision: number) => void
   readonly onPendingChange: EditorPendingChange
   readonly t: AgentTeamsTranslate
 }) {
@@ -632,9 +655,10 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
     setBusy(true)
     setFeedback(undefined)
     try {
-      await mutatePlan(buildStagedTaskMutationPayload({
+      const nextPlanRevision = await mutateRevisionedPlan(buildStagedTaskMutationPayload({
         sessionId: team.captainSessionId,
         teamId: team.teamId,
+        expectedPlanRevision,
         taskId: task.id,
         subject,
         description,
@@ -654,6 +678,7 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
         sourceFindingIds,
         coverageOf,
       }))
+      onPlanRevision(nextPlanRevision)
       setSavedSignature(signature)
       setFeedback({ tone: 'success', message: t('plan.saved') })
     } catch (error: unknown) {
@@ -666,12 +691,14 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
     setBusy(true)
     setFeedback(undefined)
     try {
-      await mutatePlan({
+      const nextPlanRevision = await mutateRevisionedPlan({
         sessionId: team.captainSessionId,
         teamId: team.teamId,
+        expectedPlanRevision,
         action: 'remove_task',
         taskId: task.id,
       })
+      onPlanRevision(nextPlanRevision)
       setFeedback({ tone: 'success', message: t('plan.removed') })
     } catch (error: unknown) {
       setFeedback({ tone: 'error', message: t('plan.failed', { message: errorMessage(error) }) })
@@ -700,7 +727,7 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
       </button>
       {open && (
         <form id={bodyId} className={css.planCardBody} onSubmit={(event) => { void save(event) }}>
-          <fieldset disabled={busy}>
+          <fieldset disabled={!editable || busy}>
             <label>{t('plan.task.subject')}<input name="subject" required value={subject} onChange={(event) => { setSubject(event.currentTarget.value); markEdited() }} /></label>
             <label>{t('plan.task.description')}<textarea name="description" value={description} onChange={(event) => { setDescription(event.currentTarget.value); markEdited() }} rows={3} /></label>
             <span className={css.planGrid}>
@@ -787,8 +814,8 @@ function StagedTaskEditor({ team, task, onPendingChange, t }: {
           )}
           <span className={css.planActions}>
             <Feedback value={feedback} />
-            <button type="button" data-danger onClick={() => { setConfirmingRemove(true); setFeedback(undefined) }} disabled={busy || confirmingRemove}>{t('plan.remove')}</button>
-            <button type="submit" disabled={busy || !dirty || subject.trim() === '' || !roundValid}>{busy ? t('plan.saving') : t('plan.save')}</button>
+            <button type="button" data-danger onClick={() => { setConfirmingRemove(true); setFeedback(undefined) }} disabled={!editable || busy || confirmingRemove}>{t('plan.remove')}</button>
+            <button type="submit" disabled={!editable || busy || !dirty || subject.trim() === '' || !roundValid}>{busy ? t('plan.saving') : t('plan.save')}</button>
           </span>
         </form>
       )}
@@ -812,15 +839,25 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
   const [discardArmed, setDiscardArmed] = useState(false)
   const [pendingEditors, setPendingEditors] = useState<ReadonlySet<string>>(new Set())
   const [feedback, setFeedback] = useState<PlanFeedback>()
+  const [planRevision, setPlanRevision] = useState(team.planRevision)
   useDismissSuccess(feedback, setFeedback)
   const dependencyLinks = team.tasks.reduce((total, task) => total + task.dependencies.length, 0)
   const runnable = team.members.length > 0 && team.tasks.length > 0
   const hasPendingEdits = pendingEditors.size > 0 || newTask.trim() !== ''
+  const webEditable = team.planReviewState === 'ready_for_review'
   const waitingForFeedback = team.planReviewState === 'awaiting_feedback'
 
   useEffect(() => {
     void modelDirectory.load().catch(() => undefined)
   }, [modelDirectory])
+
+  useEffect(() => {
+    setPlanRevision((current) => Math.max(current, team.planRevision))
+  }, [team.planRevision])
+
+  const acceptPlanRevision = useCallback((revision: number) => {
+    setPlanRevision((current) => Math.max(current, revision))
+  }, [])
 
   const onPendingChange = useCallback<EditorPendingChange>((key, pending) => {
     setPendingEditors((current) => {
@@ -837,13 +874,15 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
     setBusy(true)
     setFeedback(undefined)
     try {
-      await mutatePlan({
+      const nextPlanRevision = await mutateRevisionedPlan({
         sessionId: team.captainSessionId,
         teamId: team.teamId,
+        expectedPlanRevision: planRevision,
         action: 'add_task',
         subject: newTask,
         dependencies: [],
       })
+      acceptPlanRevision(nextPlanRevision)
       setNewTask('')
       setFeedback({ tone: 'success', message: t('plan.taskAdded') })
       setTasksOpen(true)
@@ -858,9 +897,10 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
     setBusy(true)
     setFeedback(undefined)
     try {
-      await mutatePlan({
+      await mutateRevisionedPlan({
         sessionId: team.captainSessionId,
         teamId: team.teamId,
+        expectedPlanRevision: planRevision,
         action: 'approve',
       })
     } catch (error: unknown) {
@@ -917,6 +957,11 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
           <em>{t('plan.badge')}</em>
         </span>
         <p>{t('plan.description')}</p>
+        {!webEditable && (
+          <p role="status">
+            {t(team.planReviewState === 'awaiting_feedback' ? 'plan.waitingForFeedback' : 'plan.waitingForCaptain')}
+          </p>
+        )}
       </header>
 
       <ol className={css.planFlow} aria-label={t('plan.flow.aria')}>
@@ -940,6 +985,9 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
                   team={team}
                   member={member}
                   modelDirectory={modelDirectory}
+                  editable={webEditable}
+                  expectedPlanRevision={planRevision}
+                  onPlanRevision={acceptPlanRevision}
                   onPendingChange={onPendingChange}
                   t={t}
                 />
@@ -957,7 +1005,18 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
           <div id={tasksId} className={css.planList}>
             {team.tasks.length === 0
               ? <p className={css.planEmpty}>{t('plan.tasks.empty')}</p>
-              : team.tasks.map((task) => <StagedTaskEditor key={task.id} team={team} task={task} onPendingChange={onPendingChange} t={t} />)}
+              : team.tasks.map((task) => (
+                  <StagedTaskEditor
+                    key={task.id}
+                    team={team}
+                    task={task}
+                    editable={webEditable}
+                    expectedPlanRevision={planRevision}
+                    onPlanRevision={acceptPlanRevision}
+                    onPendingChange={onPendingChange}
+                    t={t}
+                  />
+                ))}
           </div>
         )}
       </section>
@@ -965,9 +1024,9 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
       <form className={css.planNewTask} onSubmit={(event) => { void addTask(event) }}>
         <label>
           <span>{t('plan.newTaskLabel')}</span>
-          <input name="newTask" value={newTask} onChange={(event) => { setNewTask(event.currentTarget.value); setFeedback(undefined) }} placeholder={t('plan.newTask')} disabled={busy} />
+          <input name="newTask" value={newTask} onChange={(event) => { setNewTask(event.currentTarget.value); setFeedback(undefined) }} placeholder={t('plan.newTask')} disabled={!webEditable || busy} />
         </label>
-        <button type="submit" disabled={busy || newTask.trim() === ''}>{busy ? t('plan.adding') : t('plan.addTask')}</button>
+        <button type="submit" disabled={!webEditable || busy || newTask.trim() === ''}>{busy ? t('plan.adding') : t('plan.addTask')}</button>
       </form>
 
       <div
@@ -1000,7 +1059,7 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
           </span>
         ) : (
           <span className={css.planReviewActions}>
-            <button type="button" data-plan-approve disabled={busy || !runnable || hasPendingEdits} onClick={() => { void approve() }}>
+            <button type="button" data-plan-approve disabled={!webEditable || busy || !runnable || hasPendingEdits} onClick={() => { void approve() }}>
               {t('plan.approve')}
             </button>
             <span className={css.planSecondaryActions}>

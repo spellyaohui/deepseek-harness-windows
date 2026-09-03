@@ -11,9 +11,10 @@
 import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { failMemberOpenAttempt } from '../lib/members.js'
 import { haltTeamWork, registerAgentTeamsTools } from '../lib/tools.js'
 import { buildActivationDirective, invokedAgentTeamsGoal, invokedAgentTeamsInvocation, installAgentTeamsGestureBoundary, profileCommandName, registerAgentTeamsCommand } from '../lib/command.js'
-import { readArchivedTeam, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
+import { createTeamDir, readArchivedTeam, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
 import { assembleTeamSnapshot, collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
 import { stagedPlanMutationFromPayload } from '../lib/staged-plan-payload.js'
 import { buildStagedTaskMutationPayload } from '../lib/client/staged-task-mutation.js'
@@ -28,6 +29,11 @@ const workspace = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-lifecycle-'))
 const definitions = new Map()
 const liveAgents = new Map()
 const children = []
+const roleInheritanceMemberNames = [
+  'analyst', 'implementer', 'tester', 'reviewer',
+  'reviewer2', 'reviewer3', 'analyst2', 'implementer2', 'tester2',
+  'reviewer5', 'reviewer6', 'reviewer4', 'custom-role2',
+]
 const deliveries = []
 const listeners = new Map()
 const failNextDelivery = new Set()
@@ -387,7 +393,7 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
     get: () => memberDefaults,
   },
   memberMaxDepth: 1,
-  maxMembers: 8,
+  maxMembers: roleInheritanceMemberNames.length,
   delegationPolicy: {
     defaultMode: () => memberDefaults.delegationMode,
     order: 117,
@@ -445,6 +451,15 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
         { name: 'reviewer', role: 'reviewer', provider: 'opencode-go', model: 'unavailable-review-model', reasoning_mode: 'explicit', reasoning_effort: 'max' },
       ],
     },
+    'rule-role-inheritance': {
+      taskPlanning: 'captain',
+      members: [
+        { name: 'analyst', role: 'requirements analyst', provider: 'fake', model: 'fake-analyst', reasoning_mode: 'explicit', reasoning_effort: 'low' },
+        { name: 'implementer', role: 'implementation engineer', provider: 'fake', model: 'fake-implementer', reasoning_mode: 'explicit', reasoning_effort: 'high' },
+        { name: 'tester', role: 'verification engineer', provider: 'fake', model: 'fake-tester', reasoning_mode: 'explicit', reasoning_effort: 'max' },
+        { name: 'reviewer', role: 'code and risk reviewer', provider: 'fake', model: 'fake-reviewer', reasoning_mode: 'explicit', reasoning_effort: 'xhigh' },
+      ],
+    },
   },})
 
 function execFor(subject, extra = {}) {
@@ -455,6 +470,19 @@ async function call(name, args, subject = captain, extra = {}) {
   const definition = definitions.get(name)
   if (!definition) throw new Error(`missing tool ${name}`)
   return definition.execute(args, execFor(subject, extra))
+}
+
+async function callAsModel(name, args, subject = captain, extra = {}) {
+  const definition = definitions.get(name)
+  if (!definition) throw new Error(`missing tool ${name}`)
+  const parameters = definition.parameters?.properties ?? {}
+  const normalizedArgs = { ...args }
+  for (const [key, schema] of Object.entries(parameters)) {
+    if (normalizedArgs[key] === undefined && schema?.default !== undefined) {
+      normalizedArgs[key] = schema.default
+    }
+  }
+  return definition.execute(normalizedArgs, execFor(subject, extra))
 }
 
 function deliveryText(delivery) {
@@ -693,6 +721,63 @@ check('profile members resolve from their own role policies',
     && profilePersistenceCalls.createTeamDir === persistenceBeforeRolePolicy.createTeamDir + 1
     && profilePersistenceCalls.writeTeam === persistenceBeforeRolePolicy.writeTeam + 1)
 await call('agent_teams_delete', {})
+
+const inheritedRoleTeamCreation = await call('agent_teams_create', {
+  name: 'Rule Role Inheritance',
+  description: 'numbered members inherit their unnumbered role model policy',
+  profile: 'rule-role-inheritance',
+})
+const inheritedRoleNames = roleInheritanceMemberNames.filter(name => (
+  name !== 'analyst'
+    && name !== 'implementer'
+    && name !== 'tester'
+    && name !== 'reviewer'
+    && name !== 'reviewer4'
+    && name !== 'custom-role2'
+))
+const addMemberReasoningModeDefault = definitions.get('agent_teams_add_member')
+  ?.parameters?.properties?.reasoning_mode?.default
+const inheritedRoleAdditions = []
+for (const name of inheritedRoleNames) {
+  inheritedRoleAdditions.push(await callAsModel('agent_teams_add_member', { name }))
+}
+const explicitRoleOverride = await call('agent_teams_add_member', {
+  name: 'reviewer4',
+  provider: 'fake',
+  model: 'custom-review-model',
+  reasoning_mode: 'explicit',
+  reasoning_effort: 'low',
+})
+const customNumberedRole = await call('agent_teams_add_member', { name: 'custom-role2', role: 'unmatched custom role' })
+const inheritedRoleTeam = await readTeam(stateRoot, 'rule-role-inheritance')
+const inheritedRoleByName = new Map(inheritedRoleTeam?.members.map(member => [member.name, member]) ?? [])
+const inheritedRoutes = new Map(inheritedRoleAdditions.map(member => [member.member_name, member]))
+check('numbered rule roles inherit the matching base role through the real add-member tool',
+  addMemberReasoningModeDefault === undefined
+    && inheritedRoleTeamCreation.profile === 'rule-role-inheritance'
+    && inheritedRoutes.get('reviewer2')?.provider === 'fake'
+    && inheritedRoutes.get('reviewer2')?.model === 'fake-reviewer'
+    && inheritedRoutes.get('reviewer2')?.reasoning_effort === 'xhigh'
+    && inheritedRoutes.get('reviewer3')?.model === 'fake-reviewer'
+    && inheritedRoutes.get('analyst2')?.model === 'fake-analyst'
+    && inheritedRoutes.get('analyst2')?.reasoning_effort === 'low'
+    && inheritedRoutes.get('implementer2')?.model === 'fake-implementer'
+    && inheritedRoutes.get('implementer2')?.reasoning_effort === 'high'
+    && inheritedRoutes.get('tester2')?.model === 'fake-tester'
+    && inheritedRoutes.get('tester2')?.reasoning_effort === 'max'
+    && inheritedRoutes.get('reviewer5')?.model === 'fake-reviewer'
+    && inheritedRoutes.get('reviewer6')?.model === 'fake-reviewer'
+    && inheritedRoleByName.get('reviewer3')?.model === 'fake-reviewer'
+    && inheritedRoleByName.get('reviewer6')?.reasoningMode === 'explicit')
+check('explicit numbered-role routing still wins over the base role template',
+  explicitRoleOverride.model === 'custom-review-model'
+    && explicitRoleOverride.reasoning_effort === 'low'
+    && inheritedRoleByName.get('reviewer4')?.model === 'custom-review-model')
+check('unmatched numbered custom roles retain the captain route',
+  customNumberedRole.provider === 'fake'
+    && customNumberedRole.model === 'fake-model'
+    && customNumberedRole.reasoning_effort === undefined)
+await call('agent_teams_delete', {})
 const stateEntriesBeforeInvalidProfile = (await readdir(stateRoot)).sort()
 const childrenBeforeInvalidProfile = children.length
 const profilePersistenceBeforeInvalid = { ...profilePersistenceCalls }
@@ -809,11 +894,13 @@ check('slash --profile without a goal still activates',
 check('profile-only activation asks for the goal',
   buildActivationDirective('', 'demo-delivery').includes('The goal was not given')
     && buildActivationDirective('', 'demo-delivery').includes('Use configured AgentTeams profile "demo-delivery"'))
-check('captain-planning activation requires a staged user-reviewed graph',
-  buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('approval="required"')
-    && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('review the Web plan')
-    && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('run in parallel')
-    && !buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('seed tasks'))
+check('captain-planning activation starts automatically with model-owned task planning',
+  buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('approval="automatic"')
+    && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('Omit name so the plugin generates it')
+    && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('captain-owned AgentTeams task tools')
+    && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('Do not ask the user to name')
+    && !buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('Call agent_teams_create with approval="required"')
+    && !buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('review the Web plan'))
 const unknownProfile = command.handler({
   agent: captain, rawInput: '--profile missing 做X', signal: new AbortController().signal, commandId: 'cmd-unknown',
 })
@@ -977,6 +1064,7 @@ try {
     await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', stagedPlanMutationFromPayload(buildStagedTaskMutationPayload({
       sessionId: captain.id,
       teamId: 'dynamic-demo',
+      expectedPlanRevision: roundTripSource?.planRevision ?? 1,
       taskId: roundTripTask.id,
       subject: 'browser quality contract',
       description: 'Persist every browser-editable task field.',
@@ -1000,6 +1088,7 @@ try {
   const roundTrippedTask = (await readTeam(stateRoot, 'dynamic-demo'))?.tasks.find(item => item.id === dynamicSecond.task_id)
   check('snapshot and browser-shaped Host payload persist the complete staged task contract',
     roundTripTask !== undefined
+      && roundTripSnapshot?.planRevision === roundTripSource?.planRevision
       && roundTrippedTask?.subject === 'browser quality contract'
       && roundTrippedTask.description === 'Persist every browser-editable task field.'
       && roundTrippedTask.assignee === roundTripTask.assignee
@@ -1026,6 +1115,7 @@ try {
     await agentTeamsRuntime.updateStagedPlan(captain, 'dynamic-demo', stagedPlanMutationFromPayload(buildStagedTaskMutationPayload({
       sessionId: captain.id,
       teamId: 'dynamic-demo',
+      expectedPlanRevision: clearSource?.planRevision ?? 1,
       taskId: clearTask.id,
       subject: clearTask.subject,
       description: '',
@@ -1767,13 +1857,12 @@ try {
   check('status kick redelivers and acknowledges fallback exactly once',
     (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 0)
 
-  let memberRecoveryRejected = false
-  try {
-    await call('agent_teams_status', { wake: 'recover' }, gamma)
-  } catch (error) {
-    memberRecoveryRejected = /captain-only/i.test(String(error?.message ?? error))
-  }
-  check('member recovery wake is rejected with an explicit captain-only error', memberRecoveryRejected)
+  const memberRecoveryStatus = await call('agent_teams_status', { wake: 'recover' }, gamma)
+  check('member recovery wake degrades to read-only without scheduling recovery',
+    memberRecoveryStatus.active === true
+      && memberRecoveryStatus.wake_ignored === 'recover'
+      && memberRecoveryStatus.recovery_started === false
+      && (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 0)
 
   beta.status = 'running'
   gamma.status = 'running'
@@ -2000,6 +2089,86 @@ try {
   check('same-name team can be recreated and archived again',
     await readTeam(stateRoot, teamId) === undefined
       && replacementArchive?.description === 'second generation')
+
+  // Keep the terminal member-turn failure bridge in the lifecycle gate.  The
+  // dedicated member-failure suite covers request-error recovery, duplicate
+  // turns, stale attempts, and child-idle scheduling; this fixture proves the
+  // durable state/mailbox transition also works in the broader lifecycle
+  // harness without creating a real Team through the Web tools.
+  const failureBridgeTeamId = 'lifecycle-failure-bridge'
+  const failureBridgeMember = makeAgent('failure-bridge-member-session', captain.id)
+  failureBridgeMember.status = 'idle'
+  liveAgents.set(failureBridgeMember.id, failureBridgeMember)
+  const bridgeNow = Date.now()
+  await createTeamDir(stateRoot, {
+    schemaVersion: 2,
+    id: failureBridgeTeamId,
+    name: 'Lifecycle Failure Bridge',
+    description: 'terminal member failure lifecycle regression',
+    captainSessionId: captain.id,
+    createdAt: bridgeNow,
+    taskSeq: 1,
+    planRevision: 1,
+    phase: 'running',
+    approvedAt: bridgeNow,
+    approvedPlanRevision: 1,
+    approvalSource: 'automatic',
+    approvalEvidenceId: `automatic:create:${failureBridgeTeamId}`,
+    members: [{
+      id: failureBridgeMember.id,
+      name: 'bridge-worker',
+      role: 'failure bridge worker',
+      provider: 'fake',
+      model: 'fake-model',
+      reasoningMode: 'target-default',
+      joinedAt: bridgeNow,
+      status: 'working',
+    }],
+    tasks: [{
+      id: 't1',
+      subject: 'terminal failure bridge',
+      assignee: 'bridge-worker',
+      status: 'in_progress',
+      dependencies: [],
+      revision: 1,
+      attempt: 1,
+      attemptId: 'bridge-attempt-1',
+      kind: 'work',
+      createdAt: bridgeNow,
+      updatedAt: bridgeNow,
+    }],
+  })
+  const captainBeforeBridge = liveAgents.get(captain.id)
+  liveAgents.delete(captain.id)
+  let bridgeRecorded = false
+  try {
+    bridgeRecorded = await failMemberOpenAttempt(
+      ctx,
+      stateRoot,
+      failureBridgeTeamId,
+      'bridge-worker',
+      { code: 'STREAM_CLOSED', message: 'terminal bridge failure' },
+      failureBridgeMember.session,
+      {
+        captainSessionId: captain.id,
+        memberId: failureBridgeMember.id,
+        task: { id: 't1', attempt: 1, attemptId: 'bridge-attempt-1' },
+      },
+    )
+  } finally {
+    if (captainBeforeBridge !== undefined) liveAgents.set(captain.id, captainBeforeBridge)
+  }
+  const failureBridgeState = await readTeam(stateRoot, failureBridgeTeamId)
+  const failureBridgeMailbox = await readUnreadMailbox(stateRoot, failureBridgeTeamId, 'captain')
+  check('lifecycle terminal member failure marks the attempt failed and releases the member',
+    bridgeRecorded
+      && failureBridgeState?.tasks[0]?.status === 'failed'
+      && failureBridgeState.members[0]?.status === 'idle')
+  check('lifecycle terminal member failure leaves a durable captain mailbox report',
+    failureBridgeMailbox.length === 1
+      && failureBridgeMailbox[0]?.from === 'bridge-worker'
+      && failureBridgeMailbox[0]?.content.includes('terminal bridge failure'))
+  liveAgents.delete(failureBridgeMember.id)
 } finally {
   await rm(workspace, { recursive: true, force: true })
 }

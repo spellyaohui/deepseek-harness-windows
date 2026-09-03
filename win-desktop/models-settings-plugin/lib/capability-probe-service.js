@@ -35,8 +35,12 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
 import { capabilityPatchFromChecks } from "./capability-contract.js";
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 const DEFAULT_REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
-const ONE_BY_ONE_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
-const ONE_BY_ONE_DATA_URL = `data:image/png;base64,${ONE_BY_ONE_PNG}`;
+// Use a small but ordinary 16x16 RGB image. Some OpenAI-compatible gateways
+// reject the technically valid 1x1 fixture before they evaluate model
+// modality support, which would turn a gateway validation limit into a false
+// "text-only" capability result.
+const PROBE_PNG = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFElEQVR4nGP4TyJgGNUwqmH4agAAr639H708R/EAAAAASUVORK5CYII=';
+const PROBE_IMAGE_DATA_URL = `data:image/png;base64,${PROBE_PNG}`;
 const PROBE_TEXT = 'model capability probe';
 const NEVER_ABORTED = new AbortController().signal;
 function supportedProtocol(value) {
@@ -113,7 +117,7 @@ function requestPayload(protocol, modelId, kind, effort, maxTokensField) {
                     role: 'user',
                     content: [
                         { type: 'text', text: PROBE_TEXT },
-                        { type: 'image', source: { type: 'base64', media_type: 'image/png', data: ONE_BY_ONE_PNG } },
+                        { type: 'image', source: { type: 'base64', media_type: 'image/png', data: PROBE_PNG } },
                     ],
                 }];
         }
@@ -143,7 +147,7 @@ function requestPayload(protocol, modelId, kind, effort, maxTokensField) {
                     role: 'user',
                     content: [
                         { type: 'input_text', text: PROBE_TEXT },
-                        { type: 'input_image', image_url: ONE_BY_ONE_DATA_URL },
+                        { type: 'input_image', image_url: PROBE_IMAGE_DATA_URL },
                     ],
                 }];
         }
@@ -182,7 +186,7 @@ function requestPayload(protocol, modelId, kind, effort, maxTokensField) {
                 role: 'user',
                 content: [
                     { type: 'text', text: PROBE_TEXT },
-                    { type: 'image_url', image_url: { url: ONE_BY_ONE_DATA_URL } },
+                    { type: 'image_url', image_url: { url: PROBE_IMAGE_DATA_URL } },
                 ],
             }];
     }
@@ -295,7 +299,7 @@ export async function probeModelCapabilities(request, dependencies = {}) {
     const text = await attempt(fetcher, url, headers, requestPayload(protocol, request.modelId, 'text'), signal);
     checks.text = checkFromAttempt(text, 'minimal text request');
     const image = await attempt(fetcher, url, headers, requestPayload(protocol, request.modelId, 'image'), signal);
-    checks.image = checkFromAttempt(image, 'fixed 1x1 image request');
+    checks.image = checkFromAttempt(image, 'fixed 16x16 image request');
     if (protocol === 'anthropic-messages') {
         checks.reasoning = check('not-applicable', 'generic Anthropic reasoning levels are not expressed by this probe');
     }

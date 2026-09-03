@@ -13,7 +13,8 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import { type Agent } from '@deepseek-ai/dsh-agent';
-import { type TeamMember, type TeamState } from './types.ts';
+import type { Session } from '@deepseek-ai/dsh-session';
+import { type TeamMember, type TeamState, type TeamTask } from './types.ts';
 import { type RoleReasoningMode } from './selection-policy.ts';
 import { type DelegationPolicyRuntime } from './routing-policy.ts';
 /** Persona snapshot of a profile protocol; the full text lives on team.json. */
@@ -77,6 +78,18 @@ export interface MemberSelectionRuntime {
  */
 export declare function validateMemberLlmSelections(ctx: Context, selections: readonly MemberLlmSelection[], signal?: AbortSignal): Promise<void>;
 export declare function isFallbackFailureCode(code: string): boolean;
+/** Deliver a durable member report to the live captain at its next model step. */
+export declare function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string): boolean;
+export interface FailedMemberAttempt {
+    readonly captainSessionId: string;
+    readonly memberId: string;
+    readonly task?: Pick<TeamTask, 'id' | 'attempt' | 'attemptId'>;
+}
+/** Record a final turn failure, never an intermediate request retry. */
+export declare function failMemberOpenAttempt(ctx: Context, stateRoot: string, teamId: string, memberName: string, failure: {
+    readonly code: string;
+    readonly message: string;
+}, fallbackSession: Session, observed: FailedMemberAttempt): Promise<boolean>;
 /** Pure state transition used by the request-error handler and TDD tests. */
 export declare function selectFallbackRoute(current: {
     provider: string;
@@ -106,7 +119,7 @@ export declare function resolveMemberLlmSelection(ctx: Context, captain: Agent, 
  * record. Members without a complete saved role policy are rejected instead of
  * falling back to an untracked Harness descriptor route.
  */
-export declare function installMemberSelectionRuntime(ctx: Context, stateDir: string, delegationPolicy?: DelegationPolicyRuntime): MemberSelectionRuntime;
+export declare function installMemberSelectionRuntime(ctx: Context, stateDir: string, delegationPolicy?: DelegationPolicyRuntime, onFailureSettled?: (workspace: string, teamId: string, memberName: string) => Promise<void>): MemberSelectionRuntime;
 /**
  * The member's system prompt (persona), shadowing the deployment persona for
  * that child. Self-contained: it replaces the whole persona section.

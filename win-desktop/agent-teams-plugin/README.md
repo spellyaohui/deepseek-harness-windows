@@ -26,6 +26,31 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.15-desktop.4
+
+- Numbered members inherit the frozen unnumbered role template from the current Team, so any configured role can keep its Provider, model, and reasoning policy as the numeric suffix grows.
+- Hyphen, underscore, and space separators before positive numeric suffixes are supported; explicit member settings still take precedence and ambiguous role-description matches fail closed.
+- Added pure policy and real lifecycle regressions for numbered role families, high suffixes, explicit overrides, and unmatched custom roles.
+
+### v0.1.15-desktop.3
+
+- Makes ordinary captain-planning slash activation automatic and model-owned: the Captain generates the Team name and task graph without asking the user to name or confirm a task.
+- Disables staged Web member/task mutation and approval while the plan is still `building` or awaiting feedback; only `ready_for_review` snapshots may carry browser edits or approval.
+- Adds lifecycle and client packaging regressions for both boundaries while preserving the Alpha.2 Web/CAS, strict V2, quality-gate, and per-role model contracts.
+
+### v0.1.15-desktop.2
+
+- Defaults ordinary delegation to automatic startup with generated Team names and Captain-owned task planning; staged Web review is reserved for an explicit user request.
+- Carries `planRevision` from activity snapshots through every staged browser mutation and Web approval, with Host-side CAS and one-time approval credentials.
+- Restores Alpha.2 Connection authentication and Host/Origin checks on raw AgentTeams Web routes, with real HTTP regression coverage.
+
+### v0.1.15-desktop.1
+
+- Refreshes the fork's upstream provenance to fixed AgentTeams commit `232a338fc9a0d393f118912386f67e7f3a6c67d6` / package `0.1.15`.
+- Normalizes blank optional task fields only at new model-facing tool-write boundaries; strict V2 durable reads still reject malformed or legacy state without migration.
+- Settles only final member `agent/error` events against the current Team/member/task attempt, stores a bounded sanitized Captain report, and resumes independent scheduling only after the real child becomes idle.
+- Keeps the Alpha.2 client seams, per-role Provider/model/reasoning policy, strict V2 state, quality gates, and no runtime dependency on experimental AgentTeams packages.
+
 ### v0.1.14-desktop.11
 
 - `agent_teams_status` defaults to a read-only compact summary and never wakes members or acknowledges mail. Use `detail="full"` for complete task reports, provider/model evidence, or profile protocol; set `acknowledge=true` only after processing displayed mailbox entries; use `wake="recover"` only for a captain after restart or clearly stuck ready work/mail.

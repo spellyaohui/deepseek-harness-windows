@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-windows",
-  "version": "0.1.2-rc.1",
+  "version": "0.1.2-rc.4",
   "description": "Windows 桌面包装器：启动官方 DeepSeek Harness Web UI",
   "type": "module",
   "main": "src/main.js",

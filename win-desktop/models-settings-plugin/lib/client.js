@@ -496,7 +496,7 @@ window.__ModuleLoader__.load({
 		function applyCapabilityPatch(model, patch, options) {
 			const next = { ...model };
 			const { overwriteExisting, source: _source } = options;
-			if (patch.input !== void 0 && isCapabilityInput(patch.input) && (!Object.hasOwn(model, "input") || overwriteExisting)) next["input"] = [...patch.input];
+			if (patch.input !== void 0 && isCapabilityInput(patch.input) && (readImageInputChoice(model) === "auto" || overwriteExisting)) next["input"] = [...patch.input];
 			if (patch.reasoningEfforts !== void 0 && (!Object.hasOwn(model, "reasoningEfforts") || overwriteExisting)) next["reasoningEfforts"] = patch.reasoningEfforts === false ? false : { ...patch.reasoningEfforts };
 			if (patch.compat !== void 0) {
 				const existing = isPlainRecord(model["compat"]) ? model["compat"] : {};

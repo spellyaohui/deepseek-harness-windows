@@ -26,6 +26,31 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.15-desktop.4
+
+- 编号成员从当前 Team 冻结的未编号基础角色继承 Provider、模型和思考策略，任意配置角色都可以随着编号继续增长而保持原策略。
+- 支持正整数前使用连字符、下划线或空格的写法；显式成员设置继续优先，角色描述出现歧义时 fail-closed，不随机选择模型。
+- 新增纯策略和真实生命周期回归，覆盖高编号、显式覆盖和未匹配自定义角色。
+
+### v0.1.15-desktop.3
+
+- 普通 captain-planning slash 委派自动启动并由主模型负责：自动生成 Team 名称和任务图，不再要求用户命名任务或确认启动。
+- staged Team 仍处于 `building` 或等待反馈时，Web 成员/任务修改和批准操作全部禁用；只有 `ready_for_review` 快照允许浏览器编辑或批准。
+- 新增上述生命周期和客户端打包回归，同时保留 Alpha.2 Web/CAS、严格 V2、质量门禁与角色级模型策略。
+
+### v0.1.15-desktop.2
+
+- 普通委派默认自动启动：省略 Team 名称并由队长模型自行规划任务；只有用户明确要求先审计划时才进入 staged Web 审核。
+- `planRevision` 从活动快照贯穿所有 staged 浏览器修改与 Web 审批，Host 使用 CAS 和一次性审批凭据提交。
+- 恢复 Alpha.2 Connection 认证及 Host/Origin 检查，并用真实 HTTP 回归覆盖原始 AgentTeams Web 路由。
+
+### v0.1.15-desktop.1
+
+- 将 fork 的上游 provenance 固定到 AgentTeams 提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6` / 包版本 `0.1.15`。
+- 仅在新的模型工具写入边界归一化空的可选任务字段；严格 V2 的持久化读取仍拒绝损坏或旧状态，不增加迁移层。
+- 只对最终成员 `agent/error` 按 Team/成员/任务 attempt 身份安全结算，保存有界脱敏的队长报告；真实子 Agent 进入 idle 后才继续调度其他独立任务。
+- 保留 Alpha.2 客户端接口、角色级 Provider/模型/思考策略、严格 V2、质量门禁，并不把实验性 AgentTeams 包加入运行时依赖。
+
 ### v0.1.14-desktop.12
 
 - 适配 DeepSeek Harness `dsh-v0.1.2-alpha.2` 的 Remote、Slot、会话与客户端接口，并保留角色级 Provider、模型、思考策略、严格 V2、质量门禁和桌面 Profile 编辑。

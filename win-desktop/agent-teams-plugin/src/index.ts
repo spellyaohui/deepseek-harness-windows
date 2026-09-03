@@ -24,7 +24,6 @@ import type {} from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type { WorkspaceRegistry } from '@deepseek-ai/dsh-workspace'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import {
   haltTeamWork,
   registerAgentTeamsTools,
@@ -36,7 +35,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { collectArchivedTeamsActivity, collectTeamsActivity } from './snapshot.ts'
 import { findTeamByCaptain } from './state.ts'
-import { stagedPlanMutationFromPayload } from './staged-plan-payload.ts'
+import { expectedPlanRevisionFromPayload, stagedPlanMutationFromPayload } from './staged-plan-payload.ts'
 import { formatProfilesForPrompt, type TeamProfileConfig } from './profiles.ts'
 import { buildHostModelCatalog } from './host-model-catalog.ts'
 import {
@@ -50,21 +49,7 @@ import {
   type DelegationPolicyId,
   type DelegationPolicyRuntime,
 } from './routing-policy.ts'
-
-/**
- * Structural slice of the web server service, compatible with both the
- * published `dsh-host-webserver@0.0.1-rc.1` (`ctx.httpServer` /
- * `HttpServerService`) and the renamed `webServer` / `WebServer` in later
- * builds: the beta transition renames the service without changing the route
- * registration shape.
- */
-interface WebRouteHost {
-  register(route: {
-    kind: 'exact' | 'prefix'
-    path: string
-    handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>
-  }): () => void
-}
+import { authenticatedWebRoutes, type BrowserRequestGate, type WebRouteHost } from './web-routes.ts'
 
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'] as const
@@ -174,12 +159,12 @@ State first:
 - unknown -> agent_teams_status once.
 - inactive -> create one Team; status/delete are safe probes.
 - staged -> edit roster/DAG or wait for explicit approval; no work runs.
-- running -> use status, create-task, message, reassign, and delete; never create a replacement Team, edit-plan, or approve.
-- halted -> agent_teams_resume(reason) before work. Escalated remains running; ask the user when its review loop reaches the ceiling.
+- running -> status, create-task, message, reassign, delete; never replacement Team, edit-plan, or approve.
+- halted -> agent_teams_resume(reason). Escalated is running; ask the user at the review-loop ceiling.
 
-Approval/Profile: approval="automatic" runs; approval="required" stages roster/DAG. Never self-approve in the create/edit turn. Call agent_teams_approve only after agent_teams_status shows active=true and phase=staged; “继续/确认” alone is insufficient. Return/discard forbids replacement. Exact Profiles add their roster plus seed tasks or guardrails; only an eligible fallback retries. If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.
+Approval/Profile: Default delegation uses approval="automatic": omit name so AgentTeams generates it; captain planning creates task names/contracts—never ask the user to name a task. Use approval="required" only when the user explicitly asks to review the plan before startup; never self-approve in that create/edit turn. Approve only after agent_teams_status shows active=true and phase=staged; “继续/确认” alone is insufficient. Return/discard forbids replacement. Profiles add roster + seed tasks/guardrails; fallback retries only when eligible. If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.
 
-Reasoning/routes: each role owns target-default, route-aware, or explicit. target-default uses its role/captain route with no effort; route-aware inherits captain effort only on the same provider/model; explicit requires role provider/model and effort. Omit provider/model for the captain route or provide both as a pair for another route.
+Reasoning/routes: roles own target-default, route-aware, or explicit. target-default uses role/captain route without effort; route-aware inherits captain effort only on the same provider/model; explicit requires role provider/model + effort. Omit provider/model for captain route or provide both for another route.
 
 Tasks/execution: plan tasks and dependencies; the scheduler gives ready shared work to durable idle members. Assign an active member/captain or omit assignee. Never duplicate slow work. A pause parks its attempt; message that member to continue. Updates use current attempt_id; stale means ownership changed, so reassign. Members claim by task id; reassignment revokes the old attempt. agent_teams_status is read-only and never wakes members; do not busy-poll. Use detail="full" for complete reports or route details, acknowledge=true after processing shown mail, and captain-only wake="recover" for restart/stuck recovery. Never inspect or edit .agent-teams state files or plugin source code.
 
@@ -187,7 +172,7 @@ Quality mode: requirements, implementation, verification, review, repair, and in
 
 Present the Team result, then call agent_teams_delete unless work continues. Never perform a real deployment without explicit user confirmation.
 
-Use the registered agent_teams_* tool schemas.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`
+Use registered agent_teams_* schemas.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`
 }
 
 export function apply(ctx: Context, config: Config): void {
@@ -260,8 +245,9 @@ export function apply(ctx: Context, config: Config): void {
   let modelCatalogRegistered = false
   const registerModelCatalog = (): void => {
     if (modelCatalogRegistered) return
-    const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1])) as WebRouteHost | undefined
-    if (webServer === undefined) return
+    const rawWebServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1])) as WebRouteHost | undefined
+    if (rawWebServer === undefined) return
+    const webServer = authenticatedWebRoutes(rawWebServer, () => ctx.get('connection') as BrowserRequestGate | undefined)
     modelCatalogRegistered = true
     ctx.effect(() => webServer.register({
       kind: 'exact',
@@ -291,9 +277,10 @@ export function apply(ctx: Context, config: Config): void {
   let webRegistered = false
   const registerWebSurface = (): void => {
     if (webRegistered) return
-    const webServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1])) as WebRouteHost | undefined
+    const rawWebServer = (ctx.get(WEB_SERVER_KEYS[0]) ?? ctx.get(WEB_SERVER_KEYS[1])) as WebRouteHost | undefined
     const workspaceRegistry = (ctx.get(WORKSPACE_KEYS[0]) ?? ctx.get(WORKSPACE_KEYS[1])) as WorkspaceRegistry | undefined
-    if (webServer === undefined || workspaceRegistry === undefined) return
+    if (rawWebServer === undefined || workspaceRegistry === undefined) return
+    const webServer = authenticatedWebRoutes(rawWebServer, () => ctx.get('connection') as BrowserRequestGate | undefined)
     webRegistered = true
 
     // Activity panel data route: the browser floater polls this for team
@@ -447,8 +434,13 @@ export function apply(ctx: Context, config: Config): void {
         }
         try {
           if (action === 'approve') {
-            // @ts-expect-error Task 4 will bind trusted Web approval evidence to this Host route.
-            const approved = await agentTeamsRuntime.approveStagedTeam(captain, teamId)
+            const expectedPlanRevision = expectedPlanRevisionFromPayload(payload)
+            const prepared = await agentTeamsRuntime.prepareWebApproval(captain, teamId, expectedPlanRevision)
+            const approved = await agentTeamsRuntime.approveStagedTeam(captain, teamId, {
+              source: 'web',
+              token: prepared.token,
+              expectedPlanRevision: prepared.planRevision,
+            })
             res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
             res.end(JSON.stringify({ ok: true, phase: 'running', ...approved }))
             return
@@ -466,10 +458,21 @@ export function apply(ctx: Context, config: Config): void {
             return
           }
           const mutation = stagedPlanMutationFromPayload(payload)
-          // @ts-expect-error Task 4 will add expectedPlanRevision to the Host mutation protocol.
-          const updated = await agentTeamsRuntime.updateStagedPlan(captain, teamId, mutation)
+          const expectedPlanRevision = expectedPlanRevisionFromPayload(payload)
+          const updated = await agentTeamsRuntime.updateStagedPlan(
+            captain,
+            teamId,
+            mutation,
+            { origin: 'web', expectedPlanRevision },
+          )
           res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-          res.end(JSON.stringify({ ok: true, phase: updated.phase, members: updated.members.length, tasks: updated.tasks.length }))
+          res.end(JSON.stringify({
+            ok: true,
+            phase: updated.phase,
+            planRevision: updated.planRevision,
+            members: updated.members.length,
+            tasks: updated.tasks.length,
+          }))
         } catch (error: unknown) {
           res.writeHead(409, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
           res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'plan operation failed' }))

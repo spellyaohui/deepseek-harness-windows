@@ -1,4 +1,5 @@
 import { capabilityPatchFromChecks } from "../capability-contract.js";
+import { readImageInputChoice } from "./model-input.js";
 export { capabilityPatchFromChecks };
 const IMAGE_INPUT = ['text', 'image'];
 const TEXT_INPUT = ['text'];
@@ -34,7 +35,7 @@ export function applyCapabilityPatch(model, patch, options) {
     const next = { ...model };
     const { overwriteExisting, source: _source } = options;
     if (patch.input !== undefined && isCapabilityInput(patch.input)
-        && (!Object.hasOwn(model, 'input') || overwriteExisting)) {
+        && (readImageInputChoice(model) === 'auto' || overwriteExisting)) {
         next['input'] = [...patch.input];
     }
     if (patch.reasoningEfforts !== undefined

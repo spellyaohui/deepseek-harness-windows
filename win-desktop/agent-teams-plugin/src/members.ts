@@ -16,11 +16,23 @@ import type { Context } from '@deepseek-ai/cordis'
 import { installModelSelection, type Agent, type ModelSelection } from '@deepseek-ai/dsh-agent'
 // Declaration merge only: makes ctx.subagents visible.
 import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent'
-import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import { createUserMessage, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import type { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { join } from 'node:path'
-import { readRetiredMemberIds, readTeamSync, readTeam, withTeamLock, writeTeam } from './state.ts'
-import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState } from './types.ts'
+import { appendTeamEvent, captainSessionOf } from './events.ts'
+import {
+  acknowledgeMailbox,
+  appendMailbox,
+  CAPTAIN_KEY,
+  createMessage,
+  readRetiredMemberIds,
+  readTeamSync,
+  readTeam,
+  releaseMailboxDelivery,
+  withTeamLock,
+  writeTeam,
+} from './state.ts'
+import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
 import { selectMemberCandidate, validateMemberRolePolicy, type RoleReasoningMode } from './selection-policy.ts'
 import {
   resolveAndInstallDelegationPolicy,
@@ -132,6 +144,8 @@ export async function validateMemberLlmSelections(
 
 const MEMBER_LABEL_PREFIX = 'agent-teams:'
 const FALLBACK_FAILURE_CODES = new Set(['QUOTA', 'RATE_LIMIT', 'AUTH', 'MISSING_CREDENTIAL', 'NO_ADAPTER'])
+const FAILURE_CODE_MAX_CHARS = 64
+const FAILURE_MESSAGE_MAX_CHARS = 512
 
 export function isFallbackFailureCode(code: string): boolean {
   return FALLBACK_FAILURE_CODES.has(code)
@@ -147,6 +161,114 @@ function memberSelectionError(error: unknown, providerIds: readonly string[]): E
   const validProviders = [...new Set(providerIds.map((provider) => provider.trim()).filter(Boolean))].sort()
   const valid = validProviders.length === 0 ? '' : ` Valid providers: ${validProviders.join(', ')}.`
   return new Error(`${base}${valid} Omit provider/model to use the captain route.`, { cause: error })
+}
+
+/** Keep failure reports useful without persisting provider payloads or secrets. */
+function boundedFailurePart(value: unknown, maxLength: number, fallback: string): string {
+  let text = typeof value === 'string' ? value : String(value)
+  text = text
+    .replace(/(?:^|\s)at\s+[^\s]+:\d+(?::\d+)?/gi, ' ')
+    .replace(/\b(?:prompt|input|payload)\s*:\s*.*$/gi, ' ')
+    .replace(/\{[^{}]*\}/g, ' ')
+    .replace(/\bBearer\s+[^\s,;]+/gi, 'Bearer [redacted]')
+    .replace(/((?:authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|token)\s*[:=]\s*)[^\s,;]+/gi, '$1[redacted]')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (text === '') return fallback
+  return text.length > maxLength ? `${text.slice(0, maxLength - 12).trim()}… [truncated]` : text
+}
+
+function failureSummary(failure: { readonly code: string; readonly message: string }): string {
+  const code = boundedFailurePart(failure.code, FAILURE_CODE_MAX_CHARS, 'UNKNOWN')
+    .replace(/[^A-Za-z0-9_.:-]/g, '-')
+  const message = boundedFailurePart(failure.message, FAILURE_MESSAGE_MAX_CHARS, 'unrecoverable member turn failure')
+  return `${message} (code ${code})`
+}
+
+/** Deliver a durable member report to the live captain at its next model step. */
+export function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string): boolean {
+  try {
+    captain.steer(createUserMessage({
+      content: [{ type: 'text', text: `AgentTeams message from member ${from}:\n\n${content}` }],
+      source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+    }))
+    return true
+  } catch {
+    return false
+  }
+}
+
+export interface FailedMemberAttempt {
+  readonly captainSessionId: string
+  readonly memberId: string
+  readonly task?: Pick<TeamTask, 'id' | 'attempt' | 'attemptId'>
+}
+
+/** Record a final turn failure, never an intermediate request retry. */
+export async function failMemberOpenAttempt(
+  ctx: Context,
+  stateRoot: string,
+  teamId: string,
+  memberName: string,
+  failure: { readonly code: string; readonly message: string },
+  fallbackSession: Session,
+  observed: FailedMemberAttempt,
+): Promise<boolean> {
+  const summary = failureSummary(failure)
+  const lockKey = `team:${stateRoot}:${teamId}`
+  const prepared = await withTeamLock(lockKey, async () => {
+    const team = await readTeam(stateRoot, teamId)
+    if (team === undefined || team.halted === true || team.captainSessionId !== observed.captainSessionId) return undefined
+    const member = team.members.find(candidate => candidate.name === memberName
+      && candidate.id === observed.memberId && candidate.status !== 'removed')
+    if (member === undefined) return undefined
+    const task = team.tasks.find(candidate => candidate.assignee === memberName
+      && (candidate.status === 'claimed' || candidate.status === 'in_progress'))
+    if (task?.id !== observed.task?.id || task?.attemptId !== observed.task?.attemptId
+      || task?.attempt !== observed.task?.attempt) return undefined
+    if (task === undefined && member.status !== 'working') return undefined
+    if (task !== undefined) {
+      task.status = 'failed'
+      task.output = summary
+      task.updatedAt = Date.now()
+    }
+    if (ctx.agents.get(brandedSessionId(member.id))?.status !== 'running') member.status = 'idle'
+    const message = {
+      ...createMessage(memberName, CAPTAIN_KEY, task === undefined
+        ? `Member "${memberName}" hit an unrecoverable turn failure: ${summary}. No open attempt was owned.`
+        : `Member "${memberName}" hit an unrecoverable turn failure: ${summary}. Task ${task.id} ("${task.subject}") was marked failed; reassign it or retry when ready.`),
+      deliveryClaimedAt: Date.now(),
+    }
+    await writeTeam(stateRoot, team)
+    await appendMailbox(stateRoot, team.id, CAPTAIN_KEY, message)
+    const captainSession = captainSessionOf(ctx, team.captainSessionId, fallbackSession)
+    if (task !== undefined) {
+      appendTeamEvent(ctx, captainSession, 'agent-teams/task-updated', {
+        teamId,
+        taskId: task.id,
+        status: task.status,
+        assignee: memberName,
+        output: task.output,
+      })
+    }
+    appendTeamEvent(ctx, captainSession, 'agent-teams/message-sent', {
+      teamId: team.id,
+      messageId: message.id,
+      from: memberName,
+      to: CAPTAIN_KEY,
+      content: message.content,
+      ts: message.ts,
+    })
+    return { captainSessionId: team.captainSessionId, message }
+  })
+  if (prepared === undefined) return false
+  const captain = ctx.agents.get(brandedSessionId(prepared.captainSessionId))
+  const delivered = captain !== undefined && steerCaptainReport(captain, memberName, prepared.message.content)
+  await withTeamLock(lockKey, () => delivered
+    ? acknowledgeMailbox(stateRoot, teamId, CAPTAIN_KEY, [prepared.message.id])
+    : releaseMailboxDelivery(stateRoot, teamId, CAPTAIN_KEY, [prepared.message.id]))
+  return true
 }
 
 /** Pure state transition used by the request-error handler and TDD tests. */
@@ -296,6 +418,7 @@ export function installMemberSelectionRuntime(
   ctx: Context,
   stateDir: string,
   delegationPolicy?: DelegationPolicyRuntime,
+  onFailureSettled?: (workspace: string, teamId: string, memberName: string) => Promise<void>,
 ): MemberSelectionRuntime {
   const pending = new Map<string, MemberLlmSelection>()
   ctx.subagents.registerContinuableSetup((childCtx) => {
@@ -309,6 +432,13 @@ export function installMemberSelectionRuntime(
 
     const parentSessionId = child.session.header.parentSession
     if (parentSessionId === undefined) return () => undefined
+    const identity = descriptor.label.slice(MEMBER_LABEL_PREFIX.length)
+    const separator = identity.indexOf(':')
+    if (separator < 1 || separator === identity.length - 1) return () => undefined
+    const teamId = identity.slice(0, separator)
+    const memberName = identity.slice(separator + 1)
+    const workspace = child.session.header.cwd ?? process.cwd()
+    const stateRoot = join(workspace, stateDir)
     const policyInstallation = delegationPolicy === undefined
       ? undefined
       : resolveAndInstallDelegationPolicy(
@@ -320,12 +450,6 @@ export function installMemberSelectionRuntime(
     const key = pendingSelectionKey(parentSessionId, descriptor.label)
     let selection = pending.get(key)
     if (selection === undefined) {
-      const identity = descriptor.label.slice(MEMBER_LABEL_PREFIX.length)
-      const separator = identity.indexOf(':')
-      if (separator < 1 || separator === identity.length - 1) return disposePolicy
-      const teamId = identity.slice(0, separator)
-      const memberName = identity.slice(separator + 1)
-      const workspace = child.session.header.cwd ?? process.cwd()
       const team = readTeamSync(join(workspace, stateDir), teamId)
       if (team?.captainSessionId !== parentSessionId) return disposePolicy
       const durableMember = team.members.find(member => member.name === memberName)
@@ -348,20 +472,61 @@ export function installMemberSelectionRuntime(
     }
 
     try {
+      let lastFailedTurn: number | undefined
+      const disposeFailure = childCtx.on('agent/error', async (payload) => {
+        if (payload.agent.id !== child.id || payload.turn === lastFailedTurn) return
+        lastFailedTurn = payload.turn
+        try {
+          const snapshot = readTeamSync(stateRoot, teamId)
+          if (snapshot?.captainSessionId !== parentSessionId) return
+          const member = snapshot.members.find(item => item.id === child.id
+            && item.name === memberName && item.status !== 'removed')
+          if (member === undefined) return
+          const task = snapshot.tasks.find(item => item.assignee === memberName
+            && (item.status === 'claimed' || item.status === 'in_progress'))
+          const failure = payload.error instanceof LlmError ? payload.error.failure : {
+            code: 'UNKNOWN',
+            message: payload.error instanceof Error ? payload.error.message : String(payload.error),
+          }
+          const recorded = await failMemberOpenAttempt(ctx, stateRoot, teamId, memberName, failure, child.session, {
+            captainSessionId: parentSessionId,
+            memberId: child.id,
+            task,
+          })
+          if (!recorded) return
+          await child.whenIdle()
+          let settled = false
+          await withTeamLock(`team:${stateRoot}:${teamId}`, async () => {
+            const team = await readTeam(stateRoot, teamId)
+            const current = team?.members.find(item => item.id === child.id
+              && item.name === memberName && item.status !== 'removed')
+            if (team?.captainSessionId !== parentSessionId || current === undefined || child.status !== 'idle') return
+            settled = true
+            if (current.status !== 'idle') {
+              current.status = 'idle'
+              await writeTeam(stateRoot, team)
+            }
+          })
+          if (settled) await onFailureSettled?.(workspace, teamId, memberName)
+        } catch (error: unknown) {
+          ctx.logger.warn(`agent-teams: failed to record member turn failure: ${String(error)}`)
+        }
+      })
       const selectionRef = { current: modelSelection(selection), assembled: undefined as ModelSelection | undefined }
       const disposeSelection = installModelSelection(childCtx, selectionRef)
       const fallback = selection.fallback
       if (fallback === undefined) {
         return () => {
+          disposeFailure()
           disposeSelection()
           disposePolicy()
         }
       }
       let switched = false
-      const disposeFallback = childCtx.on('agent/request-error', async (payload) => {
-        if (payload.agent.id !== child.id) return undefined
+      const disposeFallback = childCtx.on('agent/request-error', async (payload, next) => {
+        if (payload.agent.id !== child.id || payload.signal.aborted) return next()
         const transition = selectFallbackRoute(selectionRef.current ?? { provider: selection.provider, model: selection.model }, fallback, payload.failure.code, switched)
-        if (!transition.retry) return undefined
+        if (!transition.retry) return next()
         switched = transition.switched
         selectionRef.current = transition.selection
         const workspace = child.session.header.cwd ?? process.cwd()
@@ -380,6 +545,7 @@ export function installMemberSelectionRuntime(
       return () => {
         disposeFallback()
         disposeSelection()
+        disposeFailure()
         disposePolicy()
       }
     } catch (error) {
@@ -468,7 +634,8 @@ Working rules:
 7. If you already own an open attempt (claimed or in_progress) and receive mail, treat it as guidance for that same attempt_id unless the mail explicitly tells you to stop or fail. Do not claim a new task in that turn.
 8. Do not start a teammate's assigned task. Do not privately tell the next-stage member to start; the scheduler assigns unlocked work after you become idle.
 9. You are a worker: do not create or delete teams, reassign tasks, or add/remove members — that is the captain's job.
-10. Quality-gate kinds carry a contract (kind, objective, inScope, acceptance, verify). Stay inside inScope. Do not mark your own implementation as review pass. Review/requirements complete only with verdict=pass; needs_revision/reject must fail with findings. Mail is not a formal next review.`
+10. For agent_teams_status, perform a read-only query and omit wake and acknowledge. wake="recover" is captain-only; never request recovery scheduling as a member. A member-supplied wake="recover" is ignored safely and does not wake or mutate the Team.
+11. Quality-gate kinds carry a contract (kind, objective, inScope, acceptance, verify). Stay inside inScope. Do not mark your own implementation as review pass. Review/requirements complete only with verdict=pass; needs_revision/reject must fail with findings. Mail is not a formal next review.`
 }
 
 /**

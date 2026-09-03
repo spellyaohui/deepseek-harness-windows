@@ -48,6 +48,7 @@ import {
   buildCoverageMatrix,
   canDeclareDelivery,
   describeQualityLoop,
+  normalizeBlankOptionalTaskFields,
   sanitizeReviewAcceptance,
   sanitizeReviewObjective,
   taskKindOf,
@@ -60,12 +61,13 @@ import {
   interruptMember,
   memberActivity,
   resolveMemberLlmSelection,
+  steerCaptainReport,
   spawnMember,
   validateMemberLlmSelections,
   type MemberRuntimeConfig,
 } from './members.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
-import type { RoleReasoningMode } from './selection-policy.ts'
+import { findMemberRoleTemplate, type RoleReasoningMode } from './selection-policy.ts'
 import { installTeamScheduler } from './scheduler.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
 import type { DelegationPolicyRuntime } from './routing-policy.ts'
@@ -542,19 +544,6 @@ export async function haltTeamWork(input: {
   }
 }
 
-export function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string): boolean {
-  try {
-    captain.steer(createUserMessage({
-      content: [{ type: 'text', text: `AgentTeams message from member ${from}:\n\n${content}` }],
-      source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
-    }))
-    return true
-  } catch {
-    // The plugin mailbox was persisted before this best-effort live delivery.
-    return false
-  }
-}
-
 /** Context queued after the human rejects a staged plan. */
 export function stagedPlanDiscardContext(teamName: string): string {
   return [
@@ -582,8 +571,13 @@ export function stagedPlanFeedbackContext(teamName: string): string {
  */
 export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): AgentTeamsRuntime {
   installRetiredMemberGuard(ctx, config.stateDir)
-  const memberSelections = installMemberSelectionRuntime(ctx, config.stateDir, config.delegationPolicy)
   const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt })
+  const memberSelections = installMemberSelectionRuntime(
+    ctx,
+    config.stateDir,
+    config.delegationPolicy,
+    (workspace, teamId, memberName) => scheduler.kickMember(workspace, teamId, memberName),
+  )
   const statusFingerprints = new Map<string, string>()
   const maxStatusFingerprints = 256
   const approvalCredentials = createApprovalCredentialStore()
@@ -953,7 +947,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_create',
-    description: 'Create a team. Use approval=required for a two-phase plan: members and tasks remain unspawned/unclaimed until the user reviews the Web plan and explicitly approves it. Optional profiles expand their configured roster; seed profiles also expand template tasks, while captain profiles leave the graph for the Captain to design. approval=automatic preserves the legacy immediate-execution path.',
+    description: 'Create a team. Default to approval=automatic for ordinary delegation; omit name to generate a privacy-safe Team name, then create any captain-planned tasks yourself. Use approval=required only when the user explicitly asks to review the plan before startup. Optional profiles expand their configured roster; seed profiles also expand template tasks, while captain profiles leave the graph for the Captain to design.',
     parameters: {
       name: { type: 'string', description: 'Optional Team name. Omit it to generate a privacy-safe name from the description.' },
       description: { type: 'string', description: 'Team purpose / the goal the team will work on.' },
@@ -1432,13 +1426,13 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_add_member',
-    description: 'Add a durable continuable member. The role policy chooses its route: target-default and route-aware use the captain route unless a paired provider/model is supplied; explicit requires provider/model/reasoning_effort. In a staged team this only adds an editable plan row and does not spawn a child; approval spawns the final configuration. In a running team it creates the durable continuable member immediately.',
+    description: 'Add a durable continuable member. When no model policy is supplied, a name formed from any unnumbered current-Team role plus a positive integer inherits that base role template; separators such as hyphen, underscore, or space are accepted. Explicit provider/model/reasoning settings always win. target-default and route-aware otherwise use the captain route; explicit requires provider/model/reasoning_effort. In a staged team this only adds an editable plan row and does not spawn a child; approval spawns the final configuration. In a running team it creates the durable continuable member immediately.',
     parameters: {
       name: { type: 'string', required: true, description: 'Unique member name inside the team.' },
       role: { type: 'string', description: 'Role of the member (e.g. researcher, engineer, reviewer).' },
       provider: { type: 'string', description: 'Optional LLM provider route. Use only when the user explicitly requests a different provider; requires model.' },
       model: { type: 'string', description: 'Optional model override. Omit to use the captain route.' },
-      reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], default: 'target-default', description: 'Role reasoning policy.' },
+      reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matching numbered base role; otherwise use the captain route.' },
       reasoning_effort: { type: 'string', description: 'Required with explicit reasoning_mode; otherwise omit.' },
       executionPrompt: { type: 'string', description: 'Optional member-specific execution prompt. It remains editable while staged.' },
     },
@@ -1482,13 +1476,47 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (fresh.members.filter((candidate) => candidate.status !== 'removed').length >= config.maxMembers) {
           throw new Error(`team "${fresh.name}" is at its member cap (${config.maxMembers})`)
         }
-        const selection = await resolveMemberLlmSelection(ctx, captain, {
+        const explicitSelection = trimmedOptional(args.provider) !== undefined
+          || trimmedOptional(args.model) !== undefined
+          || trimmedOptional(args.reasoning_effort) !== undefined
+          || args.reasoning_mode !== undefined
+        let roleSelection: {
+          provider?: string
+          model?: string
+          reasoningMode: RoleReasoningMode
+          reasoningEffort?: string
+          fallback?: { provider: string; model: string }
+        } = {
           provider: args.provider,
           model: args.model,
           reasoningMode: args.reasoning_mode ?? 'target-default',
           reasoningEffort: args.reasoning_effort,
           fallback: config.fallback,
-        }, exec.signal)
+        }
+        if (!explicitSelection) {
+          const templateMatch = findMemberRoleTemplate({
+            memberName,
+            role: args.role,
+            members: fresh.members.filter((candidate) => candidate.status !== 'removed'),
+          })
+          if (templateMatch.kind === 'ambiguous') {
+            const names = templateMatch.templates.map((template) => template.name).join(', ')
+            throw new Error(`member name "${memberName}" matches multiple role templates (${names}); provide an explicit provider, model, and reasoning policy`)
+          }
+          if (templateMatch.kind === 'matched') {
+            const template = templateMatch.template
+            roleSelection = {
+              provider: template.provider,
+              model: template.model,
+              reasoningMode: template.reasoningMode,
+              // Only explicit effort is a policy input. A materialized effort
+              // on target-default/route-aware is intentionally not promoted.
+              reasoningEffort: template.reasoningMode === 'explicit' ? template.reasoningEffort : undefined,
+              fallback: template.fallback ?? config.fallback,
+            }
+          }
+        }
+        const selection = await resolveMemberLlmSelection(ctx, captain, roleSelection, exec.signal)
         const member: TeamMember = {
           id: '',
           name: memberName,
@@ -1679,30 +1707,31 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       const workspace = workspaceOf(captain)
       const stateRoot = stateRootOf(workspace, config)
       const team = await requireCaptainTeam(workspace, config, captain)
+      const input = normalizeBlankOptionalTaskFields(args)
       // Blank ownership is the model-facing spelling of the shared task pool.
-      const assignee = trimmedOptional(args.assignee)
+      const assignee = trimmedOptional(input.assignee)
       const created = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
         const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id)
         const gate = validateCreateTask(fresh, {
-          subject: args.subject,
-          description: args.description,
-          dependencies: args.dependencies,
+          subject: input.subject,
+          description: input.description,
+          dependencies: input.dependencies,
           assignee,
-          kind: args.kind as TaskKind | undefined,
-          round: args.round,
-          objective: args.objective,
-          inScope: args.inScope,
-          outOfScope: args.outOfScope,
-          acceptance: args.acceptance,
-          verify: args.verify,
-          deliverables: args.deliverables,
-          nonGoals: args.nonGoals,
-          reviewedTaskId: args.reviewedTaskId,
-          sourceTaskId: args.sourceTaskId,
-          sourceFindingIds: args.sourceFindingIds,
-          coverageOf: args.coverageOf,
-          resume: args.resume,
-          resumeReason: args.resumeReason,
+          kind: input.kind as TaskKind | undefined,
+          round: input.round,
+          objective: input.objective,
+          inScope: input.inScope,
+          outOfScope: input.outOfScope,
+          acceptance: input.acceptance,
+          verify: input.verify,
+          deliverables: input.deliverables,
+          nonGoals: input.nonGoals,
+          reviewedTaskId: input.reviewedTaskId,
+          sourceTaskId: input.sourceTaskId,
+          sourceFindingIds: input.sourceFindingIds,
+          coverageOf: input.coverageOf,
+          resume: input.resume,
+          resumeReason: input.resumeReason,
         })
         if (!gate.ok) throw new Error(gate.error ?? 'create_task rejected by quality gates')
         if (fresh.halted === true) {
@@ -1717,7 +1746,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             reason: args.resumeReason ?? '',
           })
         }
-        const dependencies = args.dependencies ?? []
+        const dependencies = input.dependencies ?? []
         for (const dependency of dependencies) {
           if (!fresh.tasks.some((task) => task.id === dependency)) {
             throw new Error(`dependency "${dependency}" does not exist in team "${fresh.name}"`)
@@ -1729,12 +1758,12 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           ? sanitizeReviewObjective(gate.task?.objective)
           : gate.task?.objective
         const acceptance = kind === 'review' || kind === 'requirements'
-          ? sanitizeReviewAcceptance(args.acceptance)
-          : args.acceptance
+          ? sanitizeReviewAcceptance(input.acceptance)
+          : input.acceptance
         const task: TeamTask = {
           id: `t${fresh.taskSeq + 1}`,
-          subject: args.subject,
-          description: args.description,
+          subject: input.subject,
+          description: input.description,
           status: 'pending',
           assignee,
           dependencies,
@@ -1743,18 +1772,18 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           createdAt: Date.now(),
           updatedAt: Date.now(),
           kind,
-          ...args.round === undefined ? {} : { round: args.round },
+          ...input.round === undefined ? {} : { round: input.round },
           ...objective === undefined ? {} : { objective },
-          ...args.inScope === undefined ? {} : { inScope: args.inScope },
-          ...args.outOfScope === undefined ? {} : { outOfScope: args.outOfScope },
+          ...input.inScope === undefined ? {} : { inScope: input.inScope },
+          ...input.outOfScope === undefined ? {} : { outOfScope: input.outOfScope },
           ...acceptance === undefined ? {} : { acceptance },
-          ...args.verify === undefined ? {} : { verify: args.verify },
-          ...args.deliverables === undefined ? {} : { deliverables: args.deliverables },
-          ...args.nonGoals === undefined ? {} : { nonGoals: args.nonGoals },
+          ...input.verify === undefined ? {} : { verify: input.verify },
+          ...input.deliverables === undefined ? {} : { deliverables: input.deliverables },
+          ...input.nonGoals === undefined ? {} : { nonGoals: input.nonGoals },
           ...gate.task?.reviewedTaskId === undefined ? {} : { reviewedTaskId: gate.task.reviewedTaskId },
           ...gate.task?.sourceTaskId === undefined ? {} : { sourceTaskId: gate.task.sourceTaskId },
-          ...args.sourceFindingIds === undefined ? {} : { sourceFindingIds: args.sourceFindingIds },
-          ...args.coverageOf === undefined ? {} : { coverageOf: args.coverageOf },
+          ...input.sourceFindingIds === undefined ? {} : { sourceFindingIds: input.sourceFindingIds },
+          ...input.coverageOf === undefined ? {} : { coverageOf: input.coverageOf },
         }
         markStagedPlanBuilding(fresh)
         fresh.taskSeq += 1
@@ -2124,7 +2153,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             ...task.output !== undefined ? { output: task.output } : {},
           }
         }
-        const findings = parseFindings(args.findings)
+        const input = normalizeBlankOptionalTaskFields(args)
+        const findings = parseFindings(input.findings)
         const acceptanceResults = parseAcceptanceResults(args.acceptanceResults)
         const commandsRun = parseCommandResults(args.commandsRun)
         const gate = evaluateQualityCompletion(task, {
@@ -2132,7 +2162,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           output: args.output,
           verdict: args.verdict as ReviewVerdict | undefined,
           findings,
-          changedPaths: args.changedPaths,
+          changedPaths: input.changedPaths,
           noChangesReason: args.noChangesReason,
           acceptanceResults,
           commandsRun,
@@ -2146,7 +2176,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (args.output !== undefined) task.output = args.output
         if (args.verdict !== undefined) task.verdict = args.verdict as ReviewVerdict
         if (findings !== undefined) task.findings = findings
-        if (args.changedPaths !== undefined) task.changedPaths = args.changedPaths
+        if (input.changedPaths !== undefined) task.changedPaths = input.changedPaths
         if (args.noChangesReason !== undefined) task.noChangesReason = args.noChangesReason.trim() || undefined
         if (acceptanceResults !== undefined) task.acceptanceResults = acceptanceResults
         if (commandsRun !== undefined) task.commandsRun = commandsRun
@@ -2344,9 +2374,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       const stateRoot = stateRootOf(workspace, config)
       const located = await findTeamByParticipant(stateRoot, caller.id)
       if (located === undefined) return { active: false }
-      if (args.wake === 'recover' && located.captainSessionId !== caller.id) {
-        throw new Error('agent_teams_status: wake="recover" is captain-only; omit wake for read-only member status')
-      }
+      const memberWakeIgnored = args.wake === 'recover' && located.captainSessionId !== caller.id
       if (located.captainSessionId === caller.id && args.wake === 'recover') {
         await scheduler.kickTeam(workspace, located.id, caller)
       }
@@ -2478,6 +2506,12 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       }
       return {
         ...result,
+        ...(memberWakeIgnored
+          ? {
+              wake_ignored: 'recover',
+              recovery_started: false,
+            }
+          : {}),
         status_summary_unchanged: args.detail !== 'full' && previousFingerprint === fingerprint,
       }
     },
@@ -2762,7 +2796,7 @@ function parseFindings(value: unknown): ReviewFinding[] | undefined {
       severity: raw['severity'],
       problem: raw['problem'],
       requiredFix: raw['requiredFix'],
-      ...typeof raw['file'] === 'string' ? { file: raw['file'] } : {},
+      ...typeof raw['file'] === 'string' && raw['file'].trim() !== '' ? { file: raw['file'] } : {},
       ...typeof raw['line'] === 'number' ? { line: raw['line'] } : {},
       ...typeof raw['resolved'] === 'boolean' ? { resolved: raw['resolved'] } : {},
     }

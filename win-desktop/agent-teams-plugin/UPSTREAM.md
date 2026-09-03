@@ -1,16 +1,15 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.14`
-- Tag: `v0.1.14`
-- Annotated tag object: `637399ce6c4ef201284de05c79982e82b7a866b1`
-- Source commit: `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`
-- Imported: `2026-08-27`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.15`
+- Tag: `v0.1.15`
+- Source commit: `232a338fc9a0d393f118912386f67e7f3a6c67d6`
+- Imported: `2026-09-01`
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.14-desktop.12`.
+- Desktop fork version is `0.1.15-desktop.4`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -26,10 +25,21 @@
 - `.desktop.2` makes explicit member settings authoritative, treats blank
   non-explicit tool arguments as omitted, and adds actionable invalid-route
   errors.
+- `.desktop.3` makes ordinary captain-planning slash activation automatic and
+  model-owned: the Captain creates the Team's generated name and task graph
+  without a user naming/confirmation round. The staged Web editor is mutation
+  disabled while the plan is still `building` or awaiting feedback, so only a
+  `ready_for_review` snapshot can carry browser plan edits or approval.
 - `.desktop.3` makes member task claims compatible with noisy tool arguments:
   members are instructed to send only `task_id`, while blank, whitespace, or
   self `assignee` values remain idempotent and attempts to claim as another
   actor are still rejected.
+- `.desktop.4` makes any numbered member inherit the frozen unnumbered role
+  template from the current Team. The role name and positive numeric suffix are
+  discovered from the live Team roster rather than a provider or role
+  whitelist; separators are accepted, explicit member settings still win, and
+  unmatched or ambiguous role descriptions remain safe rather than choosing a
+  random route.
 - `.desktop.6` normalizes blank optional task strings before persistence so a
   non-GPT tool call cannot produce a Team that strict V2 validation rejects on
   the next read. It also makes captain-side deletion idempotent when no Team
@@ -73,6 +83,22 @@
   not install the upstream experimental AgentTeams packages; role-level model
   authority, strict V2 state, quality gates and desktop Profile editing remain
   local owners with their existing regressions.
+- `.desktop.1` is based on fixed upstream commit `232a338` / package `0.1.15`.
+  It keeps blank optional-field normalization at new model-facing tool-write
+  boundaries only, while strict V2 durable reads remain fail-closed. It also
+  records final member `agent/error` failures against the current Team/member,
+  task, attempt and `attemptId`, persists a bounded sanitized Captain report,
+  and lets the existing scheduler continue only after the real child reaches
+  idle. The fixed Alpha.2 `dsh-llm-retry` package is a development-test
+  dependency only; upstream experimental AgentTeams packages are not installed
+  at runtime.
+- `.desktop.2` makes ordinary delegation automatic and model-owned: Team names
+  are generated when omitted, captain-planned task names/contracts are created
+  by the Captain, and staged review is used only when the user explicitly asks
+  to inspect a plan before startup. It also completes the local Revision/CAS
+  migration across activity snapshots, browser mutations, Host validation and
+  one-time Web approval credentials, and restores upstream `v0.1.15` Alpha.2
+  Connection authentication plus Host/Origin checks for every raw Web route.
 - `.desktop.5` makes each Profile role the authority for Provider, model, and
   reasoning policy, removes global member-model/reasoning settings, and
   requires strict Profile/Team `schemaVersion: 2`. Older persisted documents

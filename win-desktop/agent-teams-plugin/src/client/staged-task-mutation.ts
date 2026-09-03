@@ -5,6 +5,7 @@ import type { TaskKind } from '../types.ts'
 export interface StagedTaskMutationDraft {
   readonly sessionId: string
   readonly teamId: string
+  readonly expectedPlanRevision: number
   readonly taskId: string
   readonly subject: string
   readonly description: string
@@ -34,6 +35,7 @@ export function buildStagedTaskMutationPayload(draft: StagedTaskMutationDraft): 
   return {
     sessionId: draft.sessionId,
     teamId: draft.teamId,
+    expectedPlanRevision: draft.expectedPlanRevision,
     action: 'update_task',
     taskId: draft.taskId,
     subject: draft.subject,

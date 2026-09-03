@@ -66,17 +66,15 @@ export function buildActivationDirective(goal: string, profile?: string, taskPla
   const captainPlanning = profile !== undefined && taskPlanning === 'captain'
   const lines = [
     'The user invoked an AgentTeams slash command. Activate the AgentTeams protocol from your instructions now: you are the captain of a multi-agent team.',
-    captainPlanning
-      ? 'Call agent_teams_create with approval="required" so this captain-planning profile is staged for user review before any member starts. Build the graph, let the user review the Web plan, and wait for explicit approval; never approve it in the same turn.'
-      : 'Call agent_teams_create with approval="automatic" so the existing slash-command behavior starts the team immediately. Use approval="required" only when the user explicitly asks to review a staged plan before work starts.',
+    'Call agent_teams_create with approval="automatic" so the slash-command goal starts immediately. Omit name so the plugin generates it. Use approval="required" only when the user explicitly asks to review a staged plan before work starts.',
   ]
   if (profile !== undefined) {
     lines.push(`Use configured AgentTeams profile "${profile}" when calling agent_teams_create.`)
     if (taskPlanning === 'captain') {
       lines.push(
-        'This profile supplies the roster and guardrails. Keep the plan staged after create and do not recreate members.',
-        'Derive the smallest useful task graph from the goal in the staged plan, then let the user review the Web plan before approval; do not ask the user whether to split, merge, serialize, or parallelize.',
-        'Independent supplemental work must become separate ready tasks so idle members can run in parallel. Add dependencies only for genuine prerequisites and later synthesis.',
+        'This profile supplies the roster and guardrails. After create, build the smallest useful task graph with captain-owned AgentTeams task tools; do not recreate members or use the Web staged-plan review for ordinary delegation.',
+        'Do not ask the user to name, split, merge, serialize, parallelize, or approve the plan. Add dependencies only for genuine prerequisites and later synthesis.',
+        'Independent supplemental work must become separate ready tasks so idle members can run in parallel.',
       )
     } else {
       lines.push('Do not recreate the same members or seed tasks manually.')

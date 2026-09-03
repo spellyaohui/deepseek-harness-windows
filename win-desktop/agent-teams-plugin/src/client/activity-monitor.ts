@@ -63,7 +63,8 @@ export interface ActivityTeam {
   readonly description?: string
   readonly captainSessionId: string
   readonly phase: 'staged' | 'running'
-  readonly planReviewState?: 'awaiting_review' | 'awaiting_feedback'
+  readonly planRevision: number
+  readonly planReviewState?: 'building' | 'ready_for_review' | 'awaiting_feedback'
   readonly halted?: boolean
   readonly members: readonly ActivityMember[]
   readonly tasks: readonly ActivityTask[]

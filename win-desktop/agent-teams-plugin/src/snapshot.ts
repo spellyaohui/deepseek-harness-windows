@@ -82,7 +82,8 @@ export interface TeamActivitySnapshot {
   readonly description?: string
   readonly captainSessionId: string
   readonly phase: 'staged' | 'running'
-  readonly planReviewState?: 'awaiting_review' | 'awaiting_feedback'
+  readonly planRevision: number
+  readonly planReviewState?: 'building' | 'ready_for_review' | 'awaiting_feedback'
   readonly halted?: boolean
   readonly members: readonly TeamActivityMember[]
   readonly tasks: readonly TeamActivityTask[]
@@ -177,7 +178,6 @@ export async function assembleTeamSnapshot(
     }
   })
   const captainInbox = await readUnreadMailbox(stateRoot, state.id, CAPTAIN_KEY)
-  // @ts-expect-error Task 4 will extend the Host snapshot review-state contract.
   return {
     workspace,
     teamId: state.id,
@@ -185,8 +185,9 @@ export async function assembleTeamSnapshot(
     ...state.description !== undefined ? { description: state.description } : {},
     captainSessionId: state.captainSessionId,
     phase: state.phase ?? 'running',
+    planRevision: state.planRevision,
     ...state.phase === 'staged'
-      ? { planReviewState: state.planReviewState ?? 'awaiting_review' as const }
+      ? { planReviewState: state.planReviewState ?? 'building' as const }
       : {},
     ...state.halted === true ? { halted: true } : {},
     members,

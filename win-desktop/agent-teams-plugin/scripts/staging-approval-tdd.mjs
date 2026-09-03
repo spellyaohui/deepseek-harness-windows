@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises'
 import { automaticTeamName } from '../lib/team-name.js'
 import { chatApprovalEvidence } from '../lib/approval-evidence.js'
 import { createApprovalCredentialStore } from '../lib/approval-credentials.js'
+import { expectedPlanRevisionFromPayload } from '../lib/staged-plan-payload.js'
 
 const reviewFailures = []
 function reviewCase(name, action) {
@@ -22,6 +23,13 @@ assert.equal(
 )
 assert.equal(automaticTeamName(undefined, 'a1b2c3'), 'agent-team-a1b2c3')
 assert.equal(automaticTeamName('检查患者姓名张三及住院号123456', 'a1b2c3'), 'agent-team-a1b2c3')
+assert.equal(expectedPlanRevisionFromPayload({ expectedPlanRevision: 4 }), 4)
+for (const invalid of [undefined, null, '', '4', 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+  assert.throws(
+    () => expectedPlanRevisionFromPayload({ expectedPlanRevision: invalid }),
+    /positive safe integer/,
+  )
+}
 
 const events = [
   { type: 'turn/start', seq: 10, time: 100, data: { turn: 3 } },

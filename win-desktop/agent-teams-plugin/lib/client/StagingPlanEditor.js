@@ -49,16 +49,26 @@ async function mutatePlan(payload) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
     });
-    if (response.ok)
-        return;
-    let message = `HTTP ${response.status}`;
+    let body = {};
     try {
-        const body = await response.json();
-        if (typeof body.error === 'string' && body.error.trim() !== '')
-            message = body.error;
+        body = await response.json();
     }
     catch { }
+    if (response.ok) {
+        return Number.isSafeInteger(body.planRevision) && body.planRevision > 0
+            ? { planRevision: body.planRevision }
+            : {};
+    }
+    let message = `HTTP ${response.status}`;
+    if (typeof body.error === 'string' && body.error.trim() !== '')
+        message = body.error;
     throw new Error(message);
+}
+async function mutateRevisionedPlan(payload) {
+    const result = await mutatePlan(payload);
+    if (result.planRevision === undefined)
+        throw new Error('plan operation did not return a revision');
+    return result.planRevision;
 }
 function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
@@ -238,7 +248,7 @@ function StagedModelPicker({ directory, provider, model, reasoningMode, reasonin
                     ? t('plan.model.currentUnavailable', { provider, model })
                     : selected?.model.description ?? t('plan.model.route', { provider, model }) }), unavailable && (_jsxs("span", { className: css.planModelNotice, role: state.status === 'error' ? 'alert' : 'status', children: [_jsx("span", { children: state.error ?? t('plan.model.partialFailure', { count: state.failures.length }) }), _jsx("button", { type: "button", disabled: busy || state.status === 'loading', onClick: () => { void directory.load().catch(() => undefined); }, children: t('plan.model.retry') })] }))] }));
 }
-function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }) {
+function StagedMemberEditor({ team, member, modelDirectory, editable, expectedPlanRevision, onPlanRevision, onPendingChange, t }) {
     const bodyId = useId();
     const [open, setOpen] = useState(false);
     const [role, setRole] = useState(member.role);
@@ -291,9 +301,10 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
         setBusy(true);
         setFeedback(undefined);
         try {
-            await mutatePlan({
+            const nextPlanRevision = await mutateRevisionedPlan({
                 sessionId: team.captainSessionId,
                 teamId: team.teamId,
+                expectedPlanRevision,
                 action: 'update_member',
                 memberName: member.name,
                 role,
@@ -303,6 +314,7 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
                 ...selection.reasoningMode === 'explicit' ? { reasoningEffort: selection.reasoningEffort } : {},
                 executionPrompt,
             });
+            onPlanRevision(nextPlanRevision);
             setSavedSignature(nextSignature);
             setFeedback({ tone: 'success', message: t('plan.saved') });
         }
@@ -318,9 +330,9 @@ function StagedMemberEditor({ team, member, modelDirectory, onPendingChange, t }
         await persist();
     };
     const route = `${provider}/${model}`.replace(/^\//u, '');
-    return (_jsxs("article", { className: css.planCard, "data-plan-member": member.name, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsxs("span", { className: css.planCardIdentity, children: [_jsx("strong", { children: member.name }), _jsx("span", { children: role || t('plan.member.roleFallback') })] }), _jsx("span", { className: css.planCardMeta, title: route, children: route }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: busy, children: [_jsxs("label", { children: [t('plan.member.role'), _jsx("input", { name: "role", value: role, onChange: (event) => { setRole(event.currentTarget.value); markEdited(); } })] }), _jsx(StagedModelPicker, { directory: modelDirectory, provider: provider, model: model, reasoningMode: reasoningMode, reasoningEffort: reasoningEffort, busy: busy, onChange: (selection) => { void persist(selection); }, t: t }), _jsxs("label", { children: [t('plan.member.prompt'), _jsx("textarea", { name: "executionPrompt", value: executionPrompt, onChange: (event) => { setExecutionPrompt(event.currentTarget.value); markEdited(); }, rows: 3 })] })] }), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "submit", disabled: busy || !dirty || provider.trim() === '' || model.trim() === '' || (reasoningMode === 'explicit' && reasoningEffort.trim() === ''), children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
+    return (_jsxs("article", { className: css.planCard, "data-plan-member": member.name, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsxs("span", { className: css.planCardIdentity, children: [_jsx("strong", { children: member.name }), _jsx("span", { children: role || t('plan.member.roleFallback') })] }), _jsx("span", { className: css.planCardMeta, title: route, children: route }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: !editable || busy, children: [_jsxs("label", { children: [t('plan.member.role'), _jsx("input", { name: "role", value: role, onChange: (event) => { setRole(event.currentTarget.value); markEdited(); } })] }), _jsx(StagedModelPicker, { directory: modelDirectory, provider: provider, model: model, reasoningMode: reasoningMode, reasoningEffort: reasoningEffort, busy: !editable || busy, onChange: (selection) => { void persist(selection); }, t: t }), _jsxs("label", { children: [t('plan.member.prompt'), _jsx("textarea", { name: "executionPrompt", value: executionPrompt, onChange: (event) => { setExecutionPrompt(event.currentTarget.value); markEdited(); }, rows: 3 })] })] }), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "submit", disabled: !editable || busy || !dirty || provider.trim() === '' || model.trim() === '' || (reasoningMode === 'explicit' && reasoningEffort.trim() === ''), children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
 }
-function StagedTaskEditor({ team, task, onPendingChange, t }) {
+function StagedTaskEditor({ team, task, editable, expectedPlanRevision, onPlanRevision, onPendingChange, t }) {
     const bodyId = useId();
     const taskDependencies = task.dependencies.join(', ');
     const [open, setOpen] = useState(false);
@@ -421,9 +433,10 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
         setBusy(true);
         setFeedback(undefined);
         try {
-            await mutatePlan(buildStagedTaskMutationPayload({
+            const nextPlanRevision = await mutateRevisionedPlan(buildStagedTaskMutationPayload({
                 sessionId: team.captainSessionId,
                 teamId: team.teamId,
+                expectedPlanRevision,
                 taskId: task.id,
                 subject,
                 description,
@@ -443,6 +456,7 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
                 sourceFindingIds,
                 coverageOf,
             }));
+            onPlanRevision(nextPlanRevision);
             setSavedSignature(signature);
             setFeedback({ tone: 'success', message: t('plan.saved') });
         }
@@ -457,12 +471,14 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
         setBusy(true);
         setFeedback(undefined);
         try {
-            await mutatePlan({
+            const nextPlanRevision = await mutateRevisionedPlan({
                 sessionId: team.captainSessionId,
                 teamId: team.teamId,
+                expectedPlanRevision,
                 action: 'remove_task',
                 taskId: task.id,
             });
+            onPlanRevision(nextPlanRevision);
             setFeedback({ tone: 'success', message: t('plan.removed') });
         }
         catch (error) {
@@ -474,7 +490,7 @@ function StagedTaskEditor({ team, task, onPendingChange, t }) {
         ? t('plan.dependencies.none')
         : t('plan.dependencies.count', { count: task.dependencies.length });
     const roundValid = round.trim() === '' || (/^[1-9]\d*$/u.test(round.trim()) && Number.isSafeInteger(Number(round)));
-    return (_jsxs("article", { className: css.planCard, "data-plan-task": task.id, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsx("span", { className: css.planTaskId, children: task.id }), _jsx("span", { className: css.planTaskSummary, title: subject, children: subject }), _jsxs("span", { className: css.planCardMeta, children: [assignee || t('plan.task.unassigned'), " \u00B7 ", dependencySummary] }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: busy, children: [_jsxs("label", { children: [t('plan.task.subject'), _jsx("input", { name: "subject", required: true, value: subject, onChange: (event) => { setSubject(event.currentTarget.value); markEdited(); } })] }), _jsxs("label", { children: [t('plan.task.description'), _jsx("textarea", { name: "description", value: description, onChange: (event) => { setDescription(event.currentTarget.value); markEdited(); }, rows: 3 })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.kind'), _jsx("select", { name: "kind", value: kind, onChange: (event) => { setKind(event.currentTarget.value); markEdited(); }, children: TASK_KIND_OPTIONS.map((candidate) => _jsx("option", { value: candidate, children: taskKindLabel(t, candidate) }, candidate)) })] }), _jsxs("label", { children: [t('plan.task.round'), _jsx("input", { name: "round", type: "number", min: "1", step: "1", value: round, onChange: (event) => { setRound(event.currentTarget.value); markEdited(); } })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.assignee'), _jsxs("select", { name: "assignee", value: assignee, onChange: (event) => { setAssignee(event.currentTarget.value); markEdited(); }, children: [_jsx("option", { value: "", children: t('plan.task.unassigned') }), team.members.map((member) => _jsx("option", { value: member.name, children: member.name }, member.name))] })] }), _jsxs("label", { children: [t('plan.task.dependencies'), _jsx("input", { name: "dependencies", value: dependencies, onChange: (event) => { setDependencies(event.currentTarget.value); markEdited(); } }), _jsx("small", { children: t('plan.task.dependenciesHint') })] })] }), kind !== 'work' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: [t('plan.task.objective'), _jsx("textarea", { name: "objective", value: objective, onChange: (event) => { setObjective(event.currentTarget.value); markEdited(); }, rows: 2 })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.inScope'), _jsx("textarea", { name: "inScope", value: inScope, onChange: (event) => { setInScope(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.outOfScope'), _jsx("textarea", { name: "outOfScope", value: outOfScope, onChange: (event) => { setOutOfScope(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.acceptance'), _jsx("textarea", { name: "acceptance", value: acceptance, onChange: (event) => { setAcceptance(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.verify'), _jsx("textarea", { name: "verify", value: verify, onChange: (event) => { setVerify(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.deliverables'), _jsx("textarea", { name: "deliverables", value: deliverables, onChange: (event) => { setDeliverables(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.nonGoals'), _jsx("textarea", { name: "nonGoals", value: nonGoals, onChange: (event) => { setNonGoals(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("label", { children: [t('plan.task.coverageOf'), _jsx("textarea", { name: "coverageOf", value: coverageOf, onChange: (event) => { setCoverageOf(event.currentTarget.value); markEdited(); }, rows: 2 }), _jsx("small", { children: t('plan.task.listHint') })] }), kind === 'review' && (_jsxs("label", { children: [t('plan.task.reviewedTaskId'), _jsx("input", { name: "reviewedTaskId", value: reviewedTaskId, onChange: (event) => { setReviewedTaskId(event.currentTarget.value); markEdited(); } })] })), kind === 'repair' && (_jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.sourceTaskId'), _jsx("input", { name: "sourceTaskId", value: sourceTaskId, onChange: (event) => { setSourceTaskId(event.currentTarget.value); markEdited(); } })] }), _jsxs("label", { children: [t('plan.task.sourceFindingIds'), _jsx("textarea", { name: "sourceFindingIds", value: sourceFindingIds, onChange: (event) => { setSourceFindingIds(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }))] }))] }), confirmingRemove && (_jsxs("span", { className: css.planConfirm, role: "alert", children: [_jsx("span", { children: t('plan.removeWarning', { task: task.id }) }), _jsx("button", { type: "button", onClick: () => { setConfirmingRemove(false); }, children: t('plan.cancel') }), _jsx("button", { type: "button", "data-danger": true, "data-confirming": true, onClick: () => { void remove(); }, children: t('plan.removeConfirm') })] })), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "button", "data-danger": true, onClick: () => { setConfirmingRemove(true); setFeedback(undefined); }, disabled: busy || confirmingRemove, children: t('plan.remove') }), _jsx("button", { type: "submit", disabled: busy || !dirty || subject.trim() === '' || !roundValid, children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
+    return (_jsxs("article", { className: css.planCard, "data-plan-task": task.id, "data-open": open, children: [_jsxs("button", { type: "button", className: css.planCardHeader, "aria-expanded": open, "aria-controls": bodyId, onClick: () => { setOpen((current) => !current); }, children: [_jsx("span", { className: css.planTaskId, children: task.id }), _jsx("span", { className: css.planTaskSummary, title: subject, children: subject }), _jsxs("span", { className: css.planCardMeta, children: [assignee || t('plan.task.unassigned'), " \u00B7 ", dependencySummary] }), dirty && _jsx("em", { className: css.planDirty, children: t('plan.unsaved') }), _jsx(DisclosureChevron, { open: open })] }), open && (_jsxs("form", { id: bodyId, className: css.planCardBody, onSubmit: (event) => { void save(event); }, children: [_jsxs("fieldset", { disabled: !editable || busy, children: [_jsxs("label", { children: [t('plan.task.subject'), _jsx("input", { name: "subject", required: true, value: subject, onChange: (event) => { setSubject(event.currentTarget.value); markEdited(); } })] }), _jsxs("label", { children: [t('plan.task.description'), _jsx("textarea", { name: "description", value: description, onChange: (event) => { setDescription(event.currentTarget.value); markEdited(); }, rows: 3 })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.kind'), _jsx("select", { name: "kind", value: kind, onChange: (event) => { setKind(event.currentTarget.value); markEdited(); }, children: TASK_KIND_OPTIONS.map((candidate) => _jsx("option", { value: candidate, children: taskKindLabel(t, candidate) }, candidate)) })] }), _jsxs("label", { children: [t('plan.task.round'), _jsx("input", { name: "round", type: "number", min: "1", step: "1", value: round, onChange: (event) => { setRound(event.currentTarget.value); markEdited(); } })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.assignee'), _jsxs("select", { name: "assignee", value: assignee, onChange: (event) => { setAssignee(event.currentTarget.value); markEdited(); }, children: [_jsx("option", { value: "", children: t('plan.task.unassigned') }), team.members.map((member) => _jsx("option", { value: member.name, children: member.name }, member.name))] })] }), _jsxs("label", { children: [t('plan.task.dependencies'), _jsx("input", { name: "dependencies", value: dependencies, onChange: (event) => { setDependencies(event.currentTarget.value); markEdited(); } }), _jsx("small", { children: t('plan.task.dependenciesHint') })] })] }), kind !== 'work' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: [t('plan.task.objective'), _jsx("textarea", { name: "objective", value: objective, onChange: (event) => { setObjective(event.currentTarget.value); markEdited(); }, rows: 2 })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.inScope'), _jsx("textarea", { name: "inScope", value: inScope, onChange: (event) => { setInScope(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.outOfScope'), _jsx("textarea", { name: "outOfScope", value: outOfScope, onChange: (event) => { setOutOfScope(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.acceptance'), _jsx("textarea", { name: "acceptance", value: acceptance, onChange: (event) => { setAcceptance(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.verify'), _jsx("textarea", { name: "verify", value: verify, onChange: (event) => { setVerify(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.deliverables'), _jsx("textarea", { name: "deliverables", value: deliverables, onChange: (event) => { setDeliverables(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] }), _jsxs("label", { children: [t('plan.task.nonGoals'), _jsx("textarea", { name: "nonGoals", value: nonGoals, onChange: (event) => { setNonGoals(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }), _jsxs("label", { children: [t('plan.task.coverageOf'), _jsx("textarea", { name: "coverageOf", value: coverageOf, onChange: (event) => { setCoverageOf(event.currentTarget.value); markEdited(); }, rows: 2 }), _jsx("small", { children: t('plan.task.listHint') })] }), kind === 'review' && (_jsxs("label", { children: [t('plan.task.reviewedTaskId'), _jsx("input", { name: "reviewedTaskId", value: reviewedTaskId, onChange: (event) => { setReviewedTaskId(event.currentTarget.value); markEdited(); } })] })), kind === 'repair' && (_jsxs("span", { className: css.planGrid, children: [_jsxs("label", { children: [t('plan.task.sourceTaskId'), _jsx("input", { name: "sourceTaskId", value: sourceTaskId, onChange: (event) => { setSourceTaskId(event.currentTarget.value); markEdited(); } })] }), _jsxs("label", { children: [t('plan.task.sourceFindingIds'), _jsx("textarea", { name: "sourceFindingIds", value: sourceFindingIds, onChange: (event) => { setSourceFindingIds(event.currentTarget.value); markEdited(); }, rows: 3 }), _jsx("small", { children: t('plan.task.listHint') })] })] }))] }))] }), confirmingRemove && (_jsxs("span", { className: css.planConfirm, role: "alert", children: [_jsx("span", { children: t('plan.removeWarning', { task: task.id }) }), _jsx("button", { type: "button", onClick: () => { setConfirmingRemove(false); }, children: t('plan.cancel') }), _jsx("button", { type: "button", "data-danger": true, "data-confirming": true, onClick: () => { void remove(); }, children: t('plan.removeConfirm') })] })), _jsxs("span", { className: css.planActions, children: [_jsx(Feedback, { value: feedback }), _jsx("button", { type: "button", "data-danger": true, onClick: () => { setConfirmingRemove(true); setFeedback(undefined); }, disabled: !editable || busy || confirmingRemove, children: t('plan.remove') }), _jsx("button", { type: "submit", disabled: !editable || busy || !dirty || subject.trim() === '' || !roundValid, children: busy ? t('plan.saving') : t('plan.save') })] })] }))] }));
 }
 export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, onDiscarded, t }) {
     const membersId = useId();
@@ -486,14 +502,22 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
     const [discardArmed, setDiscardArmed] = useState(false);
     const [pendingEditors, setPendingEditors] = useState(new Set());
     const [feedback, setFeedback] = useState();
+    const [planRevision, setPlanRevision] = useState(team.planRevision);
     useDismissSuccess(feedback, setFeedback);
     const dependencyLinks = team.tasks.reduce((total, task) => total + task.dependencies.length, 0);
     const runnable = team.members.length > 0 && team.tasks.length > 0;
     const hasPendingEdits = pendingEditors.size > 0 || newTask.trim() !== '';
+    const webEditable = team.planReviewState === 'ready_for_review';
     const waitingForFeedback = team.planReviewState === 'awaiting_feedback';
     useEffect(() => {
         void modelDirectory.load().catch(() => undefined);
     }, [modelDirectory]);
+    useEffect(() => {
+        setPlanRevision((current) => Math.max(current, team.planRevision));
+    }, [team.planRevision]);
+    const acceptPlanRevision = useCallback((revision) => {
+        setPlanRevision((current) => Math.max(current, revision));
+    }, []);
     const onPendingChange = useCallback((key, pending) => {
         setPendingEditors((current) => {
             if (pending === current.has(key))
@@ -511,13 +535,15 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
         setBusy(true);
         setFeedback(undefined);
         try {
-            await mutatePlan({
+            const nextPlanRevision = await mutateRevisionedPlan({
                 sessionId: team.captainSessionId,
                 teamId: team.teamId,
+                expectedPlanRevision: planRevision,
                 action: 'add_task',
                 subject: newTask,
                 dependencies: [],
             });
+            acceptPlanRevision(nextPlanRevision);
             setNewTask('');
             setFeedback({ tone: 'success', message: t('plan.taskAdded') });
             setTasksOpen(true);
@@ -533,9 +559,10 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
         setBusy(true);
         setFeedback(undefined);
         try {
-            await mutatePlan({
+            await mutateRevisionedPlan({
                 sessionId: team.captainSessionId,
                 teamId: team.teamId,
+                expectedPlanRevision: planRevision,
                 action: 'approve',
             });
         }
@@ -581,11 +608,11 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
             setDiscardArmed(false);
         }
     };
-    return (_jsxs("section", { className: css.planEditor, "data-staging-editor": true, children: [_jsxs("header", { className: css.planHeader, children: [_jsxs("span", { children: [_jsxs("span", { children: [_jsx("strong", { children: t('plan.title') }), _jsx("small", { children: t('plan.readySummary', { members: team.members.length, tasks: team.tasks.length, links: dependencyLinks }) })] }), _jsx("em", { children: t('plan.badge') })] }), _jsx("p", { children: t('plan.description') })] }), _jsxs("ol", { className: css.planFlow, "aria-label": t('plan.flow.aria'), children: [_jsxs("li", { "data-active": true, children: [_jsx("span", { children: "1" }), t('plan.flow.review')] }), _jsxs("li", { children: [_jsx("span", { children: "2" }), t('plan.flow.spawn')] }), _jsxs("li", { children: [_jsx("span", { children: "3" }), t('plan.flow.run')] })] }), _jsxs("section", { className: css.planSection, children: [_jsxs("button", { type: "button", className: css.planSectionToggle, "aria-expanded": membersOpen, "aria-controls": membersId, onClick: () => { setMembersOpen((current) => !current); }, children: [_jsxs("span", { children: [_jsx("strong", { children: t('plan.members.title') }), _jsx("small", { children: t('plan.members.count', { count: team.members.length }) })] }), _jsx(DisclosureChevron, { open: membersOpen })] }), membersOpen && (_jsx("div", { id: membersId, className: css.planList, children: team.members.length === 0
+    return (_jsxs("section", { className: css.planEditor, "data-staging-editor": true, children: [_jsxs("header", { className: css.planHeader, children: [_jsxs("span", { children: [_jsxs("span", { children: [_jsx("strong", { children: t('plan.title') }), _jsx("small", { children: t('plan.readySummary', { members: team.members.length, tasks: team.tasks.length, links: dependencyLinks }) })] }), _jsx("em", { children: t('plan.badge') })] }), _jsx("p", { children: t('plan.description') }), !webEditable && (_jsx("p", { role: "status", children: t(team.planReviewState === 'awaiting_feedback' ? 'plan.waitingForFeedback' : 'plan.waitingForCaptain') }))] }), _jsxs("ol", { className: css.planFlow, "aria-label": t('plan.flow.aria'), children: [_jsxs("li", { "data-active": true, children: [_jsx("span", { children: "1" }), t('plan.flow.review')] }), _jsxs("li", { children: [_jsx("span", { children: "2" }), t('plan.flow.spawn')] }), _jsxs("li", { children: [_jsx("span", { children: "3" }), t('plan.flow.run')] })] }), _jsxs("section", { className: css.planSection, children: [_jsxs("button", { type: "button", className: css.planSectionToggle, "aria-expanded": membersOpen, "aria-controls": membersId, onClick: () => { setMembersOpen((current) => !current); }, children: [_jsxs("span", { children: [_jsx("strong", { children: t('plan.members.title') }), _jsx("small", { children: t('plan.members.count', { count: team.members.length }) })] }), _jsx(DisclosureChevron, { open: membersOpen })] }), membersOpen && (_jsx("div", { id: membersId, className: css.planList, children: team.members.length === 0
                             ? _jsx("p", { className: css.planEmpty, children: t('plan.members.empty') })
-                            : team.members.map((member) => (_jsx(StagedMemberEditor, { team: team, member: member, modelDirectory: modelDirectory, onPendingChange: onPendingChange, t: t }, member.name))) }))] }), _jsxs("section", { className: css.planSection, children: [_jsxs("button", { type: "button", className: css.planSectionToggle, "aria-expanded": tasksOpen, "aria-controls": tasksId, onClick: () => { setTasksOpen((current) => !current); }, children: [_jsxs("span", { children: [_jsx("strong", { children: t('plan.tasks.title') }), _jsx("small", { children: t('plan.tasks.count', { count: team.tasks.length, links: dependencyLinks }) })] }), _jsx(DisclosureChevron, { open: tasksOpen })] }), tasksOpen && (_jsx("div", { id: tasksId, className: css.planList, children: team.tasks.length === 0
+                            : team.members.map((member) => (_jsx(StagedMemberEditor, { team: team, member: member, modelDirectory: modelDirectory, editable: webEditable, expectedPlanRevision: planRevision, onPlanRevision: acceptPlanRevision, onPendingChange: onPendingChange, t: t }, member.name))) }))] }), _jsxs("section", { className: css.planSection, children: [_jsxs("button", { type: "button", className: css.planSectionToggle, "aria-expanded": tasksOpen, "aria-controls": tasksId, onClick: () => { setTasksOpen((current) => !current); }, children: [_jsxs("span", { children: [_jsx("strong", { children: t('plan.tasks.title') }), _jsx("small", { children: t('plan.tasks.count', { count: team.tasks.length, links: dependencyLinks }) })] }), _jsx(DisclosureChevron, { open: tasksOpen })] }), tasksOpen && (_jsx("div", { id: tasksId, className: css.planList, children: team.tasks.length === 0
                             ? _jsx("p", { className: css.planEmpty, children: t('plan.tasks.empty') })
-                            : team.tasks.map((task) => _jsx(StagedTaskEditor, { team: team, task: task, onPendingChange: onPendingChange, t: t }, task.id)) }))] }), _jsxs("form", { className: css.planNewTask, onSubmit: (event) => { void addTask(event); }, children: [_jsxs("label", { children: [_jsx("span", { children: t('plan.newTaskLabel') }), _jsx("input", { name: "newTask", value: newTask, onChange: (event) => { setNewTask(event.currentTarget.value); setFeedback(undefined); }, placeholder: t('plan.newTask'), disabled: busy })] }), _jsx("button", { type: "submit", disabled: busy || newTask.trim() === '', children: busy ? t('plan.adding') : t('plan.addTask') })] }), _jsxs("div", { className: css.planApproveRow, "data-armed": discardArmed || undefined, "data-discard": discardArmed || undefined, "data-review-state": waitingForFeedback ? 'awaiting-feedback' : 'awaiting-review', children: [_jsxs("span", { className: css.planApproveCopy, children: [_jsx("strong", { children: discardArmed
+                            : team.tasks.map((task) => (_jsx(StagedTaskEditor, { team: team, task: task, editable: webEditable, expectedPlanRevision: planRevision, onPlanRevision: acceptPlanRevision, onPendingChange: onPendingChange, t: t }, task.id))) }))] }), _jsxs("form", { className: css.planNewTask, onSubmit: (event) => { void addTask(event); }, children: [_jsxs("label", { children: [_jsx("span", { children: t('plan.newTaskLabel') }), _jsx("input", { name: "newTask", value: newTask, onChange: (event) => { setNewTask(event.currentTarget.value); setFeedback(undefined); }, placeholder: t('plan.newTask'), disabled: !webEditable || busy })] }), _jsx("button", { type: "submit", disabled: !webEditable || busy || newTask.trim() === '', children: busy ? t('plan.adding') : t('plan.addTask') })] }), _jsxs("div", { className: css.planApproveRow, "data-armed": discardArmed || undefined, "data-discard": discardArmed || undefined, "data-review-state": waitingForFeedback ? 'awaiting-feedback' : 'awaiting-review', children: [_jsxs("span", { className: css.planApproveCopy, children: [_jsx("strong", { children: discardArmed
                                     ? t('plan.discardConfirmTitle')
                                     : waitingForFeedback
                                         ? t('plan.feedbackTitle')
@@ -595,5 +622,5 @@ export function StagingPlanEditor({ team, modelDirectory, onContinuePlanning, on
                                         ? t('plan.feedbackHint')
                                         : hasPendingEdits
                                             ? t('plan.pendingEdits')
-                                            : t('plan.approveHint', { members: team.members.length, tasks: team.tasks.length }) })] }), _jsx(Feedback, { value: feedback }), discardArmed ? (_jsxs("span", { className: css.planApproveActions, children: [_jsx("button", { type: "button", disabled: busy, onClick: () => { setDiscardArmed(false); }, children: t('plan.cancel') }), _jsx("button", { type: "button", "data-plan-discard": true, "data-danger": true, "data-confirming": true, disabled: busy, onClick: () => { void discard(); }, children: busy ? t('plan.discarding') : t('plan.discardConfirm') })] })) : (_jsxs("span", { className: css.planReviewActions, children: [_jsx("button", { type: "button", "data-plan-approve": true, disabled: busy || !runnable || hasPendingEdits, onClick: () => { void approve(); }, children: t('plan.approve') }), _jsxs("span", { className: css.planSecondaryActions, children: [_jsx("button", { type: "button", "data-plan-continue": true, disabled: busy, onClick: () => { void continueInChat(); }, children: t(waitingForFeedback ? 'plan.returnToChat' : 'plan.continue') }), _jsx("button", { type: "button", "data-plan-discard": true, "data-danger": true, disabled: busy, onClick: () => { setDiscardArmed(true); setFeedback(undefined); }, children: t('plan.discard') })] })] }))] })] }));
+                                            : t('plan.approveHint', { members: team.members.length, tasks: team.tasks.length }) })] }), _jsx(Feedback, { value: feedback }), discardArmed ? (_jsxs("span", { className: css.planApproveActions, children: [_jsx("button", { type: "button", disabled: busy, onClick: () => { setDiscardArmed(false); }, children: t('plan.cancel') }), _jsx("button", { type: "button", "data-plan-discard": true, "data-danger": true, "data-confirming": true, disabled: busy, onClick: () => { void discard(); }, children: busy ? t('plan.discarding') : t('plan.discardConfirm') })] })) : (_jsxs("span", { className: css.planReviewActions, children: [_jsx("button", { type: "button", "data-plan-approve": true, disabled: !webEditable || busy || !runnable || hasPendingEdits, onClick: () => { void approve(); }, children: t('plan.approve') }), _jsxs("span", { className: css.planSecondaryActions, children: [_jsx("button", { type: "button", "data-plan-continue": true, disabled: busy, onClick: () => { void continueInChat(); }, children: t(waitingForFeedback ? 'plan.returnToChat' : 'plan.continue') }), _jsx("button", { type: "button", "data-plan-discard": true, "data-danger": true, disabled: busy, onClick: () => { setDiscardArmed(true); setFeedback(undefined); }, children: t('plan.discard') })] })] }))] })] }));
 }

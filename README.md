@@ -2,7 +2,26 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.2-rc.1`（开发者预览）
+> 当前版本：`v0.1.2-rc.4`（开发者预览）
+
+## `v0.1.2-rc.4` 更新说明
+
+- 修复动态新增编号角色的模型继承：`reviewer2/3/4/5/6`、`analyst2`、`implementer2`、`tester2` 等会从当前 Team 的基础角色快照继承 Provider、模型和思考策略，不再错误回落到队长模型。
+- 显式指定 Provider、模型或思考策略时仍以调用参数为准；无法唯一匹配的自定义角色安全要求显式配置，不随机选择模型。
+- AgentTeams fork 更新到 `0.1.15-desktop.4`，保留 Alpha.2、严格 V2、质量门禁、Revision/CAS、自动委派和既有兼容回归。
+
+## `v0.1.2-rc.3` 更新说明
+
+- 修复普通 `captain-planning` 委派被错误强制进入 staged Web 确认的问题：现在由主模型自动生成 Team 名称和任务图，只有用户明确要求“先审计划”才使用 `approval="required"`。
+- 修复 Team 仍处于 `building` 或等待对话反馈时 Web 页面提前暴露编辑控件的问题；此时成员、任务和批准操作会安全禁用，避免 `team ... is not ready for Web plan editing`。
+- AgentTeams fork 更新到 `0.1.15-desktop.3`，新增上述生命周期与 Web 编辑边界回归，并保留 Alpha.2、角色级模型、严格 V2、质量门禁和 Revision/CAS 能力。
+
+## `v0.1.2-rc.2` 更新说明
+
+- 普通子智能体委派现在明确使用 `approval="automatic"`：Team 名称由 AgentTeams 根据任务目标自动生成，主模型自行建立任务名称、质量契约与依赖，不再要求用户在 Web 面板手工命名或确认。只有用户明确要求“先审计划”时才进入 `approval="required"` 的 staged 流程。
+- 修复 staged Web 编辑器与本地 Revision/CAS 后端没有接通的问题。成员编辑、任务新增/保存/删除和 Web 确认都会携带当前 `planRevision`；Host 校验 revision 后使用一次性审批凭据提交，解决 `staged plan update requires revision-aware options`。
+- 补齐上游 AgentTeams `v0.1.15` 的 Alpha.2 原始 Web 路由认证与 Host/Origin 门禁；未认证、跨站来源和 Connection 未就绪均 fail closed，不会读取或修改 Team 状态。
+- AgentTeams Windows fork 更新到 `0.1.15-desktop.2`，继续保留角色级 Provider/模型/思考策略、严格 V2、质量门禁和上游提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6` 的成员失败结算。
 
 ## `v0.1.2-rc.1` 更新说明
 
@@ -251,7 +270,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.14`（`v0.1.14` / `5fe388f1a30da7b1374294b25bd6f8ad74ab6aa5`），本地版本为 `0.1.14-desktop.12`。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.15`（固定提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6`），本地版本为 `0.1.15-desktop.4`。本次保留严格 V2 与本地角色模型策略，并补上编号角色模型继承、最终成员失败安全结算、自动委派指导、Web Revision/CAS 和 Alpha.2 路由认证。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

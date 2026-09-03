@@ -81,6 +81,27 @@ test('ordinary probe preserves existing model capabilities but applies unset fie
   assert.deepEqual(original.compat, { supportsStore: true, customFlag: 'keep' })
 })
 
+test('automatic empty input accepts a probe result while explicit image and text declarations stay authoritative', () => {
+  const patch = { input: ['text', 'image'] }
+
+  assert.deepEqual(
+    applyCapabilityPatch({ id: 'missing' }, patch, { overwriteExisting: false, source: 'probe' }),
+    { id: 'missing', input: ['text', 'image'] },
+  )
+  assert.deepEqual(
+    applyCapabilityPatch({ id: 'automatic', input: [] }, patch, { overwriteExisting: false, source: 'probe' }),
+    { id: 'automatic', input: ['text', 'image'] },
+  )
+  assert.deepEqual(
+    applyCapabilityPatch({ id: 'manual-image', input: ['text', 'image'] }, { input: ['text'] }, { overwriteExisting: false, source: 'probe' }),
+    { id: 'manual-image', input: ['text', 'image'] },
+  )
+  assert.deepEqual(
+    applyCapabilityPatch({ id: 'manual-text', input: ['text'] }, patch, { overwriteExisting: false, source: 'probe' }),
+    { id: 'manual-text', input: ['text'] },
+  )
+})
+
 test('explicit overwrite changes only probed capability fields and preserves unrelated compat fields', () => {
   const original = {
     id: 'model-b',

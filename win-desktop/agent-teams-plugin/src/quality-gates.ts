@@ -303,6 +303,42 @@ function nonemptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== ''
 }
 
+const BLANK_SENSITIVE_STRING_FIELDS = [
+  'description',
+  'objective',
+  'reviewedTaskId',
+  'sourceTaskId',
+] as const
+
+const BLANK_SENSITIVE_STRING_LIST_FIELDS = [
+  'inScope',
+  'outOfScope',
+  'acceptance',
+  'verify',
+  'deliverables',
+  'nonGoals',
+  'changedPaths',
+  'sourceFindingIds',
+  'coverageOf',
+] as const
+
+/** Normalize blank optional values on new tool input without repairing durable state. */
+export function normalizeBlankOptionalTaskFields<T extends object>(task: T): T {
+  const next = { ...task } as Record<string, unknown>
+  for (const key of BLANK_SENSITIVE_STRING_FIELDS) {
+    const value = next[key]
+    if (typeof value === 'string' && value.trim() === '') delete next[key]
+  }
+  for (const key of BLANK_SENSITIVE_STRING_LIST_FIELDS) {
+    const value = next[key]
+    if (!Array.isArray(value)) continue
+    const kept = value.filter((item) => !(typeof item === 'string' && item.trim() === ''))
+    if (kept.length === 0) delete next[key]
+    else next[key] = kept
+  }
+  return next as T
+}
+
 function omitBlankOptionalString(value: string | undefined): string | undefined {
   return nonemptyString(value) ? value : undefined
 }
