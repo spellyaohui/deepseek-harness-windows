@@ -53,9 +53,9 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.2-rc.7')
-  assert.equal(packageLock.version, '0.1.2-rc.7')
-  assert.equal(packageLock.packages[''].version, '0.1.2-rc.7')
+  assert.equal(packageJson.version, '0.1.2-rc.8')
+  assert.equal(packageLock.version, '0.1.2-rc.8')
+  assert.equal(packageLock.packages[''].version, '0.1.2-rc.8')
   assert.equal(modelsPackage.version, '0.1.2-rc.1-desktop.1')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
@@ -114,6 +114,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     '../docs/UPSTREAM_MAINTENANCE.md',
     '../docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md',
     '../docs/UPSTREAM_RC1_SOURCE_MANIFEST.md',
+    'release-notes/v0.1.2-rc.8.md',
     'release-notes/v0.1.2-rc.7.md',
     'scripts/verify-alpha2-source.mjs',
     'scripts/verify-rc1-source.mjs',

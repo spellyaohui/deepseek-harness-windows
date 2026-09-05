@@ -50,7 +50,8 @@ evidence that the local capability is preserved.
   discipline for optional arguments and failed-call retries.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
   provider-neutral exact `grep` argument alias normalization at the pi-ai
-  durable boundary, OpenCode stream recovery, verified OpenCode model-protocol
+  durable boundary, bounded-period usage-quota classification at the dsh-llm
+  loader boundary, OpenCode stream recovery, verified OpenCode model-protocol
   and image-capability reconciliation, the manual capability-validation bridge,
   plugin mounting, and startup integration.
 - The Windows wrapper may hide only the native Subagent plugin settings card by
@@ -109,6 +110,12 @@ evidence that the local capability is preserved.
   strict validator. The upstream grep Schema must continue requiring `pattern`;
   future refreshes must retain the dedicated regression or prove an
   `UPSTREAM_EQUIVALENT` implementation.
+- Before `dsh-llm` classifies a provider failure, the wrapper recognizes an
+  explicit bounded-period usage limit (for example, `weekly usage limit`
+  reached/exceeded) as terminal `QUOTA`. Ordinary transient `rate limit`
+  responses and standalone quota-reset notices remain retryable or unknown;
+  future refreshes must retain the dedicated loader regression or prove an
+  `UPSTREAM_EQUIVALENT` classifier.
 - Every future upstream refresh must classify these behaviors as
   `UPSTREAM_EQUIVALENT`, `REAPPLY`, or `SUPERSEDED_BY_DESIGN`, retain their
   regressions, and run `npm run verify:upstream` before packaging.

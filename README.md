@@ -2,7 +2,12 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.2-rc.7`（开发者预览）
+> 当前版本：`v0.1.2-rc.8`（开发者预览）
+
+## `v0.1.2-rc.8` 更新说明
+
+- 修复官方返回 `You've reached your weekly usage limit...` 时仍被识别为普通 `RATE_LIMIT` 的问题；Windows loader 现在只对明确的周/月等周期用量耗尽文本分类为终止性 `QUOTA`，避免继续重试已经耗尽的额度。
+- 普通瞬时 `429 rate limit` 仍保持可重试；单独的额度重置提示不会被误判为已耗尽。回归覆盖真实 `@deepseek-ai/dsh-llm` 模块、loader 注入和 132 项 Windows wrapper 测试。
 
 ## `v0.1.2-rc.7` 更新说明
 

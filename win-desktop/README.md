@@ -1,6 +1,11 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.1.2-rc.1` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.2-rc.7`。
+本目录把官方 `dsh-v0.1.2-rc.1` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.2-rc.8`。
+
+## `v0.1.2-rc.8` 更新说明
+
+- 修复官方 `weekly/monthly/... usage limit` 已达到或超出时被当作普通 `RATE_LIMIT` 并重复重试的问题；loader 在 `dsh-llm` 边界把明确的周期用量耗尽文本归类为终止性 `QUOTA`。
+- 普通瞬时 429 和单独的 reset 提示保持原有处理，不会被误判为终止额度；真实安装模块回归和完整 wrapper 门禁已覆盖该边界。
 
 ## `v0.1.2-rc.7` 更新说明
 
