@@ -1,11 +1,11 @@
 # Upstream baseline
 
 - Package: `@deepseek-ai/dsh-client-ui-settings-models`
-- Version/tag: `0.1.2-alpha.2` / `dsh-v0.1.2-alpha.2`
+- Version/tag: `0.1.2-rc.1` / `dsh-v0.1.2-rc.1`
 - Commit: `0a53fb55bea101816fa226bb964ae2bed71c343b`
 - Source directory: `packages/client/ui-settings-models`
 - Imported: 2026-08-31
-- Local desktop fork: `0.1.2-alpha.2-desktop.1`
+- Local desktop fork: `0.1.2-rc.1-desktop.1`
 
 ## Intentional desktop difference
 

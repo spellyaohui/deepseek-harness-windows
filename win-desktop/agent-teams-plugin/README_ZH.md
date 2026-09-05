@@ -26,6 +26,22 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.15-desktop.7
+
+- 打断与 drain 现在在同一个每子 Agent durable Session 锁内完成，停止请求到静默等待之间不会插入新的投递。
+- 新增并发停止/drain 回归，同时保留真实在线 Agent 句柄校验和 RC.1 角色级 Provider、模型与思考策略路由。
+
+### v0.1.15-desktop.6
+
+- Team 删除、任务重分配、审批失败清理和启动异常清理都通过同一个 durable Session 子智能体锁串行化。
+- 新增真实并发交错回归：已进入网关的投递完成后才允许归档，后续冷恢复继续被退休索引拒绝。
+
+### v0.1.15-desktop.5
+
+- 连续子 Agent 的启动、续接、打断、退休和 drain 统一经过 durable Session 子智能体网关。
+- 网关在实际调用前拒绝旧句柄、同 ID 伪句柄和已退休子 Agent，并用每子 Agent 锁串行化发送与清理。
+- 在 RC.1 `agent/created` 生命周期下，首次、并发和冷恢复请求都保持角色级 Provider、模型与思考策略。
+
 ### v0.1.15-desktop.4
 
 - 编号成员从当前 Team 冻结的未编号基础角色继承 Provider、模型和思考策略，任意配置角色都可以随着编号继续增长而保持原策略。

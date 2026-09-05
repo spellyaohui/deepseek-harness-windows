@@ -24,6 +24,8 @@ import { renderStatus, statusFingerprint } from "./status-render.js";
 import { automaticTeamName } from "./team-name.js";
 import { chatApprovalEvidence } from "./approval-evidence.js";
 import { createApprovalCredentialStore } from "./approval-credentials.js";
+import { durableSessionId } from "./agent-identity.js";
+import { agentTeamsSubagentGateway } from "./subagent-gateway.js";
 /** The caller agent, or a loud failure for non-agent callers. */
 function requireCaptain(exec) {
     if (!exec.agent) {
@@ -49,7 +51,7 @@ function captainLockKey(stateRoot, captainId) {
 }
 /** The team this captain currently leads, or a loud failure. */
 async function requireCaptainTeam(workspace, config, captain) {
-    const team = await findTeamByCaptain(stateRootOf(workspace, config), captain.id);
+    const team = await findTeamByCaptain(stateRootOf(workspace, config), durableSessionId(captain));
     if (team === undefined) {
         throw new Error('you are not leading any team yet — call agent_teams_create first');
     }
@@ -57,7 +59,7 @@ async function requireCaptainTeam(workspace, config, captain) {
 }
 /** The team this captain or active member currently participates in. */
 async function requireParticipantTeam(workspace, config, caller) {
-    const team = await findTeamByParticipant(stateRootOf(workspace, config), caller.id);
+    const team = await findTeamByParticipant(stateRootOf(workspace, config), durableSessionId(caller));
     if (team === undefined) {
         throw new Error('you do not lead or belong to any active team yet');
     }
@@ -264,34 +266,33 @@ async function stopTeamMemberActivations(ctx, captain, members, signal) {
     const memberIds = activeMembers.map((member) => member.id);
     if (memberIds.length === 0)
         return;
-    for (const memberId of memberIds)
-        interruptMember(ctx, captain, memberId);
-    // `drainContinuableChildren` is available in the current runtime and releases
-    // the selected activation handles. Keep the quiescence fallback for pre-rc.8
-    // hosts, where interrupt is the strongest available lifecycle operation.
-    const runtime = ctx.subagents;
-    if (runtime.drainContinuableChildren !== undefined) {
-        try {
-            await runtime.drainContinuableChildren(captain, memberIds);
-            return;
-        }
-        catch (error) {
-            // Do not claim the browser action stopped work when the runtime could not
-            // release all selected child activations. The HTTP route surfaces this
-            // failure instead of returning a false successful stop.
-            ctx.logger.warn(`agent-teams: failed to drain halted members: ${String(error)}`);
-            throw error;
-        }
-    }
+    const gateway = agentTeamsSubagentGateway(ctx);
+    // Keep interrupt and the stronger drain boundary in one per-child lock.
+    // A message already in the child lock finishes first; queued work cannot
+    // slip between interrupt and drain for the same child.
     const fallbackSignal = signal ?? new AbortController().signal;
-    const results = await Promise.allSettled(activeMembers.map((member) => waitForMemberIdle(ctx, member, fallbackSignal)));
-    const failed = results.find((result) => result.status === 'rejected');
-    if (failed?.status === 'rejected')
-        throw failed.reason;
+    try {
+        await gateway.interruptAndDrain(captain, memberIds, async () => {
+            // Pre-RC.1 hosts do not expose a drain operation. The gateway already
+            // owns every child lock here, so wait directly without reacquiring it.
+            const results = await Promise.allSettled(activeMembers.map((member) => (waitForMemberIdle(ctx, member, fallbackSignal))));
+            const failed = results.find((result) => result.status === 'rejected');
+            if (failed?.status === 'rejected')
+                throw failed.reason;
+        });
+    }
+    catch (error) {
+        // Do not claim the browser action stopped work when the runtime could not
+        // release all selected child activations. The HTTP route surfaces this
+        // failure instead of returning a false successful stop.
+        ctx.logger.warn(`agent-teams: failed to drain halted members: ${String(error)}`);
+        throw error;
+    }
 }
 export async function haltTeamWork(input) {
+    const captainId = durableSessionId(input.captain);
     const halted = await withTeamLock(teamLockKey(input.stateRoot, input.teamId), async () => {
-        const fresh = await requireFreshCaptainTeam(input.stateRoot, input.teamId, input.captain.id);
+        const fresh = await requireFreshCaptainTeam(input.stateRoot, input.teamId, captainId);
         if (fresh.halted === true) {
             return {
                 teamName: fresh.name,
@@ -382,8 +383,9 @@ export function registerAgentTeamsTools(ctx, config) {
         }
         const workspace = workspaceOf(captain);
         const stateRoot = stateRootOf(workspace, config);
+        const captainId = durableSessionId(captain);
         return withTeamLock(teamLockKey(stateRoot, teamId), async () => {
-            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id);
+            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captainId);
             requireStagedTeam(fresh);
             if (options.origin === 'web') {
                 if (fresh.planReviewState !== 'ready_for_review') {
@@ -533,8 +535,9 @@ export function registerAgentTeamsTools(ctx, config) {
     const prepareWebApproval = async (captain, teamId, expectedPlanRevision) => {
         const workspace = workspaceOf(captain);
         const stateRoot = stateRootOf(workspace, config);
+        const captainId = durableSessionId(captain);
         return withTeamLock(teamLockKey(stateRoot, teamId), async () => {
-            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id);
+            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captainId);
             requireStagedTeam(fresh);
             if (fresh.planReviewState !== 'ready_for_review') {
                 throw new Error(`team "${fresh.name}" is not ready for approval`);
@@ -543,7 +546,7 @@ export function registerAgentTeamsTools(ctx, config) {
             validateStagedGraph(fresh, true);
             return approvalCredentials.prepare({
                 workspace,
-                captainSessionId: captain.id,
+                captainSessionId: captainId,
                 teamId: fresh.id,
                 planRevision: fresh.planRevision,
             });
@@ -555,8 +558,9 @@ export function registerAgentTeamsTools(ctx, config) {
         const workspace = workspaceOf(captain);
         const stateRoot = stateRootOf(workspace, config);
         const runSignal = signal ?? new AbortController().signal;
+        const captainId = durableSessionId(captain);
         const approved = await withTeamLock(teamLockKey(stateRoot, teamId), async () => {
-            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id);
+            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captainId);
             requireStagedTeam(fresh);
             if (fresh.planReviewState !== 'ready_for_review') {
                 throw new Error(`team "${fresh.name}" is not ready for approval`);
@@ -565,7 +569,7 @@ export function registerAgentTeamsTools(ctx, config) {
             const receipt = evidence.source === 'web'
                 ? approvalCredentials.consume({
                     workspace,
-                    captainSessionId: captain.id,
+                    captainSessionId: captainId,
                     teamId: fresh.id,
                     planRevision: fresh.planRevision,
                     token: evidence.token,
@@ -626,11 +630,15 @@ export function registerAgentTeamsTools(ctx, config) {
                 };
             }
             catch (error) {
-                await recordRetiredMemberIds(stateRoot, spawned.map((member) => member.id)).catch(() => undefined);
-                for (const member of spawned) {
-                    if (member.id !== '')
+                const gateway = agentTeamsSubagentGateway(ctx);
+                await Promise.all(spawned.map(async (member) => {
+                    if (member.id === '')
+                        return;
+                    await gateway.withChildLock(member.id, async () => {
+                        await recordRetiredMemberIds(stateRoot, [member.id]).catch(() => undefined);
                         interruptMember(ctx, captain, member.id);
-                }
+                    });
+                }));
                 throw error;
             }
         });
@@ -660,8 +668,9 @@ export function registerAgentTeamsTools(ctx, config) {
     const continueStagedPlanning = async (captain, teamId) => {
         const workspace = workspaceOf(captain);
         const stateRoot = stateRootOf(workspace, config);
+        const captainId = durableSessionId(captain);
         const prepared = await withTeamLock(teamLockKey(stateRoot, teamId), async () => {
-            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id);
+            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captainId);
             requireStagedTeam(fresh);
             if (fresh.planReviewState === 'awaiting_feedback') {
                 return { teamName: fresh.name, alreadyWaiting: true };
@@ -689,7 +698,7 @@ export function registerAgentTeamsTools(ctx, config) {
             // Do not leave the durable UI in a false waiting state when the live
             // Captain disappeared between lookup and delivery.
             await withTeamLock(teamLockKey(stateRoot, teamId), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captainId);
                 requireStagedTeam(fresh);
                 if (fresh.planReviewState === 'awaiting_feedback') {
                     fresh.planReviewState = 'ready_for_review';
@@ -703,8 +712,9 @@ export function registerAgentTeamsTools(ctx, config) {
     const discardStagedTeam = async (captain, teamId) => {
         const workspace = workspaceOf(captain);
         const stateRoot = stateRootOf(workspace, config);
+        const captainId = durableSessionId(captain);
         const discarded = await withTeamLock(teamLockKey(stateRoot, teamId), async () => {
-            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captain.id);
+            const fresh = await requireFreshCaptainTeam(stateRoot, teamId, captainId);
             requireStagedTeam(fresh);
             appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, captain.session), 'agent-teams/plan-discarded', {
                 teamId: fresh.id,
@@ -781,16 +791,17 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(args, exec) {
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
             const explicitName = trimmedOptional(args.name);
             const staged = args.approval === 'required';
             const normalizedProfileName = args.profile?.trim();
             const profileName = normalizedProfileName === '' ? undefined : normalizedProfileName;
-            const created = await withTeamLock(captainLockKey(stateRoot, captain.id), async () => {
-                const current = await findTeamByParticipant(stateRoot, captain.id);
+            const created = await withTeamLock(captainLockKey(stateRoot, captainId), async () => {
+                const current = await findTeamByParticipant(stateRoot, captainId);
                 if (current !== undefined) {
-                    const relationship = current.captainSessionId === captain.id ? 'lead' : 'belong to';
+                    const relationship = current.captainSessionId === captainId ? 'lead' : 'belong to';
                     throw new Error(`you already ${relationship} team "${current.name}" — end or leave it before creating another`);
                 }
                 for (let attempt = 0; attempt < 16; attempt += 1) {
@@ -807,7 +818,7 @@ export function registerAgentTeamsTools(ctx, config) {
                                 name: teamName,
                                 id: teamId,
                                 description: args.description,
-                                captainSessionId: captain.id,
+                                captainSessionId: captainId,
                                 createdAt: now,
                                 members: [],
                                 tasks: [],
@@ -860,7 +871,7 @@ export function registerAgentTeamsTools(ctx, config) {
                 try {
                     appendTeamEvent(ctx, captain.session, 'agent-teams/team-created', {
                         teamId: created.state.id,
-                        captainSessionId: captain.id,
+                        captainSessionId: captainId,
                         name: created.state.name,
                         ...explicitName === undefined ? { generated: true } : {},
                         ...created.state.description !== undefined ? { description: created.state.description } : {},
@@ -1145,8 +1156,9 @@ export function registerAgentTeamsTools(ctx, config) {
             if (args.confirmation.trim() === '')
                 throw new Error('explicit user approval text is required');
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
-            const team = await findTeamByCaptain(stateRootOf(workspace, config), captain.id);
+            const team = await findTeamByCaptain(stateRootOf(workspace, config), captainId);
             if (team === undefined) {
                 return {
                     status: 'inactive',
@@ -1180,7 +1192,11 @@ export function registerAgentTeamsTools(ctx, config) {
             }
             let trusted;
             try {
-                trusted = chatApprovalEvidence(captain.session.events, {
+                const captainSession = captain.session;
+                const captainEvents = typeof captainSession.snapshotEvents === 'function'
+                    ? captainSession.snapshotEvents()
+                    : captainSession.events ?? [];
+                trusted = chatApprovalEvidence(captainEvents, {
                     rootCallId: exec.rootCallId,
                     confirmation: args.confirmation,
                     planReadyAt: team.planReadyAt,
@@ -1266,11 +1282,12 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(args, exec) {
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireCaptainTeam(workspace, config, captain);
             const created = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 const memberName = args.name.trim();
                 if (memberName === '')
                     throw new Error('member name must not be empty');
@@ -1284,10 +1301,14 @@ export function registerAgentTeamsTools(ctx, config) {
                 if (fresh.members.filter((candidate) => candidate.status !== 'removed').length >= config.maxMembers) {
                     throw new Error(`team "${fresh.name}" is at its member cap (${config.maxMembers})`);
                 }
+                // `target-default` is the model-facing default-shaped value: some
+                // callers echo it even when they supplied no role policy at all. Keep
+                // that payload eligible for numbered-role inheritance. A real route,
+                // effort, or non-default reasoning mode remains an explicit override.
                 const explicitSelection = trimmedOptional(args.provider) !== undefined
                     || trimmedOptional(args.model) !== undefined
                     || trimmedOptional(args.reasoning_effort) !== undefined
-                    || args.reasoning_mode !== undefined;
+                    || (args.reasoning_mode !== undefined && args.reasoning_mode !== 'target-default');
                 let roleSelection = {
                     provider: args.provider,
                     model: args.model,
@@ -1345,8 +1366,11 @@ export function registerAgentTeamsTools(ctx, config) {
                     // never saw it. Retire the orphan so it disappears from subagent
                     // listings and cannot be resumed, then surface the write failure.
                     if (member.id !== '') {
-                        await recordRetiredMemberIds(stateRoot, [member.id]).catch(() => undefined);
-                        interruptMember(ctx, captain, member.id);
+                        const gateway = agentTeamsSubagentGateway(ctx);
+                        await gateway.withChildLock(member.id, async () => {
+                            await recordRetiredMemberIds(stateRoot, [member.id]).catch(() => undefined);
+                            interruptMember(ctx, captain, member.id);
+                        });
                     }
                     throw error;
                 }
@@ -1395,11 +1419,12 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(args, exec) {
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireCaptainTeam(workspace, config, captain);
             const revoked = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 const member = requireMember(fresh, args.name);
                 markStagedPlanBuilding(fresh);
                 const requeued = [];
@@ -1435,9 +1460,16 @@ export function registerAgentTeamsTools(ctx, config) {
                 return { member: { ...member }, requeued };
             });
             if (revoked.member.id !== '') {
-                await recordRetiredMemberIds(stateRoot, [revoked.member.id]);
-                interruptMember(ctx, captain, revoked.member.id);
-                await waitForMemberIdle(ctx, revoked.member, exec.signal);
+                const gateway = agentTeamsSubagentGateway(ctx);
+                await gateway.withChildLock(revoked.member.id, async () => {
+                    // Retirement and the interrupt are serialized with Team delivery.
+                    // A sender that already won the lock completes before retirement;
+                    // every later send observes the durable deny-list and cannot resume
+                    // the removed child.
+                    await recordRetiredMemberIds(stateRoot, [revoked.member.id]);
+                    interruptMember(ctx, captain, revoked.member.id);
+                    await waitForMemberIdle(ctx, revoked.member, exec.signal);
+                });
             }
             await scheduler.kickTeam(workspace, team.id, captain);
             return {
@@ -1497,6 +1529,7 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(args, exec) {
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireCaptainTeam(workspace, config, captain);
@@ -1504,7 +1537,7 @@ export function registerAgentTeamsTools(ctx, config) {
             // Blank ownership is the model-facing spelling of the shared task pool.
             const assignee = trimmedOptional(input.assignee);
             const created = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 const gate = validateCreateTask(fresh, {
                     subject: input.subject,
                     description: input.description,
@@ -1632,6 +1665,7 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(args, exec) {
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireCaptainTeam(workspace, config, captain);
@@ -1639,7 +1673,7 @@ export function registerAgentTeamsTools(ctx, config) {
             if (target === '')
                 throw new Error('reassignment assignee must not be empty');
             const revoked = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 requireRunningTeam(fresh);
                 const task = requireTask(fresh, args.task_id);
                 if (task.status === 'completed')
@@ -1678,16 +1712,19 @@ export function registerAgentTeamsTools(ctx, config) {
             });
             let quiescenceError;
             if (revoked.previousMember !== undefined) {
-                interruptMember(ctx, captain, revoked.previousMember.id);
-                try {
-                    await waitForMemberIdle(ctx, revoked.previousMember, exec.signal);
-                }
-                catch (error) {
-                    quiescenceError = error;
-                }
+                const gateway = agentTeamsSubagentGateway(ctx);
+                await gateway.withChildLock(revoked.previousMember.id, async () => {
+                    interruptMember(ctx, captain, revoked.previousMember.id);
+                    try {
+                        await waitForMemberIdle(ctx, revoked.previousMember, exec.signal);
+                    }
+                    catch (error) {
+                        quiescenceError = error;
+                    }
+                });
             }
             await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 const task = requireTask(fresh, args.task_id);
                 if (task.handoffId !== revoked.handoffId || task.assignee !== target || task.reassigning !== true) {
                     throw new Error(`task ${task.id} changed during reassignment; refusing to overwrite the newer state`);
@@ -1757,7 +1794,7 @@ export function registerAgentTeamsTools(ctx, config) {
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireParticipantTeam(workspace, config, caller);
             return withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, caller.id);
+                const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, durableSessionId(caller));
                 requireRunningTeam(fresh);
                 const task = requireTask(fresh, args.task_id);
                 if (task.reassigning === true) {
@@ -1922,7 +1959,7 @@ export function registerAgentTeamsTools(ctx, config) {
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireParticipantTeam(workspace, config, caller);
             const updated = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, caller.id);
+                const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, durableSessionId(caller));
                 requireRunningTeam(fresh);
                 const task = requireTask(fresh, args.task_id);
                 if (identity.kind === 'captain'
@@ -2024,7 +2061,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     ...task.output !== undefined ? { output: task.output } : {},
                 };
             });
-            await scheduler.kickTeam(workspace, team.id, team.captainSessionId === caller.id ? caller : undefined);
+            await scheduler.kickTeam(workspace, team.id, team.captainSessionId === durableSessionId(caller) ? caller : undefined);
             return updated;
         },
     }));
@@ -2059,7 +2096,7 @@ export function registerAgentTeamsTools(ctx, config) {
             const team = await requireParticipantTeam(workspace, config, caller);
             const to = args.to.trim();
             const prepared = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, caller.id);
+                const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, durableSessionId(caller));
                 const from = identity.name;
                 // `from` may only be the caller's own identity: impersonating another
                 // member (or the captain) would poison the mailbox and event records.
@@ -2117,7 +2154,7 @@ export function registerAgentTeamsTools(ctx, config) {
                     ? args.content
                     : `Message from team member ${prepared.from}:\n\n${args.content}`;
                 const text = `AgentTeams state policy: inspect ${config.stateDir}/${prepared.fresh.id}/ read-only; never edit team.json or inbox files directly. Use agent_teams_* tools for team state.\n\n${senderText}`;
-                const accepted = await deliverToMember(ctx, captain, prepared.recipient.id, text, exec.signal);
+                const accepted = await deliverToMember(ctx, captain, prepared.recipient.id, text, config.stateDir, exec.signal);
                 delivered = accepted ? 'wake' : 'mailbox';
                 if (accepted) {
                     await withTeamLock(teamLockKey(stateRoot, prepared.fresh.id), () => (acknowledgeMailbox(stateRoot, prepared.fresh.id, prepared.recipient.name, [prepared.message.id])));
@@ -2164,16 +2201,17 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(args, exec) {
             const caller = requireCaptain(exec);
+            const callerId = durableSessionId(caller);
             const workspace = workspaceOf(caller);
             const stateRoot = stateRootOf(workspace, config);
-            const located = await findTeamByParticipant(stateRoot, caller.id);
+            const located = await findTeamByParticipant(stateRoot, callerId);
             if (located === undefined)
                 return { active: false };
-            const memberWakeIgnored = args.wake === 'recover' && located.captainSessionId !== caller.id;
-            if (located.captainSessionId === caller.id && args.wake === 'recover') {
+            const memberWakeIgnored = args.wake === 'recover' && located.captainSessionId !== callerId;
+            if (located.captainSessionId === callerId && args.wake === 'recover') {
                 await scheduler.kickTeam(workspace, located.id, caller);
             }
-            const { team, identity } = await withTeamLock(teamLockKey(stateRoot, located.id), () => requireFreshParticipant(stateRoot, located.id, caller.id));
+            const { team, identity } = await withTeamLock(teamLockKey(stateRoot, located.id), () => requireFreshParticipant(stateRoot, located.id, callerId));
             const activity = memberActivity(ctx, team.members.map((member) => member.id));
             const members = team.members
                 .filter((member) => member.status !== 'removed')
@@ -2325,11 +2363,12 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(args, exec) {
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
             const team = await requireCaptainTeam(workspace, config, captain);
             const result = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 const resumed = resumeTeamState(fresh, args.reason);
                 if (resumed.status === 'rejected')
                     throw new Error(resumed.error ?? 'resume rejected');
@@ -2373,13 +2412,14 @@ export function registerAgentTeamsTools(ctx, config) {
         },
         async execute(_args, exec) {
             const captain = requireCaptain(exec);
+            const captainId = durableSessionId(captain);
             const workspace = workspaceOf(captain);
             const stateRoot = stateRootOf(workspace, config);
-            const team = await findTeamByCaptain(stateRoot, captain.id);
+            const team = await findTeamByCaptain(stateRoot, captainId);
             if (team === undefined)
                 return { deleted: false, team_name: '' };
             const members = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 // Include previously removed members so deleting a pre-fix team also
                 // retires durable catalog entries left behind by remove_member.
                 const roster = fresh.members.map(member => ({ ...member }));
@@ -2395,20 +2435,27 @@ export function registerAgentTeamsTools(ctx, config) {
                 await writeTeam(stateRoot, fresh);
                 return roster;
             });
-            await recordRetiredMemberIds(stateRoot, members.map(member => member.id));
-            for (const member of members) {
+            const gateway = agentTeamsSubagentGateway(ctx);
+            // Retirement must share the same per-child admission boundary as live
+            // delivery. A queued send that already entered the gateway completes
+            // before this block; every later send observes the durable deny-list
+            // before it can cold-resume the archived child.
+            await Promise.all(members.map(async (member) => {
                 if (member.id === '')
-                    continue;
-                interruptMember(ctx, captain, member.id);
-            }
-            const quiescence = await Promise.allSettled(members.map(member => waitForMemberIdle(ctx, member, exec.signal)));
-            for (const result of quiescence) {
-                if (result.status === 'rejected') {
-                    ctx.logger.warn(`agent-teams: member did not quiesce cleanly before team archive: ${String(result.reason)}`);
-                }
-            }
+                    return;
+                return gateway.withChildLock(member.id, async () => {
+                    await recordRetiredMemberIds(stateRoot, [member.id]);
+                    interruptMember(ctx, captain, member.id);
+                    try {
+                        await waitForMemberIdle(ctx, member, exec.signal);
+                    }
+                    catch (error) {
+                        ctx.logger.warn(`agent-teams: member did not quiesce cleanly before team archive: ${String(error)}`);
+                    }
+                });
+            }));
             await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
-                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captain.id);
+                const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, captain.session), 'agent-teams/team-deleted', {
                     teamId: fresh.id,
                 });
@@ -2451,7 +2498,7 @@ async function initializeProfileTeam(input) {
             ...profile.reviewPolicy === undefined ? {} : { reviewPolicy: profile.reviewPolicy },
         },
         ...profile.reviewPolicy === undefined ? {} : { reviewPolicy: profile.reviewPolicy },
-        captainSessionId: input.captain.id,
+        captainSessionId: durableSessionId(input.captain),
         createdAt: now,
         planRevision: 1,
         phase: 'staged',
@@ -2525,15 +2572,26 @@ async function initializeProfileTeam(input) {
         catch (cleanupError) {
             cleanupErrors.push(cleanupError);
         }
-        try {
-            await recordRetiredMemberIds(input.stateRoot, spawned.map((member) => member.id));
-        }
-        catch (cleanupError) {
-            cleanupErrors.push(cleanupError);
-        }
+        const gateway = agentTeamsSubagentGateway(input.ctx);
         for (const member of spawned) {
             try {
-                interruptMember(input.ctx, input.captain, member.id);
+                await gateway.withChildLock(member.id, async () => {
+                    let retirementError;
+                    try {
+                        await recordRetiredMemberIds(input.stateRoot, [member.id]);
+                    }
+                    catch (cleanupError) {
+                        retirementError = cleanupError;
+                    }
+                    try {
+                        interruptMember(input.ctx, input.captain, member.id);
+                    }
+                    catch (cleanupError) {
+                        retirementError ??= cleanupError;
+                    }
+                    if (retirementError !== undefined)
+                        throw retirementError;
+                });
             }
             catch (cleanupError) {
                 cleanupErrors.push(cleanupError);

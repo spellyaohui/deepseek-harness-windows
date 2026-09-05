@@ -35,7 +35,7 @@ async function fixture(t, { captainStatus = 'idle', captainOffline = false, reje
   t.after(async () => {
     settleOnCleanup()
     await Promise.allSettled(pendingFailures)
-    await rm(workspace, { recursive: true, force: true })
+    await rm(workspace, { recursive: true, force: true, maxRetries: 8, retryDelay: 25 })
   })
 
   const listeners = new Map()

@@ -90,6 +90,7 @@ import {
   spawnMember,
   validateMemberLlmSelections,
 } from '../lib/members.js'
+import { installModelSelection } from '@deepseek-ai/dsh-agent'
 
 function automaticRunningProvenance(teamId, approvedAt = Date.now()) {
   return {
@@ -1724,7 +1725,90 @@ check(
   '#20: spawn receives the resolved per-member provider and model',
   startSpec?.request?.agentOptions?.provider === 'other-provider'
     && startSpec?.request?.agentOptions?.model === 'other-model'
+    && startSpec?.request?.agentOptions?.reasoningEffort === 'low'
     && spawnMemberRecord.id === 'spawned-member',
+)
+
+const transientCaptain = {
+  ...captain,
+  id: 'captain-runtime-replacement',
+  session: { ...captain.session, id: captain.id },
+}
+let transientSpawnCalls = 0
+let transientSpawnError
+try {
+  await spawnMember(
+    {
+      agents: { get: () => undefined },
+      subagents: {
+        getProvider: () => ({
+          prepareContinuable: () => undefined,
+          capabilities: { persona: true, toolFilter: true },
+        }),
+        list: () => ['spawn'],
+        startContinuable: async () => {
+          transientSpawnCalls += 1
+          return { childId: 'should-not-start', messageId: 'should-not-deliver' }
+        },
+      },
+    },
+    { provider: 'spawn', maxDepth: 1 },
+    { withPending: async (_parentId, _label, _selection, operation) => operation() },
+    overriddenSelection,
+    transientCaptain,
+    spawnTeam,
+    { ...spawnMemberRecord, id: '' },
+    '.agent-teams',
+    new AbortController().signal,
+  )
+} catch (error) {
+  transientSpawnError = error
+}
+check(
+  'subagent gateway rejects an unattached transient parent before child start',
+  transientSpawnCalls === 0
+    && /subagent gateway rejected parent handle.*not attached/i.test(String(transientSpawnError?.message ?? transientSpawnError)),
+)
+
+const sameIdUnregisteredCaptain = {
+  ...captain,
+  id: 'same-id-unregistered',
+  session: { ...captain.session, id: 'same-id-unregistered' },
+}
+let sameIdSpawnCalls = 0
+let sameIdSpawnError
+try {
+  await spawnMember(
+    {
+      agents: { get: () => undefined },
+      subagents: {
+        getProvider: () => ({
+          prepareContinuable: () => undefined,
+          capabilities: { persona: true, toolFilter: true },
+        }),
+        list: () => ['spawn'],
+        startContinuable: async () => {
+          sameIdSpawnCalls += 1
+          return { childId: 'should-not-start-same-id', messageId: 'should-not-deliver-same-id' }
+        },
+      },
+    },
+    { provider: 'spawn', maxDepth: 1 },
+    { withPending: async (_parentId, _label, _selection, operation) => operation() },
+    overriddenSelection,
+    sameIdUnregisteredCaptain,
+    spawnTeam,
+    { ...spawnMemberRecord, id: '' },
+    '.agent-teams',
+    new AbortController().signal,
+  )
+} catch (error) {
+  sameIdSpawnError = error
+}
+check(
+  'subagent gateway rejects an unregistered same-id parent before child start',
+  sameIdSpawnCalls === 0
+    && /subagent gateway rejected parent handle.*not attached/i.test(String(sameIdSpawnError?.message ?? sameIdSpawnError)),
 )
 
 function descriptorEvent(label, agentProvider = 'descriptor-provider', agentModel = 'descriptor-model') {
@@ -1947,6 +2031,250 @@ try {
   }
 } finally {
   await rm(restoreWorkspace, { recursive: true, force: true })
+}
+
+// RC.1 publishes continuable children through the root `agent/created` event
+// (the old setup callback is gone). Exercise the actual model-selection
+// waterfall at that boundary instead of relying only on a descriptor or UI
+// snapshot. The fixture deliberately starts distinct roles sequentially,
+// concurrently, and from a cold durable record.
+const rc1Workspace = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-rc1-selection-'))
+try {
+  const rc1CreatedListeners = []
+  const rc1Agents = new Map()
+  let rc1ChildSeq = 0
+  const rc1Captain = {
+    id: 'rc1-captain',
+    options: { provider: 'captain-provider', model: 'captain-model', reasoningEffort: 'captain-effort' },
+    session: { header: { cwd: rc1Workspace } },
+  }
+  rc1Agents.set(rc1Captain.id, rc1Captain)
+
+  function rc1Child(spec, id, workspace = rc1Workspace) {
+    const listeners = new Map()
+    const effects = []
+    const agentOptions = spec?.request?.agentOptions ?? {}
+    const descriptor = snapshotSubagentDescriptor({
+      mode: 'continuable',
+      provider: spec?.provider ?? 'spawn',
+      label: spec?.label ?? 'agent-teams:rc1-cold:cold',
+      ...agentOptions.provider === undefined ? {} : { agentProvider: agentOptions.provider },
+      ...agentOptions.model === undefined ? {} : { agentModel: agentOptions.model },
+      ...agentOptions.reasoningEffort === undefined ? {} : { agentReasoningEffort: agentOptions.reasoningEffort },
+    })
+    const child = {
+      id,
+      options: { ...agentOptions },
+      status: 'idle',
+      session: {
+        header: { parentSession: rc1Captain.id, cwd: workspace },
+        ownEvents: () => [{ type: 'subagent/descriptor', data: descriptor }],
+        events: [{ type: 'subagent/descriptor', data: descriptor }],
+      },
+      listeners,
+      effects,
+      ctx: {
+        on(name, listener, options) {
+          const handlers = listeners.get(name) ?? []
+          if (options?.prepend === true) handlers.unshift(listener)
+          else handlers.push(listener)
+          listeners.set(name, handlers)
+          return () => {
+            const current = listeners.get(name) ?? []
+            listeners.set(name, current.filter(candidate => candidate !== listener))
+          }
+        },
+        effect(setup) {
+          const cleanup = setup()
+          if (typeof cleanup === 'function') effects.push(cleanup)
+          return cleanup
+        },
+      },
+    }
+    // The real API Session Controller installs its generic model-selection
+    // listeners during the unpublished setup window, before RC.1 announces
+    // agent/created. Keep that ordering here so this fixture exercises the
+    // complete request waterfall rather than selecting the last listener.
+    installModelSelection(child.ctx, {
+      current: {
+        provider: rc1Captain.options.provider,
+        model: rc1Captain.options.model,
+        reasoningEffort: rc1Captain.options.reasoningEffort,
+      },
+      assembled: undefined,
+    })
+    return child
+  }
+
+  const rc1Ctx = {
+    agents: { get: id => rc1Agents.get(id) },
+    on(name, listener) {
+      if (name === 'agent/created') rc1CreatedListeners.push(listener)
+      return () => {
+        const index = rc1CreatedListeners.indexOf(listener)
+        if (index >= 0) rc1CreatedListeners.splice(index, 1)
+      }
+    },
+    subagents: {
+      // Presence of this RC.1 method selects the event-lifecycle adapter.
+      async sendMessage() { return 'accepted' },
+      getProvider() {
+        return {
+          prepareContinuable() {},
+          capabilities: { persona: true, toolFilter: true },
+        }
+      },
+      list: () => ['spawn'],
+      async startContinuable(spec) {
+        // Yield once so Promise.all exercises two pending selections at the
+        // same time rather than accidentally serializing the setup.
+        await Promise.resolve()
+        const child = rc1Child(spec, `rc1-child-${++rc1ChildSeq}`)
+        rc1Agents.set(child.id, child)
+        for (const listener of [...rc1CreatedListeners]) listener({ agent: child })
+        return { childId: child.id, messageId: `rc1-message-${rc1ChildSeq}` }
+      },
+    },
+    logger: { warn() {} },
+  }
+  const rc1Selections = installMemberSelectionRuntime(rc1Ctx, '.agent-teams')
+  const rc1Team = {
+    id: 'rc1-team',
+    name: 'RC1 Selection Team',
+    description: 'request-level selection regression',
+    members: [],
+    tasks: [],
+    taskSeq: 0,
+  }
+  const roleSelection = (provider, model, reasoningEffort) => ({
+    provider,
+    model,
+    reasoningMode: 'explicit',
+    reasoningEffort,
+  })
+  const roleMember = (name) => ({
+    id: '',
+    name,
+    role: name,
+    joinedAt: Date.now(),
+    status: 'idle',
+  })
+  async function spawnRc1Member(name, selection) {
+    const member = roleMember(name)
+    await spawnMember(
+      rc1Ctx,
+      { provider: 'spawn', maxDepth: 1 },
+      rc1Selections,
+      selection,
+      rc1Captain,
+      rc1Team,
+      member,
+      '.agent-teams',
+      new AbortController().signal,
+    )
+    return rc1Agents.get(member.id)
+  }
+  async function rc1Request(child, fallback = {
+    provider: 'wrong-provider',
+    model: 'wrong-model',
+    reasoningEffort: 'wrong-effort',
+  }) {
+    const runWaterfall = async (name, args, terminal) => {
+      const listeners = [...(child.listeners.get(name) ?? [])]
+      let index = 0
+      const next = () => {
+        const listener = listeners[index++]
+        return listener === undefined ? terminal() : listener(...args, next)
+      }
+      return next()
+    }
+    if ((child.listeners.get('system-prompt/assemble') ?? []).length === 0
+      || (child.listeners.get('agent/request') ?? []).length === 0) return undefined
+    await runWaterfall('system-prompt/assemble', [{}, {},], async () => ({ variables: {} }))
+    return runWaterfall('agent/request', [{ agent: child }], async () => fallback)
+  }
+
+  const firstSelection = roleSelection('cpa', 'gpt-5.6-luna', 'low')
+  const secondSelection = roleSelection('opencode-go', 'qwen3.7-max', 'high')
+  const firstChild = await spawnRc1Member('analyst', firstSelection)
+  const firstRequest = await rc1Request(firstChild)
+  const secondChild = await spawnRc1Member('implementer', secondSelection)
+  const secondRequest = await rc1Request(secondChild)
+  check(
+    'RC.1 first and subsequent members enforce their own request route and effort',
+    firstRequest?.provider === firstSelection.provider
+      && firstRequest?.model === firstSelection.model
+      && firstRequest?.reasoningEffort === firstSelection.reasoningEffort
+      && secondRequest?.provider === secondSelection.provider
+      && secondRequest?.model === secondSelection.model
+      && secondRequest?.reasoningEffort === secondSelection.reasoningEffort,
+  )
+
+  const parallelSelections = [
+    ['tester', roleSelection('cpa', 'gpt-5.6-terra', 'medium')],
+    ['reviewer', roleSelection('commandcodeai', 'Qwen3.8-Flash', 'max')],
+  ]
+  const parallelChildren = await Promise.all(parallelSelections.map(([name, selection]) => spawnRc1Member(name, selection)))
+  const parallelRequests = await Promise.all(parallelChildren.map(child => rc1Request(child)))
+  check(
+    'RC.1 concurrent members do not inherit or overwrite a sibling selection',
+    parallelRequests.every((request, index) => (
+      request?.provider === parallelSelections[index][1].provider
+        && request?.model === parallelSelections[index][1].model
+        && request?.reasoningEffort === parallelSelections[index][1].reasoningEffort
+    )),
+  )
+
+  const coldStateRoot = join(rc1Workspace, '.agent-teams')
+  const coldTeamId = 'rc1-cold'
+  const coldMemberId = 'rc1-cold-child'
+  const coldSelection = roleSelection('cold-provider', 'cold-model', 'xhigh')
+  await createTeamDir(coldStateRoot, {
+    schemaVersion: 2,
+    name: 'RC1 Cold Team',
+    id: coldTeamId,
+    captainSessionId: rc1Captain.id,
+    createdAt: Date.now(),
+    members: [{
+      id: coldMemberId,
+      name: 'cold-member',
+      ...coldSelection,
+      joinedAt: Date.now(),
+      status: 'idle',
+    }],
+    tasks: [],
+    taskSeq: 0,
+    ...automaticRunningProvenance(coldTeamId),
+    phase: 'running',
+  })
+  const coldSpec = {
+    provider: 'spawn',
+    label: `agent-teams:${coldTeamId}:cold-member`,
+    request: { agentOptions: {
+      provider: coldSelection.provider,
+      model: coldSelection.model,
+      reasoningEffort: coldSelection.reasoningEffort,
+    } },
+  }
+  const coldChild = rc1Child(coldSpec, coldMemberId, rc1Workspace)
+  rc1Agents.set(coldChild.id, coldChild)
+  let coldError
+  try {
+    for (const listener of [...rc1CreatedListeners]) listener({ agent: coldChild })
+  } catch (error) {
+    coldError = error
+  }
+  const coldRequest = coldError === undefined ? await rc1Request(coldChild) : undefined
+  check(
+    'RC.1 cold-resumed member enforces the durable request route and effort',
+    coldError === undefined
+      && coldRequest?.provider === coldSelection.provider
+      && coldRequest?.model === coldSelection.model
+      && coldRequest?.reasoningEffort === coldSelection.reasoningEffort,
+    coldError === undefined ? '' : String(coldError),
+  )
+} finally {
+  await rm(rc1Workspace, { recursive: true, force: true })
 }
 
 console.log('8/8 state-file atomic write hardening (Windows EPERM fallback)')

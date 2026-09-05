@@ -15,7 +15,16 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
     ['agent-teams-plugin', '@nanmicoder/dsh-agent-teams'],
   )
   const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
-  assert.equal(packageJson.version, '0.1.15-desktop.4')
+  assert.equal(packageJson.version, '0.1.15-desktop.7')
+})
+
+test('AgentTeams declares the Connection dependency used by its authenticated Web routes', () => {
+  const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
+  assert.equal(packageJson.peerDependencies?.['@deepseek-ai/dsh-client-connection'], '^0.1.2-rc.1')
+  assert.equal(
+    packageJson.devDependencies?.['@deepseek-ai/dsh-client-connection'],
+    'file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-connection-0.1.2-rc.1.tgz',
+  )
 })
 
 test('tool guidance is synchronized as a wrapper-owned local artifact', () => {

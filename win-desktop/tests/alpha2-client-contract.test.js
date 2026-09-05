@@ -16,7 +16,7 @@ test('Alpha.2 client owners do not register or import the removed client runtime
   assert.doesNotMatch(JSON.stringify(session), /dsh-client-runtime/u)
   assert.equal(session.dsh.client.inject.includes('@deepseek-ai/dsh-client-store'), true)
   assert.equal(session.peerDependencies?.['@deepseek-ai/dsh-client-runtime'], undefined)
-  assert.equal(session.peerDependencies?.['@deepseek-ai/dsh-client-store'], '^0.1.2-alpha.2')
+  assert.equal(session.peerDependencies?.['@deepseek-ai/dsh-client-store'], '^0.1.2-rc.1')
   assert.doesNotMatch(read('session-markdown-export-plugin/src/client/controller.ts'), /dsh-client-runtime/u)
   assert.doesNotMatch(read('session-markdown-export-plugin/src/client/HeaderAction.tsx'), /dsh-client-runtime/u)
   assert.doesNotMatch(read('session-markdown-export-plugin/src/client/index.tsx'), /dsh-client-runtime/u)

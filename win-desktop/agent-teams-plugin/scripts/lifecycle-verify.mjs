@@ -41,6 +41,7 @@ const failures = []
 const continuableSetups = []
 const lifecycleSections = new WeakMap()
 const lifecycleDenials = new WeakMap()
+let heldFollowup
 let childSeq = 0
 let messageSeq = 0
 let memberDefaults = {
@@ -279,6 +280,21 @@ liveAgents.set(captain.id, captain)
 let advertisedModels = []
 const modelResolutionCalls = []
 const profilePersistenceCalls = { createTeamDir: 0, writeTeam: 0 }
+
+function holdFollowupFor(childId) {
+  let enteredResolve
+  let releaseResolve
+  const held = {
+    childId,
+    entered: new Promise(resolve => { enteredResolve = resolve }),
+    released: new Promise(resolve => { releaseResolve = resolve }),
+    release() {
+      releaseResolve?.()
+    },
+  }
+  heldFollowup = { ...held, enter: () => enteredResolve?.() }
+  return held
+}
 // A non-AgentTeams continuable sibling must survive every team lifecycle
 // operation untouched.
 children.push({ id: 'foreign-session', label: 'unrelated continuable', mode: 'continuable' })
@@ -359,6 +375,10 @@ const ctx = {
     },
     async followup(_parent, childId, content) {
       if (failNextDelivery.delete(childId)) throw new Error('injected delivery failure')
+      if (heldFollowup?.childId === childId) {
+        heldFollowup.enter()
+        await heldFollowup.released
+      }
       deliveries.push({ childId, content })
       const child = liveAgents.get(childId)
       if (child) child.status = 'running'
@@ -739,7 +759,13 @@ const addMemberReasoningModeDefault = definitions.get('agent_teams_add_member')
   ?.parameters?.properties?.reasoning_mode?.default
 const inheritedRoleAdditions = []
 for (const name of inheritedRoleNames) {
-  inheritedRoleAdditions.push(await callAsModel('agent_teams_add_member', { name }))
+  // Models may still echo the optional target-default mode even when no
+  // provider/model/effort was requested. That payload must remain eligible
+  // for numbered-role inheritance rather than disabling the frozen base role.
+  inheritedRoleAdditions.push(await call('agent_teams_add_member', {
+    name,
+    reasoning_mode: 'target-default',
+  }))
 }
 const explicitRoleOverride = await call('agent_teams_add_member', {
   name: 'reviewer4',
@@ -2089,6 +2115,84 @@ try {
   check('same-name team can be recreated and archived again',
     await readTeam(stateRoot, teamId) === undefined
       && replacementArchive?.description === 'second generation')
+
+  // A resumed parent may be represented by a replacement runtime handle while
+  // retaining the same durable Session identity. Team ownership must follow the
+  // durable session id, not a transient handle id created around a continuation
+  // turn. This is the regression for the observed post-child-start failure where
+  // the resumed captain suddenly lost access to its still-active Team.
+  const resumeIdentityTeam = await call('agent_teams_create', {
+    name: 'Resume Identity', description: 'parent replacement keeps Team access',
+  })
+  const resumedCaptain = makeAgent('captain-runtime-replacement', captain.id)
+  resumedCaptain.session.id = captain.id
+  liveAgents.set(resumedCaptain.id, resumedCaptain)
+  let resumedStatus
+  let resumedStatusError
+  try {
+    resumedStatus = await call('agent_teams_status', {}, resumedCaptain)
+  } catch (error) {
+    resumedStatusError = error
+  }
+  check('resumed captain keeps Team authorization through durable Session.id',
+    resumedStatus?.team_id === resumeIdentityTeam.team_id
+      && resumedStatusError === undefined)
+  liveAgents.delete(resumedCaptain.id)
+  await call('agent_teams_delete', {})
+
+  // A delete must wait for a child delivery that already entered the unified
+  // gateway. Without the per-child lock, the interrupt marks the fake Agent
+  // idle and the archive completes while the underlying follow-up is still
+  // blocked, allowing an in-flight model turn to outlive the Team.
+  const deleteRaceTeam = await call('agent_teams_create', {
+    name: 'Delete Delivery Race',
+    description: 'delete waits for an in-flight child delivery',
+    profile: 'software-delivery',
+  })
+  const deleteRaceState = await readTeam(stateRoot, deleteRaceTeam.team_id)
+  const deleteRaceMember = deleteRaceState?.members[0]
+  let deleteRaceSendError
+  let deleteRaceDeleteError
+  let deleteRaceSendResult
+  let deleteRaceDeleteResult
+  if (deleteRaceMember === undefined || deleteRaceMember.id === '') {
+    check('delete race fixture has a spawned member', false)
+  } else {
+    const heldDelivery = holdFollowupFor(deleteRaceMember.id)
+    try {
+      const sendPromise = call('agent_teams_send_message', {
+        to: deleteRaceMember.name,
+        content: 'delivery must finish before archive',
+      })
+      await heldDelivery.entered
+      const deletePromise = call('agent_teams_delete', {})
+      const deleteSettledBeforeRelease = await Promise.race([
+        deletePromise.then(() => true, () => true),
+        new Promise(resolve => setTimeout(() => resolve(false), 25)),
+      ])
+      check('team delete waits for an in-flight child delivery lock', deleteSettledBeforeRelease === false)
+      heldDelivery.release()
+      try {
+        deleteRaceSendResult = await sendPromise
+      } catch (error) {
+        deleteRaceSendError = error
+      }
+      try {
+        deleteRaceDeleteResult = await deletePromise
+      } catch (error) {
+        deleteRaceDeleteError = error
+      }
+      check('in-flight delivery settles before delete archives the Team',
+        deleteRaceSendError === undefined
+          && deleteRaceDeleteError === undefined
+          && deleteRaceSendResult?.delivered === 'wake'
+          && deleteRaceDeleteResult?.deleted === true
+          && await readArchivedTeam(stateRoot, deleteRaceTeam.team_id) !== undefined)
+    } finally {
+      heldDelivery.release()
+      heldFollowup = undefined
+    }
+  }
 
   // Keep the terminal member-turn failure bridge in the lifecycle gate.  The
   // dedicated member-failure suite covers request-error recovery, duplicate

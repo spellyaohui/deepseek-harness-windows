@@ -55,6 +55,11 @@ export function resolveDelegationPolicy(input: {
 
 const installedPolicies = new WeakMap<Agent, DelegationPolicyId>()
 
+function sessionEvents(agent: Agent): readonly SessionEvent[] {
+  const session = agent.session as typeof agent.session & { readonly events?: readonly SessionEvent[] }
+  return typeof session.snapshotEvents === 'function' ? session.snapshotEvents() : session.events ?? []
+}
+
 /** Return the in-scope policy already installed before an Agent's first request. */
 export function installedDelegationPolicy(agent: Agent): DelegationPolicyId | undefined {
   return installedPolicies.get(agent)
@@ -62,9 +67,10 @@ export function installedDelegationPolicy(agent: Agent): DelegationPolicyId | un
 
 /** Resolve a live Agent's durable policy, including its unpublished installation. */
 export function liveDelegationPolicy(agent: Agent, defaultMode: DelegationMode): DelegationPolicyId {
-  return persistedPolicy(agent.session.events)
+  const events = sessionEvents(agent)
+  return persistedPolicy(events)
     ?? installedDelegationPolicy(agent)
-    ?? resolveDelegationPolicy({ events: agent.session.events, defaultMode })
+    ?? resolveDelegationPolicy({ events, defaultMode })
 }
 
 /** Live settings and policy-specific prompt renderer shared by captains and members. */
@@ -126,8 +132,9 @@ export function resolveAndInstallDelegationPolicy(
   runtime: DelegationPolicyRuntime,
 ): { policy: DelegationPolicyId; dispose: () => void } {
   const defaultMode = runtime.defaultMode()
+  const events = sessionEvents(agent)
   const policy = resolveDelegationPolicy({
-    events: agent.session.events,
+    events,
     defaultMode,
     ...(parent === undefined ? {} : { parentPolicy: liveDelegationPolicy(parent, defaultMode) }),
   })

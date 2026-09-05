@@ -32,6 +32,7 @@ import {
   writeTeam,
 } from './state.ts'
 import type { TeamMember, TeamState, TeamTask } from './types.ts'
+import { durableSessionId } from './agent-identity.ts'
 
 /** Per-dependency output cap in the assignment prompt. */
 export const DEPENDENCY_OUTPUT_MAX_CHARS = 2_000
@@ -167,7 +168,7 @@ function teamLockKey(stateRoot: string, teamId: string): string {
 }
 
 function liveCaptain(ctx: Context, captainSessionId: string, supplied?: Agent): Agent | undefined {
-  if (supplied !== undefined && supplied.id === captainSessionId) return supplied
+  if (supplied !== undefined && durableSessionId(supplied) === captainSessionId) return supplied
   return ctx.agents.get(captainSessionId as SessionId)
 }
 
@@ -318,6 +319,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
             captain,
             member.id,
             fallbackMailboxPrompt(unread),
+            config.stateDir,
             new AbortController().signal,
           )
           if (accepted) {
@@ -401,6 +403,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
           captain,
           ticket.memberId,
           assignmentPrompt(ticket, config.stateDir, team.id),
+          config.stateDir,
           new AbortController().signal,
         )
         if (accepted) return
@@ -429,12 +432,13 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
   const syncMemberStatus = async (agent: Agent, status: AgentStatus): Promise<void> => {
     const workspace = agent.session.header.cwd ?? process.cwd()
     const stateRoot = stateRootOf(workspace, config)
-    const located = await findTeamByParticipant(stateRoot, agent.id)
+    const agentSessionId = durableSessionId(agent)
+    const located = await findTeamByParticipant(stateRoot, agentSessionId)
     if (located === undefined) {
-      parkedAttempts.delete(agent.id)
+      parkedAttempts.delete(agentSessionId)
       return
     }
-    if (located.captainSessionId === agent.id) {
+    if (located.captainSessionId === agentSessionId) {
       // Captain takeover is scoped to the captain's current turn. Unlike a
       // durable member, the captain has no scheduler lane that can resume an
       // abandoned attempt later. Returning unfinished captain-owned work to
@@ -445,7 +449,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
       let requeued = false
       await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
         const fresh = await readTeam(stateRoot, located.id)
-        if (fresh === undefined || fresh.captainSessionId !== agent.id) return
+        if (fresh === undefined || fresh.captainSessionId !== agentSessionId) return
         for (const task of fresh.tasks) {
           if (task.assignee !== CAPTAIN_KEY
             || task.status === 'completed'
@@ -460,22 +464,22 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
       if (requeued) await runtime.kickTeam(workspace, located.id, agent)
       return
     }
-    const member = located.members.find(candidate => candidate.id === agent.id && candidate.status !== 'removed')
+    const member = located.members.find(candidate => candidate.id === agentSessionId && candidate.status !== 'removed')
     if (member === undefined) {
-      parkedAttempts.delete(agent.id)
+      parkedAttempts.delete(agentSessionId)
       return
     }
     await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
       const fresh = await readTeam(stateRoot, located.id)
-      const current = fresh?.members.find(candidate => candidate.id === agent.id && candidate.status !== 'removed')
+      const current = fresh?.members.find(candidate => candidate.id === agentSessionId && candidate.status !== 'removed')
       if (fresh === undefined || current === undefined) return
       const next = status === 'running' ? 'working' : 'idle'
       if (next === 'idle') {
         const owned = ownedOpenTask(fresh.tasks, current.name)
-        if (owned?.attemptId === undefined) parkedAttempts.delete(agent.id)
-        else parkedAttempts.set(agent.id, owned.attemptId)
+        if (owned?.attemptId === undefined) parkedAttempts.delete(agentSessionId)
+        else parkedAttempts.set(agentSessionId, owned.attemptId)
       } else {
-        parkedAttempts.delete(agent.id)
+        parkedAttempts.delete(agentSessionId)
       }
       if (current.status === next) return
       current.status = next
@@ -486,7 +490,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
 
   ctx.on('agent/status', ({ agent, status }) => {
     void syncMemberStatus(agent, status).catch((error: unknown) => {
-      ctx.logger.warn(`agent-teams: member status scheduling failed for ${agent.id}: ${String(error)}`)
+      ctx.logger.warn(`agent-teams: member status scheduling failed for ${durableSessionId(agent)}: ${String(error)}`)
     })
   })
 

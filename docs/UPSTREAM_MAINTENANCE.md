@@ -7,22 +7,33 @@ prove it still exists.
 
 ## Current local identities
 
-- Official Harness source closure: `dsh-v0.1.2-alpha.2` at `0a53fb55bea101816fa226bb964ae2bed71c343b`
-- Windows desktop wrapper: `0.1.2-rc.4`
+- Official Harness source closure: `dsh-v0.1.2-rc.1` at `a66e4702047846cdaa10c66c9d3df3951f5ea70d`
+- Windows desktop wrapper: `0.1.2-rc.7`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.2`
-- AgentTeams fork: `0.1.15-desktop.4`, based on upstream `0.1.15` at fixed commit
+- AgentTeams fork: `0.1.15-desktop.7`, based on upstream `0.1.15` at fixed commit
   `232a338fc9a0d393f118912386f67e7f3a6c67d6`
 - CPA provider plugin: `0.1.7`
-- Models settings fork: `0.1.2-alpha.2-desktop.1`
+- Models settings fork: `0.1.2-rc.1-desktop.1`
 - Desktop Settings plugin: `0.1.2`
 - Session Markdown export plugin: `0.1.1`
+
+## RC.1 refresh classification — 2026-09-04
+
+The official Harness release `dsh-v0.1.2-rc.1` resolves to
+`a66e4702047846cdaa10c66c9d3df3951f5ea70d`. Its fixed local closure contains
+9 vendor tarballs and 242 DSH tarballs; the Windows wrapper now consumes only
+those 251 validated RC.1 artifacts. AgentTeams uses the RC.1 `sendMessage`,
+`agent/created`, and `Session.ownEvents()` contracts while retaining its local
+role-policy, V2 persistence, quality-gate, and lifecycle ownership. Models,
+CPA, Session Markdown, and wrapper integrations were rebuilt against RC.1 and
+passed `npm run verify:upstream` before this provenance update.
 
 ## AgentTeams owner
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization and durable task lifecycle | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract, prompt budget, Profile input seam, catalog seam, participant and quality-gate boundaries, staged contract boundary, strict V2 persistence boundary, and Token-efficient status rendering | `src/index.ts`, `src/web-routes.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, and `scripts/web-routes-verify.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
+| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, and the durable-session subagent gateway | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract, prompt budget, Profile input seam, catalog seam, participant and quality-gate boundaries, staged contract boundary, strict V2 persistence boundary, Token-efficient status rendering, and the single admission/locking boundary for continuable children | `src/index.ts`, `src/web-routes.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, and `scripts/web-routes-verify.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
 | Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
 ## CPA owner
@@ -66,16 +77,19 @@ OpenCode 官方客户端在其请求准备代码中会为 `providerID` 以 `open
 只在 `opencode-go` 的 Pi Completions/Responses 请求中补这一头，Muse Spark 原有的
 `openai-responses` 模型档案保持不变。依据：[OpenCode 请求准备源码](https://github.com/anomalyco/opencode/blob/dev/packages/opencode/src/session/llm/request.ts)、[OpenCode Go 会话粘性说明](https://github.com/anomalyco/opencode/issues/35402)。
 
-## Alpha.2 migration classification — 2026-08-31
+## Historical Alpha.2 migration classification — 2026-08-31
 
-The official Harness tag `dsh-v0.1.2-alpha.2` resolves exactly to
+The superseded Harness tag `dsh-v0.1.2-alpha.2` resolved exactly to
 `0a53fb55bea101816fa226bb964ae2bed71c343b`. The source was built with the
 official pnpm `11.7.0` contract, packed as 9 vendor plus 245 dsh tarballs, and
 verified in a temporary packed-install environment. The wrapper consumes only
 those stable ignored tarball paths; the checked-in
 `UPSTREAM_ALPHA2_SOURCE_MANIFEST.md` records all package identities and hashes.
 
-The current migration classification is:
+This historical classification is retained for provenance; the active runtime
+identity is the RC.1 refresh recorded above.
+
+The Alpha.2-era migration classification was:
 
 | Registered owner row | Result | Refresh action |
 | --- | --- | --- |

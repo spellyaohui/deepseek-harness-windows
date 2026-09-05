@@ -9,7 +9,7 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.15-desktop.4`.
+- Desktop fork version is `0.1.15-desktop.7`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## Intentional local differences
@@ -78,7 +78,7 @@
   and member-idle scheduling remains event-driven, and the status renderer is
   isolated in `src/status-render.ts` for future upstream conflict review.
 - `.desktop.12` adapts the client, settings and activity surfaces to Harness
-  `dsh-v0.1.2-alpha.2`, and ports the verified wait, identity-scoping,
+  `dsh-v0.1.2-rc.1`, and ports the verified wait, identity-scoping,
   Revision/CAS and event-recovery structure needed by the desktop fork. It does
   not install the upstream experimental AgentTeams packages; role-level model
   authority, strict V2 state, quality gates and desktop Profile editing remain
@@ -89,7 +89,7 @@
   records final member `agent/error` failures against the current Team/member,
   task, attempt and `attemptId`, persists a bounded sanitized Captain report,
   and lets the existing scheduler continue only after the real child reaches
-  idle. The fixed Alpha.2 `dsh-llm-retry` package is a development-test
+  idle. The fixed RC.1 `dsh-llm-retry` package is a development-test
   dependency only; upstream experimental AgentTeams packages are not installed
   at runtime.
 - `.desktop.2` makes ordinary delegation automatic and model-owned: Team names
@@ -99,7 +99,16 @@
   migration across activity snapshots, browser mutations, Host validation and
   one-time Web approval credentials, and restores upstream `v0.1.15` Alpha.2
   Connection authentication plus Host/Origin checks for every raw Web route.
-- `.desktop.5` makes each Profile role the authority for Provider, model, and
+- The current `.desktop.7` release routes every continuable child start,
+  follow-up, interrupt, retirement, and drain through one durable-session
+  gateway. It resolves only the exact live Agent (rejecting stale or same-ID
+  pseudo-handles) and serializes each child operation so a retirement race
+  cannot reopen a settled member. Team deletion, task reassignment, approval
+  failure, startup cleanup, and halt stop/drain now hold the same per-child
+  lock through retirement, interrupt, and quiescence. The RC.1 `agent/created`
+  adapter also keeps role Provider/model/reasoning selection authoritative for
+  first, concurrent, and cold-resumed requests.
+- `.desktop.6` makes each Profile role the authority for Provider, model, and
   reasoning policy, removes global member-model/reasoning settings, and
   requires strict Profile/Team `schemaVersion: 2`. Older persisted documents
   are retained for user inspection but are rejected rather than loaded or

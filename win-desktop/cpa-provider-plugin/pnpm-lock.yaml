@@ -9,29 +9,29 @@ importers:
   .:
     devDependencies:
       '@deepseek-ai/cordis':
-        specifier: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-        version: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+        specifier: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+        version: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
       '@deepseek-ai/dsh-api-remotes':
-        specifier: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-alpha.2.tgz
-        version: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
+        specifier: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-rc.1.tgz
+        version: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
       '@deepseek-ai/dsh-client-locale':
-        specifier: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-alpha.2.tgz
-        version: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+        specifier: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-rc.1.tgz
+        version: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
       '@deepseek-ai/dsh-client-ui-primitives':
-        specifier: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.2.tgz
-        version: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+        specifier: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-rc.1.tgz
+        version: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
       '@deepseek-ai/dsh-client-ui-settings-models':
         specifier: file:../models-settings-plugin
         version: file:../models-settings-plugin(f2f2ef04539adb0e2f939ba626fca95a)
       '@deepseek-ai/dsh-client-ui-slots':
-        specifier: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.2.tgz
-        version: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+        specifier: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-rc.1.tgz
+        version: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
       '@deepseek-ai/dsh-settings':
-        specifier: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-alpha.2.tgz
-        version: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-alpha.2.tgz(ec128378c294e5e9fbce3cf0843e1919)
+        specifier: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-rc.1.tgz
+        version: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-rc.1.tgz(ec128378c294e5e9fbce3cf0843e1919)
       '@deepseek-ai/dsh-util-values':
-        specifier: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-alpha.2.tgz
-        version: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+        specifier: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-rc.1.tgz
+        version: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -89,8 +89,8 @@ packages:
     resolution: {integrity: sha512-eY+Yn3dCqTGmyiq2QRU66lA5FL8lqqqvecHt0fF3uHONIa7ToYsaCiWV8lOKqAs0Rb2SjixiKFROngnulPtt2g==}
     engines: {node: ^22.18.0 || >=24.11.0}
 
-  '@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz':
-    resolution: {integrity: sha512-KVgCjv1HcKlAMltQFOPD/D8s4gdnnqTP7N5ZK9Kygc4B0wlHe5YspJoL1hDk4mZHPMpv7FuzcibdUyHVgriP+g==, tarball: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz}
+  '@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz':
+    resolution: {integrity: sha512-KVgCjv1HcKlAMltQFOPD/D8s4gdnnqTP7N5ZK9Kygc4B0wlHe5YspJoL1hDk4mZHPMpv7FuzcibdUyHVgriP+g==, tarball: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz}
     version: 4.0.2
     hasBin: true
     peerDependencies:
@@ -105,41 +105,41 @@ packages:
   '@deepseek-ai/cosmokit@1.8.3':
     resolution: {integrity: sha512-qBo+ronVM6Eu2WNVJXi8JcMiqZ19T9BRIpV+5qJUFPXjGH/Z0QKcQMC/IZJ7L394YTOtJgcovbk9qP0w2GsBXQ==}
 
-  '@deepseek-ai/dsh-api-remotes@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-alpha.2.tgz':
-    resolution: {integrity: sha512-LpvgtruzmoGZPGQ7PBIyCFRnaoBwYyE2bnC/oGO7SAPxIFbaYJg2TGqo0cH7hafIqsVY6UzzDR64lrWt0TrZOA==, tarball: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-alpha.2.tgz}
-    version: 0.1.2-alpha.2
+  '@deepseek-ai/dsh-api-remotes@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-rc.1.tgz':
+    resolution: {integrity: sha512-LpvgtruzmoGZPGQ7PBIyCFRnaoBwYyE2bnC/oGO7SAPxIFbaYJg2TGqo0cH7hafIqsVY6UzzDR64lrWt0TrZOA==, tarball: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-rc.1.tgz}
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-scope': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-scope': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-brand@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-brand@0.1.2-rc.1':
     resolution: {integrity: sha512-sWFbShCe8LNLuqD3gdQeneUGxFtZ/rywe6Tmi2eteBDubecHnf04XurtF38Epno42bnNTMYWuKwt1cihcbHL3A==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-client-connection@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-client-connection@0.1.2-rc.1':
     resolution: {integrity: sha512-au2+lgnwmJboCvW/LXLJvmyAKsUa0iISjS0T5k4TyZ80KbGQo0erIH0E9GnKbbmER6tk/Kaom9AEewAEY8TAjQ==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
-  '@deepseek-ai/dsh-client-locale@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-alpha.2.tgz':
-    resolution: {integrity: sha512-dVxFAtCOVV0OQA281KsSXENWP20z2+KJHSUXsUlA2ilmAHJJlnAp0/LGNWycyZ580G3fppxUMgfmyr3n4VDRpA==, tarball: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-alpha.2.tgz}
-    version: 0.1.2-alpha.2
+  '@deepseek-ai/dsh-client-locale@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-rc.1.tgz':
+    resolution: {integrity: sha512-dVxFAtCOVV0OQA281KsSXENWP20z2+KJHSUXsUlA2ilmAHJJlnAp0/LGNWycyZ580G3fppxUMgfmyr3n4VDRpA==, tarball: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-rc.1.tgz}
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
-  '@deepseek-ai/dsh-client-store@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-client-store@0.1.2-rc.1':
     resolution: {integrity: sha512-tz94GO4b8m3PPe/knfNjHa/VeTJTDNgN1eZeQWHjb5kKxCCThlNk91y5z/kEC93oGVd0lphq5pG5aQCQr2364g==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
-  '@deepseek-ai/dsh-client-ui-primitives@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.2.tgz':
-    resolution: {integrity: sha512-L0zJi4fAD8vhTo2mSP5IzlaM/3CtygKbsz1cQsO3ikcAc6DuAWRRrtY6uOg+Bej5Uml8JoIqVEDavE1nZSrhPg==, tarball: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.2.tgz}
-    version: 0.1.2-alpha.2
+  '@deepseek-ai/dsh-client-ui-primitives@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-rc.1.tgz':
+    resolution: {integrity: sha512-L0zJi4fAD8vhTo2mSP5IzlaM/3CtygKbsz1cQsO3ikcAc6DuAWRRrtY6uOg+Bej5Uml8JoIqVEDavE1nZSrhPg==, tarball: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-rc.1.tgz}
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
@@ -147,114 +147,114 @@ packages:
     resolution: {directory: ../models-settings-plugin, type: directory}
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-api-remotes': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-client-connection': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-client-locale': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-client-store': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-client-ui-primitives': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-client-ui-settings': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-client-ui-slots': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-credentials': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-typert-protocol': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-api-remotes': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-client-connection': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-client-locale': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-client-store': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-client-ui-primitives': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-client-ui-settings': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-client-ui-slots': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-credentials': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-typert-protocol': ^0.1.2-rc.1
       react: ^18.2.0
 
-  '@deepseek-ai/dsh-client-ui-settings@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-client-ui-settings@0.1.2-rc.1':
     resolution: {integrity: sha512-06gPdKaUVItJt1liQVYM/I2W0TxNuK7qN682Ja43R4vMahg++mP35ALA5MtZPXQNLnHKe+AllYMzmgrjBf8rnA==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
-  '@deepseek-ai/dsh-client-ui-slots@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.2.tgz':
-    resolution: {integrity: sha512-eS7UM3vbqalRTtrNIVRzWY0N3A4dgcoMGhkzg8y6J6fyKPv8uQ2fuhuv0DQRUseW+BkjoCyq8QBzi5LFJhjeOQ==, tarball: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.2.tgz}
-    version: 0.1.2-alpha.2
+  '@deepseek-ai/dsh-client-ui-slots@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-rc.1.tgz':
+    resolution: {integrity: sha512-eS7UM3vbqalRTtrNIVRzWY0N3A4dgcoMGhkzg8y6J6fyKPv8uQ2fuhuv0DQRUseW+BkjoCyq8QBzi5LFJhjeOQ==, tarball: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-rc.1.tgz}
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
-  '@deepseek-ai/dsh-credentials@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-credentials@0.1.2-rc.1':
     resolution: {integrity: sha512-TnNK478eQ4iGfUvVyMnkj3GneRCxJbAaM2746HE01iRucE8TypFmh+lFj7kfz7Mcp4S00ixJXqyPddwv+/CPLQ==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-deque@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-deque@0.1.2-rc.1':
     resolution: {integrity: sha512-cIGdUle0XbowDHqZgdW/9z5okzxE1K/nyV9RVbQdwgzYypw6/Cp4D0B9k47qTzSbUXI9RlOtU0gBMwvP03x1zA==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-invariants@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-invariants@0.1.2-rc.1':
     resolution: {integrity: sha512-1ewUeCzUHbaqhtW5rG1/eujIXXzy2VhwvMa16RpcTuJp5qcU1NtAf/+COkmvI7qtkyNY61vWg1Ez5qL9hKIUpQ==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
-  '@deepseek-ai/dsh-llm@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-llm@0.1.2-rc.1':
     resolution: {integrity: sha512-ip6yMxwHugxQm4VCbwX/FDnlTeeBM9VBkIn0+74ityQy7Z3yKREJ1Ov8Z04l4G3duRzeGRsQ4ztOFZ01oNfKIw==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
 
-  '@deepseek-ai/dsh-scope@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-scope@0.1.2-rc.1':
     resolution: {integrity: sha512-jeWfQnftQeZOWujxndgU6kjoFuXGWqmFrkWAxlWmyeojK/iyZqAxayWPuhVUEgweh4EWJmn6rW5HV3E4DXWuWw==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-session@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-session@0.1.2-rc.1':
     resolution: {integrity: sha512-RfikXscYTDXDr7CD7C/8oGJZaH8Egclj7pmXRtd90QcB5L8RIQ7069xrHZjds8OjNrFo69qQwNK3gYLUVZy9PA==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-scope': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-scope': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-settings@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-alpha.2.tgz':
-    resolution: {integrity: sha512-4IwT8yT58yt96arB6RqZQ9f7eTRBL3/APMDYsA/v/cz9Hh1CYmYAgmPV5Zza4YLZE8BrdN4inNIcxbrtP2bngg==, tarball: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-alpha.2.tgz}
-    version: 0.1.2-alpha.2
+  '@deepseek-ai/dsh-settings@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-rc.1.tgz':
+    resolution: {integrity: sha512-4IwT8yT58yt96arB6RqZQ9f7eTRBL3/APMDYsA/v/cz9Hh1CYmYAgmPV5Zza4YLZE8BrdN4inNIcxbrtP2bngg==, tarball: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-rc.1.tgz}
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-brand': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
-      '@deepseek-ai/dsh-session': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-brand': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
+      '@deepseek-ai/dsh-session': ^0.1.2-rc.1
       '@deepseek-ai/schemastery': ^3.18.2
 
-  '@deepseek-ai/dsh-timeout@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-timeout@0.1.2-rc.1':
     resolution: {integrity: sha512-8q5cd55aMoOvrPaqSws/3xiyzHhs1bfjdtAs4YHWimQgMd+yMrDnlu8i+zFOkWoSc0A2wPkXcCYR8xogl4gerA==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-typert-protocol@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-typert-protocol@0.1.2-rc.1':
     resolution: {integrity: sha512-U3j/usWHRllaJMdTr4GuVkkUciHWyq01mvMtWeGT+RY2hb+ysTxeuLEiV0Lh5EyVScgFdDLbe/GtTZ2OkGsGwQ==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-util-crypto@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-util-crypto@0.1.2-rc.1':
     resolution: {integrity: sha512-03WVzlgLErJRRGMqaMdx5ufEoN3Scpdsnd0f8vXMhcbeEzKZ61lbI8z/m6ZttM/LhpzPALuFtDc5u+N5LFP8Fg==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-util-values@0.1.2-alpha.2':
+  '@deepseek-ai/dsh-util-values@0.1.2-rc.1':
     resolution: {integrity: sha512-ZyZHTqGQ/8S5ZYflTkuiZGPxhkuHa9Uy5G+teEmnmnkhiN/UVPGQvI//CXRNmxpTKjfx+qcVVmr5x6bohplsQg==}
-    version: 0.1.2-alpha.2
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
-  '@deepseek-ai/dsh-util-values@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-alpha.2.tgz':
-    resolution: {integrity: sha512-NJTrgljLXr44tYDZ9B600Hl4NNGgh+cyVYAa+tJ/M3eb4jBQg/764Dnx5Awp6P0slrsFePbpIxBe/NVKLc0QQw==, tarball: file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-alpha.2.tgz}
-    version: 0.1.2-alpha.2
+  '@deepseek-ai/dsh-util-values@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-rc.1.tgz':
+    resolution: {integrity: sha512-NJTrgljLXr44tYDZ9B600Hl4NNGgh+cyVYAa+tJ/M3eb4jBQg/764Dnx5Awp6P0slrsFePbpIxBe/NVKLc0QQw==, tarball: file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-rc.1.tgz}
+    version: 0.1.2-rc.1
     peerDependencies:
       '@deepseek-ai/cordis': ^4.0.2
-      '@deepseek-ai/dsh-invariants': ^0.1.2-alpha.2
+      '@deepseek-ai/dsh-invariants': ^0.1.2-rc.1
 
   '@deepseek-ai/schemastery@3.18.2':
     resolution: {integrity: sha512-njDtZsznjYxok7KLLlHOPyuv2efdWVbSflAHgztSfbMsg+CVraEoRe2DjOCgClYv3ZCSm7WXoaUkbB/+RY7tWQ==}
@@ -1046,54 +1046,54 @@ snapshots:
       '@babel/helper-string-parser': 8.0.0
       '@babel/helper-validator-identifier': 8.0.4
 
-  '@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz':
+  '@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz':
     dependencies:
       '@deepseek-ai/cosmokit': 1.8.3
       '@standard-schema/spec': 1.1.0
 
   '@deepseek-ai/cosmokit@1.8.3': {}
 
-  '@deepseek-ai/dsh-api-remotes@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))':
+  '@deepseek-ai/dsh-api-remotes@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-deque': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-scope': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-session': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
-      '@deepseek-ai/dsh-util-values': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-deque': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-scope': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-session': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
+      '@deepseek-ai/dsh-util-values': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
     transitivePeerDependencies:
       - '@deepseek-ai/dsh-invariants'
 
-  '@deepseek-ai/dsh-brand@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-brand@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-client-connection@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-client-connection@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-credentials': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-credentials': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
       '@deepseek-ai/schemastery': 3.18.2
       zod: 4.4.3
     transitivePeerDependencies:
       - '@deepseek-ai/dsh-invariants'
 
-  '@deepseek-ai/dsh-client-locale@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
+  '@deepseek-ai/dsh-client-locale@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
       '@deepseek-ai/schemastery': 3.18.2
 
-  '@deepseek-ai/dsh-client-store@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@types/react@18.3.31)(react@18.3.1)':
+  '@deepseek-ai/dsh-client-store@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@types/react@18.3.31)(react@18.3.1)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
       immer: 10.2.0
       zustand: 4.4.7(@types/react@18.3.31)(immer@10.2.0)(react@18.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - react
 
-  '@deepseek-ai/dsh-client-ui-primitives@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
+  '@deepseek-ai/dsh-client-ui-primitives@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
       '@shikijs/langs': 4.4.3
       '@types/mdast': 4.0.4
       anser: 2.3.5
@@ -1119,104 +1119,104 @@ snapshots:
 
   '@deepseek-ai/dsh-client-ui-settings-models@file:../models-settings-plugin(f2f2ef04539adb0e2f939ba626fca95a)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-api-remotes': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
-      '@deepseek-ai/dsh-client-connection': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-client-locale': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
-      '@deepseek-ai/dsh-client-store': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@types/react@18.3.31)(react@18.3.1)
-      '@deepseek-ai/dsh-client-ui-primitives': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
-      '@deepseek-ai/dsh-client-ui-settings': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
-      '@deepseek-ai/dsh-client-ui-slots': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
-      '@deepseek-ai/dsh-credentials': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
-      '@deepseek-ai/dsh-typert-protocol': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-api-remotes': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
+      '@deepseek-ai/dsh-client-connection': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-client-locale': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-locale-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/dsh-client-store': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@types/react@18.3.31)(react@18.3.1)
+      '@deepseek-ai/dsh-client-ui-primitives': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/dsh-client-ui-settings': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/dsh-client-ui-slots': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/dsh-credentials': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/dsh-typert-protocol': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
       react: 18.3.1
 
-  '@deepseek-ai/dsh-client-ui-settings@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
+  '@deepseek-ai/dsh-client-ui-settings@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
 
-  '@deepseek-ai/dsh-client-ui-slots@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
+  '@deepseek-ai/dsh-client-ui-slots@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-ui-slots-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
 
-  '@deepseek-ai/dsh-credentials@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-credentials@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-brand': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-brand': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-deque@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-deque@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
+  '@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
       '@deepseek-ai/schemastery': 3.18.2
 
-  '@deepseek-ai/dsh-llm@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-llm@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-brand': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-timeout': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-typert-protocol': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-util-crypto': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-util-values': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-brand': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-timeout': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-typert-protocol': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-util-crypto': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-util-values': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
       '@deepseek-ai/schemastery': 3.18.2
       zod: 4.4.3
     transitivePeerDependencies:
       - '@deepseek-ai/dsh-invariants'
 
-  '@deepseek-ai/dsh-scope@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-scope@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-session@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))':
+  '@deepseek-ai/dsh-session@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-brand': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-llm': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-scope': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-util-values': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-brand': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-llm': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-scope': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-util-values': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
     transitivePeerDependencies:
       - '@deepseek-ai/dsh-invariants'
 
-  '@deepseek-ai/dsh-settings@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-alpha.2.tgz(ec128378c294e5e9fbce3cf0843e1919)':
+  '@deepseek-ai/dsh-settings@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-settings-0.1.2-rc.1.tgz(ec128378c294e5e9fbce3cf0843e1919)':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-brand': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
-      '@deepseek-ai/dsh-session': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
-      '@deepseek-ai/dsh-util-values': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-brand': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/dsh-session': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))(@deepseek-ai/dsh-scope@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)))
+      '@deepseek-ai/dsh-util-values': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))
       '@deepseek-ai/schemastery': 3.18.2
 
-  '@deepseek-ai/dsh-timeout@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-timeout@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-typert-protocol@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-typert-protocol@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-util-crypto@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-util-crypto@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-util-values@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-util-values@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
-  '@deepseek-ai/dsh-util-values@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-alpha.2.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
+  '@deepseek-ai/dsh-util-values@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-util-values-0.1.2-rc.1.tgz(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)(@deepseek-ai/dsh-invariants@0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz))':
     dependencies:
-      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
-      '@deepseek-ai/dsh-invariants': 0.1.2-alpha.2(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-alpha.2/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
+      '@deepseek-ai/cordis': file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz
+      '@deepseek-ai/dsh-invariants': 0.1.2-rc.1(@deepseek-ai/cordis@file:../../upstream/dsh-v0.1.2-rc.1/tarballs/vendor/deepseek-ai-cordis-4.0.2.tgz)
 
   '@deepseek-ai/schemastery@3.18.2':
     dependencies:

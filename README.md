@@ -2,7 +2,14 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
 
-> 当前版本：`v0.1.2-rc.4`（开发者预览）
+> 当前版本：`v0.1.2-rc.7`（开发者预览）
+
+## `v0.1.2-rc.7` 更新说明
+
+- 新增统一子智能体网关：连续子 Agent 的启动、续接消息、打断、退休和冷恢复都经过同一条 durable Session 身份边界。
+- 续接句柄必须解析到当前真实在线 Agent；同 ID 的旧句柄、伪句柄和退休竞态会在调用前 fail-closed，并由每个子 Agent 的锁保证发送、退休和 drain 串行化。
+- RC.1 的 `agent/created` 生命周期下，角色级 Provider、模型和 reasoning effort 在首次请求、后续请求、并发启动和冷恢复时保持有效，不会被通用 Host 监听器覆盖。
+- AgentTeams fork 更新到 `0.1.15-desktop.7`，并把删除、重分配、停止及异常清理纳入同一子 Agent 锁，保留 Alpha.2/RC.1、严格 V2、质量门禁、Revision/CAS、自动委派和既有兼容回归。
 
 ## `v0.1.2-rc.4` 更新说明
 
@@ -25,13 +32,13 @@
 
 ## `v0.1.2-rc.1` 更新说明
 
-- 主运行时迁移到官方 `dsh-v0.1.2-alpha.2` 固定提交 `0a53fb55bea101816fa226bb964ae2bed71c343b`。官方源码以 Node 26 / pnpm 11.7.0 完成 `build:official`，分别打包 9 个 vendor 与 245 个 dsh 包，并在脱离源码目录的临时环境通过 packed-install；Windows Wrapper 只引用这 254 个已记录 SHA-256 的固定本地 tarball，不混用 rc.2 运行时。
+- 主运行时迁移到官方 `dsh-v0.1.2-rc.1` 固定提交 `a66e4702047846cdaa10c66c9d3df3951f5ea70d`。官方源码以 Node 26 / pnpm 11.7.0 完成构建，分别打包 9 个 vendor 与 242 个 dsh 包，并通过 packed-install；Windows Wrapper 只引用这 251 个已记录 SHA-256 的固定本地 tarball，不混用旧版运行时。
 - 保留并适配模型统一兼容层：每模型 `自动 / 文本和图像 / 仅文本`、显式协议、容量、reasoning 档位与兼容字段仍由同一原生 Models 编辑器管理；能力探测继续按当前 Provider/地址/协议串行运行，认证、超时、限流、5xx 和网络失败不会被误判为“不支持”。
 - AgentTeams 适配 Alpha.2 的 Remote/Slot 与会话接口，并迁入已验证的 wait、身份作用域、Revision/CAS 和事件恢复结构；角色级 Provider/模型/思考策略、严格 V2、质量门禁、紧凑只读状态、Team/Native 路由和桌面 Profile 编辑仍由本地 fork 独立维护。
 - Windows 兼容重写迁移到 Alpha.2 实际模块边界，保留通用 `grep` 参数归一化、OpenCode/Kimi Schema/流恢复/会话头、隐藏控制台、启动 healing 和 Session Markdown。AUTO 继续完全移除，也不增加旧 Team/旧对话迁移层。
 - Windows 启动器会保留 Alpha.2 就绪地址中的一次性认证 token，再由 Electron 完成 cookie 交换和干净根页面跳转，避免无认证 loopback 地址造成黑屏提示。
 - “插件 → 插件配置”隐藏了与独立“子智能体”设置页重复的原生 Subagent 卡；官方 Subagent 服务、已有设置和 AgentTeams 成员运行链保持不变。
-- 新增源码与安装包依赖闭包门禁：从 `src/dsh-service.js` 使用 Node `createRequire` 遍历实际生产依赖，并在打包后复核 `dsh-app-boot`、Cordis loader/include、`js-yaml`、`argparse` 及 Alpha.2 运行时闭包。完整来源见 [Alpha.2 来源清单](docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md)。
+- 新增源码与安装包依赖闭包门禁：从 `src/dsh-service.js` 使用 Node `createRequire` 遍历实际生产依赖，并在打包后复核 `dsh-app-boot`、Cordis loader/include、`js-yaml`、`argparse` 及 RC.1 运行时闭包。完整来源见 [RC.1 来源清单](docs/UPSTREAM_RC1_SOURCE_MANIFEST.md)。
 
 ## `v0.1.1-rc.32` 更新说明
 
@@ -270,7 +277,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.15`（固定提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6`），本地版本为 `0.1.15-desktop.4`。本次保留严格 V2 与本地角色模型策略，并补上编号角色模型继承、最终成员失败安全结算、自动委派指导、Web Revision/CAS 和 Alpha.2 路由认证。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.15`（固定提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6`），本地版本为 `0.1.15-desktop.7`。本次保留严格 V2 与本地角色模型策略，并补上统一子智能体网关、RC.1 `agent/created` 续接路由、编号角色模型继承、最终成员失败安全结算、删除/重分配/停止/异常清理的锁化退休、自动委派指导、Web Revision/CAS 和 Alpha.2 路由认证。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

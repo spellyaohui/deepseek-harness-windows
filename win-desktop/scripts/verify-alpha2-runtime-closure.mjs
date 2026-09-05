@@ -172,7 +172,7 @@ export function verifyRuntimeClosure({
     if (descriptor === undefined) throw new Error(`release-critical runtime dependency is missing: ${name}`)
     return descriptor
   })
-  const alpha2Packages = packages.filter(entry => entry.version === '0.1.2-alpha.2')
+  const rc1Packages = packages.filter(entry => entry.version === '0.1.2-rc.1')
 
   return {
     appRoot: absoluteAppRoot,
@@ -180,7 +180,7 @@ export function verifyRuntimeClosure({
     packagePath,
     packages,
     required,
-    alpha2Packages,
+    rc1Packages,
     omittedOptional,
   }
 }
@@ -195,7 +195,7 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(scriptPath)) {
   const target = resolveVerificationTarget(parseFromArgument(process.argv.slice(2)))
   const result = verifyRuntimeClosure({ appRoot: target.appRoot })
   console.log(`[runtime-closure] anchor ${result.anchorPath}`)
-  console.log(`[runtime-closure] resolved ${result.packages.length} production packages (${result.alpha2Packages.length} Alpha.2 packages)`)
+  console.log(`[runtime-closure] resolved ${result.packages.length} production packages (${result.rc1Packages.length} RC.1 packages)`)
   for (const entry of result.required) {
     console.log(`[runtime-closure] ${entry.name}@${entry.version} -> ${entry.manifestPath}`)
   }

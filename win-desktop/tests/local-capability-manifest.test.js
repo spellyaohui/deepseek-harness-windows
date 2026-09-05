@@ -24,13 +24,13 @@ const localDependencies = {
 }
 
 const localVersions = {
-  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.2-alpha.2-desktop.1',
+  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.2-rc.1-desktop.1',
   '@deepseek-ai/dsh-cpa-provider': '0.1.7',
   '@deepseek-ai/dsh-desktop-settings': '0.1.2',
   '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
   '@deepseek-ai/dsh-session-markdown-export': '0.1.1',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.15-desktop.4',
+  '@nanmicoder/dsh-agent-teams': '0.1.15-desktop.7',
 }
 
 const sourcePluginDirectories = [
@@ -53,18 +53,18 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.2-rc.4')
-  assert.equal(packageLock.version, '0.1.2-rc.4')
-  assert.equal(packageLock.packages[''].version, '0.1.2-rc.4')
-  assert.equal(modelsPackage.version, '0.1.2-alpha.2-desktop.1')
+  assert.equal(packageJson.version, '0.1.2-rc.7')
+  assert.equal(packageLock.version, '0.1.2-rc.7')
+  assert.equal(packageLock.packages[''].version, '0.1.2-rc.7')
+  assert.equal(modelsPackage.version, '0.1.2-rc.1-desktop.1')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.1.2-alpha.2-desktop.1',
+    '0.1.2-rc.1-desktop.1',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.15-desktop.4')
+  assert.equal(agentTeamsPackage.version, '0.1.15-desktop.7')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.15-desktop.4',
+    '0.1.15-desktop.7',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -113,8 +113,10 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     '../AGENTS.md',
     '../docs/UPSTREAM_MAINTENANCE.md',
     '../docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md',
-    'release-notes/v0.1.2-rc.4.md',
+    '../docs/UPSTREAM_RC1_SOURCE_MANIFEST.md',
+    'release-notes/v0.1.2-rc.7.md',
     'scripts/verify-alpha2-source.mjs',
+    'scripts/verify-rc1-source.mjs',
     'scripts/verify-alpha2-runtime-closure.mjs',
     'scripts/verify-alpha2-zip-closure.mjs',
     'tests/alpha2-source-manifest.test.js',
@@ -135,7 +137,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'cpa-provider-plugin/tests/profile.test.js',
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
-    'agent-teams-plugin/release-notes/v0.1.15-desktop.4.md',
+    'agent-teams-plugin/release-notes/v0.1.15-desktop.7.md',
     'agent-teams-plugin/src/status-render.ts',
     'agent-teams-plugin/scripts/clean-build.mjs',
     'agent-teams-plugin/scripts/fallback-tdd.mjs',
@@ -179,7 +181,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
 })
 
 test('critical integration markers retain local capability ownership', () => {
-  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.15-desktop\.4` interaction invariants/)
+  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.15-desktop\.7` interaction invariants/)
   assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.6` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)

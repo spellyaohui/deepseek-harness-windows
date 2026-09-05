@@ -141,7 +141,7 @@ evidence that the local capability is preserved.
   documentation. Do not restore it during conflict resolution. Do not migrate
   old AUTO sessions or delete stale user Profile caches.
 
-## AgentTeams `v0.1.15-desktop.4` interaction invariants
+## AgentTeams `v0.1.15-desktop.7` interaction invariants
 
 - Global AgentTeams settings own only Team/Native delegation. Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
@@ -242,6 +242,11 @@ evidence that the local capability is preserved.
   request fields win over inheritance, unmatched custom names keep captain
   routing, and ambiguous role-description fallback must fail closed. Keep the
   focused selection and lifecycle regressions through every upstream refresh.
+- Every continuable child operation (start, send, interrupt, retirement and
+  drain) must enter the single durable-session subagent gateway. The gateway
+  resolves the exact live Agent, rejects stale or same-ID pseudo-handles, and
+  serializes each child operation; no direct `ctx.subagents.*` call may bypass
+  this admission boundary.
 
 ## Models settings fork `v0.1.1-rc.2-desktop.6` interaction invariants
 

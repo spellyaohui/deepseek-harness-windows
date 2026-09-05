@@ -50,6 +50,7 @@ import {
   type DelegationPolicyRuntime,
 } from './routing-policy.ts'
 import { authenticatedWebRoutes, type BrowserRequestGate, type WebRouteHost } from './web-routes.ts'
+import { durableSessionId } from './agent-identity.ts'
 
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'] as const
@@ -353,7 +354,7 @@ export function apply(ctx: Context, config: Config): void {
         }
         const workspace = captain.session.header.cwd ?? process.cwd()
         const stateRoot = join(workspace, resolved.stateDir)
-        const team = await findTeamByCaptain(stateRoot, captain.id)
+        const team = await findTeamByCaptain(stateRoot, durableSessionId(captain))
         if (team === undefined || team.id !== teamId) {
           res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
           res.end(JSON.stringify({ error: 'team not found for this captain' }))
@@ -426,7 +427,7 @@ export function apply(ctx: Context, config: Config): void {
         }
         const workspace = captain.session.header.cwd ?? process.cwd()
         const stateRoot = join(workspace, resolved.stateDir)
-        const team = await findTeamByCaptain(stateRoot, captain.id)
+        const team = await findTeamByCaptain(stateRoot, durableSessionId(captain))
         if (team === undefined || team.id !== teamId) {
           res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
           res.end(JSON.stringify({ error: 'team not found for this captain' }))

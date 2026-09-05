@@ -4,7 +4,7 @@
  *
  * Members are durable continuable subagents of the captain, so a member keeps
  * its conversation across turns and across harness restarts: the captain
- * wakes it with {@link ctx.subagents.followup}, it works through its turn
+ * wakes it with {@link ctx.subagents.sendMessage}, it works through its turn
  * (updating team state through the `agent_teams_*` tools), and becomes idle
  * again. Its final assistant message is not readable programmatically, so the
  * member persists its report into the captain's mailbox and the task records,
@@ -12,7 +12,7 @@
  * @module dsh-agent-teams/members
  */
 import type { Context } from '@deepseek-ai/cordis';
-import { type Agent } from '@deepseek-ai/dsh-agent';
+import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { Session } from '@deepseek-ai/dsh-session';
 import { type TeamMember, type TeamState, type TeamTask } from './types.ts';
 import { type RoleReasoningMode } from './selection-policy.ts';
@@ -168,7 +168,7 @@ export declare function spawnMember(ctx: Context, config: MemberRuntimeConfig, s
  * @param signal - caller cancellation, forwarded to the delivery.
  * @returns whether the member inbox accepted the message.
  */
-export declare function deliverToMember(ctx: Context, captain: Agent, childId: string, text: string, signal: AbortSignal): Promise<boolean>;
+export declare function deliverToMember(ctx: Context, captain: Agent, childId: string, text: string, stateDir: string, signal: AbortSignal): Promise<boolean>;
 /**
  * Request cancellation of one live member's current turn. Best effort, fire
  * and return; the target may keep running until it observes the signal.
@@ -182,7 +182,7 @@ export declare function interruptMember(ctx: Context, captain: Agent, childId: s
  *
  * Upstream `interrupt()` deliberately preserves continuable sessions and the
  * upstream seam exposes no targeted forget/retire method. The durable
- * AgentTeams index therefore rejects `followup()` before it can cold-resume a
+ * AgentTeams delivery boundary therefore rejects `sendMessage()` before it can cold-resume a
  * retired member. Catalog rows deliberately remain discoverable: Harness rc.8
  * uses the direct-child catalog to authorize historical transcript reads and
  * `openSubagent()`, so filtering those rows would make an archived member's

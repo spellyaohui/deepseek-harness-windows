@@ -14,6 +14,7 @@
 import { join } from 'node:path';
 import { deliverToMember } from "./members.js";
 import { acknowledgeMailbox, beginTaskAttempt, CAPTAIN_KEY, claimMailboxDelivery, findTeamByParticipant, invalidateTaskAttempt, readTeam, readUnreadMailbox, releaseMailboxDelivery, unsatisfiedDependencies, withTeamLock, writeTeam, } from "./state.js";
+import { durableSessionId } from "./agent-identity.js";
 /** Per-dependency output cap in the assignment prompt. */
 export const DEPENDENCY_OUTPUT_MAX_CHARS = 2_000;
 /** Combined dependency-output budget in the assignment prompt. */
@@ -95,7 +96,7 @@ function teamLockKey(stateRoot, teamId) {
     return `team:${stateRoot}:${teamId}`;
 }
 function liveCaptain(ctx, captainSessionId, supplied) {
-    if (supplied !== undefined && supplied.id === captainSessionId)
+    if (supplied !== undefined && durableSessionId(supplied) === captainSessionId)
         return supplied;
     return ctx.agents.get(captainSessionId);
 }
@@ -234,7 +235,7 @@ export function installTeamScheduler(ctx, config) {
                 const unread = await readUnreadMailbox(stateRoot, team.id, member.name);
                 if (unread.length > 0) {
                     await withTeamLock(teamLockKey(stateRoot, team.id), () => (claimMailboxDelivery(stateRoot, team.id, member.name, unread.map(message => message.id))));
-                    const accepted = await deliverToMember(ctx, captain, member.id, fallbackMailboxPrompt(unread), new AbortController().signal);
+                    const accepted = await deliverToMember(ctx, captain, member.id, fallbackMailboxPrompt(unread), config.stateDir, new AbortController().signal);
                     if (accepted) {
                         await withTeamLock(teamLockKey(stateRoot, team.id), () => (acknowledgeMailbox(stateRoot, team.id, member.name, unread.map(message => message.id))));
                     }
@@ -305,7 +306,7 @@ export function installTeamScheduler(ctx, config) {
                 });
                 if (ticket === undefined)
                     return;
-                const accepted = await deliverToMember(ctx, captain, ticket.memberId, assignmentPrompt(ticket, config.stateDir, team.id), new AbortController().signal);
+                const accepted = await deliverToMember(ctx, captain, ticket.memberId, assignmentPrompt(ticket, config.stateDir, team.id), config.stateDir, new AbortController().signal);
                 if (accepted)
                     return;
                 // Roll back only our exact failed dispatch. A concurrent captain
@@ -334,12 +335,13 @@ export function installTeamScheduler(ctx, config) {
     const syncMemberStatus = async (agent, status) => {
         const workspace = agent.session.header.cwd ?? process.cwd();
         const stateRoot = stateRootOf(workspace, config);
-        const located = await findTeamByParticipant(stateRoot, agent.id);
+        const agentSessionId = durableSessionId(agent);
+        const located = await findTeamByParticipant(stateRoot, agentSessionId);
         if (located === undefined) {
-            parkedAttempts.delete(agent.id);
+            parkedAttempts.delete(agentSessionId);
             return;
         }
-        if (located.captainSessionId === agent.id) {
+        if (located.captainSessionId === agentSessionId) {
             // Captain takeover is scoped to the captain's current turn. Unlike a
             // durable member, the captain has no scheduler lane that can resume an
             // abandoned attempt later. Returning unfinished captain-owned work to
@@ -351,7 +353,7 @@ export function installTeamScheduler(ctx, config) {
             let requeued = false;
             await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
                 const fresh = await readTeam(stateRoot, located.id);
-                if (fresh === undefined || fresh.captainSessionId !== agent.id)
+                if (fresh === undefined || fresh.captainSessionId !== agentSessionId)
                     return;
                 for (const task of fresh.tasks) {
                     if (task.assignee !== CAPTAIN_KEY
@@ -370,26 +372,26 @@ export function installTeamScheduler(ctx, config) {
                 await runtime.kickTeam(workspace, located.id, agent);
             return;
         }
-        const member = located.members.find(candidate => candidate.id === agent.id && candidate.status !== 'removed');
+        const member = located.members.find(candidate => candidate.id === agentSessionId && candidate.status !== 'removed');
         if (member === undefined) {
-            parkedAttempts.delete(agent.id);
+            parkedAttempts.delete(agentSessionId);
             return;
         }
         await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
             const fresh = await readTeam(stateRoot, located.id);
-            const current = fresh?.members.find(candidate => candidate.id === agent.id && candidate.status !== 'removed');
+            const current = fresh?.members.find(candidate => candidate.id === agentSessionId && candidate.status !== 'removed');
             if (fresh === undefined || current === undefined)
                 return;
             const next = status === 'running' ? 'working' : 'idle';
             if (next === 'idle') {
                 const owned = ownedOpenTask(fresh.tasks, current.name);
                 if (owned?.attemptId === undefined)
-                    parkedAttempts.delete(agent.id);
+                    parkedAttempts.delete(agentSessionId);
                 else
-                    parkedAttempts.set(agent.id, owned.attemptId);
+                    parkedAttempts.set(agentSessionId, owned.attemptId);
             }
             else {
-                parkedAttempts.delete(agent.id);
+                parkedAttempts.delete(agentSessionId);
             }
             if (current.status === next)
                 return;
@@ -401,7 +403,7 @@ export function installTeamScheduler(ctx, config) {
     };
     ctx.on('agent/status', ({ agent, status }) => {
         void syncMemberStatus(agent, status).catch((error) => {
-            ctx.logger.warn(`agent-teams: member status scheduling failed for ${agent.id}: ${String(error)}`);
+            ctx.logger.warn(`agent-teams: member status scheduling failed for ${durableSessionId(agent)}: ${String(error)}`);
         });
     });
     return runtime;

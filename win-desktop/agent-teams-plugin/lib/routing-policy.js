@@ -39,15 +39,20 @@ export function resolveDelegationPolicy(input) {
         ?? (input.defaultMode === 'teams' ? 'teams-v1' : 'native-v1');
 }
 const installedPolicies = new WeakMap();
+function sessionEvents(agent) {
+    const session = agent.session;
+    return typeof session.snapshotEvents === 'function' ? session.snapshotEvents() : session.events ?? [];
+}
 /** Return the in-scope policy already installed before an Agent's first request. */
 export function installedDelegationPolicy(agent) {
     return installedPolicies.get(agent);
 }
 /** Resolve a live Agent's durable policy, including its unpublished installation. */
 export function liveDelegationPolicy(agent, defaultMode) {
-    return persistedPolicy(agent.session.events)
+    const events = sessionEvents(agent);
+    return persistedPolicy(events)
         ?? installedDelegationPolicy(agent)
-        ?? resolveDelegationPolicy({ events: agent.session.events, defaultMode });
+        ?? resolveDelegationPolicy({ events, defaultMode });
 }
 /** Install one policy prompt and its model-visible tool restriction in an Agent scope. */
 export function installDelegationPolicy(input) {
@@ -90,8 +95,9 @@ export function installDelegationPolicy(input) {
 /** Resolve and install one Agent policy before any request assembly. */
 export function resolveAndInstallDelegationPolicy(agent, parent, runtime) {
     const defaultMode = runtime.defaultMode();
+    const events = sessionEvents(agent);
     const policy = resolveDelegationPolicy({
-        events: agent.session.events,
+        events,
         defaultMode,
         ...(parent === undefined ? {} : { parentPolicy: liveDelegationPolicy(parent, defaultMode) }),
     });

@@ -142,7 +142,7 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(scriptPath)) {
     againstRoot: argumentValue(argv, '--against', 'dist/win-unpacked'),
   })
   console.log(`[zip-closure] ${result.entryCount} archive entries`)
-  console.log(`[zip-closure] resolved ${result.runtime.packages.length} production packages (${result.runtime.alpha2Packages.length} Alpha.2 packages)`)
+  console.log(`[zip-closure] resolved ${result.runtime.packages.length} production packages (${result.runtime.rc1Packages.length} RC.1 packages)`)
   for (const entry of result.runtime.required) {
     console.log(`[zip-closure] ${entry.name}@${entry.version} -> ${entry.manifestPath}`)
   }

@@ -26,6 +26,22 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.15-desktop.7
+
+- Keeps interrupt and drain inside one per-child durable-session lock, so a new delivery cannot slip between a stop request and quiescence.
+- Adds a concurrent stop/drain regression while preserving exact-live-Agent admission and the RC.1 role-level Provider/model/reasoning route.
+
+### v0.1.15-desktop.6
+
+- Routes Team deletion, task reassignment, approval-failure cleanup, and startup cleanup through the same per-child durable-session gateway lock.
+- Adds a real interleaving regression proving an in-flight child delivery settles before Team archival and later cold resume remains denied.
+
+### v0.1.15-desktop.5
+
+- Routes every continuable child start, follow-up, interrupt, retirement, and drain through one durable-session gateway.
+- Rejects stale/same-ID pseudo-handles and retired children before dispatch, while per-child locks serialize delivery and cleanup.
+- Keeps role-level Provider, model, and reasoning policy authoritative under RC.1 `agent/created` for first, concurrent, and cold-resumed requests.
+
 ### v0.1.15-desktop.4
 
 - Numbered members inherit the frozen unnumbered role template from the current Team, so any configured role can keep its Provider, model, and reasoning policy as the numeric suffix grows.
