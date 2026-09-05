@@ -129,6 +129,8 @@ const TOOL_CALL_END_BLOCK_ALPHA2_NEEDLE = `\t\tcase "toolcall_end":
 \t\t\t\t}
 \t\t\t};
 \t\t\tbreak;`
+const DSH_LLM_QUOTA_FUNCTION_NEEDLE = `function isQuotaExceededError(detail) {
+\treturn `
 
 export { HIDDEN_CONSOLE_STARTF }
 
@@ -163,6 +165,44 @@ export function normalizeKnownToolArgumentAliases(toolName, args) {
   const normalized = { ...args, pattern: match[1] }
   delete normalized.description
   return normalized
+}
+
+/**
+ * Recognize provider messages that name a bounded-period usage limit as
+ * exhausted. The official RC.1 classifier handles `usage limit reached`, but
+ * not the common `weekly usage limit` form returned by the provider. Keep the
+ * matcher narrow so a transient `rate limit` remains retryable and a standalone
+ * reset notice does not become terminal quota.
+ */
+function isExplicitPeriodUsageLimitExceeded(detail) {
+  // The provider's terminal wording is commonly "weekly usage limit".
+  const periodUsageLimit = '(?:hourly|daily|weekly|monthly|quarterly|annual|yearly)[\\s_-]+usage[\\s_-]+limit'
+  const exhausted = '(?:reached|exceeded|exhausted|depleted|hit)'
+  const sameSentence = '[^\\r\\n.!?]{0,80}'
+  return new RegExp(`\\b${exhausted}\\b${sameSentence}\\b(?:your[\\s_-]+)?${periodUsageLimit}\\b`, 'i').test(detail)
+    || new RegExp(`\\b${periodUsageLimit}\\b${sameSentence}\\b${exhausted}\\b`, 'i').test(detail)
+}
+
+/**
+ * Extend only the official dsh-llm quota classifier at the loader boundary.
+ * Missing or ambiguous anchors fail closed, and the rewrite is idempotent.
+ */
+export function rewriteQuotaErrorClassification(source) {
+  const helperMarker = 'function isExplicitPeriodUsageLimitExceeded(detail)'
+  if (source.includes(helperMarker)) return source
+
+  const first = source.indexOf(DSH_LLM_QUOTA_FUNCTION_NEEDLE)
+  const unique = first !== -1
+    && source.indexOf(DSH_LLM_QUOTA_FUNCTION_NEEDLE, first + DSH_LLM_QUOTA_FUNCTION_NEEDLE.length) === -1
+  if (!unique) return source
+
+  const patched = source.replace(
+    DSH_LLM_QUOTA_FUNCTION_NEEDLE,
+    `${DSH_LLM_QUOTA_FUNCTION_NEEDLE}isExplicitPeriodUsageLimitExceeded(detail) || `,
+  )
+  const functionEnd = patched.indexOf('\n}', first)
+  if (functionEnd === -1) return source
+  return `${patched.slice(0, functionEnd + 2)}\n${isExplicitPeriodUsageLimitExceeded.toString()}${patched.slice(functionEnd + 2)}`
 }
 
 function rewriteShellEscalationSource(source, validator) {
@@ -296,6 +336,10 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
 
   if (url.includes('@deepseek-ai/dsh-tool-fs')) {
     next = rewriteFsEscalationSource(next)
+  }
+
+  if (normalizedUrl.includes('@deepseek-ai/dsh-llm/lib/index.js')) {
+    next = rewriteQuotaErrorClassification(next)
   }
 
   if (url.includes('@deepseek-ai/dsh-llm-pi-ai')) {

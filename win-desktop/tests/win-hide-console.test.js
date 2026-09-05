@@ -10,6 +10,7 @@ import {
   injectWindowsHideArgs,
   normalizeRedundantEscalationArgs,
   rewriteDesktopConsoleSource,
+  rewriteQuotaErrorClassification,
   patchNodeChildProcess,
 } from '../src/win-hide-console-rewrite.js'
 import { buildDshArgs, resolveAgentTeamsPatch, resolveWinHideConsoleImport } from '../src/dsh-service.js'
@@ -33,6 +34,8 @@ const fsToolSourcePath = require.resolve('@deepseek-ai/dsh-tool-fs')
 const pwshSource = readFileSync(pwshSourcePath, 'utf8')
 const bashSource = readFileSync(bashSourcePath, 'utf8')
 const fsToolSource = readFileSync(fsToolSourcePath, 'utf8')
+const llmSourcePath = require.resolve('@deepseek-ai/dsh-llm')
+const llmSource = readFileSync(llmSourcePath, 'utf8')
 
 test('normalizes only redundant shell escalation requests', () => {
   assert.deepEqual(normalizeRedundantEscalationArgs({
@@ -164,6 +167,27 @@ test('rewrite normalizes real filesystem mutation escalation before validation',
   assert.ok(!rewritten.includes(oldResolveBlock))
   assert.ok(rewritten.includes(expectedPatch))
   assert.equal(rewriteDesktopConsoleSource(rewritten, pathToFileURL(fsToolSourcePath).href), rewritten)
+})
+
+test('loader classifies explicit weekly usage exhaustion as terminal quota', () => {
+  const rewritten = rewriteQuotaErrorClassification(llmSource)
+  assert.notEqual(rewritten, llmSource)
+  assert.match(rewritten, /weekly usage limit/)
+  assert.equal(rewriteQuotaErrorClassification(rewritten), rewritten)
+
+  const hook = new URL('../src/win-hide-console.mjs', import.meta.url).href
+  const fixture = fileURLToPath(new URL('./fixtures/check-quota-classification-under-guard.mjs', import.meta.url))
+  const result = spawnSync(process.execPath, ['--import', hook, fixture], {
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  assert.equal(result.status, 0, result.stderr)
+  assert.deepEqual(JSON.parse(result.stdout), {
+    weeklyUsageLimit: true,
+    transientRateLimit: false,
+    resetNoticeAlone: false,
+  })
 })
 
 test('rewritten write and edit paths preserve validation and approval boundaries', () => {

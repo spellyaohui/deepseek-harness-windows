@@ -260,6 +260,8 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /normalizeOpenCodeKimiToolSchema/)
   assertContains('src/win-hide-console-rewrite.js', /normalizeKnownToolArgumentAliases/)
   assertContains('src/win-hide-console-rewrite.js', /rewriteKnownToolArgumentAliases/)
+  assertContains('src/win-hide-console-rewrite.js', /rewriteQuotaErrorClassification/)
+  assertContains('src/win-hide-console-rewrite.js', /isExplicitPeriodUsageLimitExceeded/)
   assertContains('src/win-hide-console-rewrite.js', /rewriteDesktopClientBundle/)
   assertContains('src/win-hide-console-rewrite.js', /__windows_hidden_subagent/)
   assertContains('src/win-hide-console-rewrite.js', /x-opencode-session/)
