@@ -56,6 +56,8 @@ test('desktop composition retains every independently owned local plugin', () =>
   assert.equal(packageJson.version, '0.1.2-rc.8')
   assert.equal(packageLock.version, '0.1.2-rc.8')
   assert.equal(packageLock.packages[''].version, '0.1.2-rc.8')
+  assert.ok(packageJson.build.files.includes('src/**/*'))
+  assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
   assert.equal(modelsPackage.version, '0.1.2-rc.1-desktop.1')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
