@@ -81,7 +81,12 @@ export function capabilityPatchFromChecks(
   }
 
   const maxTokens = checks['maxTokens']
-  if (maxTokens?.status === 'supported' && typeof maxTokens.error === 'string') {
+  // pi-ai 设置 schema 只接受 Completions 字段名；Responses 探测得到的
+  // max_output_tokens 不得写入配置，否则保存/启动会被校验拒绝。
+  if (
+    maxTokens?.status === 'supported'
+    && (maxTokens.error === 'max_tokens' || maxTokens.error === 'max_completion_tokens')
+  ) {
     compat['maxTokensField'] = maxTokens.error
   }
   if (Object.keys(compat).length > 0) patch.compat = compat

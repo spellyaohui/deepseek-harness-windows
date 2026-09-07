@@ -23,7 +23,7 @@ const localDependencies = {
 }
 
 const localVersions = {
-  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.2-rc.1-desktop.1',
+  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.2-rc.1-desktop.2',
   '@deepseek-ai/dsh-cpa-provider': '0.1.7',
   '@deepseek-ai/dsh-desktop-settings': '0.1.2',
   '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
@@ -55,10 +55,10 @@ test('desktop composition retains every independently owned local plugin', () =>
   assert.equal(packageLock.packages[''].version, '0.1.2-rc.8')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
-  assert.equal(modelsPackage.version, '0.1.2-rc.1-desktop.1')
+  assert.equal(modelsPackage.version, '0.1.2-rc.1-desktop.2')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.1.2-rc.1-desktop.1',
+    '0.1.2-rc.1-desktop.2',
   )
   assert.equal(agentTeamsPackage.version, '0.1.16-rc.1')
   assert.equal(

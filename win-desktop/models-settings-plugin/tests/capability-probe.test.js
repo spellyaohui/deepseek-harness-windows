@@ -82,6 +82,8 @@ test('openai-responses probes all generic capability categories using the curren
   assert.equal(result.checks.store.status, 'supported')
   assert.equal(result.checks.streamingUsage.status, 'supported')
   assert.equal(result.checks.maxTokens.status, 'supported')
+  assert.equal(result.checks.maxTokens.error, 'max_output_tokens')
+  assert.equal(result.patch.compat?.maxTokensField, undefined)
   assert.ok(calls.length >= 10)
   assert.ok(calls.every(call => call.url === 'https://provider.example/v1/responses'))
   assert.ok(calls.every(call => call.init.headers.authorization.includes('secret-key-must-not-escape')))

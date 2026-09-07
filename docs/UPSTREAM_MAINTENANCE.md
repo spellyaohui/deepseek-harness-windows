@@ -14,7 +14,7 @@ prove it still exists.
 - AgentTeams fork: `0.1.16-rc.1`, based on upstream `v0.1.16-rc.1` at fixed commit
   `d659e5b`
 - CPA provider plugin: `0.1.7`
-- Models settings fork: `0.1.2-rc.1-desktop.1`
+- Models settings fork: `0.1.2-rc.1-desktop.2`
 - Desktop Settings plugin: `0.1.2`
 
 ## RC.1 refresh classification — 2026-09-04

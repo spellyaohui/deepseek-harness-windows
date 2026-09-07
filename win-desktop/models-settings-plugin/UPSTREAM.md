@@ -5,7 +5,7 @@
 - Commit: `0a53fb55bea101816fa226bb964ae2bed71c343b`
 - Source directory: `packages/client/ui-settings-models`
 - Imported: 2026-08-31
-- Local desktop fork: `0.1.2-rc.1-desktop.1`
+- Local desktop fork: `0.1.2-rc.1-desktop.2`
 
 ## Intentional desktop difference
 
@@ -28,7 +28,10 @@ or explicitly unsupported fields to the unsaved draft, preserves existing
 values unless overwrite is selected, and supports sequential cancellation.
 This is a shared seam for CPA, OpenCode, WOYAOPRO, CommandCode, and custom
 routes; provider/model-name heuristics and protocol fallback remain outside
-this package.
+this package. Persist `compat.maxTokensField` only when the probe uniquely
+accepts `max_tokens` or `max_completion_tokens`. The Responses wire field
+`max_output_tokens` is protocol-local and must not be written into pi-ai
+settings, because the schema rejects it on save and startup.
 
 The capability Remote is an optional, late-mounted enhancement at the client
 boundary. Its absence or delayed mount must never suppress the Models section,

@@ -133,6 +133,27 @@ test('explicit overwrite changes only probed capability fields and preserves unr
   assert.deepEqual(result.cost, original.cost)
 })
 
+test('only schema-legal Completions maxTokensField values are persisted', () => {
+  assert.deepEqual(
+    capabilityPatchFromChecks({
+      maxTokens: { status: 'supported', summary: 'accepted max_completion_tokens', error: 'max_completion_tokens' },
+    }),
+    { compat: { maxTokensField: 'max_completion_tokens' } },
+  )
+  assert.deepEqual(
+    capabilityPatchFromChecks({
+      maxTokens: { status: 'supported', summary: 'accepted max_tokens', error: 'max_tokens' },
+    }),
+    { compat: { maxTokensField: 'max_tokens' } },
+  )
+  assert.deepEqual(
+    capabilityPatchFromChecks({
+      maxTokens: { status: 'supported', summary: 'accepted max_output_tokens', error: 'max_output_tokens' },
+    }),
+    {},
+  )
+})
+
 test('inconclusive and not-applicable checks never produce a destructive patch', () => {
   assert.deepEqual(capabilityPatchFromChecks({
     image: { status: 'inconclusive', summary: '502' },
