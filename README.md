@@ -42,7 +42,7 @@
 - 主运行时迁移到官方 `dsh-v0.1.2-rc.1` 固定提交 `a66e4702047846cdaa10c66c9d3df3951f5ea70d`。官方源码以 Node 26 / pnpm 11.7.0 完成构建，分别打包 9 个 vendor 与 242 个 dsh 包，并通过 packed-install；Windows Wrapper 只引用这 251 个已记录 SHA-256 的固定本地 tarball，不混用旧版运行时。
 - 保留并适配模型统一兼容层：每模型 `自动 / 文本和图像 / 仅文本`、显式协议、容量、reasoning 档位与兼容字段仍由同一原生 Models 编辑器管理；能力探测继续按当前 Provider/地址/协议串行运行，认证、超时、限流、5xx 和网络失败不会被误判为“不支持”。
 - AgentTeams 适配 Alpha.2 的 Remote/Slot 与会话接口，并迁入已验证的 wait、身份作用域、Revision/CAS 和事件恢复结构；角色级 Provider/模型/思考策略、严格 V2、质量门禁、紧凑只读状态、Team/Native 路由和桌面 Profile 编辑仍由本地 fork 独立维护。
-- Windows 兼容重写迁移到 Alpha.2 实际模块边界，保留通用 `grep` 参数归一化、OpenCode/Kimi Schema/流恢复/会话头、隐藏控制台、启动 healing 和 Session Markdown。AUTO 继续完全移除，也不增加旧 Team/旧对话迁移层。
+- Windows 兼容重写迁移到 Alpha.2 实际模块边界，保留通用 `grep` 参数归一化、OpenCode/Kimi Schema/流恢复/会话头、隐藏控制台和启动 healing。AUTO 继续完全移除，也不增加旧 Team/旧对话迁移层。
 - Windows 启动器会保留 Alpha.2 就绪地址中的一次性认证 token，再由 Electron 完成 cookie 交换和干净根页面跳转，避免无认证 loopback 地址造成黑屏提示。
 - “插件 → 插件配置”隐藏了与独立“子智能体”设置页重复的原生 Subagent 卡；官方 Subagent 服务、已有设置和 AgentTeams 成员运行链保持不变。
 - 新增源码与安装包依赖闭包门禁：从 `src/dsh-service.js` 使用 Node `createRequire` 遍历实际生产依赖，并在打包后复核 `dsh-app-boot`、Cordis loader/include、`js-yaml`、`argparse` 及 RC.1 运行时闭包。完整来源见 [RC.1 来源清单](docs/UPSTREAM_RC1_SOURCE_MANIFEST.md)。
@@ -188,7 +188,7 @@
 ## `v0.1.1-rc.18` 更新说明
 
 - AgentTeams 本地 fork 刷新至上游 `v0.1.14`：接入执行前审查、可编辑 staged plan、原子审批、profile、可选质量门禁、fallback 和更安全的停止/恢复能力。
-- 为保持本项目既有行为，普通 AgentTeams 请求继续即时执行；显式 `approval=required` 和队长规划 profile 使用审查流程。`子智能体` 设置、角色级模型策略、CPA 共用模型目录、Team/Native 路由、成员认领兼容和 OpenCode/会话导出等本地功能继续保留。
+- 为保持本项目既有行为，普通 AgentTeams 请求继续即时执行；显式 `approval=required` 和队长规划 profile 使用审查流程。`子智能体` 设置、角色级模型策略、CPA 共用模型目录、Team/Native 路由、成员认领兼容和 OpenCode 等本地功能继续保留。
 - AgentTeams 的模型计划编辑器复用 Harness 原生模型目录，并与本地设置/连接注入共同挂载；未把 CPA 专属规则移入 AgentTeams 或 Models fork。
 
 ## `v0.1.1-rc.17` 更新说明
@@ -226,7 +226,7 @@
 ## `v0.1.1-rc.11` 更新说明
 
 - Electron 更新至 `43.4.1`，electron-builder 更新至 `26.15.7`；保留全部本地插件和上游回归门禁。
-- 继续包含 CPA 图片输入修复、AgentTeams 子智能体设置、续接 Markdown 和 Windows 兼容修复。
+- 继续包含 CPA 图片输入修复、AgentTeams 子智能体设置和 Windows 兼容修复。
 
 ## `v0.1.1-rc.10` 更新说明
 
@@ -239,7 +239,7 @@ Windows 安装包请从 [GitHub Releases](https://github.com/spellyaohui/deepsee
 - `CPA / CLIProxyAPI` 现在只保留一个原生提供方入口：在“设置 → 模型”中点击 CPA 行的“编辑”即可展开/收起配置，不再显示重复的 CPA 专用大卡片。
 - CPA 的 `/v1` 地址规范化、Token 凭据隔离、模型发现、文本/图片输入、GPT-5.6 R 档位、原始上下文/输出容量，以及主会话和 AgentTeams 共用模型目录均保留。
 - “桌面”设置取消“保存设置”按钮，关闭行为选择后立即保存；保存中控件暂时禁用，失败会恢复上次已提交的值并显示错误。
-- 既有 AgentTeams 路由继承/明确指定规则、会话续接 Markdown 导出、OpenCode 流恢复和 Windows 文件工具提权兼容修复继续受 `npm run verify:upstream` 回归门禁保护。
+- 既有 AgentTeams 路由继承/明确指定规则、OpenCode 流恢复和 Windows 文件工具提权兼容修复继续受 `npm run verify:upstream` 回归门禁保护。
 - 上游 Harness 或 AgentTeams 更新后，必须先按 [上游维护注册表](docs/UPSTREAM_MAINTENANCE.md) 分类本地能力，再跑完整回归，不能通过删除本地插件或测试来解决冲突。
 
 ## CPA / CLIProxyAPI

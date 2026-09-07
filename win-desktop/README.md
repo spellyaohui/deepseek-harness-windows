@@ -38,7 +38,7 @@
 ## `v0.1.2-rc.1` 更新说明
 
 - 固定官方 tag `dsh-v0.1.2-rc.1` / commit `a66e4702047846cdaa10c66c9d3df3951f5ea70d`，以 pnpm 11.7.0 构建并验证 9 个 vendor 与 242 个 dsh tarball；Wrapper 只使用这套已记录 SHA-256 的本地包，不保留旧版双运行时。
-- Models、CPA、OpenCode、Desktop Settings、Session Markdown 与 AgentTeams 均适配 Alpha.2 的 Remote、Slot、会话和启动边界；模型图片三态、协议、容量、reasoning 探测和角色级模型策略继续保留。
+- Models、CPA、OpenCode、Desktop Settings 与 AgentTeams 均适配 Alpha.2 的 Remote、Slot、会话和启动边界；模型图片三态、协议、容量、reasoning 探测和角色级模型策略继续保留。
 - AgentTeams 本地 fork 更新到 `0.1.15-desktop.1`：基于固定上游提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6`，保留 Alpha.2 client seams、wait、身份作用域、Revision/CAS、事件恢复和本地角色策略；新增最终成员失败安全结算与新工具输入边界归一化，不安装实验性 AgentTeams 包。
 - “插件 → 插件配置”隐藏了与独立“子智能体”设置页重复的原生 Subagent 卡；官方 Subagent 服务、已有设置和 AgentTeams 成员运行链保持不变。
 - Windows 兼容层继续负责通用 `grep`、OpenCode/Kimi、流恢复、会话头和隐藏控制台；AUTO 保持完全移除，旧 Team/会话不做迁移。
@@ -99,7 +99,7 @@
 
 - `设置 → 子智能体` 增加可编辑的 Profile 配置区，贴近上游 profile 字段，支持四角色内置 `software-delivery`、自定义/复制/重命名/删除、成员路由、fallback、captain/seed 任务依赖和 review policy。
 - Profile 写入本机 `desktop-settings.json`，主进程在启动前安全注入 AgentTeams；保存后需重启，内置 profile 可恢复。
-- 保留 AgentTeams v0.1.14 的 staged plan、质量门、fallback、生命周期与压力回归，以及本项目的 CPA 共用模型目录、Team/Native、OpenCode、Session Markdown 和 Windows 兼容能力。
+- 保留 AgentTeams v0.1.14 的 staged plan、质量门、fallback、生命周期与压力回归，以及本项目的 CPA 共用模型目录、Team/Native、OpenCode 和 Windows 兼容能力。
 
 ## `v0.1.1-rc.18` 更新说明
 
@@ -151,7 +151,7 @@
 
 - CPA 只保留原生 `CPA / CLIProxyAPI` 提供方行；点击“编辑”即可展开/收起，原生模型目录继续承载 API 地址、Token、模型发现、模型选择、文本/图片输入和容量设置。
 - 桌面关闭行为改为即时保存，不再提供单独的“保存设置”按钮；保存失败会恢复此前已提交的选择。
-- CPA 思考协议、AgentTeams 子智能体独立模型/思考设置、会话续接 Markdown、OpenCode 流恢复和文件工具提权兼容修复均纳入上游回归门禁。
+- CPA 思考协议、AgentTeams 子智能体独立模型/思考设置、OpenCode 流恢复和文件工具提权兼容修复均纳入上游回归门禁。
 
 ## 它做了什么
 
