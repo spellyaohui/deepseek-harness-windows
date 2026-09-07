@@ -17,6 +17,7 @@ import {
 } from '@deepseek-ai/dsh-subagent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { durableSessionId } from './agent-identity.ts'
+import { hasHostPromptQueue, queueMemberPrompt } from './harness-compat.ts'
 
 type SubagentRuntimeLike = {
   startContinuable(spec: ContinuableStartSpec): Promise<ContinuableStart>
@@ -148,11 +149,11 @@ export function createAgentTeamsSubagentGateway(ctx: Context): AgentTeamsSubagen
       return withChildLock(childId, async () => {
         const canonicalParent = resolveParent(ctx, parent)
         await admission?.(canonicalParent)
+        if (hasHostPromptQueue(ctx.subagents)) {
+          return queueMemberPrompt(ctx.subagents, canonicalParent, childId, content, options.signal)
+        }
         if (typeof runtime.sendMessage === 'function') {
           return runtime.sendMessage(canonicalParent, childId, content, options)
-        }
-        if (typeof runtime.followup === 'function') {
-          return runtime.followup(canonicalParent, childId, content as Array<{ type: 'text'; text: string }>, options)
         }
         throw new Error('subagent runtime does not expose message delivery')
       })

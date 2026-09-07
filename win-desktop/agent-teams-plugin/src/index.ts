@@ -49,7 +49,7 @@ import {
   type DelegationPolicyId,
   type DelegationPolicyRuntime,
 } from './routing-policy.ts'
-import { authenticatedWebRoutes, type BrowserRequestGate, type WebRouteHost } from './web-routes.ts'
+import { authenticatedWebRoutes, readJsonRequest, RequestBodyError, type BrowserRequestGate, type WebRouteHost } from './web-routes.ts'
 import { durableSessionId } from './agent-identity.ts'
 
 /** Web-server service key candidates, newest first. */
@@ -318,25 +318,15 @@ export function apply(ctx: Context, config: Config): void {
           res.end()
           return
         }
-        let raw = ''
+        let payload: Record<string, unknown>
         try {
-          raw = await new Promise<string>((resolve, reject) => {
-            const chunks: Buffer[] = []
-            req.on('data', (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)) })
-            req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-            req.on('error', reject)
+          payload = await readJsonRequest(req)
+        } catch (error: unknown) {
+          res.writeHead(error instanceof RequestBodyError ? error.status : 400, {
+            'content-type': 'application/json; charset=utf-8',
+            'cache-control': 'no-store',
           })
-        } catch {
-          res.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-          res.end(JSON.stringify({ error: 'invalid request body' }))
-          return
-        }
-        let payload: { sessionId?: unknown; teamId?: unknown }
-        try {
-          payload = raw.trim() === '' ? {} : JSON.parse(raw) as { sessionId?: unknown; teamId?: unknown }
-        } catch {
-          res.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-          res.end(JSON.stringify({ error: 'invalid JSON' }))
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'invalid request body' }))
           return
         }
         const sessionId = typeof payload.sessionId === 'string' ? payload.sessionId.trim() : ''
@@ -388,26 +378,12 @@ export function apply(ctx: Context, config: Config): void {
         }
         let payload: Record<string, unknown>
         try {
-          const chunks: Buffer[] = []
-          const raw = await new Promise<string>((resolve, reject) => {
-            let size = 0
-            req.on('data', (chunk) => {
-              const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-              size += part.length
-              if (size > 1_000_000) {
-                reject(new Error('request body is too large'))
-                return
-              }
-              chunks.push(part)
-            })
-            req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-            req.on('error', reject)
-          })
-          const parsed: unknown = raw.trim() === '' ? {} : JSON.parse(raw)
-          if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('body must be an object')
-          payload = parsed as Record<string, unknown>
+          payload = await readJsonRequest(req)
         } catch (error: unknown) {
-          res.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+          res.writeHead(error instanceof RequestBodyError ? error.status : 400, {
+            'content-type': 'application/json; charset=utf-8',
+            'cache-control': 'no-store',
+          })
           res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'invalid request body' }))
           return
         }

@@ -17,7 +17,8 @@ import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent'
 // Declaration merge only: makes ctx.subagents visible.
 import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent'
 import { createUserMessage, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import type { Session, SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import type { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, sessionOwnEvents } from './harness-compat.ts'
 import { join } from 'node:path'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
@@ -319,7 +320,7 @@ function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection
   if (provider === undefined || provider === '' || model === undefined || model === '') {
     throw new Error(`agent-teams: cold-resumed member "${member.name}" is missing provider/model`)
   }
-  const reasoningEffort = member.reasoningEffort?.trim()
+  const reasoningEffort = member.fallbackActive === true ? undefined : member.reasoningEffort?.trim()
   const reasoningMode = member.reasoningMode
   if (reasoningMode === undefined) {
     throw new Error(`agent-teams: cold-resumed member "${member.name}" is missing reasoning mode`)
@@ -331,7 +332,7 @@ function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection
     // Durable effort is often the adapter's materialized effective value. It
     // is policy input only for explicit mode; target-default and route-aware
     // must be validated from their durable role policy alone.
-    reasoningEffort: reasoningMode === 'explicit' ? reasoningEffort : undefined,
+    reasoningEffort: reasoningMode === 'explicit' ? member.reasoningEffort?.trim() : undefined,
   })
   const routeProvider = (member.activeProvider ?? provider).trim()
   const routeModel = (member.activeModel ?? model).trim()
@@ -340,7 +341,7 @@ function selectionFromMember(member: TeamMember | undefined): MemberLlmSelection
     model: routeModel,
     reasoningMode,
     ...reasoningEffort === undefined || reasoningEffort === '' ? {} : { reasoningEffort },
-    ...member.fallback === undefined ? {} : { fallback: member.fallback },
+    ...member.fallback === undefined || member.fallbackActive === true ? {} : { fallback: member.fallback },
   }
 }
 
@@ -467,13 +468,11 @@ export function installMemberSelectionRuntime(
   onFailureSettled?: (workspace: string, teamId: string, memberName: string) => Promise<void>,
 ): MemberSelectionRuntime {
   const pending = new Map<string, MemberLlmSelection>()
+  const installedMembers = new WeakSet<Agent>()
   const handleCreated = ({ agent: child }: { agent: Agent }): (() => void) | undefined => {
+    if (installedMembers.has(child)) return
     const childId = durableSessionId(child)
-    const childSession = child.session as Session & { readonly events?: readonly SessionEvent[] }
-    const suffix = typeof childSession.ownEvents === 'function'
-      ? childSession.ownEvents()
-      : childSession.events ?? []
-    const descriptor = foldSubagentDescriptor(suffix)
+    const descriptor = foldSubagentDescriptor(sessionOwnEvents(child.session))
     if (descriptor?.mode !== 'continuable' || !descriptor.label.startsWith(MEMBER_LABEL_PREFIX)) {
       return
     }
@@ -566,41 +565,40 @@ export function installMemberSelectionRuntime(
       const selectionRef = { current: modelSelection(selection), assembled: undefined as ModelSelection | undefined }
       const disposeSelection = installMemberModelSelection(child.ctx, selectionRef)
       const fallback = selection.fallback
-      if (fallback === undefined) {
-        const cleanup = () => {
-          disposeFailure()
-          disposeSelection()
-          disposePolicy()
-        }
-        if (typeof child.ctx.effect === 'function') child.ctx.effect(() => cleanup, 'agent-teams: member runtime')
-        return cleanup
-      }
       let switched = false
       const disposeFallback = child.ctx.on('agent/request-error', async (payload, next) => {
         if (durableSessionId(payload.agent) !== childId || payload.signal.aborted) return next()
         const transition = selectFallbackRoute(selectionRef.current ?? { provider: selection.provider, model: selection.model }, fallback, payload.failure.code, switched)
-        if (!transition.retry) return next()
-        switched = transition.switched
-        selectionRef.current = transition.selection
-        const workspace = child.session.header.cwd ?? process.cwd()
-        const identity = descriptor.label.slice(MEMBER_LABEL_PREFIX.length)
-        const separator = identity.indexOf(':')
-        if (separator > 0) {
-          const teamId = identity.slice(0, separator)
-          const memberName = identity.slice(separator + 1)
-          void updateFallbackState(join(workspace, stateDir), teamId, memberName, fallback, ctx).catch((error: unknown) => {
-            ctx.logger.warn(`agent-teams: failed to persist fallback route: ${String(error)}`)
-          })
+        if (fallback !== undefined && transition.retry) {
+          switched = transition.switched
+          selectionRef.current = transition.selection
+          // Request recovery repeats buildRequest inside the current step; it
+          // does not re-run prompt assembly. Override that captured route too,
+          // otherwise the authorized retry would hit the failed primary again.
+          selectionRef.assembled = transition.selection
+          const workspace = child.session.header.cwd ?? process.cwd()
+          const identity = descriptor.label.slice(MEMBER_LABEL_PREFIX.length)
+          const separator = identity.indexOf(':')
+          if (separator > 0) {
+            const teamId = identity.slice(0, separator)
+            const memberName = identity.slice(separator + 1)
+            void updateFallbackState(join(workspace, stateDir), teamId, memberName, fallback, ctx).catch((error: unknown) => {
+              ctx.logger.warn(`agent-teams: failed to persist fallback route: ${String(error)}`)
+            })
+          }
+          ctx.logger.warn(`agent-teams: member ${childId} switching to fallback ${fallback.provider}/${fallback.model} after ${payload.failure.code}`)
+          return { kind: 'retry' as const }
         }
-        ctx.logger.warn(`agent-teams: member ${childId} switching to fallback ${fallback.provider}/${fallback.model} after ${payload.failure.code}`)
-        return { kind: 'retry' as const }
+        return next()
       })
       const cleanup = () => {
+        installedMembers.delete(child)
         disposeFallback()
         disposeSelection()
         disposeFailure()
         disposePolicy()
       }
+      installedMembers.add(child)
       if (typeof child.ctx.effect === 'function') child.ctx.effect(() => cleanup, 'agent-teams: member runtime')
       return cleanup
     } catch (error) {
@@ -609,26 +607,22 @@ export function installMemberSelectionRuntime(
     }
   }
 
-  // RC.1 publishes fully configured children through `agent/created`. Keep a
-  // narrow legacy adapter for the offline verification harnesses that still
-  // expose the removed setup callback; real runtime composition always takes
-  // the first branch.
-  const root = ctx as unknown as {
-    on?: (name: 'agent/created', listener: (payload: { agent: Agent }) => void) => unknown
-    subagents: {
-      registerContinuableSetup?: (setup: (childCtx: { agent?: Agent; on: Context['on']; effect?: Context['effect'] }) => (() => void) | void) => unknown
-    }
-  }
+  // RC.1 publishes fully configured children through `agent/created`. Keep that
+  // adapter so role Provider/model/reasoning stays authoritative on the first
+  // request. Hosts that also expose continuable setup (FIFO + session-start)
+  // install both; WeakSet dedupes a child that is announced twice.
   const hasRc1SendMessage = typeof (ctx.subagents as { sendMessage?: unknown }).sendMessage === 'function'
-  if (typeof root.on === 'function' && hasRc1SendMessage) {
-    root.on.call(ctx, 'agent/created', handleCreated)
-  } else {
-    root.subagents.registerContinuableSetup?.((childCtx) => {
+  const hasCreatedAdapter = typeof ctx.on === 'function' && hasRc1SendMessage
+  if (hasCreatedAdapter) {
+    ctx.on('agent/created', handleCreated)
+  }
+  if (hasContinuableMemberSetup(ctx.subagents) || !hasCreatedAdapter) {
+    installContinuableMemberSetup(ctx, (childCtx) => {
       const child = childCtx.agent
-      if (child === undefined) return
+      if (child === undefined) return () => undefined
       const legacyChild = child as Agent & { ctx?: Context }
       if (legacyChild.ctx === undefined) legacyChild.ctx = childCtx as unknown as Context
-      return handleCreated({ agent: child })
+      return handleCreated({ agent: child }) ?? (() => undefined)
     })
   }
 
@@ -877,31 +871,10 @@ export function interruptMember(ctx: Context, captain: Agent, childId: string): 
  * untouched while the followup boundary still prevents further model turns.
  */
 export function installRetiredMemberGuard(ctx: Context, stateDir: string): void {
-  // RC.1 no longer exposes a mutable followup method to wrap. Retirement is
-  // enforced at the AgentTeams delivery boundary in `deliverToMember`. Keep a
-  // compatibility-only wrapper for older offline fixtures that still expose
-  // `followup` and no `sendMessage` method.
-  const runtime = ctx.subagents as typeof ctx.subagents & {
-    followup?: (parent: Agent, targetId: SessionId, content: Array<{ type: 'text'; text: string }>, options: { signal: AbortSignal }) => Promise<unknown>
-  }
-  if (typeof runtime.sendMessage === 'function' || typeof runtime.followup !== 'function') return
-  const original = runtime.followup
-  const guarded = async (parent: Agent, childId: SessionId, content: Array<{ type: 'text'; text: string }>, options: { signal: AbortSignal }) => {
-    const retired = await readRetiredMemberIds(join(parent.session.header?.cwd ?? process.cwd(), stateDir))
-    if (retired.has(childId)) {
-      throw new SubagentError(
-        `AgentTeams member "${childId}" was retired and cannot be resumed`,
-        'NOT_RESUMABLE',
-      )
-    }
-    return original.call(runtime, parent, childId, content, options)
-  }
-  runtime.followup = guarded
-  if (typeof ctx.effect === 'function') {
-    ctx.effect(() => () => {
-      if (runtime.followup === guarded) runtime.followup = original
-    }, 'agent-teams: retired member guard')
-  }
+  guardSubagentDelivery(ctx, async (parent, childId) => {
+    const retired = await readRetiredMemberIds(join(parent.session.header.cwd ?? process.cwd(), stateDir))
+    return retired.has(childId)
+  })
 }
 
 /**

@@ -26,6 +26,11 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.16-rc.1
+
+- 引入上游宿主适配器、FIFO 续接、bounded JSON Web 体、parked 成员恢复和活动面板布局。
+- 保留 Windows 角色级 Provider/模型/思考策略、严格 V2、质量门禁、共享目录、紧凑 captain 提示词、Team/Native 路由、持久会话网关，以及 RC.1 `agent/created` 选择适配器。
+
 ### v0.1.15-desktop.7
 
 - 打断与 drain 现在在同一个每子 Agent durable Session 锁内完成，停止请求到静默等待之间不会插入新的投递。

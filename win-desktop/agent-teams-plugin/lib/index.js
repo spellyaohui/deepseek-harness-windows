@@ -29,7 +29,7 @@ import { formatProfilesForPrompt } from "./profiles.js";
 import { buildHostModelCatalog } from "./host-model-catalog.js";
 import { createAgentTeamsSettingsRuntime, } from "./settings.js";
 import { delegationPolicyUsagePreamble, policyMarker, registerDelegationPolicyLifecycle, } from "./routing-policy.js";
-import { authenticatedWebRoutes } from "./web-routes.js";
+import { authenticatedWebRoutes, readJsonRequest, RequestBodyError } from "./web-routes.js";
 import { durableSessionId } from "./agent-identity.js";
 /** Web-server service key candidates, newest first. */
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
@@ -249,27 +249,16 @@ export function apply(ctx, config) {
                     res.end();
                     return;
                 }
-                let raw = '';
-                try {
-                    raw = await new Promise((resolve, reject) => {
-                        const chunks = [];
-                        req.on('data', (chunk) => { chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); });
-                        req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-                        req.on('error', reject);
-                    });
-                }
-                catch {
-                    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
-                    res.end(JSON.stringify({ error: 'invalid request body' }));
-                    return;
-                }
                 let payload;
                 try {
-                    payload = raw.trim() === '' ? {} : JSON.parse(raw);
+                    payload = await readJsonRequest(req);
                 }
-                catch {
-                    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
-                    res.end(JSON.stringify({ error: 'invalid JSON' }));
+                catch (error) {
+                    res.writeHead(error instanceof RequestBodyError ? error.status : 400, {
+                        'content-type': 'application/json; charset=utf-8',
+                        'cache-control': 'no-store',
+                    });
+                    res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'invalid request body' }));
                     return;
                 }
                 const sessionId = typeof payload.sessionId === 'string' ? payload.sessionId.trim() : '';
@@ -321,28 +310,13 @@ export function apply(ctx, config) {
                 }
                 let payload;
                 try {
-                    const chunks = [];
-                    const raw = await new Promise((resolve, reject) => {
-                        let size = 0;
-                        req.on('data', (chunk) => {
-                            const part = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-                            size += part.length;
-                            if (size > 1_000_000) {
-                                reject(new Error('request body is too large'));
-                                return;
-                            }
-                            chunks.push(part);
-                        });
-                        req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-                        req.on('error', reject);
-                    });
-                    const parsed = raw.trim() === '' ? {} : JSON.parse(raw);
-                    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
-                        throw new Error('body must be an object');
-                    payload = parsed;
+                    payload = await readJsonRequest(req);
                 }
                 catch (error) {
-                    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+                    res.writeHead(error instanceof RequestBodyError ? error.status : 400, {
+                        'content-type': 'application/json; charset=utf-8',
+                        'cache-control': 'no-store',
+                    });
                     res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'invalid request body' }));
                     return;
                 }

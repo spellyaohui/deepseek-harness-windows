@@ -42,6 +42,12 @@ export interface DispatchTicket {
     readonly attempt: number;
     readonly attemptId: string;
     readonly previousAssignee?: string;
+    /** True when this ticket rotates an unobserved durable open attempt. */
+    readonly recoveredOwned: boolean;
+    /** Original task generation, used to restore a failed automatic recovery. */
+    readonly previousStatus?: 'claimed' | 'in_progress';
+    readonly previousAttempt?: number;
+    readonly previousAttemptId?: string;
     readonly subject: string;
     readonly description?: string;
     readonly teamDescription?: string;

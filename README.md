@@ -8,6 +8,7 @@
 
 - 修复官方返回 `You've reached your weekly usage limit...` 时仍被识别为普通 `RATE_LIMIT` 的问题；Windows loader 现在只对明确的周/月等周期用量耗尽文本分类为终止性 `QUOTA`，避免继续重试已经耗尽的额度。
 - 普通瞬时 `429 rate limit` 仍保持可重试；单独的额度重置提示不会被误判为已耗尽。回归覆盖真实 `@deepseek-ai/dsh-llm` 模块、loader 注入和 132 项 Windows wrapper 测试。
+- AgentTeams 升级到上游 `v0.1.16-rc.1`（commit `d659e5b`），保留本地角色策略、严格 V2、质量门禁、共享目录、紧凑提示词、Team/Native 与持久会话网关。
 
 ## `v0.1.2-rc.7` 更新说明
 
@@ -282,7 +283,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.15`（固定提交 `232a338fc9a0d393f118912386f67e7f3a6c67d6`），本地版本为 `0.1.15-desktop.7`。本次保留严格 V2 与本地角色模型策略，并补上统一子智能体网关、RC.1 `agent/created` 续接路由、编号角色模型继承、最终成员失败安全结算、删除/重分配/停止/异常清理的锁化退休、自动委派指导、Web Revision/CAS 和 Alpha.2 路由认证。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.16-rc.1`（固定提交 `d659e5b`），本地版本为 `0.1.16-rc.1`。本次保留严格 V2 与本地角色模型策略，并补上统一子智能体网关、RC.1 `agent/created` 续接路由、编号角色模型继承、最终成员失败安全结算、删除/重分配/停止/异常清理的锁化退休、自动委派指导、Web Revision/CAS 和 Alpha.2 路由认证。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

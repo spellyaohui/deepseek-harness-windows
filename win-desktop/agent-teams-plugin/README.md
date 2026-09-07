@@ -26,6 +26,11 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.16-rc.1
+
+- Imports upstream host adapter, FIFO continuation, bounded JSON Web bodies, parked member recovery, and activity-panel layout.
+- Keeps Windows role-level Provider/model/reasoning policy, strict V2, quality gates, shared catalog, compact captain prompt, Team/Native routing, durable-session gateway, and the RC.1 `agent/created` selection adapter.
+
 ### v0.1.15-desktop.7
 
 - Keeps interrupt and drain inside one per-child durable-session lock, so a new delivery cannot slip between a stop request and quiescence.

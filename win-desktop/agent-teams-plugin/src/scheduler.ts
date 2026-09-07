@@ -66,6 +66,12 @@ export interface DispatchTicket {
   readonly attempt: number
   readonly attemptId: string
   readonly previousAssignee?: string
+  /** True when this ticket rotates an unobserved durable open attempt. */
+  readonly recoveredOwned: boolean
+  /** Original task generation, used to restore a failed automatic recovery. */
+  readonly previousStatus?: 'claimed' | 'in_progress'
+  readonly previousAttempt?: number
+  readonly previousAttemptId?: string
   readonly subject: string
   readonly description?: string
   readonly teamDescription?: string
@@ -348,7 +354,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
           // durable capability (cold process recovery) is retried.
           const parkedAttemptId = parkedAttempts.get(currentMember.id)
           const recoverOwned = owned !== undefined
-            && owned.attemptId !== parkedAttemptId
+            && (owned.attemptId === undefined || owned.attemptId !== parkedAttemptId)
           const task = recoverOwned ? owned : owned === undefined
             ? nextReadyTask(fresh.tasks, currentMember.name)
             : undefined
@@ -360,8 +366,16 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
             return undefined
           }
           const previousAssignee = task.assignee
+          const previousStatus = recoverOwned ? task.status as 'claimed' | 'in_progress' : undefined
+          const previousAttempt = recoverOwned ? task.attempt : undefined
+          const previousAttemptId = recoverOwned ? task.attemptId : undefined
           const attemptId = beginTaskAttempt(task, currentMember.name)
-          parkedAttempts.delete(currentMember.id)
+          // A recovered generation is parked before delivery. This makes each
+          // (member, attempt) recovery idempotent even if every status poll
+          // sees a disposed handle. Fresh pending work remains unparked so a
+          // genuinely lost first delivery can be recovered once.
+          if (recoverOwned) parkedAttempts.set(currentMember.id, attemptId)
+          else parkedAttempts.delete(currentMember.id)
           currentMember.status = 'working'
           await writeTeam(stateRoot, fresh)
           const profileSeedId = taskProfileSeedId(task)
@@ -373,6 +387,10 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
             attempt: task.attempt ?? 1,
             attemptId,
             previousAssignee,
+            recoveredOwned: recoverOwned,
+            ...previousStatus === undefined ? {} : { previousStatus },
+            ...previousAttempt === undefined ? {} : { previousAttempt },
+            ...previousAttemptId === undefined ? {} : { previousAttemptId },
             subject: task.subject,
             description: task.description,
             teamDescription: fresh.description,
@@ -415,9 +433,21 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
           if (fresh === undefined) return
           const task = fresh.tasks.find(candidate => candidate.id === ticket.taskId)
           if (task?.attemptId !== ticket.attemptId) return
-          task.status = 'pending'
-          task.assignee = ticket.previousAssignee
-          task.attemptId = undefined
+          if (ticket.recoveredOwned && ticket.previousStatus !== undefined && ticket.previousAttemptId !== undefined) {
+            // Recovery delivery failed. Restore the durable generation instead
+            // of returning it to pending, then keep it parked so later status
+            // kicks cannot spend an unbounded sequence of fresh attempts.
+            task.status = ticket.previousStatus
+            task.assignee = ticket.previousAssignee
+            task.attempt = ticket.previousAttempt
+            task.attemptId = ticket.previousAttemptId
+            parkedAttempts.set(ticket.memberId, ticket.previousAttemptId)
+          } else {
+            task.status = 'pending'
+            task.assignee = ticket.previousAssignee
+            task.attemptId = undefined
+            parkedAttempts.delete(ticket.memberId)
+          }
           task.handoffId = undefined
           task.reassigning = false
           task.updatedAt = Date.now()

@@ -1,16 +1,21 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.15`
-- Tag: `v0.1.15`
-- Source commit: `232a338fc9a0d393f118912386f67e7f3a6c67d6`
-- Imported: `2026-09-01`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.16-rc.1`
+- Tag: `v0.1.16-rc.1`
+- Source commit: `d659e5b`
+- Imported: `2026-09-07`
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.15-desktop.7`.
+- Desktop fork version is `0.1.16-rc.1`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-09-07 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: `src/harness-compat.ts` host adapter, FIFO continuation, own session events, retired-member delivery guards, fallback persistence, notification-driven status guidance, bounded JSON Web bodies, parked member/attempt recovery, and activity-panel UI improvements.
+- `REAPPLY`: role-level provider/model/reasoning policy, strict V2 persistence, quality-gate extras, shared host model catalog, compact 3,500-character captain prompt, Team/Native routing, durable-session subagent gateway, Profile editor/desktop integration, and the RC.1 `agent/created` selection adapter.
 
 ## Intentional local differences
 

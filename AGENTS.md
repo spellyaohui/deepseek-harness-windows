@@ -148,7 +148,7 @@ evidence that the local capability is preserved.
   documentation. Do not restore it during conflict resolution. Do not migrate
   old AUTO sessions or delete stale user Profile caches.
 
-## AgentTeams `v0.1.15-desktop.7` interaction invariants
+## AgentTeams `v0.1.16-rc.1` interaction invariants
 
 - Global AgentTeams settings own only Team/Native delegation. Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must

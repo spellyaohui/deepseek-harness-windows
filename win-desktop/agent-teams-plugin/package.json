@@ -1,6 +1,6 @@
 {
   "name": "@nanmicoder/dsh-agent-teams",
-  "version": "0.1.15-desktop.7",
+  "version": "0.1.16-rc.1",
   "description": "AgentTeams for DeepSeek Harness: multi-agent team collaboration (captain, members, tasks with dependencies, messaging) driven by natural language, with a tree monitor in the web GUI",
   "type": "module",
   "main": "lib/index.js",
@@ -85,7 +85,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "sync:skill": "node scripts/sync-skill.mjs",
     "verify:skill": "node scripts/sync-skill.mjs --check",
-    "verify": "node scripts/settings-verify.mjs && node scripts/settings-client-verify.mjs && node scripts/profile-editor-verify.mjs && node scripts/selection-policy-verify.mjs && node scripts/verify.mjs && node scripts/subagent-gateway-tdd.mjs && node scripts/alpha2-contract-tdd.mjs && node scripts/staging-approval-tdd.mjs && node scripts/fallback-tdd.mjs && node scripts/member-failure-tdd.mjs && node scripts/quality-gates-tdd.mjs && node scripts/lifecycle-verify.mjs && node scripts/stress-verify.mjs && node scripts/build-path-verify.mjs && pnpm verify:web-routes && pnpm verify:skill",
+    "verify": "node scripts/settings-verify.mjs && node scripts/settings-client-verify.mjs && node scripts/profile-editor-verify.mjs && node scripts/selection-policy-verify.mjs && node scripts/verify.mjs && node scripts/subagent-gateway-tdd.mjs && node scripts/alpha2-contract-tdd.mjs && node scripts/staging-approval-tdd.mjs && node scripts/fallback-tdd.mjs && node scripts/member-failure-tdd.mjs && node scripts/quality-gates-tdd.mjs && node scripts/lifecycle-verify.mjs && node scripts/stress-verify.mjs && node scripts/build-path-verify.mjs && node scripts/harness-compat-tdd.mjs && node --test scripts/http-body.test.mjs && pnpm verify:web-routes && pnpm verify:skill",
     "verify:web-routes": "node scripts/web-routes-verify.mjs",
     "test": "pnpm build && pnpm verify",
     "prepublishOnly": "pnpm build && pnpm verify"

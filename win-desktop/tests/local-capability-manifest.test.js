@@ -30,7 +30,7 @@ const localVersions = {
   '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
   '@deepseek-ai/dsh-session-markdown-export': '0.1.1',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.15-desktop.7',
+  '@nanmicoder/dsh-agent-teams': '0.1.16-rc.1',
 }
 
 const sourcePluginDirectories = [
@@ -63,10 +63,10 @@ test('desktop composition retains every independently owned local plugin', () =>
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.1.2-rc.1-desktop.1',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.15-desktop.7')
+  assert.equal(agentTeamsPackage.version, '0.1.16-rc.1')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.15-desktop.7',
+    '0.1.16-rc.1',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -141,6 +141,9 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
     'agent-teams-plugin/release-notes/v0.1.15-desktop.7.md',
+    'agent-teams-plugin/release-notes/v0.1.16-rc.1.md',
+    'agent-teams-plugin/src/harness-compat.ts',
+    'agent-teams-plugin/scripts/harness-compat-tdd.mjs',
     'agent-teams-plugin/src/status-render.ts',
     'agent-teams-plugin/scripts/clean-build.mjs',
     'agent-teams-plugin/scripts/fallback-tdd.mjs',
@@ -184,7 +187,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
 })
 
 test('critical integration markers retain local capability ownership', () => {
-  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.15-desktop\.7` interaction invariants/)
+  assertContains('../AGENTS.md', /AgentTeams `v0\.1\.16-rc\.1` interaction invariants/)
   assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.6` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)

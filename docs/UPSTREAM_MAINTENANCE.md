@@ -11,8 +11,8 @@ prove it still exists.
 - Windows desktop wrapper: `0.1.2-rc.8`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.2`
-- AgentTeams fork: `0.1.15-desktop.7`, based on upstream `0.1.15` at fixed commit
-  `232a338fc9a0d393f118912386f67e7f3a6c67d6`
+- AgentTeams fork: `0.1.16-rc.1`, based on upstream `v0.1.16-rc.1` at fixed commit
+  `d659e5b`
 - CPA provider plugin: `0.1.7`
 - Models settings fork: `0.1.2-rc.1-desktop.1`
 - Desktop Settings plugin: `0.1.2`
@@ -29,11 +29,20 @@ role-policy, V2 persistence, quality-gate, and lifecycle ownership. Models,
 CPA, Session Markdown, and wrapper integrations were rebuilt against RC.1 and
 passed `npm run verify:upstream` before this provenance update.
 
+## AgentTeams v0.1.16-rc.1 refresh classification — 2026-09-07
+
+Imported upstream `@nanmicoder/dsh-agent-teams@0.1.16-rc.1` at `d659e5b`. Local
+role-policy, strict V2, quality-gate, shared catalog, compact prompt, Team/Native,
+durable-session gateway, and Profile editor contracts remain `REAPPLY`. Host
+adapter/`harness-compat`, FIFO continuation, fallback persistence, notification-driven
+coordination, bounded JSON Web bodies, parked member recovery, and activity-panel UI
+are `UPSTREAM_EQUIVALENT`.
+
 ## AgentTeams owner
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, and the durable-session subagent gateway | `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns team execution semantics; the Windows fork owns the role-policy settings contract, prompt budget, Profile input seam, catalog seam, participant and quality-gate boundaries, staged contract boundary, strict V2 persistence boundary, Token-efficient status rendering, and the single admission/locking boundary for continuable children | `src/index.ts`, `src/web-routes.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, and `scripts/web-routes-verify.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
+| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, and the durable-session subagent gateway | `win-desktop/agent-teams-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: v0.1.16-rc.1 owns host adapter/`harness-compat`, FIFO, fallback persistence, bounded JSON, parked recovery, and activity UI; the Windows fork reapplies role-policy, prompt budget, Profile input, catalog, quality-gate, strict V2, compact status, Team/Native, and the durable-session gateway | `src/index.ts`, `src/web-routes.ts`, `src/harness-compat.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/harness-compat-tdd.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, and `scripts/web-routes-verify.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
 | Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
 ## CPA owner
