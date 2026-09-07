@@ -83,6 +83,10 @@ test('openai-responses probes all generic capability categories using the curren
   assert.equal(result.checks.streamingUsage.status, 'supported')
   assert.equal(result.checks.maxTokens.status, 'supported')
   assert.equal(result.checks.maxTokens.error, 'max_output_tokens')
+  assert.deepEqual(result.patch.compat, {
+    supportsDeveloperRole: true,
+    supportsStrictMode: true,
+  })
   assert.equal(result.patch.compat?.maxTokensField, undefined)
   assert.ok(calls.length >= 10)
   assert.ok(calls.every(call => call.url === 'https://provider.example/v1/responses'))

@@ -154,6 +154,34 @@ test('only schema-legal Completions maxTokensField values are persisted', () => 
   )
 })
 
+test('compatibility probe patches keep only fields accepted by the selected protocol', () => {
+  const checks = {
+    developer: { status: 'supported', summary: 'accepted' },
+    strict: { status: 'supported', summary: 'accepted' },
+    store: { status: 'supported', summary: 'accepted' },
+    streamingUsage: { status: 'supported', summary: 'accepted' },
+    maxTokens: { status: 'supported', summary: 'accepted max_completion_tokens', error: 'max_completion_tokens' },
+  }
+
+  assert.deepEqual(
+    capabilityPatchFromChecks(checks, 'openai-responses'),
+    { compat: { supportsDeveloperRole: true, supportsStrictMode: true } },
+  )
+  assert.deepEqual(
+    capabilityPatchFromChecks(checks, 'openai-completions'),
+    {
+      compat: {
+        supportsDeveloperRole: true,
+        supportsStrictMode: true,
+        supportsStore: true,
+        supportsUsageInStreaming: true,
+        maxTokensField: 'max_completion_tokens',
+      },
+    },
+  )
+  assert.deepEqual(capabilityPatchFromChecks(checks, 'anthropic-messages'), {})
+})
+
 test('inconclusive and not-applicable checks never produce a destructive patch', () => {
   assert.deepEqual(capabilityPatchFromChecks({
     image: { status: 'inconclusive', summary: '502' },

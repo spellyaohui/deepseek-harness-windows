@@ -380,7 +380,7 @@ export async function probeModelCapabilities(
   }
   checks.maxTokens = checkFromAttempt(maxTokens, maxTokens.field === undefined ? 'output token field is ambiguous' : `accepted ${maxTokens.field}`)
 
-  const patch: ModelCapabilityPatch = capabilityPatchFromChecks(checks)
+  const patch: ModelCapabilityPatch = capabilityPatchFromChecks(checks, protocol)
   return { modelId: request.modelId, protocol, checks, patch }
 }
 

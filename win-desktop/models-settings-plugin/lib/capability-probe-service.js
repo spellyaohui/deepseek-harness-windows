@@ -341,7 +341,7 @@ export async function probeModelCapabilities(request, dependencies = {}) {
                 : { status: maxTokensResult.status === 'supported' || maxCompletionResult.status === 'supported' ? 'supported' : maxTokensResult.status, field: undefined };
     }
     checks.maxTokens = checkFromAttempt(maxTokens, maxTokens.field === undefined ? 'output token field is ambiguous' : `accepted ${maxTokens.field}`);
-    const patch = capabilityPatchFromChecks(checks);
+    const patch = capabilityPatchFromChecks(checks, protocol);
     return { modelId: request.modelId, protocol, checks, patch };
 }
 /** Build the Host handler so credential lookup stays injectable and testable. */

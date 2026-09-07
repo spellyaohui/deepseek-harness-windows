@@ -1,8 +1,21 @@
+const COMPAT_CHECKS_BY_PROTOCOL = {
+    'openai-completions': [
+        ['supportsDeveloperRole', 'developer'],
+        ['supportsStrictMode', 'strict'],
+        ['supportsStore', 'store'],
+        ['supportsUsageInStreaming', 'streamingUsage'],
+    ],
+    'openai-responses': [
+        ['supportsDeveloperRole', 'developer'],
+        ['supportsStrictMode', 'strict'],
+    ],
+    'anthropic-messages': [],
+};
 function checkIs(check, status) {
     return check?.status === status;
 }
-/** Convert successful/explicitly unsupported checks into the canonical pi-ai patch. */
-export function capabilityPatchFromChecks(checks) {
+/** Convert successful/explicitly unsupported checks into a patch legal for this protocol. */
+export function capabilityPatchFromChecks(checks, protocol = 'openai-completions') {
     const patch = {};
     const image = checks['image'];
     if (checkIs(image, 'supported'))
@@ -25,13 +38,7 @@ export function capabilityPatchFromChecks(checks) {
         patch.reasoningEfforts = false;
     }
     const compat = {};
-    const compatChecks = [
-        ['supportsDeveloperRole', 'developer'],
-        ['supportsStrictMode', 'strict'],
-        ['supportsStore', 'store'],
-        ['supportsUsageInStreaming', 'streamingUsage'],
-    ];
-    for (const [property, key] of compatChecks) {
+    for (const [property, key] of COMPAT_CHECKS_BY_PROTOCOL[protocol]) {
         const check = checks[key];
         if (checkIs(check, 'supported'))
             compat[property] = true;
@@ -39,9 +46,11 @@ export function capabilityPatchFromChecks(checks) {
             compat[property] = false;
     }
     const maxTokens = checks['maxTokens'];
-    // pi-ai 设置 schema 只接受 Completions 字段名；Responses 探测得到的
-    // max_output_tokens 不得写入配置，否则保存/启动会被校验拒绝。
-    if (maxTokens?.status === 'supported'
+    // The pi-ai schema accepts maxTokensField only for OpenAI Completions.
+    // Responses uses max_output_tokens, which is intentionally not configurable.
+    if (protocol === 'openai-completions'
+        &&
+            maxTokens?.status === 'supported'
         && (maxTokens.error === 'max_tokens' || maxTokens.error === 'max_completion_tokens')) {
         compat['maxTokensField'] = maxTokens.error;
     }
