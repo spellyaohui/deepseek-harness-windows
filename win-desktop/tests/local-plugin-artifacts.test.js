@@ -20,7 +20,11 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
 
 test('AgentTeams declares the Connection dependency used by its authenticated Web routes', () => {
   const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
-  assert.equal(packageJson.peerDependencies?.['@deepseek-ai/dsh-client-connection'], '^0.1.2-rc.1')
+  assert.equal(
+    packageJson.peerDependencies?.['@deepseek-ai/dsh-client-connection'],
+    '0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2',
+  )
+  assert.ok(packageJson.dsh?.client?.inject?.includes('@deepseek-ai/dsh-client-connection'))
   assert.equal(
     packageJson.devDependencies?.['@deepseek-ai/dsh-client-connection'],
     'file:../../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-client-connection-0.1.2-rc.1.tgz',

@@ -1,6 +1,6 @@
 # DeepSeek Harness Windows
 
-把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入、AgentTeams 子智能体配置和会话续接等桌面生产力能力。
+把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
 > 当前版本：`v0.1.2-rc.8`（开发者预览）
 
@@ -136,7 +136,7 @@
 | Windows 体验 | 依赖本机终端和子进程行为 | 随机 loopback 端口、隐藏控制台、启动自愈和 shell 兼容处理 |
 | CPA / CLIProxyAPI | 需要自行组合 Provider | 原生“设置 → 模型”入口，支持地址、Token、模型发现、图片输入和 R 协议档位 |
 | 子智能体 | 使用上游默认委派路径 | AgentTeams 按 Profile 角色卡配置 Provider/模型/思考强度，并可选择 Team 或 Native 路由 |
-| 会话延续 | 依赖原始日志导出 | 提供可审查、可继续工作的 `续接 MD` 上下文包，同时保留原始 Session log |
+| 会话延续 | 依赖原始日志导出 | 使用官方 Session log 导出；本地续接 MD 插件已移除，已导出文件保留 |
 | 上游升级 | 由使用者自行验证兼容性 | 维护能力注册表和 `verify:upstream` 回归门禁，避免本地功能在刷新后悄悄丢失 |
 
 ## 核心卖点
@@ -152,14 +152,13 @@
 
 ## 与上游项目的关系
 
-本项目不是官方 DeepSeek Harness 的替代实现，也不声称获得官方认证。官方 Harness 负责核心运行时、Web UI 和插件接口；本项目负责 Windows 桌面启动层以及独立维护的本地插件和兼容性重写。上游版本更新后，必须先阅读 [上游维护注册表](docs/UPSTREAM_MAINTENANCE.md)，逐项标记 `UPSTREAM_EQUIVALENT`、`REAPPLY` 或 `SUPERSEDED_BY_DESIGN`，再运行完整回归门禁。这样既能获得上游生态的持续更新，也能避免 CPA、子智能体、会话导出和 Windows 修复在合并时丢失。
+本项目不是官方 DeepSeek Harness 的替代实现，也不声称获得官方认证。官方 Harness 负责核心运行时、Web UI 和插件接口；本项目负责 Windows 桌面启动层以及独立维护的本地插件和兼容性重写。上游版本更新后，必须先阅读 [上游维护注册表](docs/UPSTREAM_MAINTENANCE.md)，逐项标记 `UPSTREAM_EQUIVALENT`、`REAPPLY` 或 `SUPERSEDED_BY_DESIGN`，再运行完整回归门禁。这样既能获得上游生态的持续更新，也能避免 CPA、子智能体和 Windows 修复在合并时丢失。
 
 ## 适合谁
 
 - 想在 Windows 上双击使用 DeepSeek Harness，而不是每次打开终端的开发者。
 - 使用 CLIProxyAPI 统一管理多个模型、思考档位或图片输入的用户。
 - 需要对子智能体模型和委派路由进行明确控制的 AgentTeams 用户。
-- 需要把一次会话整理成可审查上下文，再交给另一个智能体继续处理的团队。
 
 ## 仓库内容
 
@@ -178,7 +177,6 @@
 - “模型”设置中的 `CPA / CLIProxyAPI` 插件：填写 API 地址和 Token，从 `/v1/models` 获取模型，并供主会话与 AgentTeams 共用。
 - AgentTeams 插件集成；成员 Provider、模型与 reasoning policy 在 Profile 角色卡中配置。权限模式由上游 Harness 官方预设负责。
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。角色 Profile 保存后需重启才用于新团队。
-- 会话页头的 `续接 MD` 导出：生成一份可交给新智能体会话继续工作的 Markdown 上下文包。
 - OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
 
 ## `v0.1.1-rc.19` 更新说明

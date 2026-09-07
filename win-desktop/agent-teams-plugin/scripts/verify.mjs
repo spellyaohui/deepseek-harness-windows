@@ -378,6 +378,16 @@ check(
   `files = ${JSON.stringify(pkg.files)}`,
 )
 check(
+  'files[] ships the RC.1 release contract',
+  ['compatibility.json', 'scripts/doctor.mjs', 'scripts/compatibility.mjs'].every(entry => pkg.files?.includes(entry)),
+  `files = ${JSON.stringify(pkg.files)}`,
+)
+check(
+  'bin exposes dsh-agent-teams-doctor',
+  pkg.bin?.['dsh-agent-teams-doctor'] === 'scripts/doctor.mjs',
+  `bin = ${JSON.stringify(pkg.bin)}`,
+)
+check(
   'scoped package publishes publicly',
   !pkg.name.startsWith('@') || pkg.publishConfig?.access === 'public',
   'scoped packages default to restricted without publishConfig.access = "public"',

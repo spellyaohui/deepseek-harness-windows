@@ -14,8 +14,8 @@
 
 ## 2026-09-07 refresh classification
 
-- `UPSTREAM_EQUIVALENT`: `src/harness-compat.ts` host adapter, FIFO continuation, own session events, retired-member delivery guards, fallback persistence, notification-driven status guidance, bounded JSON Web bodies, parked member/attempt recovery, and activity-panel UI improvements.
-- `REAPPLY`: role-level provider/model/reasoning policy, strict V2 persistence, quality-gate extras, shared host model catalog, compact 3,500-character captain prompt, Team/Native routing, durable-session subagent gateway, Profile editor/desktop integration, and the RC.1 `agent/created` selection adapter.
+- `UPSTREAM_EQUIVALENT`: `src/harness-compat.ts` host adapter, FIFO continuation, own session events, retired-member delivery guards, fallback persistence, notification-driven status guidance, bounded JSON Web bodies, parked member/attempt recovery, activity-panel UI improvements, and the RC.1 release contract (`compatibility.json`, doctor/compatibility scripts, `publishConfig.tag=next`, bounded host peers).
+- `REAPPLY`: role-level provider/model/reasoning policy, strict V2 persistence, quality-gate extras, shared host model catalog, compact 3,500-character captain prompt, Team/Native routing, durable-session subagent gateway, Profile editor/desktop integration, the RC.1 `agent/created` selection adapter, extra settings/slots/remotes client injects, and offline RC.1 `file:` tarball development pins (including `@deepseek-ai/dsh` and `dsh-session-projection`) resolved as exact host versions.
 
 ## Intentional local differences
 
@@ -25,6 +25,9 @@
 - Agent-scoped suppression of native delegation tools in Team mode.
 - Strict Profile and Team `schemaVersion: 2` validation; older data remains on disk but is rejected and never migrated.
 - Desktop integration and regression verification.
+- Offline RC.1 tarball development pins: `@deepseek-ai/dsh` and every local `dsh-*` `devDependency` stay `file:` paths under `upstream/dsh-v0.1.2-rc.1/tarballs`. `scripts/compatibility.mjs` treats the tarball filename version as the exact supported host so the publish contract can pass without a network install.
+- `scripts/doctor.mjs` treats a same-host `-desktop.N` Models fork as the RC.1 cohort, because the Windows wrapper replaces `@deepseek-ai/dsh-client-ui-settings-models` with the local editor fork.
+- Extra Alpha.2 settings injects and peers (`dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-settings`, `dsh-client-ui-slots`, `dsh-settings`, `dsh-workspace`) remain because the Windows Profile editor and settings section consume them. Their peer ranges still enumerate `0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2`.
 - Path-stable virtual CSS module ids with generated-artifact verification.
 - Windows PowerShell lock-fixture timing uses `[Threading.Thread]::Sleep(140)`.
 - `.desktop.2` makes explicit member settings authoritative, treats blank
