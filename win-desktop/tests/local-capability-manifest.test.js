@@ -18,7 +18,6 @@ const localDependencies = {
   '@deepseek-ai/dsh-cpa-provider': 'cpa-provider-plugin',
   '@deepseek-ai/dsh-desktop-settings': 'desktop-settings-plugin',
   '@deepseek-ai/dsh-opencode-capabilities': 'opencode-capabilities-plugin',
-  '@deepseek-ai/dsh-session-markdown-export': 'session-markdown-export-plugin',
   '@deepseek-ai/dsh-tool-call-guidance': 'tool-call-guidance-plugin',
   '@nanmicoder/dsh-agent-teams': 'agent-teams-plugin',
 }
@@ -28,7 +27,6 @@ const localVersions = {
   '@deepseek-ai/dsh-cpa-provider': '0.1.7',
   '@deepseek-ai/dsh-desktop-settings': '0.1.2',
   '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
-  '@deepseek-ai/dsh-session-markdown-export': '0.1.1',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
   '@nanmicoder/dsh-agent-teams': '0.1.16-rc.1',
 }
@@ -36,7 +34,6 @@ const localVersions = {
 const sourcePluginDirectories = [
   'models-settings-plugin',
   'cpa-provider-plugin',
-  'session-markdown-export-plugin',
   'agent-teams-plugin',
 ]
 
@@ -157,11 +154,6 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/src/client/StagingPlanEditor.tsx',
     'agent-teams-plugin/src/profiles.ts',
     'agent-teams-plugin/src/quality-gates.ts',
-    'session-markdown-export-plugin/tests/client-controller.test.js',
-    'session-markdown-export-plugin/tests/content.test.js',
-    'session-markdown-export-plugin/tests/http.test.js',
-    'session-markdown-export-plugin/tests/render-markdown.test.js',
-    'session-markdown-export-plugin/tests/session-export.test.js',
     'scripts/sync-local-plugin-artifacts.mjs',
     'tests/agent-teams-integration.test.js',
     'tests/cpa-provider-integration.test.js',
@@ -173,7 +165,6 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'tests/model-capability-probe-integration.test.js',
     'tests/opencode-capabilities-integration.test.js',
     'tests/opencode-stream-rewrite.test.js',
-    'tests/session-markdown-export-integration.test.js',
     'tests/subagent-settings-card-visibility.test.js',
     'tests/fixtures/fs-escalation-runtime.mjs',
     'tests/win-hide-console.test.js',
@@ -256,8 +247,6 @@ test('critical integration markers retain local capability ownership', () => {
 
   assertContains('desktop-settings-plugin/lib/client.js', /name: 'settings\.section'/)
   assertContains('desktop-settings-plugin/lib/client.js', /id: 'desktop'/)
-  assertContains('session-markdown-export-plugin/src/client/index.tsx', /conversation\.session\.header\.utilities/)
-  assertContains('session-markdown-export-plugin/src/http.ts', /\/api\/session\.export-markdown/)
 
   assertContains('src/win-hide-console-rewrite.js', /normalizeRedundantEscalationArgs/)
   assertContains('src/win-hide-console-rewrite.js', /@deepseek-ai\/dsh-tool-fs/)
@@ -315,7 +304,6 @@ test('the complete upstream regression gate remains registered', () => {
     'models-settings-plugin',
     'cpa-provider-plugin',
     'agent-teams-plugin',
-    'session-markdown-export-plugin',
   ]) {
     assert.match(runner, new RegExp(`['\"]${directory}['\"]`), `${directory} must remain in the full gate`)
   }

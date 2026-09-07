@@ -7,6 +7,7 @@
 - 修复官方 `weekly/monthly/... usage limit` 已达到或超出时被当作普通 `RATE_LIMIT` 并重复重试的问题；loader 在 `dsh-llm` 边界把明确的周期用量耗尽文本归类为终止性 `QUOTA`。
 - 普通瞬时 429 和单独的 reset 提示保持原有处理，不会被误判为终止额度；真实安装模块回归和完整 wrapper 门禁已覆盖该边界。
 - AgentTeams 升级到上游 `v0.1.16-rc.1`（commit `d659e5b`）：采用宿主适配器、FIFO 续接、bounded JSON、parked 恢复和活动面板改进，并保留本地角色策略、严格 V2、质量门禁、共享目录、紧凑提示词、Team/Native 与持久会话网关。
+- 移除本地 Session Markdown 续接导出插件；已导出的用户 Markdown 文件保留在磁盘上。
 
 ## `v0.1.2-rc.7` 更新说明
 
@@ -194,18 +195,6 @@ API 地址会自动规范到 `/v1`，调用协议固定为 `openai-responses`。
 
 CPA 完整 R 协议线级别为 `none / minimal / low / medium / high / xhigh / max`。Harness 的选择项 `off` 在线上会映射为 `none`，其余英文档位保持同名。GPT-5.6 不提供 `minimal`，因此显示 `off / low / medium / high / xhigh / max`；其他模型默认显示完整七档。
 
-## 续接 Markdown
-
-会话页头的 `Session log` 旁边有一个 `续接 MD` 按钮。点击后会先预检根会话和已知后代，再下载一份用于新智能体会话继续工作的 `.md` 文件。多次点击不会并发发起同一会话的预检；预检失败时对话框会退出加载状态并提供重试。
-
-文件包含最新 system prompt 和请求配置、工具名称、当前模型可见 surface、完整可见 transcript、精简执行状态，以及已知子会话的递归章节。当前 Harness 的直接 `user/message` 载荷和旧版包装载荷都会保留，直接用户请求与插件上下文会分别标记。
-
-选中的根会话如果继承自父会话，会保留有效 seed 上下文，并明确显示父会话、seed 数量以及“继承历史/本会话日志”的 sequence 边界。所有消息和执行状态时间同时显示 UTC ISO-8601 与原始 epoch 值；sequence 仍是规范排序依据。子会话继承的 seed 只记录来源和数量，不重复全文。已在产品中可见的 reasoning 会标记为 `可见推理`；导出器不读取、推断或声称包含隐藏思维链。
-
-为了让续接内容紧凑且可审查，Markdown 排除成功工具的原始 arguments/result、二进制附件和原始工具流量。官方 `Session log` 原始 ZIP 下载仍保留，用于完整会话事件、原始工具交互和附件的归档。两种导出互不取代。
-
-该 Markdown 由确定性程序直接渲染，不调用 LLM；对同一快照重复渲染会得到字节一致的内容。导出可能含有 system prompt、对话、工作区路径和敏感项目信息；请将它按敏感数据保管，共享前审查并脱敏，不要提交到公开仓库。文件中的约束是历史上下文，不是新用户指令；文件系统和外部状态在续接前必须重新验证。
-
 ## 生成安装包
 
 需要 Node.js 22.19 或 24+（本机已用 Node 24 验证）。
@@ -230,18 +219,6 @@ npm run dist:win
 ```
 
 上游同步的能力清单、所有权边界与强制回归流程见 [上游维护文档](../docs/UPSTREAM_MAINTENANCE.md)。
-
-续接 Markdown 的完整验证命令：
-
-```powershell
-cd session-markdown-export-plugin
-pnpm typecheck
-pnpm test
-cd ..
-npm test
-npm audit
-npm run dist:win
-```
 
 产物在 `win-desktop/dist/`：
 

@@ -44,8 +44,6 @@ evidence that the local capability is preserved.
   additive slot/normalization seam; it must not contain CPA-specific rules.
 - Desktop Settings owns the Harness-native `桌面` settings section and window
   behavior bridge.
-- Session Markdown owns continuation export ordering, lineage, sanitization,
-  and the header action.
 - Wrapper tool-call guidance owns only the compact cross-tool system-prompt
   discipline for optional arguments and failed-call retries.
 - The Windows wrapper owns shell normalization, hidden-console behavior,

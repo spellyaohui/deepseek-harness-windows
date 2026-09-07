@@ -16,7 +16,6 @@ prove it still exists.
 - CPA provider plugin: `0.1.7`
 - Models settings fork: `0.1.2-rc.1-desktop.1`
 - Desktop Settings plugin: `0.1.2`
-- Session Markdown export plugin: `0.1.1`
 
 ## RC.1 refresh classification — 2026-09-04
 
@@ -26,7 +25,7 @@ The official Harness release `dsh-v0.1.2-rc.1` resolves to
 those 251 validated RC.1 artifacts. AgentTeams uses the RC.1 `sendMessage`,
 `agent/created`, and `Session.ownEvents()` contracts while retaining its local
 role-policy, V2 persistence, quality-gate, and lifecycle ownership. Models,
-CPA, Session Markdown, and wrapper integrations were rebuilt against RC.1 and
+Models, CPA, and wrapper integrations were rebuilt against RC.1 and
 passed `npm run verify:upstream` before this provenance update.
 
 ## AgentTeams v0.1.16-rc.1 refresh classification — 2026-09-07
@@ -62,12 +61,6 @@ are `UPSTREAM_EQUIVALENT`.
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
 | Harness-native `桌面` settings section, theme-consistent window behavior UI, IPC bridge without a separate settings window, and immediate close-behavior autosave with rollback | `win-desktop/desktop-settings-plugin` plus wrapper bridge | Independent local desktop integration | `desktop-settings-plugin/lib/client.js`, `src/settings-window.js`, `src/desktop-settings.js`, `src/preload.cjs`, `config/agent-teams.patch.yml` | wrapper `tests/desktop-settings-plugin.test.js` and `tests/desktop-settings.test.js` |
-
-## Session Markdown owner
-
-| Capability | Owner | Upstream relationship | Critical files | Required regression |
-| --- | --- | --- | --- | --- |
-| Header export action, stable chronological continuation transcript, descendant lineage, open-turn handling, tool-payload folding, deterministic Markdown, safe filenames and streaming HTTP contract | `win-desktop/session-markdown-export-plugin` | Independent local plugin | `src/session-export.ts`, `src/content.ts`, `src/render-markdown.ts`, `src/http.ts`, `src/client/controller.ts`, `src/client/HeaderAction.tsx` | `pnpm test`; wrapper `tests/session-markdown-export-integration.test.js` |
 
 ## Windows wrapper owner
 
@@ -108,7 +101,7 @@ The Alpha.2-era migration classification was:
 | CPA | `REAPPLY` | Retain the independent Provider plugin, native single-row editor seam, revision-guarded migration, image default, capacity and reasoning vocabulary against Alpha.2 Models APIs. |
 | Models settings | `SUPERSEDED_BY_DESIGN + REAPPLY` | Rebase onto Alpha.2 provider-card/footer, Onboarding and Remote architecture, then reapply provider-neutral image modes, reasoning/capability probes, late Remote availability and output-link safety. |
 | Desktop Settings | `REAPPLY` | Retain the Harness-native desktop section and immediate-save IPC bridge on the Alpha.2 settings slot. |
-| Session Markdown | `REAPPLY` | Adapt renderer/session/todo type ownership to Alpha.2 while retaining deterministic continuation export and lineage behavior. |
+| Session Markdown | Removed 2026-09-07 | The local continuation-export plugin is retired. User-exported Markdown files stay on disk. |
 | Windows wrapper | `SUPERSEDED_BY_DESIGN + REAPPLY` | Move CreateProcess hiding to Alpha.2's `dsh-win32-process` owner boundary; retain provider-neutral grep normalization, OpenCode/Kimi rewrites, stream recovery, session affinity, plugin healing and startup integration. |
 | Tool-call guidance | `REAPPLY` | Retained the independent compact system-prompt plugin and its 500-character contract before AgentTeams. |
 
@@ -192,7 +185,7 @@ From `win-desktop`:
 npm run verify:upstream
 ```
 
-The command runs the Models, CPA, AgentTeams, Session Markdown, and desktop
+The command runs the Models, CPA, AgentTeams, and desktop
 test suites sequentially, then synchronizes each local plugin `lib` directory
 and package manifest into its existing `file:` dependency before wrapper tests
 verify the packed runtime surface. It must not install dependencies, publish

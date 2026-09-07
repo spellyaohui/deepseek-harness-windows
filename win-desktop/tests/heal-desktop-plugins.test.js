@@ -16,7 +16,6 @@ import {
 const PLUGINS = [
   '@deepseek-ai/dsh-app-boot',
   '@nanmicoder/dsh-agent-teams',
-  '@deepseek-ai/dsh-session-markdown-export',
   '@deepseek-ai/dsh-opencode-capabilities',
   '@deepseek-ai/dsh-tool-call-guidance',
 ]
@@ -130,6 +129,7 @@ test('generated AgentTeams patch ignores removed legacy model settings', () => {
     })
     const patch = readFileSync(patchPath, 'utf8')
     assert.doesNotMatch(patch, /legacyDesktopSettings|provider #1|model\\path|reasoningEffort/)
+    assert.doesNotMatch(patch, /session-markdown-export/)
     assert.match(patch, /memberProvider: spawn/)
   } finally {
     rmSync(home, { recursive: true, force: true })

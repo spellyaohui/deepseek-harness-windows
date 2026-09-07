@@ -7,7 +7,6 @@ const gates = [
   ['models-settings-plugin', 'pnpm', ['test']],
   ['cpa-provider-plugin', 'pnpm', ['test']],
   ['agent-teams-plugin', 'pnpm', ['test']],
-  ['session-markdown-export-plugin', 'pnpm', ['test']],
   ['.', 'npm', ['run', 'sync:local-plugin-artifacts']],
   ['.', 'node', ['scripts/verify-alpha2-runtime-closure.mjs', '--from', 'node_modules']],
   ['.', 'npm', ['test']],

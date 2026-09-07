@@ -62,10 +62,6 @@ export function generateAgentTeamsPatch({
     '        memberProvider: spawn',
     `        profiles: ${JSON.stringify(profiles)}`,
   ]
-  lines.push(
-    '    - id: session-markdown-export',
-    "      name: '@deepseek-ai/dsh-session-markdown-export'",
-  )
 
   const content = lines.join('\n') + '\n'
   const outPath = join(getUserDataPath(), 'agent-teams.patch.yml')

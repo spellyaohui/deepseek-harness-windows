@@ -163,7 +163,6 @@
     "@deepseek-ai/dsh-session-checkpoint-policy": "file:../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-session-checkpoint-policy-0.1.2-rc.1.tgz",
     "@deepseek-ai/dsh-session-log-deepseek": "file:../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-session-log-deepseek-0.1.2-rc.1.tgz",
     "@deepseek-ai/dsh-session-log-export": "file:../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-session-log-export-0.1.2-rc.1.tgz",
-    "@deepseek-ai/dsh-session-markdown-export": "file:session-markdown-export-plugin",
     "@deepseek-ai/dsh-session-persistence": "file:../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-session-persistence-0.1.2-rc.1.tgz",
     "@deepseek-ai/dsh-session-persistence-jsonl": "file:../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-session-persistence-jsonl-0.1.2-rc.1.tgz",
     "@deepseek-ai/dsh-session-projection": "file:../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-session-projection-0.1.2-rc.1.tgz",

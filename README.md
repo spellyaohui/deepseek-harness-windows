@@ -9,6 +9,7 @@
 - 修复官方返回 `You've reached your weekly usage limit...` 时仍被识别为普通 `RATE_LIMIT` 的问题；Windows loader 现在只对明确的周/月等周期用量耗尽文本分类为终止性 `QUOTA`，避免继续重试已经耗尽的额度。
 - 普通瞬时 `429 rate limit` 仍保持可重试；单独的额度重置提示不会被误判为已耗尽。回归覆盖真实 `@deepseek-ai/dsh-llm` 模块、loader 注入和 132 项 Windows wrapper 测试。
 - AgentTeams 升级到上游 `v0.1.16-rc.1`（commit `d659e5b`），保留本地角色策略、严格 V2、质量门禁、共享目录、紧凑提示词、Team/Native 与持久会话网关。
+- 移除本地 Session Markdown 续接导出插件；已导出的用户 Markdown 文件保留在磁盘上。
 
 ## `v0.1.2-rc.7` 更新说明
 
@@ -145,10 +146,9 @@
 - **CPA 多模型与多模态**：通过 `CPA / CLIProxyAPI` 原生提供方接入 OpenAI Responses 兼容网关，自动获取模型；CPA 模型默认声明 `text + image`，支持图片附件和模型级纯文本覆盖。
 - **完整的思考协议映射**：支持 `off / low / medium / high / xhigh / max`，其他模型保留完整七档词汇，GPT-5.6 按其可用档位过滤。
 - **子智能体可控可追踪**：AgentTeams 的 Profile 角色卡分别管理 Provider、模型和 reasoning policy；保存后重启用于新团队，Team/Native 委派路由仍在主程序设置 TAB 中管理。
-- **会话可续接**：`续接 MD` 以确定性程序导出时间线、可见上下文、工具摘要和子会话 lineage，方便交给新的智能体继续；隐藏思维链和成功工具原始载荷不会被伪装导出。
 - **OpenCode 图片能力自愈**：启动时校正已验证的协议和图片能力；遇到旧目录或可疑模型时，可在“设置 → 模型”一键校验，不会修改 API 地址或 Token。
 - **OpenCode Go 会话路由兼容**：所有 OpenCode Go 模型沿用 Harness 当前会话的 `x-opencode-session` 粘性路由，避免 Kimi K3 等模型被网关误路由后伪装成“API key 无效”；通用 Provider 不受影响。
-- **面向长期维护的插件边界**：CPA、AgentTeams、Models 设置、桌面设置、Session Markdown 和 Windows 包装器各自负责清晰能力，便于后续独立升级和回归。
+- **面向长期维护的插件边界**：CPA、AgentTeams、Models 设置、桌面设置和 Windows 包装器各自负责清晰能力，便于后续独立升级和回归。
 
 ## 与上游项目的关系
 
@@ -254,23 +254,6 @@ CPA 模型默认声明 `text + image` 输入模态，以便 CLIProxyAPI 的 Resp
 
 CPA R 协议线级别为 `none / minimal / low / medium / high / xhigh / max`。Harness 中的 `off` 会发送为 `none`；GPT-5.6 模型不提供 `minimal`，因此可选项为 `off / low / medium / high / xhigh / max`。
 
-## 续接 Markdown 导出
-
-`续接 MD` 位于会话页头的 `Session log` 旁边。它先对当前会话及其已知子会话做一次预检，然后下载一个 `.md` 文件。导出是确定性程序渲染，不调用 LLM；同一快照会产生相同内容。
-
-导出包含：
-
-- 会话元数据、最新已渲染 system prompt、模型/提供商/推理强度等有效配置，以及可用工具名称列表。
-- 当前模型可见 surface、完整可见时序 transcript、最新直接用户请求和最近助手文本；兼容当前 Harness 直接载荷和旧版包装载荷的用户消息。
-- 精简执行状态：待办、已变更路径、失败/未完成工具的摘要、中断和 turn 边界。
-- 已知后代会话的递归章节；子会话继承的 seed 历史只引用来源和计数，不重复展开。
-
-如果选中的根会话本身继承自父会话，导出会保留这段有效上下文，并明确标出父会话、seed 数量以及“继承历史/本会话日志”的 sequence 边界。消息时间同时显示 UTC ISO-8601 和原始 epoch 值，sequence 仍是规范排序依据。
-
-它不包含成功工具调用的原始 arguments/result、二进制附件或原始工具流量，也不读取或声称包含隐藏思维链。产品中已可见的 reasoning 块会明确标记为 `可见推理`。需要完整原始会话事件、工具交互和附件时，继续使用官方 `Session log` 原始 ZIP 导出；两者是互补而非替代关系。
-
-Markdown 可能包含 system prompt、工作区路径、对话和敏感项目上下文。下载后应按敏感数据保管，共享前先审查和脱敏，不得提交到公开仓库。文件中的文件系统与外部状态只是导出时的历史上下文，继续任务前必须重新验证。
-
 ## 开发
 
 需要 Node.js 22.19 或 24+。
@@ -291,18 +274,6 @@ npm run dist:win
 
 ```powershell
 cd win-desktop/agent-teams-plugin
-pnpm typecheck
-pnpm test
-cd ..
-npm test
-npm audit
-npm run dist:win
-```
-
-验证续接 Markdown 插件、Windows 包装器与可发布产物：
-
-```powershell
-cd win-desktop/session-markdown-export-plugin
 pnpm typecheck
 pnpm test
 cd ..
