@@ -79,6 +79,7 @@ export declare const en: {
     capabilityCancel: string;
     capabilityOverwrite: string;
     capabilityDraftHint: string;
+    capabilityPreserveHint: string;
     capabilitySupported: string;
     capabilityUnsupported: string;
     capabilityInconclusive: string;

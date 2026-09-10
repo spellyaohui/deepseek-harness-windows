@@ -492,6 +492,7 @@ export function installMemberSelectionRuntime(
           child,
           ctx.agents.get(parentSessionId),
           delegationPolicy,
+          { member: true },
         )
     const disposePolicy = policyInstallation?.dispose ?? (() => undefined)
     const key = pendingSelectionKey(parentSessionId, descriptor.label)

@@ -546,6 +546,9 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             )}
         </div>
         <p className={styles['advancedHint']}>{t('capabilityDraftHint')}</p>
+        {!overwriteExisting
+          ? <p className={styles['advancedHint']} role="note">{t('capabilityPreserveHint')}</p>
+          : null}
         {capabilityUnavailable ? <p className={styles['error']} role="status">{t('capabilityUnavailable')}</p> : null}
         {probeNotice === undefined ? null : <p className={styles['savedNotice']} role="status" aria-live="polite">{probeNotice}</p>}
         {probeFailure === undefined ? null : <p className={styles['error']} role="alert">{probeFailure}</p>}

@@ -12,7 +12,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { failMemberOpenAttempt } from '../lib/members.js'
-import { haltTeamWork, registerAgentTeamsTools } from '../lib/tools.js'
+import { haltTeamWork, notifyStagedPlanApproved, registerAgentTeamsTools } from '../lib/tools.js'
 import { buildActivationDirective, invokedAgentTeamsGoal, invokedAgentTeamsInvocation, installAgentTeamsGestureBoundary, profileCommandName, registerAgentTeamsCommand } from '../lib/command.js'
 import { createTeamDir, readArchivedTeam, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
 import { assembleTeamSnapshot, collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
@@ -87,7 +87,18 @@ function policySession(events = [], parentSession) {
 function policyAgent(id, events = [], parentSession, availableTools = policyTools) {
   const subject = {
     id,
-    session: policySession(events, parentSession),
+    session: policySession(parentSession === undefined || id !== 'policy-agentteams-member'
+      ? events
+      : [...events, {
+          type: 'subagent/descriptor',
+          data: snapshotSubagentDescriptor({
+            mode: 'continuable',
+            provider: 'spawn',
+            label: `agent-teams:test:${id}`,
+            agentProvider: 'fake',
+            agentModel: 'fake-model',
+          }),
+        }], parentSession),
     options: { provider: 'fake', model: 'fake-model' },
   }
   subject.ctx = {
@@ -128,6 +139,7 @@ registerDelegationPolicyLifecycle(policyCtx, {
   defaultMode: () => defaultDelegationMode,
   order: 117,
   text: policy => `${policyMarker(policy)}\n\npolicy-specific usage`,
+  memberText: policy => `${policyMarker(policy)}\n\nAgentTeams member fixed policy`,
 })
 
 function announcePolicyAgent(subject) {
@@ -212,11 +224,14 @@ function makeAgent(id, parentSession) {
     options: { provider: 'fake', model: 'fake-model' },
     session: session(parentSession),
     followups: [],
+    steers: [],
     injections: [],
     followup(message) {
       this.followups.push(message)
     },
-    steer() {},
+    steer(message) {
+      this.steers.push(message)
+    },
     inject(message) {
       this.injections.push(message)
     },
@@ -418,6 +433,7 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
     defaultMode: () => memberDefaults.delegationMode,
     order: 117,
     text: policy => `${policyMarker(policy)}\n\nmember policy usage`,
+    memberText: policy => `${policyMarker(policy)}\n\nAgentTeams member fixed policy`,
   },
   testObserver: {
     onInitializeProfileTeamPersistence(operation) {
@@ -657,6 +673,12 @@ check('prepared Web approval commits receipt provenance through the unified barr
     && persistedWebTeam.approvedPlanRevision === submittedStaged.plan_revision
     && persistedWebTeam.planRevision === submittedStaged.plan_revision
     && /^web:receipt:/.test(persistedWebTeam.approvalEvidenceId))
+const captainSteersBeforeApprovalNotice = captain.steers.length
+const approvalNoticeDelivered = notifyStagedPlanApproved(captain, persistedWebTeam.name)
+check('Web approval notice wakes the captain through the steer boundary',
+  approvalNoticeDelivered
+    && captain.steers.length === captainSteersBeforeApprovalNotice + 1
+    && captain.steers.at(-1)?.content?.[0]?.text.includes(`approved the staged AgentTeams plan "${persistedWebTeam.name}"`))
 await call('agent_teams_delete', {})
 
 const createProfileDescription = definitions.get('agent_teams_create')
@@ -676,6 +698,18 @@ check('create without Profile produces an ad-hoc Team',
     && omittedProfileTeam?.profile === undefined
     && omittedProfileTeam?.members.length === 0
     && omittedProfileTeam?.tasks.length === 0)
+let duplicateCreateError = ''
+try {
+  await call('agent_teams_create', {
+    name: 'Should Not Replace Existing Team',
+    description: 'duplicate create must continue the current team',
+  })
+} catch (error) {
+  duplicateCreateError = String(error?.message ?? error)
+}
+check('duplicate create directs the captain to continue the existing team',
+  duplicateCreateError.includes('Use agent_teams_status and continue the existing team')
+    && duplicateCreateError.includes('Do not delete and recreate it'))
 await call('agent_teams_delete', {})
 
 let blankProfileCreation
@@ -919,7 +953,7 @@ check('slash --profile without a goal still activates',
   profileOnly.kind === 'success' && captain.followups.length === 3)
 check('profile-only activation asks for the goal',
   buildActivationDirective('', 'demo-delivery').includes('The goal was not given')
-    && buildActivationDirective('', 'demo-delivery').includes('Use configured AgentTeams profile "demo-delivery"'))
+    && buildActivationDirective('', 'demo-delivery').includes('Use profile="demo-delivery" when creating a new team'))
 check('captain-planning activation starts automatically with model-owned task planning',
   buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('approval="automatic"')
     && buildActivationDirective('ship it', 'dynamic-delivery', 'captain').includes('Omit name so the plugin generates it')
@@ -1646,6 +1680,7 @@ try {
     typeof addedAlpha.member_id === 'string' && alpha !== undefined)
   check('member receives Team policy before publication',
     lifecycleSections.get(alpha)?.text.includes(policyMarker('teams-v1'))
+      && lifecycleSections.get(alpha)?.text.includes('AgentTeams member fixed policy')
       && NATIVE_DELEGATION_TOOLS.every(name => alpha.ctx.tools.get(name, alpha) === undefined))
   check('captain-only and Team restrictions preserve member-local report tools',
     alpha.ctx.tools.get('agent_teams_send_message', alpha) !== undefined

@@ -546,6 +546,28 @@ export async function haltTeamWork(input: {
   }
 }
 
+/** Stable control context delivered when the Web plan approval commits. */
+export function stagedPlanApprovedContext(teamName: string): string {
+  return [
+    `The user approved the staged AgentTeams plan "${teamName}" from the pre-run review UI.`,
+    'Approval has committed; the scheduler owns dispatch of the approved team. Do not approve again, recreate the roster, or send messages merely to start assigned tasks.',
+    'Acknowledge the approval and handle any reports or user work already pending. Yield when waiting for members is the remaining action; their reports will wake you automatically.',
+  ].join('\n')
+}
+
+/** Wake a captain after a browser approval without changing durable state. */
+export function notifyStagedPlanApproved(captain: Pick<Agent, 'steer'>, teamName: string): boolean {
+  try {
+    captain.steer(createUserMessage({
+      content: [{ type: 'text', text: stagedPlanApprovedContext(teamName) }],
+      source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+    }))
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** Context queued after the human rejects a staged plan. */
 export function stagedPlanDiscardContext(teamName: string): string {
   return [
@@ -1004,7 +1026,10 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         const current = await findTeamByParticipant(stateRoot, captainId)
         if (current !== undefined) {
           const relationship = current.captainSessionId === captainId ? 'lead' : 'belong to'
-          throw new Error(`you already ${relationship} team "${current.name}" — end or leave it before creating another`)
+          const guidance = current.captainSessionId === captainId
+            ? 'Use agent_teams_status and continue the existing team. Do not delete and recreate it merely to continue work. End it only when the user explicitly wants a separate new team.'
+            : 'Continue your assigned member work and report to your captain; do not create a separate team.'
+          throw new Error(`you already ${relationship} team "${current.name}" (id ${current.id}). ${guidance}`)
         }
         for (let attempt = 0; attempt < 16; attempt += 1) {
           const teamName = explicitName ?? automaticTeamName(args.description, randomBytes(3).toString('hex'))

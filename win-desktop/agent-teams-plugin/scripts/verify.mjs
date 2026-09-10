@@ -26,6 +26,7 @@ import {
   readTeamSync,
   removeTeamDir,
   sanitizeKey,
+  teamLockQueueKeys,
   transitionError,
   unsatisfiedDependencies,
   withTeamLock,
@@ -113,6 +114,15 @@ function check(label, condition, detail = '') {
 }
 
 console.log('dsh-agent-teams offline verification')
+
+const lockCleanupKey = 'verify:lock-cleanup'
+await Promise.all(Array.from({ length: 8 }, (_, index) => withTeamLock(lockCleanupKey, async () => {
+  await new Promise((resolve) => setTimeout(resolve, index % 2 === 0 ? 2 : 1))
+})))
+check(
+  'settled Team lock queues are released after their final waiter',
+  !teamLockQueueKeys().includes(lockCleanupKey),
+)
 
 const builtTools = await readFile(new URL('../lib/tools.js', import.meta.url), 'utf8')
 const builtIndex = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')

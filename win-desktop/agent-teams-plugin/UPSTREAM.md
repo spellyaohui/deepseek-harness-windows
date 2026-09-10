@@ -1,15 +1,15 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.16-rc.1`
-- Tag: `v0.1.16-rc.1`
-- Source commit: `d659e5b`
-- Imported: `2026-09-07`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.16-rc.3`
+- Tag: `v0.1.16-rc.3`
+- Source commit: `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`
+- Imported: `2026-09-10`
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.16-rc.1`.
+- Desktop fork version is `0.1.16-rc.3`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## 2026-09-07 refresh classification
@@ -28,6 +28,20 @@
 - Offline RC.1 tarball development pins: `@deepseek-ai/dsh` and every local `dsh-*` `devDependency` stay `file:` paths under `upstream/dsh-v0.1.2-rc.1/tarballs`. `scripts/compatibility.mjs` treats the tarball filename version as the exact supported host so the publish contract can pass without a network install.
 - `scripts/doctor.mjs` treats a same-host `-desktop.N` Models fork as the RC.1 cohort, because the Windows wrapper replaces `@deepseek-ai/dsh-client-ui-settings-models` with the local editor fork.
 - Extra Alpha.2 settings injects and peers (`dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-settings`, `dsh-client-ui-slots`, `dsh-settings`, `dsh-workspace`) remain because the Windows Profile editor and settings section consume them. Their peer ranges still enumerate `0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2`.
+
+## 2026-09-10 v0.1.16-rc.3 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: upstream existing-Team continuation guidance, fixed
+  AgentTeams prompt/tool exposure, Web approval wake-up, and settled lock
+  queue cleanup were adopted with focused regressions.
+- `REAPPLY`: the Windows fork keeps its RC.1 host compatibility adapter,
+  Team/Native routing policy, role-level Provider/model/reasoning selection,
+  strict V2 and quality contracts, and durable-session subagent gateway.
+  AgentTeams children receive the fixed member-scoped prompt through the local
+  routing-policy lifecycle; no direct `ctx.subagents.*` path was introduced.
+- The recommended host remains `0.1.2-rc.1`; the optional supported hosts stay
+  `0.1.2-alpha.5` and `0.1.2-alpha.2`. No Harness dependency or tarball pin
+  changed in this refresh.
 - Path-stable virtual CSS module ids with generated-artifact verification.
 - Windows PowerShell lock-fixture timing uses `[Threading.Thread]::Sleep(140)`.
 - `.desktop.2` makes explicit member settings authoritative, treats blank

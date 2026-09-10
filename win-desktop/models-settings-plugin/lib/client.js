@@ -960,6 +960,11 @@ window.__ModuleLoader__.load({
 								className: ModelsSection_module_css_default["advancedHint"],
 								children: t("capabilityDraftHint")
 							}),
+							!overwriteExisting ? (0, react_jsx_runtime.jsx)("p", {
+								className: ModelsSection_module_css_default["advancedHint"],
+								role: "note",
+								children: t("capabilityPreserveHint")
+							}) : null,
 							capabilityUnavailable ? (0, react_jsx_runtime.jsx)("p", {
 								className: ModelsSection_module_css_default["error"],
 								role: "status",
@@ -3073,6 +3078,7 @@ window.__ModuleLoader__.load({
 			capabilityCancel: "Cancel probing",
 			capabilityOverwrite: "Overwrite existing capability values",
 			capabilityDraftHint: "Results apply to this unsaved draft only. Save the provider to persist them; restart afterward to load new model capabilities.",
+			capabilityPreserveHint: "Overwrite is off: existing capability values, including reasoning levels, are kept when the probe is inconclusive or does not report them.",
 			capabilitySupported: "Supported",
 			capabilityUnsupported: "Unsupported",
 			capabilityInconclusive: "Unconfirmed",
@@ -3204,6 +3210,7 @@ window.__ModuleLoader__.load({
 			capabilityCancel: "取消探测",
 			capabilityOverwrite: "覆盖已有能力配置",
 			capabilityDraftHint: "结果只应用到当前未保存草稿；保存提供方后才会持久化，随后需要重启才能加载新的模型能力。",
+			capabilityPreserveHint: "未开启覆盖：探测无法确认或未报告的能力（包括推理档位）会保留现有配置。",
 			capabilitySupported: "支持",
 			capabilityUnsupported: "不支持",
 			capabilityInconclusive: "无法确认",

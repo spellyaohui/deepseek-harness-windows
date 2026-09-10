@@ -94,6 +94,32 @@ test('openai-responses probes all generic capability categories using the curren
   assert.ok(calls.every(call => !JSON.stringify(result).includes('secret-key-must-not-escape')))
 })
 
+test('reasoning probes always exercise the complete standard effort set', async () => {
+  const efforts = []
+  const result = await probeModelCapabilities({
+    modelId: 'stale-partial-capabilities',
+    protocol: 'openai-responses',
+    baseURL: 'https://provider.example/v1',
+    candidate: { reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh' } },
+  }, {
+    fetch: async (_url, init) => {
+      const body = requestBody({ init })
+      const effort = body.reasoning?.effort ?? body.reasoning_effort
+      if (effort !== undefined && effort !== 'none') efforts.push(effort)
+      return response(effort === 'max' ? 400 : 200, { choices: [] })
+    },
+  })
+
+  assert.deepEqual(efforts, ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+  assert.deepEqual(result.patch.reasoningEfforts, {
+    minimal: 'minimal',
+    low: 'low',
+    medium: 'medium',
+    high: 'high',
+    xhigh: 'xhigh',
+  })
+})
+
 test('image rejection becomes text-only without changing other probe results', async () => {
   const result = await probeModelCapabilities({
     modelId: 'text-only',

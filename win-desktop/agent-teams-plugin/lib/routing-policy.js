@@ -1,3 +1,4 @@
+import { sessionOwnEvents } from "./harness-compat.js";
 export const POLICY_PREFIX = 'AgentTeams delegation policy:';
 export const NATIVE_DELEGATION_TOOLS = [
     'subagent', 'subagent_fork', 'subagent_codex', 'subagent_claude_code',
@@ -93,7 +94,7 @@ export function installDelegationPolicy(input) {
     };
 }
 /** Resolve and install one Agent policy before any request assembly. */
-export function resolveAndInstallDelegationPolicy(agent, parent, runtime) {
+export function resolveAndInstallDelegationPolicy(agent, parent, runtime, options = {}) {
     const defaultMode = runtime.defaultMode();
     const events = sessionEvents(agent);
     const policy = resolveDelegationPolicy({
@@ -105,13 +106,22 @@ export function resolveAndInstallDelegationPolicy(agent, parent, runtime) {
         agent,
         policy,
         order: runtime.order,
-        text: runtime.text(policy),
+        text: options.member ? (runtime.memberText?.(policy) ?? runtime.text(policy)) : runtime.text(policy),
     });
     return { policy, dispose };
 }
 /** Register the synchronous `agent/created` policy installer from the plugin root. */
 export function registerDelegationPolicyLifecycle(ctx, runtime) {
     return ctx.on('agent/created', ({ agent }) => {
+        // AgentTeams' member runtime installs the member-scoped policy itself
+        // after validating the durable descriptor and pending role selection.
+        // Skipping this early captain installation prevents the child from
+        // assembling captain-only guidance during its first request.
+        const ownEvents = sessionOwnEvents(agent.session);
+        if (ownEvents.some(event => event?.type === 'subagent/descriptor'
+            && typeof event.data?.label === 'string'
+            && event.data.label.startsWith('agent-teams:')))
+            return;
         const parentSession = agent.session.header.parentSession;
         const parent = parentSession === undefined ? undefined : ctx.agents.get(parentSession);
         resolveAndInstallDelegationPolicy(agent, parent, runtime);

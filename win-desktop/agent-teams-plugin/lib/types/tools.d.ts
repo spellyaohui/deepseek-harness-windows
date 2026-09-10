@@ -152,6 +152,10 @@ export declare function haltTeamWork(input: {
     cancelledTasks: number;
     alreadyHalted: boolean;
 }>;
+/** Stable control context delivered when the Web plan approval commits. */
+export declare function stagedPlanApprovedContext(teamName: string): string;
+/** Wake a captain after a browser approval without changing durable state. */
+export declare function notifyStagedPlanApproved(captain: Pick<Agent, 'steer'>, teamName: string): boolean;
 /** Context queued after the human rejects a staged plan. */
 export declare function stagedPlanDiscardContext(teamName: string): string;
 /** Model-facing continuation that turns the review UI back into a conversation. */

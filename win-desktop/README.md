@@ -6,7 +6,7 @@
 
 - 修复官方 `weekly/monthly/... usage limit` 已达到或超出时被当作普通 `RATE_LIMIT` 并重复重试的问题；loader 在 `dsh-llm` 边界把明确的周期用量耗尽文本归类为终止性 `QUOTA`。
 - 普通瞬时 429 和单独的 reset 提示保持原有处理，不会被误判为终止额度；真实安装模块回归和完整 wrapper 门禁已覆盖该边界。
-- AgentTeams 升级到上游 `v0.1.16-rc.1`（commit `d659e5b`）：采用宿主适配器、FIFO 续接、bounded JSON、parked 恢复和活动面板改进，并保留本地角色策略、严格 V2、质量门禁、共享目录、紧凑提示词、Team/Native 与持久会话网关。
+- AgentTeams 升级到上游 `v0.1.16-rc.3`（commit `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`）：推荐宿主仍为 `dsh-v0.1.2-rc.1`，采用上游现有 Team 续接、Web 审批唤醒和锁队列清理，并保留本地角色策略、严格 V2、质量门禁、共享目录、紧凑提示词、Team/Native 与持久会话网关。
 - 移除本地 Session Markdown 续接导出插件；已导出的用户 Markdown 文件保留在磁盘上。
 
 ## `v0.1.2-rc.7` 更新说明
@@ -179,7 +179,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
 - Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后必须重启，才会注入并用于新团队。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.16-rc.1`、固定提交 `d659e5b`，桌面 fork 版本是 `0.1.16-rc.1`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.16-rc.3`、固定提交 `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`，桌面 fork 版本是 `0.1.16-rc.3`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 

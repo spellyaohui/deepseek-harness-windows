@@ -116,14 +116,17 @@ function asObject(value: unknown): Record<string, unknown> {
 }
 
 function reasoningEffortCandidates(candidate: Record<string, unknown> | undefined): string[] {
+  const candidates: string[] = [...DEFAULT_REASONING_EFFORTS]
   const raw = candidate?.['reasoningEfforts']
   if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
     const values = Object.entries(raw as Record<string, unknown>)
       .filter(([key, value]) => key !== 'off' && typeof value === 'string' && value.trim().length > 0)
       .map(([, value]) => String(value))
-    if (values.length > 0) return [...new Set(values)]
+    for (const value of values) {
+      if (!candidates.includes(value)) candidates.push(value)
+    }
   }
-  return [...DEFAULT_REASONING_EFFORTS]
+  return [...new Set(candidates)]
 }
 
 function requestPayload(

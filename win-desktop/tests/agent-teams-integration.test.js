@@ -53,7 +53,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
 
     const metadata = JSON.parse(readText(pluginRoot, 'package.json'))
     assert.equal(metadata.name, '@nanmicoder/dsh-agent-teams')
-    assert.equal(metadata.version, '0.1.16-rc.1')
+    assert.equal(metadata.version, '0.1.16-rc.3')
     assert.equal(metadata.exports['./client'].default, './lib/client.js')
 
     const imported = spawnSync(process.execPath, [
@@ -67,7 +67,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
     assert.equal(imported.status, 0, imported.stderr)
     assert.deepEqual(JSON.parse(imported.stdout), {
       name: 'agent-teams',
-      exports: ['Config', 'apply', 'inject', 'name', 'usageSectionText'],
+      exports: ['Config', 'apply', 'inject', 'memberUsageSectionText', 'name', 'usageSectionText'],
     })
   } finally {
     rmSync(userData, { recursive: true, force: true })

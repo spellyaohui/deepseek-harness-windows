@@ -38,14 +38,21 @@ export async function withTeamLock(key, fn) {
     const previous = locks.get(key) ?? Promise.resolve();
     let release;
     const gate = new Promise((resolve) => { release = resolve; });
-    locks.set(key, previous.then(() => gate));
+    const tail = previous.then(() => gate);
+    locks.set(key, tail);
     await previous;
     try {
         return await fn();
     }
     finally {
         release();
+        if (locks.get(key) === tail)
+            locks.delete(key);
     }
+}
+/** Keys with an in-process lock queue, for diagnostics and leak checks. */
+export function teamLockQueueKeys() {
+    return [...locks.keys()];
 }
 /** Longest key emitted before truncating and appending a digest. */
 const MAX_KEY_LENGTH = 48;

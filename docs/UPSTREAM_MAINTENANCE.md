@@ -11,8 +11,8 @@ prove it still exists.
 - Windows desktop wrapper: `0.1.2-rc.8`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.2`
-- AgentTeams fork: `0.1.16-rc.1`, based on upstream `v0.1.16-rc.1` at fixed commit
-  `d659e5b`
+- AgentTeams fork: `0.1.16-rc.3`, based on upstream `v0.1.16-rc.3` at fixed commit
+  `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`
 - CPA provider plugin: `0.1.7`
 - Models settings fork: `0.1.2-rc.1-desktop.2`
 - Desktop Settings plugin: `0.1.2`
@@ -38,6 +38,25 @@ continuation, fallback persistence, notification-driven coordination, bounded JS
 Web bodies, parked member recovery, activity-panel UI, and the RC.1 release
 contract (compatibility policy, doctor, `publishConfig.tag=next`, bounded peers)
 are `UPSTREAM_EQUIVALENT`.
+
+## AgentTeams v0.1.16-rc.3 refresh classification — 2026-09-10
+
+The recommended Harness host matrix is unchanged: `0.1.2-rc.1` remains the
+baseline, with `0.1.2-alpha.5` and `0.1.2-alpha.2` also supported. This refresh
+upgrades only the AgentTeams source to upstream `v0.1.16-rc.3` at
+`bf17f93d35ef75964e96333ff644ab2c9c57b3cb`.
+
+- `UPSTREAM_EQUIVALENT`: existing-Team continuation guidance, the fixed
+  AgentTeams prompt/tool exposure contract, Web approval wake-up, and settled
+  Team lock cleanup.
+- `REAPPLY`: Windows role-level Provider/model/reasoning policy, strict V2,
+  quality gates, Team/Native routing, RC.1 compatibility adapters, and the
+  durable-session subagent gateway remain local owners. The member-scoped
+  prompt is integrated through `routing-policy.ts` so the RC.1 lifecycle and
+  per-child gateway are not bypassed.
+- External upstream benchmark/evidence dumps, skills, screenshots, logs and
+  package artifacts are intentionally not imported into this Windows source
+  tree.
 
 ## AgentTeams owner
 

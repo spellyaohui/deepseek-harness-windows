@@ -371,7 +371,7 @@ export function installMemberSelectionRuntime(ctx, stateDir, delegationPolicy, o
         const stateRoot = join(workspace, stateDir);
         const policyInstallation = delegationPolicy === undefined
             ? undefined
-            : resolveAndInstallDelegationPolicy(child, ctx.agents.get(parentSessionId), delegationPolicy);
+            : resolveAndInstallDelegationPolicy(child, ctx.agents.get(parentSessionId), delegationPolicy, { member: true });
         const disposePolicy = policyInstallation?.dispose ?? (() => undefined);
         const key = pendingSelectionKey(parentSessionId, descriptor.label);
         let selection = pending.get(key);

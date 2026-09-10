@@ -34,6 +34,7 @@ test('capability UI has localized labels and recognizable status styles', () => 
     'capabilityProbe',
     'capabilityCancel',
     'capabilityOverwrite',
+    'capabilityPreserveHint',
     'capabilitySupported',
     'capabilityUnsupported',
     'capabilityInconclusive',

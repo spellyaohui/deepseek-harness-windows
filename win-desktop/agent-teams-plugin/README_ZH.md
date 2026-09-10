@@ -16,7 +16,7 @@
 
 `dsh-agent-teams` 让当前 DeepSeek Harness 会话成为队长：创建可续聊的子 Agent、把目标拆成有依赖的任务，并通过直达消息协调成员工作。
 
-你只需用自然语言提出目标。插件会提供团队协议、10 个协作工具、持久化状态、自动共享任务调度和实时 Web UI，不需要额外的 Workflow 引擎。
+你只需用自然语言提出目标。插件会提供团队协议、13 个协作工具、持久化状态、自动共享任务调度和实时 Web UI，不需要额外的 Workflow 引擎。
 
 <p align="center">
   <img src="./assets/ui.png" width="100%" alt="DeepSeek Harness 对话与 AgentTeams 实时活动面板，展示成员、任务依赖和回报">
@@ -25,6 +25,12 @@
 ## 版本更新
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
+
+### v0.1.16-rc.3
+
+- 推荐的 Harness 宿主矩阵没有变化（`0.1.2-rc.1`、`0.1.2-alpha.5`、`0.1.2-alpha.2`），本次只升级 AgentTeams 上游基线。
+- 重复创建团队时改为指引继续现有 Team；Web 批准后唤醒队长；已结算的进程内 Team 锁队列会释放。
+- 保留 Windows 角色级 Provider/模型/思考策略、严格 V2 质量门禁、Team/Native 路由、兼容适配器和持久会话子智能体网关。
 
 ### v0.1.16-rc.1
 

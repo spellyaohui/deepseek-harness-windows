@@ -85,11 +85,28 @@ export function inspectInstallation(hostRoot, profileRoot) {
   if (missing.length) problems.push(`Missing packages: ${[...new Set(missing)].join(', ')}`)
   const identities = new Map()
   for (const pkg of [...packages, ...sharedRuntimes]) {
-    const paths = identities.get(pkg.name) ?? new Set()
-    paths.add(pkg.path)
-    identities.set(pkg.name, paths)
+    const entry = identities.get(pkg.name) ?? { paths: new Set(), versions: new Set() }
+    entry.paths.add(pkg.path)
+    entry.versions.add(pkg.version ?? 'unknown')
+    identities.set(pkg.name, entry)
   }
-  const duplicates = [...identities].filter(([, paths]) => paths.size > 1).map(([name]) => name)
+  // pnpm resolves the same tarball into multiple `.pnpm` virtual-store
+  // directories when different consumers have distinct peer sets.  Those
+  // paths differ but the package bytes are identical, so they do not
+  // create a real runtime identity conflict.  Cross-root duplicates
+  // (host node_modules vs profile node_modules) remain flagged because
+  // they are truly separate instances at runtime.
+  function pnpmStoreRoot(p) {
+    const m = /[\\/]\.pnpm[\\/]/.exec(p)
+    return m ? p.slice(0, m.index + m[0].length) : null
+  }
+  const duplicates = [...identities].filter(([, { paths, versions }]) => {
+    if (paths.size <= 1) return false
+    if (versions.size > 1) return true
+    // Same version everywhere — safe only inside one pnpm virtual store
+    const stores = new Set([...paths].map(pnpmStoreRoot).filter(Boolean))
+    return stores.size !== 1
+  }).map(([name]) => name)
   if (duplicates.length) problems.push(`Multiple resolved identities: ${duplicates.join(', ')}`)
   return {
     ok: problems.length === 0,

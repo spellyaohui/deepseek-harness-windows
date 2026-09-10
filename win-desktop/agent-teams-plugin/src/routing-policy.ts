@@ -5,6 +5,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 import type { DelegationMode } from './settings.ts'
+import { sessionOwnEvents } from './harness-compat.ts'
 
 export type DelegationPolicyId = 'teams-v1' | 'native-v1'
 export const POLICY_PREFIX = 'AgentTeams delegation policy:'
@@ -78,6 +79,8 @@ export interface DelegationPolicyRuntime {
   defaultMode(): DelegationMode
   order: number
   text(policy: DelegationPolicyId): string
+  /** Fixed member-scoped prompt, so children never receive captain rules. */
+  memberText?: (policy: DelegationPolicyId) => string
 }
 
 /** Install one policy prompt and its model-visible tool restriction in an Agent scope. */
@@ -130,6 +133,7 @@ export function resolveAndInstallDelegationPolicy(
   agent: Agent,
   parent: Agent | undefined,
   runtime: DelegationPolicyRuntime,
+  options: { member?: boolean } = {},
 ): { policy: DelegationPolicyId; dispose: () => void } {
   const defaultMode = runtime.defaultMode()
   const events = sessionEvents(agent)
@@ -142,7 +146,7 @@ export function resolveAndInstallDelegationPolicy(
     agent,
     policy,
     order: runtime.order,
-    text: runtime.text(policy),
+    text: options.member ? (runtime.memberText?.(policy) ?? runtime.text(policy)) : runtime.text(policy),
   })
   return { policy, dispose }
 }
@@ -153,6 +157,14 @@ export function registerDelegationPolicyLifecycle(
   runtime: DelegationPolicyRuntime,
 ): () => void {
   return ctx.on('agent/created', ({ agent }) => {
+    // AgentTeams' member runtime installs the member-scoped policy itself
+    // after validating the durable descriptor and pending role selection.
+    // Skipping this early captain installation prevents the child from
+    // assembling captain-only guidance during its first request.
+    const ownEvents = sessionOwnEvents(agent.session)
+    if (ownEvents.some(event => event?.type === 'subagent/descriptor'
+      && typeof event.data?.label === 'string'
+      && event.data.label.startsWith('agent-teams:'))) return
     const parentSession = agent.session.header.parentSession
     const parent = parentSession === undefined ? undefined : ctx.agents.get(parentSession)
     resolveAndInstallDelegationPolicy(agent, parent, runtime)

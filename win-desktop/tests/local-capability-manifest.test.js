@@ -28,7 +28,7 @@ const localVersions = {
   '@deepseek-ai/dsh-desktop-settings': '0.1.2',
   '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.16-rc.1',
+  '@nanmicoder/dsh-agent-teams': '0.1.16-rc.3',
 }
 
 const sourcePluginDirectories = [
@@ -60,10 +60,10 @@ test('desktop composition retains every independently owned local plugin', () =>
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.1.2-rc.1-desktop.2',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.16-rc.1')
+  assert.equal(agentTeamsPackage.version, '0.1.16-rc.3')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.16-rc.1',
+    '0.1.16-rc.3',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -138,6 +138,8 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
     'agent-teams-plugin/release-notes/v0.1.15-desktop.7.md',
+    'agent-teams-plugin/release-notes/v0.1.16-rc.3.md',
+    'agent-teams-plugin/release-notes/v0.1.16-rc.2.md',
     'agent-teams-plugin/release-notes/v0.1.16-rc.1.md',
     'agent-teams-plugin/release-notes/v0.1.15-alpha.1.md',
     'agent-teams-plugin/release-notes/v0.1.15.md',

@@ -23,6 +23,8 @@ export declare const CAPTAIN_KEY = "captain";
  * @returns the mutation's result.
  */
 export declare function withTeamLock<T>(key: string, fn: () => Promise<T>): Promise<T>;
+/** Keys with an in-process lock queue, for diagnostics and leak checks. */
+export declare function teamLockQueueKeys(): readonly string[];
 /**
  * Fold a free-form name into a safe path/key segment.
  *

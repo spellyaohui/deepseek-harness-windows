@@ -23,6 +23,8 @@ export interface DelegationPolicyRuntime {
     defaultMode(): DelegationMode;
     order: number;
     text(policy: DelegationPolicyId): string;
+    /** Fixed member-scoped prompt, so children never receive captain rules. */
+    memberText?: (policy: DelegationPolicyId) => string;
 }
 /** Install one policy prompt and its model-visible tool restriction in an Agent scope. */
 export declare function installDelegationPolicy(input: {
@@ -32,7 +34,9 @@ export declare function installDelegationPolicy(input: {
     text: string;
 }): () => void;
 /** Resolve and install one Agent policy before any request assembly. */
-export declare function resolveAndInstallDelegationPolicy(agent: Agent, parent: Agent | undefined, runtime: DelegationPolicyRuntime): {
+export declare function resolveAndInstallDelegationPolicy(agent: Agent, parent: Agent | undefined, runtime: DelegationPolicyRuntime, options?: {
+    member?: boolean;
+}): {
     policy: DelegationPolicyId;
     dispose: () => void;
 };

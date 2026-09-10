@@ -1,9 +1,9 @@
 /**
  * AgentTeams for DeepSeek Harness.
  *
- * A host-plane plugin that registers the `agent_teams_*` tools and one usage
- * section into the global system prompt. After installation any session can
- * run multi-agent teamwork through natural language (e.g. "use AgentTeams to research X"):
+ * A host-plane plugin that registers the `agent_teams_*` tools and stable
+ * agent-scoped usage sections. After installation any session can run
+ * multi-agent teamwork through natural language (e.g. "use AgentTeams to research X"):
  * the model creates a team (it becomes the captain), spawns members as
  * durable continuable subagents, breaks the goal into tasks with
  * dependencies, wakes members with messages, relays reports, and collects
@@ -56,4 +56,6 @@ export declare const Config: z<Config>;
 /** The model-facing usage policy: when and how to drive AgentTeams. */
 export declare function usageSectionText(toolNames: string, profilesText?: string): string;
 export declare function usageSectionText(policy: DelegationPolicyId, toolNames: string, profilesText?: string): string;
+/** Fixed member-scoped protocol; captain planning and mutation tools stay hidden. */
+export declare function memberUsageSectionText(policy: DelegationPolicyId): string;
 export declare function apply(ctx: Context, config: Config): void;

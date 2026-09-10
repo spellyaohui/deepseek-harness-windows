@@ -133,6 +133,33 @@ test('explicit overwrite changes only probed capability fields and preserves unr
   assert.deepEqual(result.cost, original.cost)
 })
 
+test('explicit overwrite removes a stale reasoning effort absent from the probe result', () => {
+  const result = applyCapabilityPatch({
+    id: 'stale-max',
+    reasoningEfforts: {
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'xhigh',
+      max: 'max',
+    },
+  }, {
+    reasoningEfforts: {
+      low: 'low',
+      medium: 'medium',
+      high: 'high',
+      xhigh: 'xhigh',
+    },
+  }, { overwriteExisting: true, source: 'probe' })
+
+  assert.deepEqual(result.reasoningEfforts, {
+    low: 'low',
+    medium: 'medium',
+    high: 'high',
+    xhigh: 'xhigh',
+  })
+})
+
 test('only schema-legal Completions maxTokensField values are persisted', () => {
   assert.deepEqual(
     capabilityPatchFromChecks({

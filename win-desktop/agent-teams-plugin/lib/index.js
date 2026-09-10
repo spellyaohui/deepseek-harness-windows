@@ -1,9 +1,9 @@
 /**
  * AgentTeams for DeepSeek Harness.
  *
- * A host-plane plugin that registers the `agent_teams_*` tools and one usage
- * section into the global system prompt. After installation any session can
- * run multi-agent teamwork through natural language (e.g. "use AgentTeams to research X"):
+ * A host-plane plugin that registers the `agent_teams_*` tools and stable
+ * agent-scoped usage sections. After installation any session can run
+ * multi-agent teamwork through natural language (e.g. "use AgentTeams to research X"):
  * the model creates a team (it becomes the captain), spawns members as
  * durable continuable subagents, breaks the goal into tasks with
  * dependencies, wakes members with messages, relays reports, and collects
@@ -17,7 +17,7 @@
  * @module dsh-agent-teams
  */
 import z from '@deepseek-ai/schemastery';
-import { haltTeamWork, registerAgentTeamsTools, } from "./tools.js";
+import { haltTeamWork, notifyStagedPlanApproved, registerAgentTeamsTools, } from "./tools.js";
 import { installAgentTeamsGestureBoundary, registerAgentTeamsCommand } from "./command.js";
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -111,7 +111,17 @@ Quality mode: requirements, implementation, verification, review, repair, and in
 
 Present the Team result, then call agent_teams_delete unless work continues. Never perform a real deployment without explicit user confirmation.
 
-Use registered agent_teams_* schemas.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`;
+  Use registered agent_teams_* schemas.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`;
+}
+/** Fixed member-scoped protocol; captain planning and mutation tools stay hidden. */
+export function memberUsageSectionText(policy) {
+    return `${policyMarker(policy)}
+
+You are an AgentTeams member. Follow your assigned persona and task contract.
+Use only agent_teams_claim_task, agent_teams_update_task, agent_teams_send_message, and agent_teams_status for team work.
+Include the current attempt_id in every task update; report completion or failure to the captain.
+Do not create, approve, edit, reassign, resume, or delete a team. If durable membership is unavailable, report that to the parent instead of creating a replacement.
+The task assignment and its dependency results are authoritative. Claim by task id, complete the requested work, update the task immediately, message the captain, and yield.`;
 }
 export function apply(ctx, config) {
     const settings = createAgentTeamsSettingsRuntime(ctx, {
@@ -152,6 +162,7 @@ export function apply(ctx, config) {
         defaultMode: () => settings.get().delegationMode,
         order: config.promptSectionOrder ?? 117,
         text: (policy) => usageSectionText(policy, toolNames, formatProfilesForPrompt(config.profiles ?? {})),
+        memberText: (policy) => memberUsageSectionText(policy),
     };
     resolved.delegationPolicy = delegationPolicy;
     registerDelegationPolicyLifecycle(ctx, delegationPolicy);
@@ -351,6 +362,9 @@ export function apply(ctx, config) {
                             token: prepared.token,
                             expectedPlanRevision: prepared.planRevision,
                         });
+                        if (!notifyStagedPlanApproved(captain, team.name)) {
+                            ctx.logger.warn(`agent-teams: Web approval notification failed for ${teamId}; approval remains committed`);
+                        }
                         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
                         res.end(JSON.stringify({ ok: true, phase: 'running', ...approved }));
                         return;

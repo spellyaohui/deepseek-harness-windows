@@ -16,7 +16,7 @@
 
 `dsh-agent-teams` turns the current DeepSeek Harness session into a captain that can assemble durable sub-agents, split a goal into dependency-aware tasks, and coordinate work through direct messages.
 
-Ask in natural language. The plugin provides the team protocol, ten coordination tools, persistent state, an automatic shared-task scheduler, and a live Web UI—without requiring a separate workflow engine.
+Ask in natural language. The plugin provides the team protocol, thirteen coordination tools, persistent state, an automatic shared-task scheduler, and a live Web UI—without requiring a separate workflow engine.
 
 <p align="center">
   <img src="./assets/ui.png" width="100%" alt="DeepSeek Harness conversation with the AgentTeams live activity panel, members, tasks, dependencies, and reports">
@@ -25,6 +25,12 @@ Ask in natural language. The plugin provides the team protocol, ten coordination
 ## Releases
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
+
+### v0.1.16-rc.3
+
+- Follows the unchanged recommended Harness host matrix (`0.1.2-rc.1`, `0.1.2-alpha.5`, `0.1.2-alpha.2`) while upgrading the AgentTeams upstream baseline.
+- Directs duplicate creates to continue the existing Team, wakes the captain after Web approval, and releases settled in-process Team lock queues.
+- Keeps the Windows role/provider/reasoning policy, strict V2 quality gates, Team/Native routing, compatibility adapters, and durable-session subagent gateway.
 
 ### v0.1.16-rc.1
 
