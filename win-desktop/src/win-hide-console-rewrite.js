@@ -14,8 +14,12 @@ const HIDDEN_CONSOLE_STARTF = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES
 
 const SUBPROCESS_SPAWN_NEEDLE = 'detached: platform !== "win32"'
 const SUBPROCESS_SPAWN_PATCH = 'detached: platform !== "win32", windowsHide: true'
+const SUBPROCESS_SPAWN_UPSTREAM_EQUIVALENT = `detached: platform !== "win32",
+\t\twindowsHide: platform === "win32"`
 const TASKKILL_NEEDLE = '], { stdio: "ignore" });'
 const TASKKILL_PATCH = '], { stdio: "ignore", windowsHide: true });'
+const TASKKILL_UPSTREAM_EQUIVALENT = `stdio: "ignore",
+\t\twindowsHide: true`
 const SANDBOX_DWFLAGS_NEEDLE = 'dwFlags: 256,'
 const SANDBOX_DWFLAGS_PATCH = `dwFlags: ${String(HIDDEN_CONSOLE_STARTF)},\n\t\twShowWindow: 0,`
 const RUNNER_PROD_NEEDLE = 'if (existsSync(builtEntry)) return [process.execPath, builtEntry];'
@@ -25,6 +29,8 @@ const RUNNER_DEV_NEEDLE = `return [
 			"tsx/esm",
 			sourceEntry
 		];`
+const SUBPROCESS_RUNNER_PROD_PATTERN = /if \(extname\(fileURLToPath\(import\.meta\.url\)\) !== "\.ts"\) return \[process\.execPath, fileURLToPath\(import\.meta\.resolve\("@deepseek-ai\/dsh-subprocess-local\/runner"\)\)\];/
+const SUBPROCESS_RUNNER_DEV_PATTERN = /return \[\n\t\tprocess\.execPath,\n\t\t"--import",\n\t\timport\.meta\.resolve\("tsx\/esm"\),\n\t\tfileURLToPath\(new URL\("\.\/bin\.ts", import\.meta\.url\)\)\n\t\];/
 const OPENCODE_MISSING_FINISH_PATTERN = /if \(!hasFinishReason\) \{\n\s+throw new Error\("Stream ended without finish_reason"\);\n\s+\}/
 const OPENCODE_MISSING_FINISH_ALPHA2_PATTERN = /if \(\(compat\.supportsFinishReason && !hasFinishReason\) \|\| output\.stopReason === "pending"\) \{\n\s+throw new Error\("Stream ended without finish_reason"\);\n\s+\}/
 const OPENCODE_MISSING_FINISH_PATCH = `if (!hasFinishReason) {
@@ -93,6 +99,7 @@ const OPENCODE_ALPHA2_TOOL_PARAMETERS_NEEDLE = 'parameters: getJsonSchemaToolPar
 const OPENCODE_STRICT_TOOL_NEEDLE = '...(compat.supportsStrictMode !== false && { strict: strict ?? false }),'
 const TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE = 'async function* toStreamChunks(events, contextWindow) {'
 const TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE = 'async function* toStreamChunks(events, contextWindow, callerSignal) {'
+const TOOL_ARGUMENT_STREAM_SIGNATURE_015_NEEDLE = 'async function* toStreamChunks(events, contextWindow, callerSignal, requestedModel) {'
 const TOOL_CALL_END_BLOCK_NEEDLE = `\t\tcase "toolcall_end":
 \t\t\tyield {
 \t\t\t\ttype: "block-end",
@@ -294,11 +301,32 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
   }
 
   if (url.includes('@deepseek-ai/dsh-subprocess-local')) {
-    if (next.includes(SUBPROCESS_SPAWN_NEEDLE) && !next.includes(SUBPROCESS_SPAWN_PATCH)) {
+    if (next.includes(SUBPROCESS_SPAWN_NEEDLE)
+      && !next.includes(SUBPROCESS_SPAWN_PATCH)
+      && !next.includes(SUBPROCESS_SPAWN_UPSTREAM_EQUIVALENT)) {
       next = next.replace(SUBPROCESS_SPAWN_NEEDLE, SUBPROCESS_SPAWN_PATCH)
     }
-    if (next.includes(TASKKILL_NEEDLE) && !next.includes(TASKKILL_PATCH)) {
+    if (next.includes(TASKKILL_NEEDLE)
+      && !next.includes(TASKKILL_PATCH)
+      && !next.includes(TASKKILL_UPSTREAM_EQUIVALENT)) {
       next = next.replace(TASKKILL_NEEDLE, TASKKILL_PATCH)
+    }
+    if (hookImportUrl) {
+      next = next.replace(
+        SUBPROCESS_RUNNER_PROD_PATTERN,
+        `if (extname(fileURLToPath(import.meta.url)) !== ".ts") return [process.execPath, "--import", ${JSON.stringify(hookImportUrl)}, fileURLToPath(import.meta.resolve("@deepseek-ai/dsh-subprocess-local/runner"))];`,
+      )
+      next = next.replace(
+        SUBPROCESS_RUNNER_DEV_PATTERN,
+        `return [
+\t\tprocess.execPath,
+\t\t"--import",
+\t\t${JSON.stringify(hookImportUrl)},
+\t\t"--import",
+\t\timport.meta.resolve("tsx/esm"),
+\t\tfileURLToPath(new URL("./bin.ts", import.meta.url))
+\t];`,
+      )
     }
   }
 
@@ -490,11 +518,13 @@ export function rewriteKnownToolArgumentAliases(source) {
     if (first === -1 || source.indexOf(needle, first + needle.length) !== -1) return -1
     return first
   }
-  const signatureNeedle = uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE) !== -1
-    ? TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE
-    : uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE) !== -1
-      ? TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE
-      : undefined
+  const signatureNeedle = uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_015_NEEDLE) !== -1
+    ? TOOL_ARGUMENT_STREAM_SIGNATURE_015_NEEDLE
+    : uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE) !== -1
+      ? TOOL_ARGUMENT_STREAM_SIGNATURE_ALPHA2_NEEDLE
+      : uniqueIndex(TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE) !== -1
+        ? TOOL_ARGUMENT_STREAM_SIGNATURE_NEEDLE
+        : undefined
   const blockNeedle = uniqueIndex(TOOL_CALL_END_BLOCK_ALPHA2_NEEDLE) !== -1
     ? TOOL_CALL_END_BLOCK_ALPHA2_NEEDLE
     : uniqueIndex(TOOL_CALL_END_BLOCK_NEEDLE) !== -1

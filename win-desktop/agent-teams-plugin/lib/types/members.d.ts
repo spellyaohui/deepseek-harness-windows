@@ -79,7 +79,7 @@ export interface MemberSelectionRuntime {
 export declare function validateMemberLlmSelections(ctx: Context, selections: readonly MemberLlmSelection[], signal?: AbortSignal): Promise<void>;
 export declare function isFallbackFailureCode(code: string): boolean;
 /** Deliver a durable member report to the live captain at its next model step. */
-export declare function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string): boolean;
+export declare function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string, receipt?: string): boolean;
 export interface FailedMemberAttempt {
     readonly captainSessionId: string;
     readonly memberId: string;
@@ -150,7 +150,7 @@ export declare function memberWelcome(team: TeamState, memberName: string): stri
  * @param stateDir - configured state directory (for the persona).
  * @param signal - caller cancellation, forwarded to the start.
  */
-export declare function spawnMember(ctx: Context, config: MemberRuntimeConfig, selections: MemberSelectionRuntime, llmSelection: MemberLlmSelection, captain: Agent, team: TeamState, member: TeamMember, stateDir: string, signal: AbortSignal): Promise<void>;
+export declare function spawnMember(ctx: Context, config: MemberRuntimeConfig, selections: MemberSelectionRuntime, llmSelection: MemberLlmSelection, captain: Agent, team: TeamState, member: TeamMember, stateDir: string, signal: AbortSignal, initialPrompt?: string): Promise<void>;
 /**
  * Deliver one message to a member as its next FIFO turn. Best effort: a
  * failure (member gone or not continuable) is logged and reported as `false`
@@ -168,7 +168,7 @@ export declare function spawnMember(ctx: Context, config: MemberRuntimeConfig, s
  * @param signal - caller cancellation, forwarded to the delivery.
  * @returns whether the member inbox accepted the message.
  */
-export declare function deliverToMember(ctx: Context, captain: Agent, childId: string, text: string, stateDir: string, signal: AbortSignal): Promise<boolean>;
+export declare function deliverToMember(ctx: Context, captain: Agent, childId: string, text: string, stateDir: string, signal: AbortSignal, mode?: 'queue' | 'steer'): Promise<boolean>;
 /**
  * Request cancellation of one live member's current turn. Best effort, fire
  * and return; the target may keep running until it observes the signal.
@@ -190,6 +190,8 @@ export declare function interruptMember(ctx: Context, captain: Agent, childId: s
  * untouched while the followup boundary still prevents further model turns.
  */
 export declare function installRetiredMemberGuard(ctx: Context, stateDir: string): void;
+/** Bound all descendant creation, including renamed tools and code-runtime calls. */
+export declare function installMemberDelegationGuard(ctx: Context, stateDir: string, maxDepth: number): void;
 /**
  * Snapshot the real driver activity for durable member ids.
  *

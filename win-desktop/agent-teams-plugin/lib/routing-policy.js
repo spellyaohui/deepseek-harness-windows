@@ -13,12 +13,25 @@ export function delegationPolicyUsagePreamble(policy) {
         ? 'AgentTeams is the only genuine delegation path. Genuine delegation uses only agent_teams_* tools; ordinary single-agent work does not require creating a team. When genuine delegation is useful, you are the captain of a multi-agent team.'
         : 'When the user asks to run something with AgentTeams (e.g. "use AgentTeams to do X"), or an activation message from the /agent-teams slash command arrives, you are the captain of a multi-agent team.';
 }
+/** Read the durable system prompt across the V2 header and V3 system-message layouts. */
+function persistedSystemText(event) {
+    if (event.type === 'request/header') {
+        // Session format V3 retires header.system; retain a narrow read only for
+        // legacy logs that reached this plugin before the official migration.
+        const legacy = event.data.header;
+        return typeof legacy.system === 'string' ? legacy.system : undefined;
+    }
+    if (event.type !== 'system/message' || event.data.message.role !== 'system')
+        return undefined;
+    const text = event.data.message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text);
+    return text.length > 0 ? text.join('\n') : undefined;
+}
 export function persistedPolicy(events) {
     let persisted;
     for (const event of events) {
-        if (event?.type !== 'request/header')
-            continue;
-        const system = event.data.header.system;
+        const system = persistedSystemText(event);
         if (system === undefined)
             continue;
         for (const line of system.split(/\r\n?|\n/u)) {

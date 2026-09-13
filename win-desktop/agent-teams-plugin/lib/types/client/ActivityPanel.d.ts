@@ -23,8 +23,10 @@ import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store';
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client';
 /** The top-right activity floater. Teams follow the current session. */
 export type ActivityPanelProps = {
+    /** Global panes must not be obscured by the conversation-scoped monitor. */
+    readonly conversationVisible?: boolean;
     readonly sessionsList: ObservableSnapshot<SessionListState>;
     readonly modelDirectories: ModelDirectoryResolver;
     readonly openMember: (parentId: SessionId, childId: SessionId) => void;
 } & PropsLocale<'agentTeams'>;
-export declare function ActivityPanel({ sessionsList, modelDirectories, openMember, t }: ActivityPanelProps): import("react").JSX.Element | null;
+export declare function ActivityPanel({ sessionsList, modelDirectories, openMember, t, conversationVisible }: ActivityPanelProps): import("react").JSX.Element | null;

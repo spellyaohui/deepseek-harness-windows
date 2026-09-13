@@ -29,6 +29,19 @@ function header(system) {
   })
 }
 
+function systemMessage(text) {
+  return event('system/message', {
+    turn: 1,
+    step: 1,
+    message: {
+      id: 'agent-teams-policy',
+      role: 'system',
+      source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' },
+      content: [{ type: 'text', text }],
+    },
+  })
+}
+
 console.log('routing policy fold')
 check('fresh Team defaults to teams-v1', resolveDelegationPolicy({
   events: [], defaultMode: 'teams',
@@ -43,6 +56,10 @@ check('latest valid request-header marker wins', persistedPolicy([
 check('last standalone marker line wins within one request header', persistedPolicy([
   header(`${policyMarker('native-v1')}\nusage\n${policyMarker('teams-v1')}`),
 ]) === 'teams-v1')
+check('V3 system message marker persists after header.system retirement', persistedPolicy([
+  header(undefined),
+  systemMessage(`${policyMarker('native-v1')}\nusage`),
+]) === 'native-v1')
 check('incidental prose mentioning the policy prefix is ignored', persistedPolicy([
   header(`Diagnostic prose mentions ${POLICY_PREFIX} without declaring a policy.`),
 ]) === undefined)

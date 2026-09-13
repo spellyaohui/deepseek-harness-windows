@@ -8,9 +8,10 @@ import { openAgentTeamMember } from "./session-navigation.js";
 import { createAgentTeamsSettingsWriter } from "./settings-write.js";
 /** Required services: conversation nodes, slots, sessions navigation, and locale. */
 export const inject = [
-    'uiConversation', 'slots', 'sessions', 'locale', 'modelDirectories', 'settingsScope',
+    'uiConversation', 'slots', 'sessions', 'locale', 'modelDirectories', 'layout', 'settingsScope',
     'remote', 'remote.settings',
 ];
+const useLegacyPanelInfo = select => select({ activePanelId: null });
 /** The replayed user message is the canonical transcript entry. */
 function HiddenAgentTeamsCommand() {
     return null;
@@ -39,11 +40,15 @@ export function apply(ctx) {
         inject: () => ({ settings, writer }),
     }, AgentTeamsSettingsSection));
     const openMember = (parentId, childId) => {
-        void openAgentTeamMember(ctx.sessions, parentId, childId).catch((error) => {
+        void openAgentTeamMember(ctx.sessions, parentId, childId, ctx.layout).catch((error) => {
             console.warn(`agent-teams: failed to open member transcript ${childId}: ${String(error)}`);
         });
     };
-    const Panel = ({ t }) => (_jsx(ActivityPanel, { sessionsList: ctx.sessions.list, modelDirectories: ctx.modelDirectories, openMember: openMember, t: t }));
+    const Panel = ({ t, usePanelInfo }) => {
+        const usePanel = usePanelInfo ?? useLegacyPanelInfo;
+        const conversationVisible = usePanel(panel => panel.activePanelId === null);
+        return (_jsx(ActivityPanel, { conversationVisible: conversationVisible, sessionsList: ctx.sessions.list, modelDirectories: ctx.modelDirectories, openMember: openMember, t: t }));
+    };
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
         name: 'shell.overlay',
         id: 'agent-teams-activity',

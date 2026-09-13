@@ -2,7 +2,15 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前版本：`v0.1.2-rc.8`（开发者预览）
+> 当前版本：`v0.1.5-rc.1`（开发者预览）
+
+## `v0.1.5-rc.1` 更新说明
+
+- 基线升级到官方 Harness `dsh-v0.1.5-rc.1`（commit `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`）：采用上游 Session format v3、通用文件上传、资源/侧栏、代理环境与新版 Web/启动闭包，不回退到旧 0.1.2 运行时。
+- AgentTeams 升级到上游稳定版 `v0.1.18`（commit `68fe529d602b1eea1f1ecaee99857d20a4f94be0`），并保持其推荐宿主 `0.1.5-rc.1`：采用原子 roster/DAG、lazy-start、下一步消息投递、过期消息去重、后代/排队输入清理、退役冷恢复拒绝、缺失 attempt 恢复和 `memberMaxDepth: 0` 默认值。
+- 0.1.5 已原生隐藏普通 Node subprocess；Windows Job runner 的原生 `CreateProcessW` 另由桌面 preload 继承隐藏控制台配置，避免执行 `pwsh` 时出现黑色命令窗口。
+- 仅保留上游未覆盖的本地治理：角色级模型/思考策略、严格 V2 与质量门、Team/Native 与 durable-session 子智能体网关、provider-neutral 模型能力探测，以及严格的 grep 参数与周期额度分类边界。
+- 补齐新版 `dsh-client-ui-primitives` 在外部平铺安装中实际使用的运行时闭包；所有版本均固定到官方 0.1.5 锁定解析，不使用浮动 `latest`。
 
 ## `v0.1.2-rc.8` 更新说明
 
@@ -264,7 +272,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.16-rc.3`（固定提交 `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`），本地版本为 `0.1.16-rc.3`。本次采用上游的现有 Team 续接提示、Web 审批唤醒和锁队列清理，同时保留严格 V2、本地角色模型策略、统一子智能体网关、RC.1 兼容适配、自动委派指导、Web Revision/CAS 和 Alpha.2 路由认证。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.18`（固定提交 `68fe529d602b1eea1f1ecaee99857d20a4f94be0`），本地版本为 `0.1.18`。本次采用上游原子 roster/DAG、lazy-start、消息/attempt 清理与恢复；仅保留严格 V2、本地角色模型策略、统一子智能体网关、质量门、Revision/CAS 和认证边界等上游未覆盖能力。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

@@ -37,7 +37,7 @@ export interface Config {
     executionPrompt?: string;
     /** Plugin-wide fallback route for unavailable member models. */
     fallback?: import('./profiles.ts').TeamModelFallbackConfig;
-    /** Member delegation depth cap (default `1`; `0` forbids delegation entirely). */
+    /** Member delegation depth cap (default `0`; `0` forbids delegation entirely). */
     memberMaxDepth?: number;
     /** Team size cap in members (default `8`). */
     maxMembers?: number;

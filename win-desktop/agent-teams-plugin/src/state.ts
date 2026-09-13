@@ -611,9 +611,15 @@ export async function readUnreadMailbox(
   agentKey: string,
   onMalformedLine?: (lineNumber: number, error: unknown) => void,
 ): Promise<TeamMessage[]> {
-  const now = Date.now()
   return (await readMailbox(stateRoot, teamId, agentKey, onMalformedLine))
-    .filter(message => message.readAt === undefined
+    .filter(message => message.readAt === undefined && message.discardedAt === undefined)
+}
+
+/** Pending delivery is distinct from delivered-but-not-yet-read input. */
+export async function readPendingMailbox(stateRoot: string, teamId: string, agentKey: string): Promise<TeamMessage[]> {
+  const now = Date.now()
+  return (await readUnreadMailbox(stateRoot, teamId, agentKey))
+    .filter(message => message.deliveredAt === undefined
       && (message.deliveryClaimedAt === undefined
         || now - message.deliveryClaimedAt >= MAILBOX_DELIVERY_LEASE_MS))
 }
@@ -695,6 +701,28 @@ export async function acknowledgeMailbox(
       readAt: message.readAt ?? now,
     }
   })
+}
+
+/** Acceptance by Harness is not evidence that a model step consumed input. */
+export async function markMailboxDelivered(
+  stateRoot: string,
+  teamId: string,
+  agentKey: string,
+  messageIds: readonly string[],
+): Promise<void> {
+  await mutateMailbox(stateRoot, teamId, agentKey, messageIds, (message) => {
+    const { deliveryClaimedAt: _claimed, ...rest } = message
+    return { ...rest, deliveredAt: message.deliveredAt ?? Date.now() }
+  })
+}
+
+export async function discardMailboxMessages(
+  stateRoot: string,
+  teamId: string,
+  agentKey: string,
+  messageIds: readonly string[],
+): Promise<void> {
+  await mutateMailbox(stateRoot, teamId, agentKey, messageIds, message => ({ ...message, discardedAt: message.discardedAt ?? Date.now() }))
 }
 
 /** Remove the optional UTF-8 BOM some editors prepend to JSON text. */
@@ -832,6 +860,7 @@ function isTeamMember(value: unknown): value is TeamMember {
     && typeof value['name'] === 'string'
     && value['name'].trim() !== ''
     && isOptionalString(value['role'])
+    && (value['stopping'] === undefined || typeof value['stopping'] === 'boolean')
     && typeof value['provider'] === 'string'
     && value['provider'].trim() !== ''
     && typeof value['model'] === 'string'
@@ -890,6 +919,7 @@ export function isTeamTask(value: unknown): value is TeamTask {
     && isOptionalString(attemptId)
     && (attemptId === undefined || attemptId.trim() !== '')
     && isOptionalString(value['handoffId'])
+    && isOptionalString(value['handoffFromMemberId'])
     && (value['reassigning'] === undefined || typeof value['reassigning'] === 'boolean')
     && isFiniteNumber(value['createdAt'])
     && isFiniteNumber(value['updatedAt'])
@@ -965,7 +995,7 @@ function isTeamState(value: unknown, expectedId: string): value is TeamState {
   }
   for (const member of members) {
     const key = sanitizeKey(member.name)
-    if ((!staged && member.id === '') || key === CAPTAIN_KEY || memberKeys.has(key)) return false
+    if (key === CAPTAIN_KEY || memberKeys.has(key)) return false
     if (member.id !== '') {
       if (memberIds.has(member.id)) return false
       memberIds.add(member.id)
@@ -993,6 +1023,9 @@ function isTeamMessage(value: unknown): value is TeamMessage {
     && (value['deliveryClaimedAt'] === undefined || isFiniteNumber(value['deliveryClaimedAt']))
     && (value['deliveredAt'] === undefined || isFiniteNumber(value['deliveredAt']))
     && (value['readAt'] === undefined || isFiniteNumber(value['readAt']))
+    && (value['discardedAt'] === undefined || isFiniteNumber(value['discardedAt']))
+    && (value['taskId'] === undefined || typeof value['taskId'] === 'string')
+    && (value['attemptId'] === undefined || typeof value['attemptId'] === 'string')
 }
 
 /**

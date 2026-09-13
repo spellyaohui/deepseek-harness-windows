@@ -13,12 +13,13 @@ import { defineTool } from '@deepseek-ai/dsh-tools';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { appendTeamEvent, captainSessionOf } from "./events.js";
-import { acknowledgeMailbox, appendMailbox, assertExpectedPlanRevision, archiveTeamDir, beginTaskAttempt, CAPTAIN_KEY, createMessage, createTeamDir, findTeamByCaptain, findTeamByParticipant, cancelUnfinishedTask, invalidateTaskAttempt, readUnreadMailbox, recordRetiredMemberIds, releaseMailboxDelivery, readTeam, sanitizeKey, transitionError, unsatisfiedDependencies, withTeamLock, writeTeam, removeTeamDir, validateCreateTask, evaluateQualityCompletion, planQualityFollowUp, resumeTeamState, buildCoverageMatrix, canDeclareDelivery, describeQualityLoop, normalizeBlankOptionalTaskFields, sanitizeReviewAcceptance, sanitizeReviewObjective, taskKindOf, } from "./state.js";
+import { acknowledgeMailbox, appendMailbox, assertExpectedPlanRevision, archiveTeamDir, beginTaskAttempt, CAPTAIN_KEY, createMessage, createTeamDir, discardMailboxMessages, findTeamByCaptain, findTeamByParticipant, cancelUnfinishedTask, invalidateTaskAttempt, markMailboxDelivered, readUnreadMailbox, recordRetiredMemberIds, releaseMailboxDelivery, readTeam, sanitizeKey, transitionError, unsatisfiedDependencies, withTeamLock, writeTeam, validateCreateTask, evaluateQualityCompletion, planQualityFollowUp, resumeTeamState, buildCoverageMatrix, canDeclareDelivery, describeQualityLoop, normalizeBlankOptionalTaskFields, sanitizeReviewAcceptance, sanitizeReviewObjective, taskKindOf, } from "./state.js";
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION } from "./types.js";
-import { deliverToMember, installRetiredMemberGuard, installMemberSelectionRuntime, interruptMember, memberActivity, resolveMemberLlmSelection, steerCaptainReport, spawnMember, validateMemberLlmSelections, } from "./members.js";
+import { deliverToMember, installMemberDelegationGuard, installRetiredMemberGuard, installMemberSelectionRuntime, interruptMember, memberActivity, resolveMemberLlmSelection, steerCaptainReport, spawnMember, validateMemberLlmSelections, } from "./members.js";
 import { TERMINAL_TASK_STATUSES } from "./types.js";
 import { findMemberRoleTemplate } from "./selection-policy.js";
 import { installTeamScheduler } from "./scheduler.js";
+import { installMailboxAdmission, mailboxPrompt } from "./mailbox.js";
 import { listConfiguredProfiles, resolveTeamProfile } from "./profiles.js";
 import { renderStatus, statusFingerprint } from "./status-render.js";
 import { automaticTeamName } from "./team-name.js";
@@ -262,7 +263,10 @@ async function waitForMemberIdle(ctx, member, signal) {
  * keep executing after the captain-chat Stop control has reported success.
  */
 async function stopTeamMemberActivations(ctx, captain, members, signal) {
-    const activeMembers = members.filter((member) => member.id !== '' && member.status !== 'removed');
+    // Removed is a durable authorization state, not proof that the host has
+    // released the continuable activation. Include it so a failed archive can
+    // be retried without leaving an already-revoked child running.
+    const activeMembers = members.filter((member) => member.id !== '');
     const memberIds = activeMembers.map((member) => member.id);
     if (memberIds.length === 0)
         return;
@@ -391,11 +395,47 @@ export function stagedPlanFeedbackContext(teamName) {
  */
 export function registerAgentTeamsTools(ctx, config) {
     installRetiredMemberGuard(ctx, config.stateDir);
-    const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt });
+    installMemberDelegationGuard(ctx, config.stateDir, config.memberMaxDepth ?? 0);
+    installMailboxAdmission(ctx, config.stateDir);
+    const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt, dispatch: dispatchMember });
     const memberSelections = installMemberSelectionRuntime(ctx, config.stateDir, config.delegationPolicy, (workspace, teamId, memberName) => scheduler.kickMember(workspace, teamId, memberName));
     const statusFingerprints = new Map();
     const maxStatusFingerprints = 256;
     const approvalCredentials = createApprovalCredentialStore();
+    async function dispatchMember(captain, teamId, memberName, text, signal, mode, attemptId) {
+        const root = stateRootOf(workspaceOf(captain), config);
+        let orphan;
+        try {
+            return await withTeamLock(teamLockKey(root, teamId), async () => {
+                const team = await readTeam(root, teamId);
+                if (team?.captainSessionId !== durableSessionId(captain) || team.halted === true || team.phase === 'staged')
+                    return false;
+                const member = team.members.find(item => item.name === memberName && item.status !== 'removed');
+                if (member === undefined || member.stopping === true || team.tasks.some(task => task.reassigning === true && task.assignee === memberName))
+                    return false;
+                if (attemptId !== undefined && !team.tasks.some(task => task.attemptId === attemptId && task.assignee === memberName && (task.status === 'claimed' || task.status === 'in_progress')))
+                    return false;
+                if (member.id !== '')
+                    return deliverToMember(ctx, captain, member.id, text, config.stateDir, signal, mode);
+                const selection = await resolveMemberLlmSelection(ctx, captain, {
+                    provider: member.provider, model: member.model, reasoningMode: member.reasoningMode, reasoningEffort: member.reasoningEffort, fallback: member.fallback,
+                }, signal);
+                await spawnMember(ctx, memberRuntime(config), memberSelections, selection, captain, team, member, config.stateDir, signal, text);
+                orphan = { ...member };
+                await writeTeam(root, team);
+                orphan = undefined;
+                return true;
+            });
+        }
+        catch (error) {
+            if (orphan !== undefined) {
+                await recordRetiredMemberIds(root, [orphan.id]);
+                await stopTeamMemberActivations(ctx, captain, [orphan]);
+            }
+            ctx.logger.warn(`agent-teams: member dispatch failed for ${memberName}: ${String(error)}`);
+            return false;
+        }
+    }
     const updateStagedPlanBatch = async (captain, teamId, mutations, options, signal) => {
         if (options === undefined)
             throw new Error('staged plan update requires revision-aware options');
@@ -1422,7 +1462,7 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_remove_member',
-        description: 'Remove a member safely: revoke its current attempts, return all unfinished owned tasks to the shared pending pool, interrupt its live turn, and mark it removed.',
+        description: 'Remove a member safely: fence its current attempts and mailbox, drain its live turn, then return unfinished owned tasks to the shared pending pool and mark it removed. A drain failure leaves the fenced member active for retry.',
         parameters: {
             name: { type: 'string', required: true, description: 'Name of the member to remove.' },
         },
@@ -1466,35 +1506,45 @@ export function registerAgentTeamsTools(ctx, config) {
                         teamId: fresh.id,
                         memberId: member.id,
                     });
-                    return { member: { ...member, status: 'removed' }, requeued };
+                    return { member: { ...member, status: 'removed' }, requeued, immediate: true };
                 }
                 for (const task of fresh.tasks) {
                     if (task.assignee !== member.name || task.status === 'completed')
                         continue;
-                    invalidateTaskAttempt(task);
-                    task.reassigning = false;
+                    // Close both task and member admission before drain. If the host
+                    // rejects drain, this durable fence remains and no new generation
+                    // can be published over a still-live child.
+                    invalidateTaskAttempt(task, undefined, true);
                     requeued.push(task.id);
                 }
-                member.status = 'removed';
+                member.stopping = true;
+                await discardMailboxMessages(stateRoot, fresh.id, member.name, (await readUnreadMailbox(stateRoot, fresh.id, member.name)).map(message => message.id));
                 await writeTeam(stateRoot, fresh);
                 appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, captain.session), 'agent-teams/member-removed', {
                     teamId: fresh.id,
                     memberId: member.id,
                 });
-                return { member: { ...member }, requeued };
+                return { member: { ...member }, requeued, immediate: false };
             });
             if (revoked.member.id !== '') {
-                const gateway = agentTeamsSubagentGateway(ctx);
-                await gateway.withChildLock(revoked.member.id, async () => {
-                    // Retirement and the interrupt are serialized with Team delivery.
-                    // A sender that already won the lock completes before retirement;
-                    // every later send observes the durable deny-list and cannot resume
-                    // the removed child.
-                    await recordRetiredMemberIds(stateRoot, [revoked.member.id]);
-                    interruptMember(ctx, captain, revoked.member.id);
-                    await waitForMemberIdle(ctx, revoked.member, exec.signal);
-                });
+                await recordRetiredMemberIds(stateRoot, [revoked.member.id]);
+                await stopTeamMemberActivations(ctx, captain, [revoked.member], exec.signal);
             }
+            if (!revoked.immediate)
+                await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
+                    const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
+                    const member = requireMember(fresh, revoked.member.name);
+                    if (member.id !== revoked.member.id || member.stopping !== true) {
+                        throw new Error(`member "${member.name}" changed while removal was draining`);
+                    }
+                    member.status = 'removed';
+                    delete member.stopping;
+                    for (const task of fresh.tasks) {
+                        if (revoked.requeued.includes(task.id))
+                            task.reassigning = false;
+                    }
+                    await writeTeam(stateRoot, fresh);
+                });
             await scheduler.kickTeam(workspace, team.id, captain);
             return {
                 member_name: revoked.member.name,
@@ -1702,8 +1752,6 @@ export function registerAgentTeamsTools(ctx, config) {
                 const task = requireTask(fresh, args.task_id);
                 if (task.status === 'completed')
                     throw new Error(`completed task ${task.id} is immutable and cannot be reassigned`);
-                if (task.reassigning === true)
-                    throw new Error(`task ${task.id} is already being reassigned`);
                 const targetMember = target === CAPTAIN_KEY ? undefined : requireMember(fresh, target);
                 if (target === CAPTAIN_KEY) {
                     const busy = captainOpenTask(fresh, task.id);
@@ -1721,12 +1769,39 @@ export function registerAgentTeamsTools(ctx, config) {
                         throw new Error(`member "${targetMember.name}" is busy with ${busy.id}; finish or reassign it first`);
                     }
                 }
+                if (task.reassigning === true) {
+                    const previousMember = task.handoffFromMemberId === undefined
+                        ? undefined
+                        : fresh.members.find(member => member.id === task.handoffFromMemberId
+                            && member.status !== 'removed'
+                            && member.stopping === true);
+                    if (task.assignee !== target
+                        || task.status !== 'pending'
+                        || task.attemptId !== undefined
+                        || task.handoffId === undefined
+                        || previousMember === undefined) {
+                        throw new Error(`task ${task.id} has a different or stale reassignment handoff; refusing to replace its active fence`);
+                    }
+                    // A failed drain leaves this exact durable handoff fenced.  Retrying
+                    // the same public reassignment is safe: it must quiesce the recorded
+                    // old member before the existing generation can be released.
+                    return {
+                        previousAssignee: previousMember.name,
+                        previousMember: { ...previousMember },
+                        handoffId: task.handoffId,
+                    };
+                }
                 const previousAssignee = task.assignee ?? '';
                 const previousMember = (task.status !== 'claimed' && task.status !== 'in_progress')
                     || task.assignee === undefined || task.assignee === CAPTAIN_KEY
                     ? undefined
                     : fresh.members.find(member => member.name === task.assignee && member.status !== 'removed');
                 invalidateTaskAttempt(task, target, true);
+                if (previousMember !== undefined) {
+                    previousMember.stopping = true;
+                    task.handoffFromMemberId = previousMember.id;
+                    await discardMailboxMessages(stateRoot, fresh.id, previousMember.name, (await readUnreadMailbox(stateRoot, fresh.id, previousMember.name)).map(message => message.id));
+                }
                 await writeTeam(stateRoot, fresh);
                 return {
                     previousAssignee,
@@ -1736,16 +1811,12 @@ export function registerAgentTeamsTools(ctx, config) {
             });
             let quiescenceError;
             if (revoked.previousMember !== undefined) {
-                const gateway = agentTeamsSubagentGateway(ctx);
-                await gateway.withChildLock(revoked.previousMember.id, async () => {
-                    interruptMember(ctx, captain, revoked.previousMember.id);
-                    try {
-                        await waitForMemberIdle(ctx, revoked.previousMember, exec.signal);
-                    }
-                    catch (error) {
-                        quiescenceError = error;
-                    }
-                });
+                try {
+                    await stopTeamMemberActivations(ctx, captain, [revoked.previousMember], exec.signal);
+                }
+                catch (error) {
+                    quiescenceError = error;
+                }
             }
             await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
                 const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
@@ -1753,7 +1824,13 @@ export function registerAgentTeamsTools(ctx, config) {
                 if (task.handoffId !== revoked.handoffId || task.assignee !== target || task.reassigning !== true) {
                     throw new Error(`task ${task.id} changed during reassignment; refusing to overwrite the newer state`);
                 }
-                task.reassigning = false;
+                task.reassigning = quiescenceError !== undefined;
+                if (quiescenceError === undefined) {
+                    const previous = fresh.members.find(member => member.id === revoked.previousMember?.id);
+                    if (previous !== undefined)
+                        delete previous.stopping;
+                    delete task.handoffFromMemberId;
+                }
                 if (quiescenceError === undefined && target === CAPTAIN_KEY) {
                     beginTaskAttempt(task, CAPTAIN_KEY);
                     // The captain is already in the turn that requested takeover; there
@@ -2144,7 +2221,12 @@ export function registerAgentTeamsTools(ctx, config) {
                     throw new Error(`team "${fresh.name}" is halted; call agent_teams_resume before waking a member`);
                 }
                 const recipient = requireMember(fresh, to);
-                const message = { ...createMessage(from, recipient.name, args.content), deliveryClaimedAt: Date.now() };
+                const owned = memberOpenTask(fresh, recipient.name);
+                const message = {
+                    ...createMessage(from, recipient.name, args.content),
+                    deliveryClaimedAt: Date.now(),
+                    ...(owned?.attemptId === undefined ? {} : { taskId: owned.id, attemptId: owned.attemptId }),
+                };
                 await appendMailbox(stateRoot, fresh.id, recipient.name, message);
                 appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, caller.session), 'agent-teams/message-sent', {
                     teamId: fresh.id,
@@ -2162,10 +2244,10 @@ export function registerAgentTeamsTools(ctx, config) {
             if (prepared.kind === 'captain') {
                 let delivered = 'mailbox';
                 if (captain !== undefined && prepared.identity.kind === 'member') {
-                    delivered = steerCaptainReport(captain, prepared.from, args.content) ? 'live' : 'mailbox';
+                    delivered = steerCaptainReport(captain, prepared.from, args.content, mailboxPrompt(prepared.fresh.id, CAPTAIN_KEY, [prepared.message])) ? 'live' : 'mailbox';
                 }
                 if (delivered === 'live') {
-                    await withTeamLock(teamLockKey(stateRoot, prepared.fresh.id), () => (acknowledgeMailbox(stateRoot, prepared.fresh.id, CAPTAIN_KEY, [prepared.message.id])));
+                    await withTeamLock(teamLockKey(stateRoot, prepared.fresh.id), () => (markMailboxDelivered(stateRoot, prepared.fresh.id, CAPTAIN_KEY, [prepared.message.id])));
                 }
                 else {
                     await withTeamLock(teamLockKey(stateRoot, prepared.fresh.id), () => (releaseMailboxDelivery(stateRoot, prepared.fresh.id, CAPTAIN_KEY, [prepared.message.id])));
@@ -2173,15 +2255,12 @@ export function registerAgentTeamsTools(ctx, config) {
                 return { message_id: prepared.message.id, from: prepared.from, to: CAPTAIN_KEY, delivered };
             }
             let delivered = 'mailbox';
-            if (captain !== undefined && prepared.recipient.id !== '') {
-                const senderText = prepared.from === CAPTAIN_KEY
-                    ? args.content
-                    : `Message from team member ${prepared.from}:\n\n${args.content}`;
-                const text = `AgentTeams state policy: inspect ${config.stateDir}/${prepared.fresh.id}/ read-only; never edit team.json or inbox files directly. Use agent_teams_* tools for team state.\n\n${senderText}`;
-                const accepted = await deliverToMember(ctx, captain, prepared.recipient.id, text, config.stateDir, exec.signal);
+            if (captain !== undefined) {
+                const text = mailboxPrompt(prepared.fresh.id, prepared.recipient.name, [prepared.message]);
+                const accepted = await dispatchMember(captain, prepared.fresh.id, prepared.recipient.name, text, exec.signal, 'steer', prepared.message.attemptId);
                 delivered = accepted ? 'wake' : 'mailbox';
                 if (accepted) {
-                    await withTeamLock(teamLockKey(stateRoot, prepared.fresh.id), () => (acknowledgeMailbox(stateRoot, prepared.fresh.id, prepared.recipient.name, [prepared.message.id])));
+                    await withTeamLock(teamLockKey(stateRoot, prepared.fresh.id), () => (markMailboxDelivered(stateRoot, prepared.fresh.id, prepared.recipient.name, [prepared.message.id])));
                 }
             }
             if (delivered === 'mailbox') {
@@ -2418,7 +2497,7 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_delete',
-        description: 'End your team: interrupts all members (best effort) and archives the team state. This operation is idempotent when the caller has no active team. Use when the team\'s work is done or abandoned.',
+        description: 'End and archive your team after every member drains. A drain failure leaves the active Team fenced and unarchived for retry. This operation is idempotent when the caller has no active team.',
         parameters: {},
         output: {
             schema: {
@@ -2448,6 +2527,7 @@ export function registerAgentTeamsTools(ctx, config) {
                 // retires durable catalog entries left behind by remove_member.
                 const roster = fresh.members.map(member => ({ ...member }));
                 for (const member of fresh.members) {
+                    await discardMailboxMessages(stateRoot, fresh.id, member.name, (await readUnreadMailbox(stateRoot, fresh.id, member.name)).map(message => message.id));
                     if (member.status === 'removed')
                         continue;
                     member.status = 'removed';
@@ -2459,25 +2539,11 @@ export function registerAgentTeamsTools(ctx, config) {
                 await writeTeam(stateRoot, fresh);
                 return roster;
             });
-            const gateway = agentTeamsSubagentGateway(ctx);
-            // Retirement must share the same per-child admission boundary as live
-            // delivery. A queued send that already entered the gateway completes
-            // before this block; every later send observes the durable deny-list
-            // before it can cold-resume the archived child.
-            await Promise.all(members.map(async (member) => {
-                if (member.id === '')
-                    return;
-                return gateway.withChildLock(member.id, async () => {
-                    await recordRetiredMemberIds(stateRoot, [member.id]);
-                    interruptMember(ctx, captain, member.id);
-                    try {
-                        await waitForMemberIdle(ctx, member, exec.signal);
-                    }
-                    catch (error) {
-                        ctx.logger.warn(`agent-teams: member did not quiesce cleanly before team archive: ${String(error)}`);
-                    }
-                });
-            }));
+            // Retire before draining so any delivery queued behind this operation is
+            // denied. interruptAndDrain holds each child lock through recursive host
+            // cleanup; a drain rejection intentionally leaves the live Team fenced.
+            await recordRetiredMemberIds(stateRoot, members.map(member => member.id));
+            await stopTeamMemberActivations(ctx, captain, members, exec.signal);
             await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
                 const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId);
                 appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, captain.session), 'agent-teams/team-deleted', {
@@ -2525,8 +2591,15 @@ async function initializeProfileTeam(input) {
         captainSessionId: durableSessionId(input.captain),
         createdAt: now,
         planRevision: 1,
-        phase: 'staged',
-        planReviewState: 'building',
+        phase: input.staged ? 'staged' : 'running',
+        ...input.staged
+            ? { planReviewState: 'building' }
+            : {
+                approvedAt: now,
+                approvedPlanRevision: 1,
+                approvalSource: 'automatic',
+                approvalEvidenceId: `automatic:create:${input.teamId}`,
+            },
         members: profile.members.map((template, index) => {
             const selection = selections[index];
             return {
@@ -2559,73 +2632,11 @@ async function initializeProfileTeam(input) {
         })),
         taskSeq: profile.tasks.length,
     };
-    // A running team requires durable child ids, but the atomic create contract
-    // places the directory barrier before spawning. Use the existing staged
-    // shape as the transient on-disk draft, then publish `running` only after the
-    // complete roster has been spawned.
+    // Roster creation is durable planning only. The scheduler starts each
+    // member with its first actual task once its dependencies are satisfied.
     input.config.testObserver?.onInitializeProfileTeamPersistence?.('createTeamDir');
     await createTeamDir(input.stateRoot, draft);
-    if (input.staged) {
-        return { committed: true, state: draft };
-    }
-    const spawned = [];
-    try {
-        for (const member of draft.members) {
-            const selection = selections[spawned.length];
-            await spawnMember(input.ctx, memberRuntime(input.config), input.memberSelections, selection, input.captain, draft, member, input.config.stateDir, input.exec.signal);
-            spawned.push(member);
-        }
-        if (draft.members.some((member) => member.id === '')) {
-            throw new Error(`failed to initialize profile "${profile.name}": a spawned member is missing its child id`);
-        }
-        draft.phase = 'running';
-        delete draft.planReviewState;
-        draft.approvedAt = Date.now();
-        draft.approvedPlanRevision = draft.planRevision;
-        draft.approvalSource = 'automatic';
-        draft.approvalEvidenceId = `automatic:create:${draft.id}`;
-        input.config.testObserver?.onInitializeProfileTeamPersistence?.('writeTeam');
-        await writeTeam(input.stateRoot, draft);
-        return { committed: true, state: draft };
-    }
-    catch (error) {
-        const cleanupErrors = [];
-        try {
-            await removeTeamDir(input.stateRoot, draft.id);
-        }
-        catch (cleanupError) {
-            cleanupErrors.push(cleanupError);
-        }
-        const gateway = agentTeamsSubagentGateway(input.ctx);
-        for (const member of spawned) {
-            try {
-                await gateway.withChildLock(member.id, async () => {
-                    let retirementError;
-                    try {
-                        await recordRetiredMemberIds(input.stateRoot, [member.id]);
-                    }
-                    catch (cleanupError) {
-                        retirementError = cleanupError;
-                    }
-                    try {
-                        interruptMember(input.ctx, input.captain, member.id);
-                    }
-                    catch (cleanupError) {
-                        retirementError ??= cleanupError;
-                    }
-                    if (retirementError !== undefined)
-                        throw retirementError;
-                });
-            }
-            catch (cleanupError) {
-                cleanupErrors.push(cleanupError);
-            }
-        }
-        if (cleanupErrors.length > 0) {
-            throw new AggregateError([error, ...cleanupErrors], `failed to initialize profile "${profile.name}"`);
-        }
-        throw error;
-    }
+    return { committed: true, state: draft };
 }
 function parseFindings(value) {
     if (value === undefined)

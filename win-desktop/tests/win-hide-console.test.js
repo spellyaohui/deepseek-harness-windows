@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -26,6 +26,13 @@ function sandboxAclBundleSource() {
 }
 
 const subprocessSource = readFileSync(require.resolve('@deepseek-ai/dsh-subprocess-local'), 'utf8')
+const subprocessRunnerName = readdirSync(dirname(require.resolve('@deepseek-ai/dsh-subprocess-local')))
+  .filter(name => /^runner-launch-[A-Za-z0-9_-]+\.js$/.test(name))
+assert.equal(subprocessRunnerName.length, 1, 'expected one hashed subprocess runner bundle')
+const subprocessRunnerSource = readFileSync(
+  join(dirname(require.resolve('@deepseek-ai/dsh-subprocess-local')), subprocessRunnerName[0]),
+  'utf8',
+)
 const sandboxAclSource = sandboxAclBundleSource()
 const sandboxLocalSource = readFileSync(require.resolve('@deepseek-ai/dsh-sandbox-local'), 'utf8')
 const pwshSourcePath = require.resolve('@deepseek-ai/dsh-tool-pwsh')
@@ -224,15 +231,40 @@ test('dsh web args preload the Windows console-hide guard', () => {
   assert.ok(args.includes('--no-open'))
 })
 
-test('rewrite adds windowsHide to official subprocess-local spawn', () => {
-  const rewritten = rewriteDesktopConsoleSource(
-    subprocessSource,
+test('subprocess-local keeps the legacy console-hide rewrite but accepts the 0.1.5 upstream equivalent', () => {
+  const legacy = 'spawn(program, args, { detached: platform !== "win32" });\nspawn("taskkill", [], { stdio: "ignore" });'
+  const legacyRewritten = rewriteDesktopConsoleSource(
+    legacy,
     'file:///x/node_modules/@deepseek-ai/dsh-subprocess-local/lib/index.js',
   )
-  assert.match(rewritten, /detached: platform !== "win32", windowsHide: true/)
-  assert.match(rewritten, /stdio: "ignore", windowsHide: true/)
+  assert.match(legacyRewritten, /detached: platform !== "win32", windowsHide: true/)
+  assert.match(legacyRewritten, /stdio: "ignore", windowsHide: true/)
+
   assert.equal(
-    rewriteDesktopConsoleSource(rewritten, 'file:///x/node_modules/@deepseek-ai/dsh-subprocess-local/lib/index.js'),
+    rewriteDesktopConsoleSource(
+      subprocessSource,
+      'file:///x/node_modules/@deepseek-ai/dsh-subprocess-local/lib/index.js',
+    ),
+    subprocessSource,
+  )
+  const rewritten = rewriteDesktopConsoleSource(
+    subprocessRunnerSource,
+    `file:///x/node_modules/@deepseek-ai/dsh-subprocess-local/lib/${subprocessRunnerName[0]}`,
+    resolveWinHideConsoleImport(),
+  )
+  assert.notEqual(rewritten, subprocessRunnerSource)
+  assert.match(rewritten, /detached: platform !== "win32",\s*windowsHide: platform === "win32"/)
+  assert.match(rewritten, /stdio: "ignore",\s*windowsHide: true/)
+  assert.match(
+    rewritten,
+    /return \[process\.execPath, "--import", "file:[^"]+win-hide-console\.mjs", fileURLToPath\(import\.meta\.resolve\("@deepseek-ai\/dsh-subprocess-local\/runner"\)\)\];/,
+  )
+  assert.equal(
+    rewriteDesktopConsoleSource(
+      rewritten,
+      `file:///x/node_modules/@deepseek-ai/dsh-subprocess-local/lib/${subprocessRunnerName[0]}`,
+      resolveWinHideConsoleImport(),
+    ),
     rewritten,
   )
 })

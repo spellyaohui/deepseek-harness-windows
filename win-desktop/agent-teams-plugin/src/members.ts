@@ -18,11 +18,11 @@ import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent'
 import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent'
 import { createUserMessage, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, sessionOwnEvents } from './harness-compat.ts'
+import { guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, sessionOwnEvents, steerMemberPrompt } from './harness-compat.ts'
 import { join } from 'node:path'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
-  acknowledgeMailbox,
+  markMailboxDelivered,
   appendMailbox,
   CAPTAIN_KEY,
   createMessage,
@@ -33,6 +33,7 @@ import {
   withTeamLock,
   writeTeam,
 } from './state.ts'
+import { mailboxPrompt } from './mailbox.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
 import { selectMemberCandidate, validateMemberRolePolicy, type RoleReasoningMode } from './selection-policy.ts'
 import {
@@ -190,10 +191,10 @@ function failureSummary(failure: { readonly code: string; readonly message: stri
 }
 
 /** Deliver a durable member report to the live captain at its next model step. */
-export function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string): boolean {
+export function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, content: string, receipt?: string): boolean {
   try {
     captain.steer(createUserMessage({
-      content: [{ type: 'text', text: `AgentTeams message from member ${from}:\n\n${content}` }],
+      content: [{ type: 'text', text: receipt ?? `AgentTeams message from member ${from}:\n\n${content}` }],
       source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
     }))
     return true
@@ -267,9 +268,9 @@ export async function failMemberOpenAttempt(
   })
   if (prepared === undefined) return false
   const captain = ctx.agents.get(brandedSessionId(prepared.captainSessionId))
-  const delivered = captain !== undefined && steerCaptainReport(captain, memberName, prepared.message.content)
+  const delivered = captain !== undefined && steerCaptainReport(captain, memberName, prepared.message.content, mailboxPrompt(teamId, CAPTAIN_KEY, [prepared.message]))
   await withTeamLock(lockKey, () => delivered
-    ? acknowledgeMailbox(stateRoot, teamId, CAPTAIN_KEY, [prepared.message.id])
+    ? markMailboxDelivered(stateRoot, teamId, CAPTAIN_KEY, [prepared.message.id])
     : releaseMailboxDelivery(stateRoot, teamId, CAPTAIN_KEY, [prepared.message.id]))
   return true
 }
@@ -495,13 +496,26 @@ export function installMemberSelectionRuntime(
           { member: true },
         )
     const disposePolicy = policyInstallation?.dispose ?? (() => undefined)
+    // Internal settlement wakeups bypass the public delivery guard. Recheck
+    // exact durable membership on every proposed step, including cold resume.
+    const disposeAdmission = child.ctx.on('agent/pre-step', async (payload, next) => {
+      if (payload.agent.id !== child.id) return next()
+      const admitted = await withTeamLock(`team:${stateRoot}:${teamId}`, async () => {
+        const team = await readTeam(stateRoot, teamId)
+        return team?.captainSessionId === parentSessionId && team.phase !== 'staged' && team.halted !== true
+          && team.members.some(member => member.id === child.id && member.name === memberName && member.status !== 'removed' && member.stopping !== true)
+          && !team.tasks.some(task => task.reassigning === true && task.assignee === memberName)
+      })
+      if (!admitted) return { kind: 'reject' }
+      return next()
+    })
     const key = pendingSelectionKey(parentSessionId, descriptor.label)
     let selection = pending.get(key)
     if (selection === undefined) {
       const team = readTeamSync(join(workspace, stateDir), teamId)
       if (team?.captainSessionId !== parentSessionId) {
         disposePolicy()
-        return
+        return disposeAdmission
       }
       const durableMember = team.members.find(member => member.name === memberName)
       try {
@@ -597,12 +611,14 @@ export function installMemberSelectionRuntime(
         disposeFallback()
         disposeSelection()
         disposeFailure()
+        disposeAdmission()
         disposePolicy()
       }
       installedMembers.add(child)
       if (typeof child.ctx.effect === 'function') child.ctx.effect(() => cleanup, 'agent-teams: member runtime')
       return cleanup
     } catch (error) {
+      disposeAdmission()
       disposePolicy()
       throw error
     }
@@ -618,9 +634,7 @@ export function installMemberSelectionRuntime(
     ctx.on('agent/created', handleCreated)
   }
   if (hasContinuableMemberSetup(ctx.subagents) || !hasCreatedAdapter) {
-    installContinuableMemberSetup(ctx, (childCtx) => {
-      const child = childCtx.agent
-      if (child === undefined) return () => undefined
+    installContinuableMemberSetup(ctx, (childCtx, child) => {
       const legacyChild = child as Agent & { ctx?: Context }
       if (legacyChild.ctx === undefined) legacyChild.ctx = childCtx as unknown as Context
       return handleCreated({ agent: child }) ?? (() => undefined)
@@ -747,6 +761,7 @@ export async function spawnMember(
   member: TeamMember,
   stateDir: string,
   signal: AbortSignal,
+  initialPrompt?: string,
 ): Promise<void> {
   // Fail loud at the first use: provider registration is a sibling plugin's
   // effect and may settle after this plugin mounts. Capability checks here
@@ -774,10 +789,10 @@ export async function spawnMember(
       provider: config.provider,
       label,
       request: {
-        prompt: [{ type: 'text', text: memberWelcome(team, member.name) }],
+        prompt: [{ type: 'text', text: initialPrompt ?? memberWelcome(team, member.name) }],
         parent: captain,
         persona: memberPersona(team, member, stateDir, config.executionPrompt),
-        toolFilter: { deny: [...MEMBER_DENIED_TOOLS] },
+        toolFilter: { deny: [...MEMBER_DENIED_TOOLS, ...(config.maxDepth === 0 ? ['subagent', 'send_message'] : [])] },
         agentOptions: {
           provider: llmSelection.provider,
           model: llmSelection.model,
@@ -785,7 +800,8 @@ export async function spawnMember(
             ? {}
             : { reasoningEffort: ReasoningEffortId(llmSelection.reasoningEffort) },
         },
-        ...config.maxDepth !== undefined ? { maxDepth: config.maxDepth } : {},
+        // Harness request.maxDepth caps the absolute depth of THIS creation;
+        // the member-relative admission guard controls later delegation.
       },
       signal,
     })
@@ -817,15 +833,11 @@ export async function deliverToMember(
   text: string,
   stateDir: string,
   signal: AbortSignal,
+  mode: 'queue' | 'steer' = 'queue',
 ): Promise<boolean> {
   try {
     const gateway = agentTeamsSubagentGateway(ctx)
-    await gateway.sendMessage(
-      captain,
-      brandedSessionId(childId),
-      [{ type: 'text', text }],
-      { signal },
-      async () => {
+    const admit = async () => {
         const currentRetired = await readRetiredMemberIds(
           join(captain.session.header?.cwd ?? process.cwd(), stateDir),
         )
@@ -835,8 +847,16 @@ export async function deliverToMember(
             'NOT_RESUMABLE',
           )
         }
-      },
-    )
+    }
+    if (mode === 'queue') {
+      await gateway.sendMessage(captain, brandedSessionId(childId), [{ type: 'text', text }], { signal }, admit)
+    } else {
+      await gateway.withChildLock(brandedSessionId(childId), async () => {
+        const parent = gateway.resolveParent(captain)
+        await admit()
+        await steerMemberPrompt(ctx.subagents, parent, brandedSessionId(childId), [{ type: 'text', text }], signal, ctx.agents.get(brandedSessionId(childId)))
+      })
+    }
     return true
   } catch (error: unknown) {
     ctx.logger.warn(`agent-teams: followup to member ${childId} failed: ${String(error)}`)
@@ -876,6 +896,50 @@ export function installRetiredMemberGuard(ctx: Context, stateDir: string): void 
     const retired = await readRetiredMemberIds(join(parent.session.header.cwd ?? process.cwd(), stateDir))
     return retired.has(childId)
   })
+}
+
+/** Bound all descendant creation, including renamed tools and code-runtime calls. */
+export function installMemberDelegationGuard(ctx: Context, stateDir: string, maxDepth: number): void {
+  const runtime = ctx.subagents
+  let active = true
+  const check = (parent: Agent): void => {
+    if (!active) return
+    let ancestor: Agent | undefined = parent
+    let depth = 1
+    while (ancestor !== undefined) {
+      const descriptor = foldSubagentDescriptor(sessionOwnEvents(ancestor.session))
+      if (descriptor?.label?.startsWith(MEMBER_LABEL_PREFIX)) {
+        const identity = descriptor.label.slice(MEMBER_LABEL_PREFIX.length)
+        const separator = identity.indexOf(':')
+        const team = readTeamSync(join(ancestor.session.header.cwd ?? process.cwd(), stateDir), identity.slice(0, separator))
+        const member = team?.members.find(item => item.id === ancestor!.id && item.name === identity.slice(separator + 1))
+        if (member === undefined || member.status === 'removed' || member.stopping === true || team?.halted === true) throw new Error('AgentTeams member is no longer admitting delegated work')
+        if (depth > maxDepth) throw new Error(`AgentTeams member delegation limit (${maxDepth}) reached; report to the captain instead of spawning another agent`)
+        return
+      }
+      const parentId: SessionId | undefined = ancestor.session.header.parentSession
+      ancestor = parentId === undefined ? undefined : ctx.agents.get(parentId)
+      depth++
+    }
+  }
+  ctx.effect(() => {
+    const start = runtime.start
+    const continuable = runtime.startContinuable
+    const startDescriptor = Object.getOwnPropertyDescriptor(runtime, 'start')
+    const continuableDescriptor = Object.getOwnPropertyDescriptor(runtime, 'startContinuable')
+    const guardedStart: typeof start = async (name, request) => { check(request.parent); return start.call(runtime, name, request) }
+    const guardedContinuable: typeof continuable = async spec => { check(spec.request.parent); return continuable.call(runtime, spec) }
+    runtime.start = guardedStart
+    runtime.startContinuable = guardedContinuable
+    return () => {
+      active = false
+      for (const [key, fn, descriptor] of [['start', guardedStart, startDescriptor], ['startContinuable', guardedContinuable, continuableDescriptor]] as const) {
+        if (Object.getOwnPropertyDescriptor(runtime, key)?.value !== fn) continue
+        if (descriptor === undefined) Reflect.deleteProperty(runtime, key)
+        else Object.defineProperty(runtime, key, descriptor)
+      }
+    }
+  }, 'agent-teams: member delegation budget')
 }
 
 /**

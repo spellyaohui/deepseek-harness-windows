@@ -41,7 +41,7 @@ test('doctor runs through an installed bin symlink and reports success or failur
 })
 
 test('policy rejects floating targets, duplicates, and alpha recommendation', () => {
-  assert.equal(validatePolicy(policy).length, 3)
+  assert.equal(validatePolicy(policy).length, 4)
   for (const version of ['latest', '^0.1.2-rc.1', '0.1.2-rc.1\n']) {
     assert.throws(() => validatePolicy({ ...policy, supportedHosts: [{ version, track: 'recommended' }] }))
   }
@@ -164,13 +164,13 @@ test('doctor detects peer-only drift and a mismatched installed plugin', t => {
 
 test('offline RC.1 file tarball pins count as the exact development host', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-  assert.match(pkg.devDependencies['@deepseek-ai/dsh'], /file:.*deepseek-ai-dsh-0\.1\.2-rc\.1\.tgz$/)
-  assert.match(pkg.devDependencies['@deepseek-ai/dsh-session-projection'], /file:.*deepseek-ai-dsh-session-projection-0\.1\.2-rc\.1\.tgz$/)
+  assert.match(pkg.devDependencies['@deepseek-ai/dsh'], /file:.*deepseek-ai-dsh-0\.1\.5-rc\.1\.tgz$/)
+  assert.match(pkg.devDependencies['@deepseek-ai/dsh-session-projection'], /file:.*deepseek-ai-dsh-session-projection-0\.1\.5-rc\.1\.tgz$/)
   assert.equal(resolveDevelopmentHost(pkg.devDependencies['@deepseek-ai/dsh']), policy.recommendedHost)
   assert.doesNotThrow(() => validatePackageCompatibility(pkg))
   const mixed = structuredClone(pkg)
   mixed.devDependencies['@deepseek-ai/dsh-agent'] = mixed.devDependencies['@deepseek-ai/dsh-agent']
-    .replace('deepseek-ai-dsh-agent-0.1.2-rc.1.tgz', 'deepseek-ai-dsh-agent-0.1.2-alpha.2.tgz')
+    .replace('deepseek-ai-dsh-agent-0.1.5-rc.1.tgz', 'deepseek-ai-dsh-agent-0.1.2-alpha.2.tgz')
   assert.throws(() => validatePackageCompatibility(mixed), /exact development host/)
 })
 
@@ -196,5 +196,5 @@ test('desktop extras keep enumerated host peers and settings inject', () => {
     assert.ok(pkg.dsh.client.inject.includes(name), name)
   }
   assert.equal(pkg.bin['dsh-agent-teams-doctor'], 'scripts/doctor.mjs')
-  assert.equal(pkg.publishConfig.tag, 'next')
+  assert.equal(pkg.publishConfig.tag, 'latest')
 })

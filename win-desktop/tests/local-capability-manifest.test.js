@@ -23,12 +23,12 @@ const localDependencies = {
 }
 
 const localVersions = {
-  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.2-rc.1-desktop.2',
-  '@deepseek-ai/dsh-cpa-provider': '0.1.7',
+  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.5-rc.1-desktop.3',
+  '@deepseek-ai/dsh-cpa-provider': '0.1.8',
   '@deepseek-ai/dsh-desktop-settings': '0.1.2',
   '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.16-rc.3',
+  '@nanmicoder/dsh-agent-teams': '0.1.18',
 }
 
 const sourcePluginDirectories = [
@@ -50,20 +50,20 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.2-rc.8')
-  assert.equal(packageLock.version, '0.1.2-rc.8')
-  assert.equal(packageLock.packages[''].version, '0.1.2-rc.8')
+  assert.equal(packageJson.version, '0.1.5-rc.1')
+  assert.equal(packageLock.version, '0.1.5-rc.1')
+  assert.equal(packageLock.packages[''].version, '0.1.5-rc.1')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
-  assert.equal(modelsPackage.version, '0.1.2-rc.1-desktop.2')
+  assert.equal(modelsPackage.version, '0.1.5-rc.1-desktop.3')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.1.2-rc.1-desktop.2',
+    '0.1.5-rc.1-desktop.3',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.16-rc.3')
+  assert.equal(agentTeamsPackage.version, '0.1.18')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.16-rc.3',
+    '0.1.18',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -114,6 +114,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     '../docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md',
     '../docs/UPSTREAM_RC1_SOURCE_MANIFEST.md',
     'release-notes/v0.1.2-rc.8.md',
+    'release-notes/v0.1.5-rc.1.md',
     'release-notes/v0.1.2-rc.7.md',
     'scripts/verify-alpha2-source.mjs',
     'scripts/verify-rc1-source.mjs',
@@ -139,6 +140,9 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/UPSTREAM.md',
     'agent-teams-plugin/release-notes/v0.1.15-desktop.7.md',
     'agent-teams-plugin/release-notes/v0.1.16-rc.3.md',
+    'agent-teams-plugin/release-notes/v0.1.17-rc.1.md',
+    'agent-teams-plugin/release-notes/v0.1.17.md',
+    'agent-teams-plugin/release-notes/v0.1.18.md',
     'agent-teams-plugin/release-notes/v0.1.16-rc.2.md',
     'agent-teams-plugin/release-notes/v0.1.16-rc.1.md',
     'agent-teams-plugin/release-notes/v0.1.15-alpha.1.md',
@@ -151,6 +155,8 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/scripts/release-metadata.test.mjs',
     'agent-teams-plugin/src/harness-compat.ts',
     'agent-teams-plugin/scripts/harness-compat-tdd.mjs',
+    'agent-teams-plugin/scripts/stability-tdd.mjs',
+    'agent-teams-plugin/src/mailbox.ts',
     'agent-teams-plugin/src/status-render.ts',
     'agent-teams-plugin/scripts/clean-build.mjs',
     'agent-teams-plugin/scripts/fallback-tdd.mjs',

@@ -545,9 +545,14 @@ export async function readMailbox(stateRoot, teamId, agentKey, onMalformedLine) 
 }
 /** Read only messages that have not been acknowledged by their recipient. */
 export async function readUnreadMailbox(stateRoot, teamId, agentKey, onMalformedLine) {
-    const now = Date.now();
     return (await readMailbox(stateRoot, teamId, agentKey, onMalformedLine))
-        .filter(message => message.readAt === undefined
+        .filter(message => message.readAt === undefined && message.discardedAt === undefined);
+}
+/** Pending delivery is distinct from delivered-but-not-yet-read input. */
+export async function readPendingMailbox(stateRoot, teamId, agentKey) {
+    const now = Date.now();
+    return (await readUnreadMailbox(stateRoot, teamId, agentKey))
+        .filter(message => message.deliveredAt === undefined
         && (message.deliveryClaimedAt === undefined
             || now - message.deliveryClaimedAt >= MAILBOX_DELIVERY_LEASE_MS));
 }
@@ -610,6 +615,16 @@ export async function acknowledgeMailbox(stateRoot, teamId, agentKey, messageIds
             readAt: message.readAt ?? now,
         };
     });
+}
+/** Acceptance by Harness is not evidence that a model step consumed input. */
+export async function markMailboxDelivered(stateRoot, teamId, agentKey, messageIds) {
+    await mutateMailbox(stateRoot, teamId, agentKey, messageIds, (message) => {
+        const { deliveryClaimedAt: _claimed, ...rest } = message;
+        return { ...rest, deliveredAt: message.deliveredAt ?? Date.now() };
+    });
+}
+export async function discardMailboxMessages(stateRoot, teamId, agentKey, messageIds) {
+    await mutateMailbox(stateRoot, teamId, agentKey, messageIds, message => ({ ...message, discardedAt: message.discardedAt ?? Date.now() }));
 }
 /** Remove the optional UTF-8 BOM some editors prepend to JSON text. */
 function stripLeadingBom(value) {
@@ -717,6 +732,7 @@ function isTeamMember(value) {
         && typeof value['name'] === 'string'
         && value['name'].trim() !== ''
         && isOptionalString(value['role'])
+        && (value['stopping'] === undefined || typeof value['stopping'] === 'boolean')
         && typeof value['provider'] === 'string'
         && value['provider'].trim() !== ''
         && typeof value['model'] === 'string'
@@ -774,6 +790,7 @@ export function isTeamTask(value) {
         && isOptionalString(attemptId)
         && (attemptId === undefined || attemptId.trim() !== '')
         && isOptionalString(value['handoffId'])
+        && isOptionalString(value['handoffFromMemberId'])
         && (value['reassigning'] === undefined || typeof value['reassigning'] === 'boolean')
         && isFiniteNumber(value['createdAt'])
         && isFiniteNumber(value['updatedAt'])
@@ -861,7 +878,7 @@ function isTeamState(value, expectedId) {
     }
     for (const member of members) {
         const key = sanitizeKey(member.name);
-        if ((!staged && member.id === '') || key === CAPTAIN_KEY || memberKeys.has(key))
+        if (key === CAPTAIN_KEY || memberKeys.has(key))
             return false;
         if (member.id !== '') {
             if (memberIds.has(member.id))
@@ -892,7 +909,10 @@ function isTeamMessage(value) {
         && isFiniteNumber(value['ts'])
         && (value['deliveryClaimedAt'] === undefined || isFiniteNumber(value['deliveryClaimedAt']))
         && (value['deliveredAt'] === undefined || isFiniteNumber(value['deliveredAt']))
-        && (value['readAt'] === undefined || isFiniteNumber(value['readAt']));
+        && (value['readAt'] === undefined || isFiniteNumber(value['readAt']))
+        && (value['discardedAt'] === undefined || isFiniteNumber(value['discardedAt']))
+        && (value['taskId'] === undefined || typeof value['taskId'] === 'string')
+        && (value['attemptId'] === undefined || typeof value['attemptId'] === 'string');
 }
 /**
  * Remove a team's whole directory (members should be interrupted first).

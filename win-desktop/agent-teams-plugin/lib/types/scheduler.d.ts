@@ -21,6 +21,7 @@ export declare const DEPENDENCY_OUTPUTS_TOTAL_MAX_CHARS = 12000;
 export interface SchedulerConfig {
     readonly stateDir: string;
     readonly executionPrompt?: string;
+    readonly dispatch?: (captain: Agent, teamId: string, memberName: string, text: string, signal: AbortSignal, mode: 'queue' | 'steer', attemptId?: string) => Promise<boolean>;
 }
 export interface TeamScheduler {
     /** Try to give every genuinely idle/ready member one unit of ready work. */

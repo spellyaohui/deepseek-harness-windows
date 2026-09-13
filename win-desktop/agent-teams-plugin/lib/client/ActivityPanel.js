@@ -64,9 +64,9 @@ function stableHash(value) {
 }
 const ACCENTS = [
     'var(--dsw-alias-state-business-primary)',
-    'var(--dsw-alias-state-success)',
-    'var(--dsw-alias-state-danger)',
-    'var(--dsw-alias-state-warning)',
+    'var(--dsw-alias-state-success-primary)',
+    'var(--dsw-alias-state-error-primary)',
+    'var(--dsw-alias-state-warn-primary)',
     'var(--dsw-alias-label-tertiary)',
 ];
 function accentOf(id) {
@@ -386,7 +386,7 @@ function TeamSection({ team, modelDirectory, onContinuePlanning, onDiscarded, on
                                     })] })] }), _jsx(DependencyMap, { tasks: team.tasks, members: team.members, t: t, discarded: discarded })] }), _jsx(Modal, { open: stopOpen, onClose: () => { if (!stopping)
                     setStopOpen(false); }, title: t('team.stopTitle', { team: team.name }), closeLabel: t('plan.cancel'), description: t('team.stopDescription', { tasks: unfinishedCount, members: busyCount }), footer: (_jsxs("span", { className: css.stopModalActions, children: [_jsx("button", { type: "button", disabled: stopping, onClick: () => { setStopOpen(false); }, children: t('team.stopCancel') }), _jsxs("button", { type: "button", "data-danger": true, disabled: stopping, onClick: () => { void stopTeam(); }, children: [_jsx(IconStopFill16, {}), stopping ? t('team.stopping') : t('team.stopConfirm')] })] })), children: stopError !== '' && _jsxs("p", { className: css.stopModalError, role: "alert", children: [_jsx(IconWarningOutline16, {}), stopError] }) })] }));
 }
-export function ActivityPanel({ sessionsList, modelDirectories, openMember, t }) {
+export function ActivityPanel({ sessionsList, modelDirectories, openMember, t, conversationVisible = true }) {
     // Navigating to a member's subagent transcript is an explicit departure:
     // hide the floater immediately instead of waiting out the autocollapse
     // grace, so the panel never lingers over the member session.
@@ -414,7 +414,7 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t })
         setOpen(false);
         setOpenOwner(undefined);
         window.requestAnimationFrame(() => {
-            document.querySelector('[data-composer-card] textarea')?.focus();
+            document.querySelector('[data-composer-card] [contenteditable="true"][role="textbox"], [data-composer-card] textarea')?.focus();
         });
     };
     const { teams, archivedTeams } = useSyncExternalStore(subscribeActivitySnapshots, getActivitySnapshotsSnapshot);
@@ -422,7 +422,7 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t })
     const currentRef = useRef(current);
     useEffect(() => { currentRef.current = current; }, [current]);
     const mountedAtRef = useRef(performance.now());
-    const expanded = activityPanelExpandedForSession(open, openOwner, current);
+    const expanded = conversationVisible && activityPanelExpandedForSession(open, openOwner, current);
     const geometry = useMemo(() => resolvePanelGeometry(layout, bounds), [layout, bounds]);
     const compact = compactPanelForBounds(bounds);
     const commitLayout = useCallback((next) => {
@@ -716,7 +716,7 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t })
         maxHeight: panelMaximumHeight(geometry, bounds),
         transform: `translate3d(${geometry.x}px, ${geometry.y}px, 0)`,
     };
-    if (!hasTeams && !expanded)
+    if (!conversationVisible || (!hasTeams && !expanded))
         return null;
     return (_jsxs(_Fragment, { children: [!expanded && (_jsx(CollapsedBadge, { count: visibleCount, busy: busy, t: t, onClick: () => {
                     if (current === undefined)

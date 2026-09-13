@@ -13,7 +13,8 @@
  */
 import { join } from 'node:path';
 import { deliverToMember } from "./members.js";
-import { acknowledgeMailbox, beginTaskAttempt, CAPTAIN_KEY, claimMailboxDelivery, findTeamByParticipant, invalidateTaskAttempt, readTeam, readUnreadMailbox, releaseMailboxDelivery, unsatisfiedDependencies, withTeamLock, writeTeam, } from "./state.js";
+import { isCurrentMail, mailboxPrompt } from "./mailbox.js";
+import { markMailboxDelivered, discardMailboxMessages, beginTaskAttempt, CAPTAIN_KEY, claimMailboxDelivery, findTeamByParticipant, invalidateTaskAttempt, readTeam, readPendingMailbox, releaseMailboxDelivery, unsatisfiedDependencies, withTeamLock, writeTeam, } from "./state.js";
 import { durableSessionId } from "./agent-identity.js";
 /** Per-dependency output cap in the assignment prompt. */
 export const DEPENDENCY_OUTPUT_MAX_CHARS = 2_000;
@@ -104,6 +105,8 @@ function liveMember(ctx, member) {
     return ctx.agents.get(member.id);
 }
 function isMemberAvailable(ctx, member) {
+    if (member.stopping === true)
+        return false;
     const live = liveMember(ctx, member);
     return live === undefined || live.status === 'idle';
 }
@@ -169,13 +172,6 @@ When finishing: use status=completed only when the task's success criteria are s
 
 State policy: ${stateDir}/${teamId}/ is read-only diagnostics; mutate team state only through agent_teams_* tools.`;
 }
-function fallbackMailboxPrompt(messages) {
-    return [
-        'AgentTeams delivered messages that were persisted while live delivery was unavailable:',
-        ...messages.map(message => `\nFrom ${message.from}:\n${message.content}`),
-        '\nHandle these messages in this turn. Task assignments still require agent_teams_claim_task and the current attempt_id.',
-    ].join('\n');
-}
 /** Install one scheduler and its member activity observer. */
 export function installTeamScheduler(ctx, config) {
     const memberQueues = new Map();
@@ -228,16 +224,28 @@ export function installTeamScheduler(ctx, config) {
                 if (captain === undefined)
                     return;
                 let member = team.members.find(candidate => candidate.name === memberName && candidate.status !== 'removed');
-                if (member === undefined || member.id === '' || !isMemberAvailable(ctx, member))
+                if (member === undefined || !isMemberAvailable(ctx, member))
                     return;
                 // A mailbox-only fallback is real pending work. Deliver it before a
                 // fresh task and acknowledge only after Harness accepts the follow-up.
-                const unread = await readUnreadMailbox(stateRoot, team.id, member.name);
+                const unread = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
+                    const fresh = await readTeam(stateRoot, team.id);
+                    if (fresh === undefined)
+                        return [];
+                    const pending = await readPendingMailbox(stateRoot, fresh.id, member.name);
+                    await discardMailboxMessages(stateRoot, fresh.id, member.name, pending.filter(message => !isCurrentMail(fresh, message)).map(message => message.id));
+                    const current = pending.filter(message => isCurrentMail(fresh, message));
+                    await claimMailboxDelivery(stateRoot, fresh.id, member.name, current.map(message => message.id));
+                    return current;
+                });
                 if (unread.length > 0) {
-                    await withTeamLock(teamLockKey(stateRoot, team.id), () => (claimMailboxDelivery(stateRoot, team.id, member.name, unread.map(message => message.id))));
-                    const accepted = await deliverToMember(ctx, captain, member.id, fallbackMailboxPrompt(unread), config.stateDir, new AbortController().signal);
+                    const prompt = mailboxPrompt(team.id, member.name, unread);
+                    const signal = new AbortController().signal;
+                    const accepted = config.dispatch === undefined
+                        ? await deliverToMember(ctx, captain, member.id, prompt, config.stateDir, signal, 'steer')
+                        : await config.dispatch(captain, team.id, member.name, prompt, signal, 'steer');
                     if (accepted) {
-                        await withTeamLock(teamLockKey(stateRoot, team.id), () => (acknowledgeMailbox(stateRoot, team.id, member.name, unread.map(message => message.id))));
+                        await withTeamLock(teamLockKey(stateRoot, team.id), () => (markMailboxDelivered(stateRoot, team.id, member.name, unread.map(message => message.id))));
                     }
                     else {
                         await withTeamLock(teamLockKey(stateRoot, team.id), () => (releaseMailboxDelivery(stateRoot, team.id, member.name, unread.map(message => message.id))));
@@ -249,7 +257,7 @@ export function installTeamScheduler(ctx, config) {
                     if (fresh === undefined || fresh.halted === true || fresh.phase === 'staged')
                         return undefined;
                     const currentMember = fresh.members.find(candidate => candidate.name === memberName && candidate.status !== 'removed');
-                    if (currentMember === undefined || currentMember.id === '' || !isMemberAvailable(ctx, currentMember))
+                    if (currentMember === undefined || !isMemberAvailable(ctx, currentMember))
                         return undefined;
                     const owned = ownedOpenTask(fresh.tasks, currentMember.name);
                     // A resident idle member can intentionally leave an attempt open
@@ -320,7 +328,11 @@ export function installTeamScheduler(ctx, config) {
                 });
                 if (ticket === undefined)
                     return;
-                const accepted = await deliverToMember(ctx, captain, ticket.memberId, assignmentPrompt(ticket, config.stateDir, team.id), config.stateDir, new AbortController().signal);
+                const prompt = assignmentPrompt(ticket, config.stateDir, team.id);
+                const signal = new AbortController().signal;
+                const accepted = config.dispatch === undefined
+                    ? await deliverToMember(ctx, captain, ticket.memberId, prompt, config.stateDir, signal)
+                    : await config.dispatch(captain, team.id, ticket.memberName, prompt, signal, 'queue', ticket.attemptId);
                 if (accepted)
                     return;
                 // Roll back only our exact failed dispatch. A concurrent captain

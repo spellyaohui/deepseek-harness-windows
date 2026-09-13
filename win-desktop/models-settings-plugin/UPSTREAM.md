@@ -1,11 +1,11 @@
 # Upstream baseline
 
 - Package: `@deepseek-ai/dsh-client-ui-settings-models`
-- Version/tag: `0.1.2-rc.1` / `dsh-v0.1.2-rc.1`
-- Commit: `0a53fb55bea101816fa226bb964ae2bed71c343b`
+- Version/tag: `0.1.5-rc.1` / `dsh-v0.1.5-rc.1`
+- Commit: `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`
 - Source directory: `packages/client/ui-settings-models`
-- Imported: 2026-08-31
-- Local desktop fork: `0.1.2-rc.1-desktop.2`
+- Imported: 2026-09-11
+- Local desktop fork: `0.1.5-rc.1-desktop.3`
 
 ## Intentional desktop difference
 
@@ -20,6 +20,20 @@ fork; the CPA plugin is the only listener for provider `cpa`.
 
 Provider-specific behavior does not belong in this fork. CPA behavior is owned
 by the separate `@deepseek-ai/dsh-cpa-provider` plugin.
+
+## 2026-09-11 Harness 0.1.5-rc.1 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: consume the official 0.1.5 client settings, slots,
+  Remote, Session v3, and UI package graph rather than retaining 0.1.2 client
+  artifacts.
+- `REAPPLY`: retain only the provider-neutral image-input editor, draft-only
+  capability probe, explicit-overwrite semantics, late Remote degradation, and
+  generated-output detachment. CPA, OpenCode, WOYAOPRO, and model-name rules
+  remain outside this fork.
+- The wrapper owns the external-consumer closure for the official UI primitives
+  package: its compiled imports are direct runtime needs in a flat Windows
+  install, so the wrapper pins the exact 0.1.5 resolved packages. This does not
+  add provider-specific behavior to Models.
 
 The fork also owns the provider-neutral capability validation controls inside
 the native model editor. The Host Remote uses the current explicit protocol

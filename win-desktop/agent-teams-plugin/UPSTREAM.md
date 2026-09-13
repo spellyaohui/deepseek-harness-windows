@@ -1,16 +1,61 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.16-rc.3`
-- Tag: `v0.1.16-rc.3`
-- Source commit: `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`
-- Imported: `2026-09-10`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.18`
+- Tag: `v0.1.18`
+- Source commit: `68fe529d602b1eea1f1ecaee99857d20a4f94be0`
+- Imported: `2026-09-13`
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.16-rc.3`.
+- Desktop fork version is `0.1.18`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-09-13 v0.1.18 / Harness 0.1.5-rc.1 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: use upstream 0.1.18 atomic roster/task planning,
+  dormant members and lazy first-task activation instead of welcome-only model
+  turns. The upstream mailbox owns next-model-step delivery, obsolete task
+  message de-duplication, delivery receipts, and stale-attempt filtering.
+- `UPSTREAM_EQUIVALENT`: use upstream descendant and queued-input cleanup for
+  archive, removal and reassignment; retired-member cold-restore rejection;
+  current-attempt recovery when `attempt_id` is omitted; unfinished-delivery
+  guards; and the explicit `memberMaxDepth: 0` default.
+- `REAPPLY`: the Windows durable-session gateway remains the single admission
+  boundary around upstream start, queue/steer delivery, interrupt, retirement,
+  descendant cleanup and drain primitives. It retains live-Agent resolution
+  and per-child serialization without reimplementing the upstream mailbox.
+- `REAPPLY`: role-level Provider/model/reasoning policy, strict V2 persistence,
+  local quality contracts, shared model catalog, compact prompt, Profile
+  editor, Team/Native policy, authenticated Web CAS routes, and desktop-only
+  settings injects remain local because upstream still has no equivalent.
+- Compatibility continues to recommend Harness `0.1.5-rc.1`; no Harness
+  source, peer range, tarball pin or Models desktop cohort changed in this
+  AgentTeams-only refresh.
+
+## 2026-09-11 v0.1.17 / Harness 0.1.5-rc.1 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: upstream `0.1.5-rc.1` is the recommended host and
+  supplies the modern subagent delivery contract, Session format v3, and the
+  current conversation/navigation surfaces. The desktop fork consumes those
+  paths instead of restoring RC.1 runtime code.
+- `UPSTREAM_EQUIVALENT`: upstream `0.1.17` moves the activity panel, cards,
+  badges, task nodes, plan controls, and dialogs to Harness semantic colors.
+  The fork takes this source directly so light, dark, system, and custom themes
+  update without a second theme store or light-only token bridge.
+- `REAPPLY`: the Windows gateway admits every `deliverPrompt` queue/steer,
+  start, message, interrupt, retirement, and drain operation through the same
+  durable child-session lock. It also reads Team/Native markers from Session v3
+  `system/message` while retaining only the legacy `request/header.system`
+  read fallback for existing durable sessions.
+- `REAPPLY`: role-level Provider/model/reasoning policy, strict V2 persistence,
+  quality contracts, shared model catalog, compact prompt, Profile editor,
+  Team/Native policy, authenticated Web routes, and desktop-only settings
+  injects remain local because upstream does not provide equivalent behavior.
+- Compatibility now recommends `0.1.5-rc.1` and retains the explicitly
+  enumerated `0.1.2-rc.1`, `0.1.2-alpha.5`, and `0.1.2-alpha.2` legacy lines.
+  All development host tarballs are pinned under `upstream/dsh-v0.1.5-rc.1`.
 
 ## 2026-09-07 refresh classification
 
@@ -21,13 +66,14 @@
 
 - Harness settings namespace and browser settings section.
 - Role-level member provider/model/reasoning policy and Profile role-card editor.
-- Versioned Team/Native routing policy persisted in `request/header.system`.
+- Versioned Team/Native routing policy persisted in Session v3 `system/message`,
+  with a read-only legacy `request/header.system` fallback.
 - Agent-scoped suppression of native delegation tools in Team mode.
 - Strict Profile and Team `schemaVersion: 2` validation; older data remains on disk but is rejected and never migrated.
 - Desktop integration and regression verification.
-- Offline RC.1 tarball development pins: `@deepseek-ai/dsh` and every local `dsh-*` `devDependency` stay `file:` paths under `upstream/dsh-v0.1.2-rc.1/tarballs`. `scripts/compatibility.mjs` treats the tarball filename version as the exact supported host so the publish contract can pass without a network install.
-- `scripts/doctor.mjs` treats a same-host `-desktop.N` Models fork as the RC.1 cohort, because the Windows wrapper replaces `@deepseek-ai/dsh-client-ui-settings-models` with the local editor fork.
-- Extra Alpha.2 settings injects and peers (`dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-settings`, `dsh-client-ui-slots`, `dsh-settings`, `dsh-workspace`) remain because the Windows Profile editor and settings section consume them. Their peer ranges still enumerate `0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2`.
+- Offline tarball development pins: `@deepseek-ai/dsh` and every local `dsh-*` `devDependency` stay `file:` paths under `upstream/dsh-v0.1.5-rc.1/tarballs`. `scripts/compatibility.mjs` treats the tarball filename version as the exact supported host so the publish contract can pass without a network install.
+- `scripts/doctor.mjs` treats a same-host `-desktop.N` Models fork as the active 0.1.5 cohort, because the Windows wrapper replaces `@deepseek-ai/dsh-client-ui-settings-models` with the local editor fork.
+- Extra settings injects and peers (`dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-settings`, `dsh-client-ui-slots`, `dsh-settings`, `dsh-workspace`) remain because the Windows Profile editor and settings section consume them. Their peer ranges enumerate `0.1.5-rc.1 || 0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2`.
 
 ## 2026-09-10 v0.1.16-rc.3 refresh classification
 

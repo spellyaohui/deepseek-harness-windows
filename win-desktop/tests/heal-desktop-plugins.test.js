@@ -94,10 +94,10 @@ test('wrapper dependency graph contains no AUTO plugin', () => {
 })
 
 test('desktop shell declares dsh-app-boot as a direct runtime dependency', () => {
-  const alpha2Boot = 'file:../upstream/dsh-v0.1.2-rc.1/tarballs/dsh/deepseek-ai-dsh-app-boot-0.1.2-rc.1.tgz'
-  assert.equal(packageJson.dependencies['@deepseek-ai/dsh-app-boot'], alpha2Boot)
-  assert.equal(packageLock.packages[''].dependencies['@deepseek-ai/dsh-app-boot'], alpha2Boot)
-  assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.1.2-rc.1')
+  const hostBoot = 'file:../upstream/dsh-v0.1.5-rc.1/tarballs/dsh/deepseek-ai-dsh-app-boot-0.1.5-rc.1.tgz'
+  assert.equal(packageJson.dependencies['@deepseek-ai/dsh-app-boot'], hostBoot)
+  assert.equal(packageLock.packages[''].dependencies['@deepseek-ai/dsh-app-boot'], hostBoot)
+  assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.1.5-rc.1')
 })
 
 test('desktop shell declares the boot loader runtime closure directly', () => {

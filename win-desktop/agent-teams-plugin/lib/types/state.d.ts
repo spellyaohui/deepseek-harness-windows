@@ -149,6 +149,8 @@ export declare function appendMailbox(stateRoot: string, teamId: string, agentKe
 export declare function readMailbox(stateRoot: string, teamId: string, agentKey: string, onMalformedLine?: (lineNumber: number, error: unknown) => void): Promise<TeamMessage[]>;
 /** Read only messages that have not been acknowledged by their recipient. */
 export declare function readUnreadMailbox(stateRoot: string, teamId: string, agentKey: string, onMalformedLine?: (lineNumber: number, error: unknown) => void): Promise<TeamMessage[]>;
+/** Pending delivery is distinct from delivered-but-not-yet-read input. */
+export declare function readPendingMailbox(stateRoot: string, teamId: string, agentKey: string): Promise<TeamMessage[]>;
 /** Lease selected fallback messages to one delivery path. */
 export declare function claimMailboxDelivery(stateRoot: string, teamId: string, agentKey: string, messageIds: readonly string[]): Promise<void>;
 /** Release a failed delivery lease so the scheduler can retry it later. */
@@ -158,6 +160,9 @@ export declare function releaseMailboxDelivery(stateRoot: string, teamId: string
  * malformed lines for diagnostics. Callers serialize this with the team lock.
  */
 export declare function acknowledgeMailbox(stateRoot: string, teamId: string, agentKey: string, messageIds: readonly string[]): Promise<void>;
+/** Acceptance by Harness is not evidence that a model step consumed input. */
+export declare function markMailboxDelivered(stateRoot: string, teamId: string, agentKey: string, messageIds: readonly string[]): Promise<void>;
+export declare function discardMailboxMessages(stateRoot: string, teamId: string, agentKey: string, messageIds: readonly string[]): Promise<void>;
 /** Filesystem primitives used by {@link replaceFileAtomicOrDirect}; injectable for tests. */
 export interface AtomicReplacePrimitives {
     rename: (from: string, to: string) => Promise<void>;

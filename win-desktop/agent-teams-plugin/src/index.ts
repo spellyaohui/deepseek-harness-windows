@@ -75,7 +75,7 @@ export interface Config {
   executionPrompt?: string
   /** Plugin-wide fallback route for unavailable member models. */
   fallback?: import('./profiles.ts').TeamModelFallbackConfig
-  /** Member delegation depth cap (default `1`; `0` forbids delegation entirely). */
+  /** Member delegation depth cap (default `0`; `0` forbids delegation entirely). */
   memberMaxDepth?: number
   /** Team size cap in members (default `8`). */
   maxMembers?: number
@@ -136,7 +136,7 @@ export const Config: z<Config> = z.object({
       dependencies: z.array(z.string()),
     })),
   })).default({}),
-  memberMaxDepth: z.natural().default(1),
+  memberMaxDepth: z.natural().default(0),
   maxMembers: z.natural().min(1).default(8),
   promptSectionOrder: z.natural().default(117),
   slashCommand: z.boolean().default(true),
@@ -198,7 +198,7 @@ export function apply(ctx: Context, config: Config): void {
     memberProvider: config.memberProvider ?? 'spawn',
     executionPrompt: config.executionPrompt,
     fallback: config.fallback,
-    memberMaxDepth: config.memberMaxDepth ?? 1,
+    memberMaxDepth: config.memberMaxDepth ?? 0,
     maxMembers: config.maxMembers ?? 8,
     settings,
     delegationPolicy: undefined,

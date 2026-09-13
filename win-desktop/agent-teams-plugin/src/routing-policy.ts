@@ -25,11 +25,25 @@ export function delegationPolicyUsagePreamble(policy: DelegationPolicyId): strin
     : 'When the user asks to run something with AgentTeams (e.g. "use AgentTeams to do X"), or an activation message from the /agent-teams slash command arrives, you are the captain of a multi-agent team.'
 }
 
+/** Read the durable system prompt across the V2 header and V3 system-message layouts. */
+function persistedSystemText(event: SessionEvent): string | undefined {
+  if (event.type === 'request/header') {
+    // Session format V3 retires header.system; retain a narrow read only for
+    // legacy logs that reached this plugin before the official migration.
+    const legacy = event.data.header as typeof event.data.header & { readonly system?: unknown }
+    return typeof legacy.system === 'string' ? legacy.system : undefined
+  }
+  if (event.type !== 'system/message' || event.data.message.role !== 'system') return undefined
+  const text = event.data.message.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+  return text.length > 0 ? text.join('\n') : undefined
+}
+
 export function persistedPolicy(events: readonly SessionEvent[]): DelegationPolicyId | undefined {
   let persisted: DelegationPolicyId | undefined
   for (const event of events) {
-    if (event?.type !== 'request/header') continue
-    const system = event.data.header.system
+    const system = persistedSystemText(event)
     if (system === undefined) continue
     for (const line of system.split(/\r\n?|\n/u)) {
       const match = /^AgentTeams delegation policy: (\S+)$/u.exec(line)

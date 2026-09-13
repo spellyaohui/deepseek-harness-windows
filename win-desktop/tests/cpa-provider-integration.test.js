@@ -39,9 +39,9 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
     'file:cpa-provider-plugin',
   )
   assert.notEqual(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.link, true)
-  assert.equal(sourceCpaPackage.version, '0.1.7')
-  assert.equal(cpaPackage.version, '0.1.7')
-  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.7')
+  assert.equal(sourceCpaPackage.version, '0.1.8')
+  assert.equal(cpaPackage.version, '0.1.8')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.8')
   assert.match(sourceCpaPackage.scripts.build, /^node scripts\/detach-output-links\.mjs && /)
 })
 

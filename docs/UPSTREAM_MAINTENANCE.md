@@ -7,15 +7,68 @@ prove it still exists.
 
 ## Current local identities
 
-- Official Harness source closure: `dsh-v0.1.2-rc.1` at `a66e4702047846cdaa10c66c9d3df3951f5ea70d`
-- Windows desktop wrapper: `0.1.2-rc.8`
+- Official Harness source closure: `dsh-v0.1.5-rc.1` at `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`
+- Windows desktop wrapper: `0.1.5-rc.1`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.2`
-- AgentTeams fork: `0.1.16-rc.3`, based on upstream `v0.1.16-rc.3` at fixed commit
-  `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`
-- CPA provider plugin: `0.1.7`
-- Models settings fork: `0.1.2-rc.1-desktop.2`
+- AgentTeams fork: `0.1.18`, based on upstream `v0.1.18` at fixed commit
+  `68fe529d602b1eea1f1ecaee99857d20a4f94be0`
+- CPA provider plugin: `0.1.8`
+- Models settings fork: `0.1.5-rc.1-desktop.3`
 - Desktop Settings plugin: `0.1.2`
+
+## Harness 0.1.5-rc.1 / AgentTeams 0.1.18 refresh classification — 2026-09-13
+
+This is the current classification. The 2026-09-11 AgentTeams 0.1.17 and
+earlier entries below remain historical release evidence.
+
+- `UPSTREAM_EQUIVALENT`: AgentTeams 0.1.18 supplies atomic roster/DAG
+  planning, lazy member start, next-step message delivery, obsolete-message
+  deduplication, descendant and queued-input cleanup, retired cold-restore
+  rejection, missing-attempt recovery, and the `memberMaxDepth: 0` default.
+  The retained regressions must exercise those behaviors against the imported
+  upstream implementation.
+- `REAPPLY`: retain Windows role-level Provider/model/reasoning routing,
+  strict V2 Profile and Team persistence, quality extensions, Profiles,
+  Team/Native delegation, authenticated Web `planRevision`/CAS boundaries,
+  and the durable-session child-operation admission gateway. Upstream 0.1.18
+  does not provide these Windows-specific persistence, route-authority,
+  authenticated Web, or single-gateway guarantees.
+- `REAPPLY`: preserve the existing 0.1.5-rc.1 host closure and all fixed
+  Harness identity/tarball references. This AgentTeams-only update must not
+  alter the Harness version, peer ranges, or tarball paths.
+
+## Harness 0.1.5-rc.1 / AgentTeams 0.1.17 refresh classification — 2026-09-11
+
+This is the current classification; dated 0.1.2 / 0.1.16 rows below remain
+historical evidence only.
+
+- `UPSTREAM_EQUIVALENT`: use the complete fixed Harness 0.1.5 release family,
+  including Session format v3, file/resource/sidebar/Web/proxy additions, its
+  current client settings architecture, and the Node subprocess `windowsHide`
+  implementation. `REAPPLY`: the Windows Job runner starts a separate Node
+  process before its native `CreateProcessW` call, so the wrapper passes the
+  existing preload into that runner; the runner then receives the established
+  hidden STARTUPINFO rewrite without changing upstream Job ownership.
+- `UPSTREAM_EQUIVALENT`: use AgentTeams 0.1.17's supported-host declaration,
+  current conversation/activity behavior, and semantic light/dark theme source
+  with Harness 0.1.5. The recommended host is `0.1.5-rc.1`; explicitly
+  enumerated 0.1.2 targets remain legacy compatibility lines, never a runtime
+  fallback.
+- `REAPPLY`: adapt AgentTeams' gateway only at the new `deliverPrompt`
+  queue/steer and Session v3 marker boundaries, while retaining one durable
+  child-session admission lock for start, delivery, interrupt, retirement, and
+  drain. Role-level selection, strict V2 state, quality contracts, Profile
+  integration, Team/Native routing, and authenticated Web boundaries remain
+  local because upstream does not provide equivalents.
+- `REAPPLY`: retain provider-neutral model input/capability behavior, CPA
+  normalization, narrow grep argument repair, bounded-period QUOTA
+  classification, and verified OpenCode compatibility only where the pinned
+  upstream runtime lacks an equivalent. These owners retain all regressions.
+- `REAPPLY`: the wrapper declares the exact runtime modules compiled into
+  official UI primitives because their published package exposes those imports
+  as development dependencies; this is a flat-install closure repair, not a
+  fork of upstream UI behavior.
 
 ## RC.1 refresh classification — 2026-09-04
 
@@ -62,7 +115,7 @@ upgrades only the AgentTeams source to upstream `v0.1.16-rc.3` at
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, the durable-session subagent gateway, and the RC.1 release contract | `win-desktop/agent-teams-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: v0.1.16-rc.1 owns host adapter/`harness-compat`, FIFO, fallback persistence, bounded JSON, parked recovery, activity UI, and the publish/compatibility/doctor contract; the Windows fork reapplies role-policy, prompt budget, Profile input, catalog, quality-gate, strict V2, compact status, Team/Native, the durable-session gateway, extra settings injects, and offline RC.1 `file:` tarball host pins | `src/index.ts`, `src/web-routes.ts`, `src/harness-compat.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `compatibility.json`, `scripts/compatibility.mjs`, `scripts/doctor.mjs`, `scripts/release-metadata.mjs`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/harness-compat-tdd.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, `scripts/web-routes-verify.mjs`, `scripts/compatibility.mjs`, `scripts/compatibility.test.mjs`, `scripts/release-metadata.test.mjs`, and `scripts/doctor.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
+| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, the durable-session subagent gateway, and the RC.1 release contract | `win-desktop/agent-teams-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: v0.1.18 owns atomic roster/task planning, dormant lazy-start members, mailbox de-duplication and receipts, stale-attempt filtering, descendant/queued-input cleanup, retired cold-restore rejection, missing-attempt recovery, delivery guards, explicit depth defaults, host adapter/`harness-compat`, activity UI, and the publish/compatibility/doctor contract; the Windows fork reapplies role-policy, prompt budget, Profile input, catalog, quality extensions, strict V2, compact status, Team/Native, authenticated Web CAS, the durable-session gateway admission seam, extra settings injects, and offline `0.1.5-rc.1` `file:` tarball host pins | `src/index.ts`, `src/web-routes.ts`, `src/harness-compat.ts`, `src/mailbox.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `compatibility.json`, `scripts/compatibility.mjs`, `scripts/doctor.mjs`, `scripts/release-metadata.mjs`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/stability-tdd.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/harness-compat-tdd.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, `scripts/web-routes-verify.mjs`, `scripts/compatibility.mjs`, `scripts/compatibility.test.mjs`, `scripts/release-metadata.test.mjs`, and `scripts/doctor.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
 | Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
 ## CPA owner

@@ -14,7 +14,7 @@ import { join } from 'node:path'
 import { failMemberOpenAttempt } from '../lib/members.js'
 import { haltTeamWork, notifyStagedPlanApproved, registerAgentTeamsTools } from '../lib/tools.js'
 import { buildActivationDirective, invokedAgentTeamsGoal, invokedAgentTeamsInvocation, installAgentTeamsGestureBoundary, profileCommandName, registerAgentTeamsCommand } from '../lib/command.js'
-import { createTeamDir, readArchivedTeam, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
+import { createTeamDir, readArchivedTeam, readMailbox, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
 import { assembleTeamSnapshot, collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
 import { stagedPlanMutationFromPayload } from '../lib/staged-plan-payload.js'
 import { buildStagedTaskMutationPayload } from '../lib/client/staged-task-mutation.js'
@@ -24,6 +24,10 @@ import {
   policyMarker,
   registerDelegationPolicyLifecycle,
 } from '../lib/routing-policy.js'
+
+const deliveryHarness = process.argv.includes('--delivery-harness')
+const modernHarness = deliveryHarness || process.argv.includes('--modern-harness')
+const hostQueue = Symbol.for(deliveryHarness ? 'dsh.subagent.deliverPrompt' : 'dsh.subagent.queuePrompt')
 
 const workspace = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-lifecycle-'))
 const definitions = new Map()
@@ -37,6 +41,8 @@ const roleInheritanceMemberNames = [
 const deliveries = []
 const listeners = new Map()
 const failNextDelivery = new Set()
+const failNextDrain = new Set()
+const drainAttempts = new Map()
 const failures = []
 const continuableSetups = []
 const lifecycleSections = new WeakMap()
@@ -208,8 +214,9 @@ check('unmarked session without a marker uses the current default mode',
 
 function session(parentSession) {
   return {
-    header: { cwd: workspace, parentSession, seedLength: 0 },
+    header: { cwd: workspace, parentSession, ...(modernHarness ? {} : { seedLength: 0 }) },
     events: [],
+    ...(modernHarness ? { ownEvents() { return this._ownEvents ?? this.events } } : {}),
     append() {},
     requestHeader() {
       return { config: { provider: 'fake', model: 'fake-model', reasoningEffort: 'high' } }
@@ -246,6 +253,7 @@ function makeAgent(id, parentSession) {
   const agentListeners = new Map()
   subject.ctx = {
     agent: subject,
+    effect(setup) { return setup() },
     on(name, listener) {
       agentListeners.set(name, listener)
       return () => agentListeners.delete(name)
@@ -359,7 +367,7 @@ const ctx = {
     async startContinuable(spec) {
       const id = `member-session-${++childSeq}`
       const child = makeAgent(id, captain.id)
-      child.session.events.push({
+      const descriptor = {
         type: 'subagent/descriptor',
         data: snapshotSubagentDescriptor({
           mode: 'continuable',
@@ -368,13 +376,20 @@ const ctx = {
           agentProvider: spec.request.agentOptions.provider,
           agentModel: spec.request.agentOptions.model,
         }),
-      })
+      }
+      if (modernHarness) child.session._ownEvents = [descriptor]
+      else child.session.events.push(descriptor)
       lifecycleDenials.set(child, new Set(spec.request.toolFilter?.deny ?? []))
-      for (const setup of continuableSetups) setup(child.ctx)
+      if (modernHarness) {
+        for (const listener of listeners.get('agent/session-start') ?? []) listener({ agent: child, source: 'startup' })
+      } else {
+        for (const setup of continuableSetups) setup(child.ctx)
+      }
       child.status = 'running'
       liveAgents.set(id, child)
       children.push({ id, label: spec.label, mode: 'continuable' })
-      return { childId: id, messageId: `welcome-${childSeq}` }
+      deliveries.push({ childId: id, content: spec.request.prompt, mode: 'initial' })
+      return { childId: id, messageId: `initial-${childSeq}` }
     },
     async listChildren(parentId) {
       if (parentId !== captain.id) return []
@@ -399,6 +414,12 @@ const ctx = {
       if (child) child.status = 'running'
       return `message-${++messageSeq}`
     },
+    async sendMessage(parent, childId, content, { signal } = {}) {
+      return this.followup(parent, childId, content, {
+        source: { kind: 'plugin', plugin: 'lifecycle-verification' },
+        signal,
+      })
+    },
     interrupt(childId) {
       const child = liveAgents.get(childId)
       if (child) {
@@ -408,6 +429,8 @@ const ctx = {
     },
     async drainContinuableChildren(parent, childIds) {
       for (const childId of childIds) {
+        drainAttempts.set(childId, (drainAttempts.get(childId) ?? 0) + 1)
+        if (failNextDrain.delete(childId)) throw new Error('injected drain failure')
         const child = liveAgents.get(childId)
         if (child) {
           child.drainCount = (child.drainCount ?? 0) + 1
@@ -419,6 +442,26 @@ const ctx = {
     },
   },
   logger: { debug() {}, warn() {} },
+}
+
+// Alpha.2 routes member work through its host-owned queue/delivery boundary.
+// Keep the legacy fake as the recorder, but remove its public fallback so the
+// modern compatibility path is the one actually exercised by --modern-harness.
+if (modernHarness) {
+  const followup = ctx.subagents.followup
+  delete ctx.subagents.followup
+  delete ctx.subagents.registerContinuableSetup
+  ctx.subagents[hostQueue] = function (parent, childId, content, source, signal, delivery) {
+    if (deliveryHarness && !['queue', 'steer'].includes(delivery)) throw new Error('invalid delivery mode')
+    return followup.call(this, parent, childId, content, { source, signal })
+  }
+  ctx.subagents.sendMessage = (parent, id, content) => followup.call(ctx.subagents, parent, id, content)
+}
+
+function directPrompt(parent, childId, content, options) {
+  return modernHarness
+    ? ctx.subagents[hostQueue](parent, childId, content, options.source, options.signal, ...(deliveryHarness ? ['queue'] : []))
+    : ctx.subagents.followup(parent, childId, content, options)
 }
 
 const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
@@ -773,7 +816,7 @@ check('profile members resolve from their own role policies',
     && rolePolicyCalls[1]?.reasoningEffort === 'max'
     && rolePolicyTeam?.members.find(member => member.name === 'reviewer')?.provider === 'opencode-go'
     && profilePersistenceCalls.createTeamDir === persistenceBeforeRolePolicy.createTeamDir + 1
-    && profilePersistenceCalls.writeTeam === persistenceBeforeRolePolicy.writeTeam + 1)
+    && profilePersistenceCalls.writeTeam === persistenceBeforeRolePolicy.writeTeam)
 await call('agent_teams_delete', {})
 
 const inheritedRoleTeamCreation = await call('agent_teams_create', {
@@ -995,19 +1038,15 @@ try {
       && profileTeam.tasks[1]?.dependencies.join(',') === 't1'
       && profileTeam.tasks[1]?.assignee === 'implementer')
   const analyst = liveAgents.get(createdProfile.members[0].member_id)
-  const implementer = liveAgents.get(createdProfile.members[1].member_id)
-  analyst.status = 'idle'
-  implementer.status = 'idle'
-  const readOnlyDeliveries = deliveries.length
+  let implementer
+  check('dependency-blocked roster does not spawn a model session', createdProfile.members[1].member_id === '')
   await call('agent_teams_status', {})
-  check('default status is read-only and does not wake members', deliveries.length === readOnlyDeliveries)
-  await call('agent_teams_status', { wake: 'recover' })
   const afterKick = await readTeam(stateRoot, 'profile-demo')
   const firstSeed = afterKick?.tasks[0]
   check('first-stage seed is assigned only to the configured member',
     firstSeed?.status === 'claimed' && firstSeed.assignee === 'analyst'
       && deliveries.some(delivery => delivery.childId === analyst.id)
-      && !deliveries.some(delivery => delivery.childId === implementer.id && String(delivery.content?.[0]?.text ?? '').includes('Implement')))
+      && !deliveries.some(delivery => delivery.childId === implementer?.id && String(delivery.content?.[0]?.text ?? '').includes('Implement')))
   const firstAssignment = deliveries.find(delivery => delivery.childId === analyst.id)
   const assignmentText = Array.isArray(firstAssignment?.content)
     ? firstAssignment.content.map(block => block.text ?? '').join('\n')
@@ -1024,10 +1063,10 @@ try {
     output: 'Need a user decision before design.',
   }, analyst)
   publishStatus(analyst, 'idle')
-  publishStatus(implementer, 'idle')
+  if (implementer) publishStatus(implementer, 'idle')
   check('failed upstream does not unlock the next configured stage',
     (await readTeam(stateRoot, 'profile-demo'))?.tasks[1]?.status === 'pending'
-      && !deliveries.some(delivery => delivery.childId === implementer.id && String(delivery.content?.[0]?.text ?? '').includes('Implement')))
+      && !deliveries.some(delivery => delivery.childId === implementer?.id && String(delivery.content?.[0]?.text ?? '').includes('Implement')))
   await call('agent_teams_reassign_task', { task_id: firstSeed.id, assignee: 'analyst', reason: 'retry after user answer' })
   const retryClaim = await call('agent_teams_claim_task', { task_id: firstSeed.id }, analyst)
   await call('agent_teams_update_task', { task_id: firstSeed.id, status: 'in_progress', attempt_id: retryClaim.attempt_id }, analyst)
@@ -1038,11 +1077,12 @@ try {
     output: 'Scope confirmed: ship the tiny demo.',
   }, analyst)
   publishStatus(analyst, 'idle')
-  publishStatus(implementer, 'idle')
+  if (implementer) publishStatus(implementer, 'idle')
+  implementer = liveAgents.get((await readTeam(stateRoot, 'profile-demo')).members.find(member => member.name === 'implementer').id)
   const secondSeed = (await readTeam(stateRoot, 'profile-demo'))?.tasks[1]
   check('completed upstream dispatches the configured downstream assignee',
     secondSeed?.status === 'claimed' && secondSeed.assignee === 'implementer')
-  const secondAssignment = [...deliveries].reverse().find(delivery => delivery.childId === implementer.id)
+  const secondAssignment = [...deliveries].reverse().find(delivery => delivery.childId === implementer?.id)
   const secondText = Array.isArray(secondAssignment?.content)
     ? secondAssignment.content.map(block => block.text ?? '').join('\n')
     : String(secondAssignment?.content ?? '')
@@ -1051,7 +1091,7 @@ try {
       && secondText.includes('[requirements]'))
   await call('agent_teams_send_message', { to: 'implementer', content: 'stop and wait for a user answer' })
   const deliveriesAfterMail = deliveries.length
-  await call('agent_teams_status', { wake: 'recover' })
+  await call('agent_teams_status', {})
   check('unread mailbox prevents a same-kick new assignment',
     deliveries.length >= deliveriesAfterMail
       && (await readTeam(stateRoot, 'profile-demo'))?.tasks[1]?.assignee === 'implementer')
@@ -1866,7 +1906,7 @@ try {
   let removedFollowupRejected = false
   const deliveriesBeforeRemovedFollowup = deliveries.length
   try {
-    await ctx.subagents.followup(captain, alpha.id, [{ type: 'text', text: 'must not resume' }], {
+    await directPrompt(captain, alpha.id, [{ type: 'text', text: 'must not resume' }], {
       source: { kind: 'plugin', plugin: 'verification' }, signal: new AbortController().signal,
     })
   } catch (error) {
@@ -1915,14 +1955,13 @@ try {
   check('second failed live message remains durable before recovery',
     recoveryFallback.delivered === 'mailbox' && (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 1)
   await call('agent_teams_status', { wake: 'recover' })
-  check('status kick redelivers and acknowledges fallback exactly once',
-    (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 0)
+  check('status kick accepts fallback without inventing consumption',
+    (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 1
+      && (await readMailbox(stateRoot, teamId, 'gamma')).at(-1)?.deliveredAt !== undefined)
 
-  const memberRecoveryStatus = await call('agent_teams_status', { wake: 'recover' }, gamma)
-  check('member recovery wake degrades to read-only without scheduling recovery',
+  const memberRecoveryStatus = await call('agent_teams_status', { acknowledge: true }, gamma)
+  check('member status consumes the complete fallback actually displayed',
     memberRecoveryStatus.active === true
-      && memberRecoveryStatus.wake_ignored === 'recover'
-      && memberRecoveryStatus.recovery_started === false
       && (await readUnreadMailbox(stateRoot, teamId, 'gamma')).length === 0)
 
   beta.status = 'running'
@@ -2035,6 +2074,11 @@ try {
       && recoveredParallel.every(candidate => candidate.status === 'claimed' || candidate.status === 'in_progress'))
   for (const recoveredTask of recoveredParallel) {
     const owner = recoveredTask.assignee === 'gamma' ? gamma : beta
+    // Reassignment now drains the previous activation before publishing the
+    // new attempt. Reattach this fixture's durable continuation handle before
+    // its simulated member turn, rather than treating the drained old handle
+    // as the live registry entry.
+    liveAgents.set(owner.id, owner)
     owner.status = 'running'
     const claim = await call('agent_teams_claim_task', { task_id: recoveredTask.id }, owner)
     await call('agent_teams_update_task', {
@@ -2086,7 +2130,7 @@ try {
   let coldFollowupRejected = false
   const deliveriesBeforeColdFollowup = deliveries.length
   try {
-    await ctx.subagents.followup(captain, gamma.id, [{ type: 'text', text: 'must stay retired' }], {
+    await directPrompt(captain, gamma.id, [{ type: 'text', text: 'must stay retired' }], {
       source: { kind: 'plugin', plugin: 'verification' }, signal: new AbortController().signal,
     })
   } catch (error) {
@@ -2097,7 +2141,7 @@ try {
   check('team shutdown leaves unrelated continuable subagents untouched',
     (await ctx.subagents.listChildren(captain.id))
       .some(child => child.id === 'foreign-session' && child.mode === 'continuable'))
-  const foreignFollowup = await ctx.subagents.followup(captain, 'foreign-session', [
+  const foreignFollowup = await directPrompt(captain, 'foreign-session', [
     { type: 'text', text: 'unrelated work still routes' },
   ], {
     source: { kind: 'plugin', plugin: 'verification' }, signal: new AbortController().signal,
@@ -2184,6 +2228,7 @@ try {
     description: 'delete waits for an in-flight child delivery',
     profile: 'software-delivery',
   })
+  await call('agent_teams_send_message', { to: 'implementer', content: 'activate the delivery-race fixture' })
   const deleteRaceState = await readTeam(stateRoot, deleteRaceTeam.team_id)
   const deleteRaceMember = deleteRaceState?.members[0]
   let deleteRaceSendError
@@ -2227,6 +2272,111 @@ try {
       heldDelivery.release()
       heldFollowup = undefined
     }
+  }
+
+  // A failed host drain is a hard lifecycle fence: it must not publish a new
+  // owner, complete member removal, or archive the active Team.
+  const removeDrainTeam = await call('agent_teams_create', {
+    name: 'Remove Drain Fence', description: 'member removal must reject a failed drain', profile: 'software-delivery',
+  })
+  await call('agent_teams_send_message', { to: 'implementer', content: 'activate removal drain fixture' })
+  const removeDrainMember = (await readTeam(stateRoot, removeDrainTeam.team_id))?.members[0]
+  if (removeDrainMember?.id === undefined || removeDrainMember.id === '') {
+    check('remove drain fixture has a spawned member', false)
+  } else {
+    failNextDrain.add(removeDrainMember.id)
+    let removeDrainError
+    try { await call('agent_teams_remove_member', { name: removeDrainMember.name }) } catch (error) { removeDrainError = error }
+    const fenced = await readTeam(stateRoot, removeDrainTeam.team_id)
+    check('member removal preserves an active stopping fence when drain rejects',
+      removeDrainError !== undefined
+        && fenced?.members[0]?.status !== 'removed'
+        && fenced?.members[0]?.stopping === true)
+    await call('agent_teams_delete', {})
+  }
+
+  const reassignDrainTeam = await call('agent_teams_create', {
+    name: 'Reassign Drain Fence', description: 'reassignment must reject a failed drain', profile: 'software-delivery',
+  })
+  await call('agent_teams_send_message', { to: 'implementer', content: 'activate reassignment drain fixture' })
+  const reassignDrainMember = (await readTeam(stateRoot, reassignDrainTeam.team_id))?.members[0]
+  if (reassignDrainMember?.id === undefined || reassignDrainMember.id === '') {
+    check('reassign drain fixture has a spawned member', false)
+  } else {
+    const reassignAgent = liveAgents.get(reassignDrainMember.id)
+    if (reassignAgent !== undefined) publishStatus(reassignAgent, 'idle')
+    const reassignTask = await call('agent_teams_create_task', { subject: 'drain-fenced handoff', assignee: reassignDrainMember.name })
+    const taskBeforeClaim = (await readTeam(stateRoot, reassignDrainTeam.team_id))?.tasks.find(task => task.id === reassignTask.task_id)
+    if (taskBeforeClaim?.status === 'pending' && reassignAgent !== undefined) {
+      await call('agent_teams_claim_task', { task_id: reassignTask.task_id }, reassignAgent)
+    }
+    const taskBeforeHandoff = (await readTeam(stateRoot, reassignDrainTeam.team_id))?.tasks.find(task => task.id === reassignTask.task_id)
+    failNextDrain.add(reassignDrainMember.id)
+    let reassignDrainError
+    try {
+      await call('agent_teams_reassign_task', { task_id: reassignTask.task_id, assignee: 'captain', reason: 'inject drain failure' })
+    } catch (error) { reassignDrainError = error }
+    const fenced = await readTeam(stateRoot, reassignDrainTeam.team_id)
+    const fencedTask = fenced?.tasks.find(task => task.id === reassignTask.task_id)
+    check('reassignment preserves stopping and reassigning fences when drain rejects',
+      reassignDrainError !== undefined
+        && fenced?.members[0]?.stopping === true
+        && fencedTask?.reassigning === true
+        && fencedTask?.status === 'pending')
+    let reassignRetry
+    let reassignRetryError
+    try {
+      reassignRetry = await call('agent_teams_reassign_task', {
+        task_id: reassignTask.task_id, assignee: 'captain', reason: 'retry the same fenced handoff',
+      })
+    } catch (error) { reassignRetryError = error }
+    const retried = await readTeam(stateRoot, reassignDrainTeam.team_id)
+    const retriedTask = retried?.tasks.find(task => task.id === reassignTask.task_id)
+    let oldAttemptRejected = taskBeforeHandoff?.attemptId !== undefined
+    if (taskBeforeHandoff?.attemptId !== undefined && reassignAgent !== undefined) {
+      try {
+        await call('agent_teams_update_task', {
+          task_id: reassignTask.task_id,
+          status: 'completed',
+          output: 'late result from the revoked member',
+          attempt_id: taskBeforeHandoff.attemptId,
+        }, reassignAgent)
+        oldAttemptRejected = false
+      } catch {
+        // A revoked attempt must never settle the retried generation.
+      }
+    }
+    check('same reassignment retries a failed handoff exactly once through drain',
+      reassignRetryError === undefined
+        && reassignRetry?.attempt === (taskBeforeHandoff?.attempt ?? 0) + 1
+        && reassignRetry?.attempt_id !== taskBeforeHandoff?.attemptId
+        && drainAttempts.get(reassignDrainMember.id) === 2
+        && retried?.members[0]?.stopping !== true
+        && retriedTask?.reassigning !== true
+        && retriedTask?.handoffId === undefined
+        && retriedTask?.handoffFromMemberId === undefined
+        && retriedTask?.assignee === 'captain'
+        && retriedTask?.status === 'in_progress'
+        && oldAttemptRejected)
+    await call('agent_teams_delete', {})
+  }
+
+  const archiveDrainTeam = await call('agent_teams_create', {
+    name: 'Archive Drain Fence', description: 'archive must reject a failed drain', profile: 'software-delivery',
+  })
+  await call('agent_teams_send_message', { to: 'implementer', content: 'activate archive drain fixture' })
+  const archiveDrainMember = (await readTeam(stateRoot, archiveDrainTeam.team_id))?.members[0]
+  if (archiveDrainMember?.id === undefined || archiveDrainMember.id === '') {
+    check('archive drain fixture has a spawned member', false)
+  } else {
+    failNextDrain.add(archiveDrainMember.id)
+    let archiveDrainError
+    try { await call('agent_teams_delete', {}) } catch (error) { archiveDrainError = error }
+    check('team archive keeps the active Team when drain rejects',
+      archiveDrainError !== undefined
+        && await readTeam(stateRoot, archiveDrainTeam.team_id) !== undefined
+        && await readArchivedTeam(stateRoot, archiveDrainTeam.team_id) === undefined)
+    await call('agent_teams_delete', {})
   }
 
   // Keep the terminal member-turn failure bridge in the lifecycle gate.  The

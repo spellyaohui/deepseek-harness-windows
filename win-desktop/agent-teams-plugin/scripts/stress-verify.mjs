@@ -148,6 +148,12 @@ function mountRuntime() {
         deliveries.push({ childId, content, runtime: runtime?.generation ?? 0 })
         return `message-${++messageSeq}`
       },
+      async sendMessage(parent, childId, content, { signal } = {}) {
+        return this.followup(parent, childId, content, {
+          source: { kind: 'plugin', plugin: 'stress-verification' },
+          signal,
+        })
+      },
       interrupt(childId) {
         const child = liveAgents.get(childId)
         if (child !== undefined) publishStatus(child, 'idle')
@@ -491,7 +497,8 @@ try {
   await idle(herdWinner)
 
   // One failed delivery per active recipient, mixed into a larger concurrent
-  // message burst. A captain status kick must drain every fallback once.
+  // message burst. A captain recovery kick must redeliver every fallback;
+  // only each recipient's explicit acknowledgement may consume it.
   for (const name of activeNames) {
     const record = await memberRecord(name)
     failDeliveryCount.set(record.id, 1)
@@ -511,6 +518,10 @@ try {
   }
   await call('agent_teams_status', { wake: 'recover' })
   await settle()
+  await Promise.all(activeNames.map(async name => {
+    const agent = await liveMember(name)
+    if (agent !== undefined) await call('agent_teams_status', { acknowledge: true }, agent)
+  }))
   const unreadCounts = await Promise.all(activeNames.map(name => readUnreadMailbox(stateRoot, teamId, name)))
   check('all failed message fallbacks are redelivered and acknowledged exactly once',
     unreadCounts.every(messages => messages.length === 0))

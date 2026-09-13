@@ -336,12 +336,11 @@ export function validateCreateTask(team, input) {
     if (kind === 'implementation') {
         const requirements = team.tasks.filter((item) => taskKindOf(item) === 'requirements');
         const passed = requirements.some((item) => item.status === 'completed' && item.verdict === 'pass');
-        const queuedBehindRequirements = requirements.some((item) => (OPEN_STATUSES.includes(item.status)
-            && dependencyClosureContains(team.tasks, dependencies, item.id)));
-        if (requirements.length > 0 && !passed && !queuedBehindRequirements) {
+        const behindRequirements = requirements.some((item) => (dependencyClosureContains(team.tasks, dependencies, item.id)));
+        if (requirements.length > 0 && !passed && !behindRequirements) {
             return {
                 ok: false,
-                error: 'implementation must depend on an active requirements task; it will run only after requirements passes',
+                error: 'implementation must depend on a requirements task until requirements completes with verdict=pass',
             };
         }
     }
@@ -588,6 +587,20 @@ export function buildCoverageMatrix(goalItems, tasks) {
 }
 export function canDeclareDelivery(team) {
     const blockers = [];
+    if (team.phase === 'staged')
+        blockers.push('team plan is awaiting approval');
+    if (team.halted === true)
+        blockers.push('team is halted');
+    if (team.escalated === true)
+        blockers.push('team requires escalation resolution');
+    if (team.tasks.length === 0)
+        blockers.push('team has no completed work');
+    for (const item of team.tasks.filter(item => !isQualityKind(taskKindOf(item)))) {
+        if (item.status !== 'completed' && item.status !== 'cancelled')
+            blockers.push(`${item.id} (${taskKindOf(item)}) is not completed`);
+    }
+    if (team.tasks.length > 0 && team.tasks.every(item => item.status === 'cancelled'))
+        blockers.push('all work was cancelled');
     const quality = team.tasks.filter((item) => isQualityKind(taskKindOf(item)));
     const implementations = quality.filter((item) => taskKindOf(item) === 'implementation' || taskKindOf(item) === 'repair');
     const reviews = quality.filter((item) => taskKindOf(item) === 'review');
@@ -831,7 +844,7 @@ export function describeQualityLoop(team) {
             halted: false,
             escalated: team.escalated === true,
             deliverable: true,
-            summary: 'All required quality gates passed. The captain may report delivery.',
+            summary: 'All required work and quality gates passed. The captain may report delivery.',
         };
     }
     if (team.escalated === true) {
