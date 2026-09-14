@@ -1867,10 +1867,10 @@ export function registerAgentTeamsTools(ctx, config) {
     }));
     ctx.tools.register(defineTool({
         name: 'agent_teams_claim_task',
-        description: 'Claim one ready task for a member (or yourself). A member cannot own a second unfinished task. The returned attempt_id is required for that member\'s updates and becomes stale after retry/reassignment.',
+        description: 'Claim one ready task for a member (or yourself). A member cannot own a second unfinished task. The returned attempt_id is required for that member\'s updates and becomes stale after retry/reassignment. Captain-owned tasks are claimed by omitting assignee; take over member-owned work with reassign_task(assignee="captain") first.',
         parameters: {
             task_id: { type: 'string', required: true, description: 'The task id to claim.' },
-            assignee: { type: 'string', description: 'Member to claim for (captain only; defaults to the task\'s assignee).' },
+            assignee: { type: 'string', description: 'Captain only: a real active member name. Do not pass "captain". To claim an existing captain-owned task, omit assignee; to take over member-owned work, first call agent_teams_reassign_task with assignee="captain".' },
         },
         output: {
             schema: {
@@ -1903,9 +1903,13 @@ export function registerAgentTeamsTools(ctx, config) {
                 }
                 let assignee = task.assignee;
                 if (identity.kind === 'captain') {
-                    if (args.assignee !== undefined) {
-                        requireMember(fresh, args.assignee);
-                        assignee = args.assignee;
+                    const requestedAssignee = trimmedOptional(args.assignee);
+                    if (requestedAssignee !== undefined) {
+                        if (requestedAssignee === CAPTAIN_KEY) {
+                            throw new Error('claim_task.assignee accepts only real active member names, not "captain". To claim an existing captain-owned task, omit assignee. To take over a member-owned task, first call agent_teams_reassign_task with assignee="captain".');
+                        }
+                        requireMember(fresh, requestedAssignee);
+                        assignee = requestedAssignee;
                     }
                 }
                 else {

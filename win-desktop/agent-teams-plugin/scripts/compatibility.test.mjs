@@ -196,5 +196,5 @@ test('desktop extras keep enumerated host peers and settings inject', () => {
     assert.ok(pkg.dsh.client.inject.includes(name), name)
   }
   assert.equal(pkg.bin['dsh-agent-teams-doctor'], 'scripts/doctor.mjs')
-  assert.equal(pkg.publishConfig.tag, 'latest')
+  assert.equal(pkg.publishConfig.tag, 'next')
 })

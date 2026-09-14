@@ -26,7 +26,7 @@ export interface DelegationPolicyRuntime {
     /** Fixed member-scoped prompt, so children never receive captain rules. */
     memberText?: (policy: DelegationPolicyId) => string;
 }
-/** Install one policy prompt and its model-visible tool restriction in an Agent scope. */
+/** Install one policy prompt plus Team-mode native-delegation enforcement in an Agent scope. */
 export declare function installDelegationPolicy(input: {
     agent: Agent;
     policy: DelegationPolicyId;

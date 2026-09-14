@@ -45,8 +45,10 @@ const failNextDrain = new Set()
 const drainAttempts = new Map()
 const failures = []
 const continuableSetups = []
+const continuableSpecs = []
 const lifecycleSections = new WeakMap()
 const lifecycleDenials = new WeakMap()
+const lifecycleGuards = new WeakMap()
 let heldFollowup
 let childSeq = 0
 let messageSeq = 0
@@ -72,7 +74,7 @@ async function waitFor(description, read, timeoutMs = 1000) {
 
 console.log('durable Team/Native routing policy')
 const policyTools = new Set([
-  ...NATIVE_DELEGATION_TOOLS,
+  ...NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent'),
   'read_file',
   'agent_teams_send_message',
   'agent_teams_update_task',
@@ -81,6 +83,7 @@ const policyAgents = new Map()
 const policyListeners = []
 const policySections = new WeakMap()
 const policyDenials = new WeakMap()
+const policyGuards = new WeakMap()
 let defaultDelegationMode = 'teams'
 
 function policySession(events = [], parentSession) {
@@ -115,16 +118,27 @@ function policyAgent(id, events = [], parentSession, availableTools = policyTool
       },
     },
     tools: {
-      get(name) {
-        return availableTools.has(name) && !policyDenials.get(subject)?.has(name)
+      get(name, scope) {
+        const visible = availableTools.has(name) || (scope === subject && name === 'subagent')
+        return visible && !policyDenials.get(subject)?.has(name)
           ? { name }
           : undefined
       },
       restrict({ deny }) {
+        const unknown = deny.filter(name => !availableTools.has(name))
+        if (unknown.length > 0) {
+          throw new Error(`tools.restrict() names unknown global tool ${unknown.map(name => `"${name}"`).join(', ')}`)
+        }
         const previous = policyDenials.get(subject) ?? new Set()
         const next = new Set([...previous, ...deny])
         policyDenials.set(subject, next)
         return () => policyDenials.set(subject, previous)
+      },
+      guard(guard) {
+        const previous = policyGuards.get(subject) ?? []
+        const next = [...previous, guard]
+        policyGuards.set(subject, next)
+        return () => policyGuards.set(subject, previous)
       },
     },
   }
@@ -154,31 +168,47 @@ function announcePolicyAgent(subject) {
 }
 
 function visiblePolicyTools(subject) {
-  return [...policyTools].filter(name => subject.ctx.tools.get(name, subject) !== undefined)
+  return [...new Set([...policyTools, 'subagent'])]
+    .filter(name => subject.ctx.tools.get(name, subject) !== undefined)
+}
+
+function policyGuardReason(subject, name) {
+  return (policyGuards.get(subject) ?? [])
+    .map(guard => guard({ name }))
+    .find(reason => reason !== undefined)
 }
 
 const teamCaptain = policyAgent('policy-team-captain')
 announcePolicyAgent(teamCaptain)
 check('Team captain prompt contains the durable teams-v1 marker',
   policySections.get(teamCaptain)?.text.includes(policyMarker('teams-v1')))
-check('Team captain assembled tools contain no native delegation deny-list name',
-  NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(teamCaptain).includes(name)))
+check('Team captain hides every global native delegation tool but retains scope-local subagent',
+  NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent')
+    .every(name => !visiblePolicyTools(teamCaptain).includes(name))
+    && visiblePolicyTools(teamCaptain).includes('subagent'))
+check('Team captain execution guard rejects the retained scope-local subagent',
+  /AgentTeams Team policy forbids native delegation tool "subagent"/.test(policyGuardReason(teamCaptain, 'subagent')))
 
 const sparseTeamCaptain = policyAgent(
   'policy-sparse-team-captain',
   [],
   undefined,
-  new Set(['subagent', 'read_file']),
+  new Set(['read_file']),
 )
 announcePolicyAgent(sparseTeamCaptain)
-check('Team restriction excludes absent optional native tools from its deny list',
-  JSON.stringify([...policyDenials.get(sparseTeamCaptain)]) === JSON.stringify(['subagent']))
+check('Team global restriction never submits scope-local subagent',
+  (policyDenials.get(sparseTeamCaptain)?.size ?? 0) === 0
+    && visiblePolicyTools(sparseTeamCaptain).includes('subagent')
+    && /AgentTeams Team policy forbids native delegation tool "subagent"/.test(policyGuardReason(sparseTeamCaptain, 'subagent')))
 
 const teamMember = policyAgent('policy-team-member', [], teamCaptain.id)
 announcePolicyAgent(teamMember)
 check('fresh child inherits the live parent Team policy',
   policySections.get(teamMember)?.text.includes(policyMarker('teams-v1'))
-    && NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(teamMember).includes(name)))
+    && NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent')
+      .every(name => !visiblePolicyTools(teamMember).includes(name))
+    && visiblePolicyTools(teamMember).includes('subagent')
+    && /AgentTeams Team policy forbids native delegation tool "subagent"/.test(policyGuardReason(teamMember, 'subagent')))
 check('Team restriction preserves member-local AgentTeams reporting tools',
   ['agent_teams_send_message', 'agent_teams_update_task']
     .every(name => visiblePolicyTools(teamMember).includes(name)))
@@ -187,7 +217,8 @@ defaultDelegationMode = 'native'
 const nativeCaptain = policyAgent('policy-native-captain')
 announcePolicyAgent(nativeCaptain)
 check('Native policy leaves official delegation tools visible',
-  NATIVE_DELEGATION_TOOLS.every(name => visiblePolicyTools(nativeCaptain).includes(name)))
+  NATIVE_DELEGATION_TOOLS.every(name => visiblePolicyTools(nativeCaptain).includes(name))
+    && policyGuardReason(nativeCaptain, 'subagent') === undefined)
 
 teamCaptain.session.events.push({
   type: 'request/header',
@@ -203,14 +234,20 @@ const restoredTeamCaptain = policyAgent('policy-team-restored', teamCaptain.sess
 announcePolicyAgent(restoredTeamCaptain)
 check('settings changes do not change a restored durable Team policy',
   policySections.get(restoredTeamCaptain)?.text.includes(policyMarker('teams-v1'))
-    && NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(restoredTeamCaptain).includes(name)))
+    && NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent')
+      .every(name => !visiblePolicyTools(restoredTeamCaptain).includes(name))
+    && visiblePolicyTools(restoredTeamCaptain).includes('subagent')
+    && /AgentTeams Team policy forbids native delegation tool "subagent"/.test(policyGuardReason(restoredTeamCaptain, 'subagent')))
 
 defaultDelegationMode = 'teams'
 const legacyCaptain = policyAgent('policy-legacy-captain', [{ type: 'user/message', data: {} }])
 announcePolicyAgent(legacyCaptain)
 check('unmarked session without a marker uses the current default mode',
   policySections.get(legacyCaptain)?.text.includes(policyMarker('teams-v1'))
-    && NATIVE_DELEGATION_TOOLS.every(name => !visiblePolicyTools(legacyCaptain).includes(name)))
+    && NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent')
+      .every(name => !visiblePolicyTools(legacyCaptain).includes(name))
+    && visiblePolicyTools(legacyCaptain).includes('subagent')
+    && /AgentTeams Team policy forbids native delegation tool "subagent"/.test(policyGuardReason(legacyCaptain, 'subagent')))
 
 function session(parentSession) {
   return {
@@ -265,18 +302,36 @@ function makeAgent(id, parentSession) {
       },
     },
     tools: {
-      get(name) {
-        const exists = definitions.has(name) || NATIVE_DELEGATION_TOOLS.includes(name)
+      get(name, scope) {
+        const exists = definitions.has(name)
+          || (name !== 'subagent' && NATIVE_DELEGATION_TOOLS.includes(name))
+          || (scope === subject && name === 'subagent')
         return exists && !lifecycleDenials.get(subject)?.has(name) ? { name } : undefined
       },
       restrict({ deny }) {
+        const unknown = deny.filter(name => name === 'subagent')
+        if (unknown.length > 0) {
+          throw new Error(`tools.restrict() names unknown global tool ${unknown.map(name => `"${name}"`).join(', ')}`)
+        }
         const previous = lifecycleDenials.get(subject) ?? new Set()
         lifecycleDenials.set(subject, new Set([...previous, ...deny]))
         return () => lifecycleDenials.set(subject, previous)
       },
+      guard(guard) {
+        const previous = lifecycleGuards.get(subject) ?? []
+        const next = [...previous, guard]
+        lifecycleGuards.set(subject, next)
+        return () => lifecycleGuards.set(subject, previous)
+      },
     },
   }
   return subject
+}
+
+function lifecycleGuardReason(subject, name) {
+  return (lifecycleGuards.get(subject) ?? [])
+    .map(guard => guard({ name }))
+    .find(reason => reason !== undefined)
 }
 
 function publishStatus(subject, status) {
@@ -365,6 +420,7 @@ const ctx = {
       return ['spawn']
     },
     async startContinuable(spec) {
+      continuableSpecs.push(spec)
       const id = `member-session-${++childSeq}`
       const child = makeAgent(id, captain.id)
       const descriptor = {
@@ -379,7 +435,7 @@ const ctx = {
       }
       if (modernHarness) child.session._ownEvents = [descriptor]
       else child.session.events.push(descriptor)
-      lifecycleDenials.set(child, new Set(spec.request.toolFilter?.deny ?? []))
+      if (spec.request.toolFilter !== undefined) child.ctx.tools.restrict(spec.request.toolFilter)
       if (modernHarness) {
         for (const listener of listeners.get('agent/session-start') ?? []) listener({ agent: child, source: 'startup' })
       } else {
@@ -470,7 +526,7 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
   settings: {
     get: () => memberDefaults,
   },
-  memberMaxDepth: 1,
+  memberMaxDepth: 0,
   maxMembers: roleInheritanceMemberNames.length,
   delegationPolicy: {
     defaultMode: () => memberDefaults.delegationMode,
@@ -1610,6 +1666,67 @@ try {
     sharedPoolTaskError === undefined
       && sharedPoolTask?.assignee === undefined
       && assigneeBoundaryTeam?.tasks.some(task => task.subject === 'shared-pool follow-up' && task.assignee === undefined))
+  const claimAssigneeDescription = definitions.get('agent_teams_claim_task')?.parameters?.properties?.assignee?.description
+  check('claim_task schema reserves captain for takeover and requires a real member assignee',
+    typeof claimAssigneeDescription === 'string'
+      && claimAssigneeDescription.includes('real active member')
+      && claimAssigneeDescription.includes('Do not pass "captain"')
+      && claimAssigneeDescription.includes('omit assignee')
+      && claimAssigneeDescription.includes('agent_teams_reassign_task'))
+  const beforeCaptainAliasClaim = JSON.stringify(await readTeam(stateRoot, 'assignee-boundary'))
+  let captainAliasClaimError = ''
+  try {
+    await call('agent_teams_claim_task', {
+      task_id: captainOwnedTask.task_id,
+      assignee: ' captain ',
+    })
+  } catch (error) {
+    captainAliasClaimError = String(error)
+  }
+  const afterCaptainAliasClaim = JSON.stringify(await readTeam(stateRoot, 'assignee-boundary'))
+  check('claim_task rejects captain as a pseudo-member with both recovery paths',
+    /claim_task\.assignee accepts only real active member names, not "captain"/.test(captainAliasClaimError)
+      && captainAliasClaimError.includes('omit assignee')
+      && captainAliasClaimError.includes('agent_teams_reassign_task')
+      && !captainAliasClaimError.includes('no active member')
+      && beforeCaptainAliasClaim === afterCaptainAliasClaim)
+  const beforeUnknownClaim = JSON.stringify(await readTeam(stateRoot, 'assignee-boundary'))
+  let unknownMemberClaimError = ''
+  try {
+    await call('agent_teams_claim_task', {
+      task_id: captainOwnedTask.task_id,
+      assignee: ' missing-member ',
+    })
+  } catch (error) {
+    unknownMemberClaimError = String(error)
+  }
+  const afterUnknownClaim = JSON.stringify(await readTeam(stateRoot, 'assignee-boundary'))
+  check('claim_task trims and rejects an unknown member without writing state',
+    unknownMemberClaimError.includes('no active member named "missing-member"')
+      && beforeUnknownClaim === afterUnknownClaim)
+  let blankCaptainClaim
+  let whitespaceCaptainClaim
+  let omittedCaptainClaim
+  let captainOwnedClaimError
+  try {
+    blankCaptainClaim = await call('agent_teams_claim_task', {
+      task_id: captainOwnedTask.task_id,
+      assignee: '',
+    })
+    whitespaceCaptainClaim = await call('agent_teams_claim_task', {
+      task_id: captainOwnedTask.task_id,
+      assignee: '   ',
+    })
+    omittedCaptainClaim = await call('agent_teams_claim_task', { task_id: captainOwnedTask.task_id })
+  } catch (error) {
+    captainOwnedClaimError = error
+  }
+  check('captain blank, whitespace, and omitted assignee claims are equivalent and idempotent',
+    captainOwnedClaimError === undefined
+      && blankCaptainClaim?.assignee === 'captain'
+      && blankCaptainClaim?.attempt_id !== undefined
+      && whitespaceCaptainClaim?.attempt_id === blankCaptainClaim.attempt_id
+      && omittedCaptainClaim?.attempt_id === blankCaptainClaim.attempt_id)
   await call('agent_teams_delete', {})
 
   await call('agent_teams_create', { name: 'Quality Loop', description: 'review loop' })
@@ -1716,12 +1833,21 @@ try {
   const alpha = liveAgents.get(addedAlpha.member_id)
   const beta = liveAgents.get(addedBeta.member_id)
   const gamma = liveAgents.get(addedGamma.member_id)
+  const alphaStart = continuableSpecs.find(spec => spec.label.endsWith(':alpha'))
+  const alphaGlobalNativeTools = NATIVE_DELEGATION_TOOLS
+    .filter(name => name !== 'subagent' && alpha.ctx.tools.get(name, alpha) !== undefined)
   check('AgentTeams internal startContinuable succeeds under Team policy',
     typeof addedAlpha.member_id === 'string' && alpha !== undefined)
+  check('default-depth member filter hides only global captain tools',
+    alphaStart?.request.toolFilter?.deny.includes('send_message')
+      && !alphaStart.request.toolFilter.deny.includes('subagent'))
   check('member receives Team policy before publication',
     lifecycleSections.get(alpha)?.text.includes(policyMarker('teams-v1'))
       && lifecycleSections.get(alpha)?.text.includes('AgentTeams member fixed policy')
-      && NATIVE_DELEGATION_TOOLS.every(name => alpha.ctx.tools.get(name, alpha) === undefined))
+      && alphaGlobalNativeTools.length === 0
+      && alpha.ctx.tools.get('subagent', alpha) !== undefined
+      && /AgentTeams Team policy forbids native delegation tool "subagent"/.test(lifecycleGuardReason(alpha, 'subagent')),
+    alphaGlobalNativeTools.join(', '))
   check('captain-only and Team restrictions preserve member-local report tools',
     alpha.ctx.tools.get('agent_teams_send_message', alpha) !== undefined
       && alpha.ctx.tools.get('agent_teams_update_task', alpha) !== undefined)
@@ -1757,6 +1883,7 @@ try {
   check('member empty, whitespace, and self assignee noise remain idempotent',
     [alphaEmptyClaim, alphaWhitespaceClaim, alphaSelfClaim]
       .every(claim => claim.attempt_id === firstAttempt?.attemptId))
+  const beforeForbiddenMemberClaims = JSON.stringify(await readTeam(stateRoot, 'quality-loop'))
   for (const forbiddenAssignee of ['captain', 'beta']) {
     let rejected = false
     try {
@@ -1768,6 +1895,8 @@ try {
     }
     check(`member cannot claim as ${forbiddenAssignee}`, rejected)
   }
+  check('forbidden member claims do not write Team state',
+    beforeForbiddenMemberClaims === JSON.stringify(await readTeam(stateRoot, 'quality-loop')))
   await call('agent_teams_update_task', {
     task_id: t1.task_id, status: 'in_progress', attempt_id: alphaClaim.attempt_id,
   }, alpha)

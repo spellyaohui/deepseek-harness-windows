@@ -15,7 +15,7 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
     ['agent-teams-plugin', '@nanmicoder/dsh-agent-teams'],
   )
   const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
-  assert.equal(packageJson.version, '0.1.18')
+  assert.equal(packageJson.version, '0.1.18-desktop.1')
 })
 
 test('AgentTeams declares the Connection dependency used by its authenticated Web routes', () => {

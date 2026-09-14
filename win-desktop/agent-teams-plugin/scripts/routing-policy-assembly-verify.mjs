@@ -33,7 +33,7 @@ const hostPlugin = Object.assign((ctx) => { hostContext = ctx }, {
 await root.plugin(hostPlugin)
 
 const reportingTools = ['agent_teams_send_message', 'agent_teams_update_task']
-for (const name of [...NATIVE_DELEGATION_TOOLS, ...reportingTools]) {
+for (const name of [...NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent'), ...reportingTools]) {
   root.tools.register(defineContentToolFixture({
     name,
     description: `${name} integration fixture`,
@@ -41,6 +41,8 @@ for (const name of [...NATIVE_DELEGATION_TOOLS, ...reportingTools]) {
     execute: async () => [],
   }))
 }
+
+const scopedNativeCalls = []
 
 function scopedAgent(id, policy, parent) {
   const agent = {
@@ -54,31 +56,59 @@ function scopedAgent(id, policy, parent) {
   }
   const scope = createScope(hostContext, agent, parent === undefined ? undefined : { parent })
   agent.ctx = scope.ctx.extend({ agent })
-  installDelegationPolicy({
+  agent.ctx.tools.register(defineContentToolFixture({
+    name: 'subagent',
+    description: 'scope-local subagent fixture',
+    parameters: {},
+    execute: async () => {
+      scopedNativeCalls.push(id)
+      return []
+    },
+  }))
+  const dispose = installDelegationPolicy({
     agent,
     policy,
     order: 117,
     text: `${policyMarker(policy)}\n\nreal assembly policy fixture`,
   })
-  return { agent, scope }
+  return { agent, scope, dispose }
 }
 
 async function assembleFor(agent) {
   return hostContext.systemPrompt.assemble({ scope: agent })
 }
 
+async function executeFor(agent, name) {
+  return hostContext.tools.execute({
+    callId: `${agent.id}:${name}`,
+    name,
+    arguments: {},
+    agent,
+    signal: new AbortController().signal,
+  })
+}
+
 console.log('RC2 real tool registry and system-prompt assembly')
 const teamCaptain = scopedAgent('assembly-team-captain', 'teams-v1')
 const captainAssembly = await assembleFor(teamCaptain.agent)
-check('Team captain final assembled schemas contain no native delegation tool',
-  NATIVE_DELEGATION_TOOLS.every(name => !captainAssembly.tools.some(tool => tool.name === name)))
+check('Team captain final assembled schemas hide every global native delegation tool',
+  NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent')
+    .every(name => !captainAssembly.tools.some(tool => tool.name === name)))
+check('Team captain retains the scope-local subagent schema so its guard is required',
+  captainAssembly.tools.some(tool => tool.name === 'subagent'))
+const teamSubagentResult = await executeFor(teamCaptain.agent, 'subagent')
+check('Team scoped native delegation is rejected before fixture execution',
+  teamSubagentResult.isError === true
+    && /AgentTeams Team policy forbids native delegation tool "subagent"/.test(teamSubagentResult.error.message)
+    && !scopedNativeCalls.includes(teamCaptain.agent.id))
 check('Team captain marker is model-visible through the real prompt assembler',
   renderPrompt(captainAssembly).includes(policyMarker('teams-v1')))
 
 const teamMember = scopedAgent('assembly-team-member', 'teams-v1', teamCaptain.agent)
 const memberAssembly = await assembleFor(teamMember.agent)
-check('unpublished Team member final assembled schemas contain no native delegation tool',
-  NATIVE_DELEGATION_TOOLS.every(name => !memberAssembly.tools.some(tool => tool.name === name)))
+check('unpublished Team member final assembled schemas hide every global native delegation tool',
+  NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent')
+    .every(name => !memberAssembly.tools.some(tool => tool.name === name)))
 check('unpublished Team member keeps member-local reporting schemas',
   reportingTools.every(name => memberAssembly.tools.some(tool => tool.name === name)))
 check('unpublished Team member marker is model-visible through the real prompt assembler',
@@ -88,9 +118,26 @@ const nativeCaptain = scopedAgent('assembly-native-captain', 'native-v1')
 const nativeAssembly = await assembleFor(nativeCaptain.agent)
 check('Native final assembled schemas retain every official delegation tool',
   NATIVE_DELEGATION_TOOLS.every(name => nativeAssembly.tools.some(tool => tool.name === name)))
+const nativeSubagentResult = await executeFor(nativeCaptain.agent, 'subagent')
+check('Native scoped delegation remains executable',
+  nativeSubagentResult.isError === false && scopedNativeCalls.includes(nativeCaptain.agent.id))
 check('Native marker is model-visible through the real prompt assembler',
   renderPrompt(nativeAssembly).includes(policyMarker('native-v1')))
 
+const disposableTeam = scopedAgent('assembly-team-dispose', 'teams-v1')
+const disposableBefore = await assembleFor(disposableTeam.agent)
+disposableTeam.dispose()
+const disposableAfter = await assembleFor(disposableTeam.agent)
+const disposedTeamSubagentResult = await executeFor(disposableTeam.agent, 'subagent')
+check('Team policy disposer clears its prompt, global restriction, and scoped execution guard',
+  renderPrompt(disposableBefore).includes(policyMarker('teams-v1'))
+    && !disposableBefore.tools.some(tool => tool.name === 'subagent_fork')
+    && !renderPrompt(disposableAfter).includes(policyMarker('teams-v1'))
+    && disposableAfter.tools.some(tool => tool.name === 'subagent_fork')
+    && disposedTeamSubagentResult.isError === false
+    && scopedNativeCalls.includes(disposableTeam.agent.id))
+
+await disposableTeam.scope.dispose()
 await nativeCaptain.scope.dispose()
 await teamMember.scope.dispose()
 await teamCaptain.scope.dispose()

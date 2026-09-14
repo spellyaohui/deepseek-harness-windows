@@ -1,6 +1,21 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.1.5-rc.1` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.5-rc.1`。
+本目录把官方 `dsh-v0.1.5-rc.1` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.5-rc.3`。
+
+## `v0.1.5-rc.3` 更新说明
+
+- AgentTeams 本地版本更新为 `0.1.18-desktop.1`。队长调用 `agent_teams_claim_task` 时，空字符串或纯空白 `assignee` 会按省略处理，非空成员名会先去除首尾空白。
+- `assignee="captain"`、未知成员、越权领取及缺失质量证据仍严格拒绝且不写状态；创建/重分配与领取的参数语义已在原有紧凑提示中明确区分。
+- 默认深度成员的 child `toolFilter` 不再把 Harness scope-local `subagent` 交给 global-only `tools.restrict()`；真实成员现在可以启动，Team execution guard 仍拒绝绕过 AgentTeams，durable gateway 仍负责深度与生命周期控制。
+- 不新增工具或第二层调度器。任务状态、调度和活动面板仍由 AgentTeams 管理，子会话启动、投递、中断和回收仍统一通过 durable subagent gateway。
+- 上游 AgentTeams 仍固定 `v0.1.18`，推荐 Harness 仍固定 `dsh-v0.1.5-rc.1`，不改官方 tarball。
+
+## `v0.1.5-rc.2` 更新说明
+
+- Team 路由不再把 Harness 的 scope-local `subagent` 当作 global tool 传入 `tools.restrict()`。全局原生委派工具仍会隐藏；Team 中 scope-local `subagent` 在 scoped execution guard 处拒绝，Native 路由不受影响。
+- `agent_teams_claim_task` 的 `assignee="captain"` 不是合法输入。已有 captain-owned 任务认领时省略 `assignee`；captain 接管 member 任务时使用 `agent_teams_reassign_task(assignee="captain")`，工具错误会给出这两条恢复路径。
+- implementation/repair 的每条 `verify` 继续都需要一条 `commandsRun.status="passed"` 证据；缺少任一验证记录仍会被质量门拒绝。
+- 官方推荐宿主仍为 `dsh-v0.1.5-rc.1`，AgentTeams 仍为 `v0.1.18`；本次仅升级 wrapper 版本，不修改任何官方 tarball 引用。
 
 ## `v0.1.5-rc.1` 更新说明
 
@@ -186,7 +201,7 @@ Harness 主设置中有两个独立、同主题的 section：`桌面` 管理窗�
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
 - Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后必须重启，才会注入并用于新团队。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.18`、固定提交 `68fe529d602b1eea1f1ecaee99857d20a4f94be0`，桌面 fork 版本是 `0.1.18`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.18`、固定提交 `68fe529d602b1eea1f1ecaee99857d20a4f94be0`，桌面 fork 版本是 `0.1.18-desktop.1`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 

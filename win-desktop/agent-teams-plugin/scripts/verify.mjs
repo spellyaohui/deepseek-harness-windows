@@ -217,6 +217,7 @@ for (const [label, pattern] of [
   ['reasoning ownership', /target-default[^\n]*route-aware[^\n]*explicit/i],
   ['route pairing', /provider\/model[^\n]*(?:both|pair)/i],
   ['scheduler dependencies', /dependenc[^\n]*scheduler/i],
+  ['claim ownership', /create\/reassign[^\n]*captain[^\n]*claim assigned work[^\n]*task_id only[^\n]*captain supplies assignee[^\n]*real member/i],
   ['attempt and reassignment', /attempt_id[^\n]*reassign/i],
   ['requirements gate', /requirements[^\n]*implementation[^\n]*verdict=pass/i],
   ['review repair loop', /review[^\n]*repair/i],

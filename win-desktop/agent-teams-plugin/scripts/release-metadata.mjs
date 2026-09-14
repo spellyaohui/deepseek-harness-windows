@@ -4,7 +4,7 @@ import { policy, resolveDevelopmentHost, validatePackageCompatibility } from './
 
 // Keep prereleases away from npm's default channel, including manual publishes.
 export function releaseMetadata(pkg, support = policy) {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.(0|[1-9]\d*))?$/.exec(pkg.version)
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc|desktop)\.(0|[1-9]\d*))?$/.exec(pkg.version)
   if (!match || match[0] !== pkg.version) throw new Error(`Unsupported release version: ${pkg.version}`)
   validatePackageCompatibility(pkg, support)
   const distTag = match[4] ? support.previewTag : 'latest'

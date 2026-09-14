@@ -9,8 +9,26 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.18`.
+- Desktop fork version is `0.1.18-desktop.1`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-09-14 desktop.1 model-call boundary hardening
+
+- `REAPPLY`: `agent_teams_claim_task` now treats a blank or whitespace-only
+  captain `assignee` as omitted through the existing optional-string
+  normalizer. Non-empty member names are trimmed before lookup.
+- Captain task ownership remains explicit: omit `assignee` to claim an existing
+  captain-owned task; `assignee="captain"` is still rejected, and member-owned
+  work still requires an explicit `reassign_task` before captain takeover.
+- The compact captain prompt now separates create/reassign ownership syntax
+  from task claiming without exceeding the 3,500-character budget. No tool,
+  Team-state, successful-output, or durable subagent-gateway API changed.
+- Harness 0.1.5 scope-local `subagent` is omitted from both global
+  `tools.restrict()` input and the default-depth member child `toolFilter`.
+  The existing Team execution guard still rejects direct native delegation,
+  while the durable gateway enforces member-relative depth and lifecycle.
+- Upstream provenance remains `v0.1.18`; the recommended Harness host remains
+  `0.1.5-rc.1` and no official tarball changed.
 
 ## 2026-09-13 v0.1.18 / Harness 0.1.5-rc.1 refresh classification
 

@@ -13,6 +13,7 @@ export const NATIVE_DELEGATION_TOOLS = [
   'subagent', 'subagent_fork', 'subagent_codex', 'subagent_claude_code',
   'list_agents', 'send_message', 'interrupt_agent', 'workflow', 'ralph',
 ] as const
+const nativeDelegationToolNames = new Set<string>(NATIVE_DELEGATION_TOOLS)
 
 export function policyMarker(policy: DelegationPolicyId): string {
   return `${POLICY_PREFIX} ${policy}`
@@ -97,7 +98,7 @@ export interface DelegationPolicyRuntime {
   memberText?: (policy: DelegationPolicyId) => string
 }
 
-/** Install one policy prompt and its model-visible tool restriction in an Agent scope. */
+/** Install one policy prompt plus Team-mode native-delegation enforcement in an Agent scope. */
 export function installDelegationPolicy(input: {
   agent: Agent
   policy: DelegationPolicyId
@@ -119,14 +120,28 @@ export function installDelegationPolicy(input: {
     text: input.text,
   })
   let disposeRestriction = (): void => undefined
+  let disposeGuard = (): void => undefined
   try {
     if (policy === 'teams-v1') {
+      // `restrict()` can only name inherited/global registrations. The built-in
+      // `subagent` Host tool is scope-local in Harness 0.1.5, so it must never
+      // enter the global deny list; the scoped execution guard below owns it.
       const deny = NATIVE_DELEGATION_TOOLS.filter(
-        (name) => agent.ctx.tools.get(name, agent) !== undefined,
+        (name) => name !== 'subagent' && agent.ctx.tools.get(name) !== undefined,
       )
       if (deny.length > 0) disposeRestriction = agent.ctx.tools.restrict({ deny })
+      // Scoped tools deliberately survive `restrict()`. Guard every native
+      // delegation name at execution time so a scope-local registration cannot
+      // bypass the Team-only AgentTeams delegation policy.
+      disposeGuard = agent.ctx.tools.guard((execution) => (
+        nativeDelegationToolNames.has(execution.name)
+          ? `AgentTeams Team policy forbids native delegation tool "${execution.name}"; use agent_teams_* tools`
+          : undefined
+      ))
     }
   } catch (error) {
+    disposeGuard()
+    disposeRestriction()
     disposePrompt()
     throw error
   }
@@ -137,6 +152,7 @@ export function installDelegationPolicy(input: {
     if (!active) return
     active = false
     installedPolicies.delete(agent)
+    disposeGuard()
     disposeRestriction()
     disposePrompt()
   }

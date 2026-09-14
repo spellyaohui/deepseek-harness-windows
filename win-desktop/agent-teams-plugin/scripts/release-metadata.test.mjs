@@ -27,7 +27,7 @@ test('stable latest requires the recommended host and bounded compatibility', ()
   }), /Alpha\/beta/)
 })
 
-for (const suffix of ['alpha', 'beta', 'rc']) {
+for (const suffix of ['alpha', 'beta', 'rc', 'desktop']) {
   test(`${suffix} candidates use next and never replace latest`, () => {
     const version = `0.1.16-${suffix}.1`
     assert.equal(releaseMetadata(fixture(version, 'next')).prerelease, true)

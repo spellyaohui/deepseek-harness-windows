@@ -2,7 +2,22 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前版本：`v0.1.5-rc.1`（开发者预览）
+> 当前版本：`v0.1.5-rc.3`（开发者预览）
+
+## `v0.1.5-rc.3` 更新说明
+
+- AgentTeams 更新为本地 `0.1.18-desktop.1`：队长领取任务时，空字符串或纯空白 `assignee` 与省略该属性等价；非空成员名会先去除首尾空白。
+- `assignee="captain"`、未知成员、越权领取和质量证据缺失仍严格拒绝且不写状态。创建/重分配与领取语义已在紧凑提示中分开，完整提示仍不超过 3,500 字符。
+- 修复默认 `memberMaxDepth: 0` 的真实成员启动仍把 scope-local `subagent` 放入 child `toolFilter`，导致任务已领取但成员持续 `idle/unspawned` 的问题；启动过滤现在只隐藏 global `send_message`，Team 执行 guard 和 durable gateway 边界保持不变。
+- 不增加第二套子智能体工具或提示插件；AgentTeams 继续管理任务和面板，所有子会话操作继续独占通过 durable subagent gateway。
+- 上游来源仍是 AgentTeams `v0.1.18`，推荐宿主仍是 Harness `dsh-v0.1.5-rc.1`，未修改官方 tarball。
+
+## `v0.1.5-rc.2` 更新说明
+
+- 修复 AgentTeams Team 路由把官方 scope-local `subagent` 误传给仅支持 global tool 的 `tools.restrict()`，从而报 unknown global tool 的问题。全局原生委派工具仍由 `restrict` 隐藏；Team 内 scope-local `subagent` 改在执行边界由 scoped guard 拒绝，Native 路由保持可用。
+- `agent_teams_claim_task` 不接受 `assignee="captain"`：已有 captain-owned 任务应省略 `assignee` 认领；要由 captain 接管 member 任务时，先使用 `agent_teams_reassign_task(assignee="captain")`。错误反馈提供对应的自恢复下一步。
+- implementation/repair 完成仍严格要求 `commandsRun` 为每条声明的 `verify` 命令提供 `passed` 证据；缺少任一项会继续拒绝，未为绕过错误而放宽质量门。
+- 嵌入的官方 Harness 推荐宿主仍是 `dsh-v0.1.5-rc.1`，AgentTeams 仍是上游 `v0.1.18`；本次只提升 Windows wrapper 到 `v0.1.5-rc.2`，不改固定 tarball 依赖。
 
 ## `v0.1.5-rc.1` 更新说明
 
@@ -272,7 +287,7 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.18`（固定提交 `68fe529d602b1eea1f1ecaee99857d20a4f94be0`），本地版本为 `0.1.18`。本次采用上游原子 roster/DAG、lazy-start、消息/attempt 清理与恢复；仅保留严格 V2、本地角色模型策略、统一子智能体网关、质量门、Revision/CAS 和认证边界等上游未覆盖能力。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.18`（固定提交 `68fe529d602b1eea1f1ecaee99857d20a4f94be0`），本地版本为 `0.1.18-desktop.1`。本次采用上游原子 roster/DAG、lazy-start、消息/attempt 清理与恢复；仅保留严格 V2、本地角色模型策略、统一子智能体网关、质量门、Revision/CAS 和认证边界等上游未覆盖能力。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

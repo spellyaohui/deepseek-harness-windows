@@ -8,10 +8,10 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.1.5-rc.1` at `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`
-- Windows desktop wrapper: `0.1.5-rc.1`
+- Windows desktop wrapper: `0.1.5-rc.3`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.2`
-- AgentTeams fork: `0.1.18`, based on upstream `v0.1.18` at fixed commit
+- AgentTeams fork: `0.1.18-desktop.1`, based on upstream `v0.1.18` at fixed commit
   `68fe529d602b1eea1f1ecaee99857d20a4f94be0`
 - CPA provider plugin: `0.1.8`
 - Models settings fork: `0.1.5-rc.1-desktop.3`
@@ -21,6 +21,15 @@ prove it still exists.
 
 This is the current classification. The 2026-09-11 AgentTeams 0.1.17 and
 earlier entries below remain historical release evidence.
+
+- `REAPPLY`: the desktop.1 model-call boundary reuses the existing optional
+  string normalizer so blank captain `claim_task.assignee` is equivalent to an
+  omitted property, while non-empty names are trimmed. `assignee="captain"`,
+  unknown members, and unauthorized claims remain strict no-write failures.
+- `REAPPLY`: the captain prompt distinguishes create/reassign ownership from
+  claim syntax within the existing 3,500-character budget. No second tool set
+  or prompt plugin is introduced; Team mode still cannot bypass AgentTeams,
+  and every continuable child operation still crosses the durable gateway.
 
 - `UPSTREAM_EQUIVALENT`: AgentTeams 0.1.18 supplies atomic roster/DAG
   planning, lazy member start, next-step message delivery, obsolete-message
@@ -37,6 +46,23 @@ earlier entries below remain historical release evidence.
 - `REAPPLY`: preserve the existing 0.1.5-rc.1 host closure and all fixed
   Harness identity/tarball references. This AgentTeams-only update must not
   alter the Harness version, peer ranges, or tarball paths.
+- `SUPERSEDED_BY_DESIGN + REAPPLY`: Harness 0.1.5 registers official
+  `subagent` as scope-local, so its schema cannot be hidden through the
+  global-only `tools.restrict()` API. Preserve Team/Native authority by
+  restricting only globally registered native delegation tools and reapplying
+  the Team-scoped execution guard for every native delegation name, including
+  scope-local `subagent`; Native routing remains executable. Default-depth
+  member startup must likewise omit `subagent` from its child `toolFilter` and
+  rely on the existing durable depth guard. Retain the real ToolRuntime and
+  child-start regressions that prove admission, rejection, startup, and
+  disposer restoration.
+- `REAPPLY`: retain strict quality evidence and captain task-ownership
+  recovery. implementation/repair completion must keep one passed
+  `commandsRun` record per declared `verify` command. `claim_task` must reject
+  `assignee="captain"` with actionable guidance: omit `assignee` for an
+  existing captain-owned task, or use `reassign_task(assignee="captain")` to
+  take over member-owned work. Retain the quality-gate and lifecycle
+  regressions; neither error is grounds to weaken validation.
 
 ## Harness 0.1.5-rc.1 / AgentTeams 0.1.17 refresh classification — 2026-09-11
 

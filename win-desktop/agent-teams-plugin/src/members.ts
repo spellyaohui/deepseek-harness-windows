@@ -792,7 +792,7 @@ export async function spawnMember(
         prompt: [{ type: 'text', text: initialPrompt ?? memberWelcome(team, member.name) }],
         parent: captain,
         persona: memberPersona(team, member, stateDir, config.executionPrompt),
-        toolFilter: { deny: [...MEMBER_DENIED_TOOLS, ...(config.maxDepth === 0 ? ['subagent', 'send_message'] : [])] },
+        toolFilter: { deny: [...MEMBER_DENIED_TOOLS, ...(config.maxDepth === 0 ? ['send_message'] : [])] },
         agentOptions: {
           provider: llmSelection.provider,
           model: llmSelection.model,
