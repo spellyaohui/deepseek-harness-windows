@@ -5,6 +5,7 @@ import { createWindowOptions, resolveAppIcon } from './window-options.js'
 import { loadDesktopSettings, getDesktopSettings } from './desktop-settings.js'
 import { installSettingsIpc } from './settings-window.js'
 import { prepareOpencodeCatalog } from './model-fetcher.js'
+import { installLoopbackAuthCookieRecovery } from './loopback-auth-cookies.js'
 
 const APP_NAME = 'DeepSeek Harness'
 const connectingPage = fileURLToPath(new URL('./connecting.html', import.meta.url))
@@ -13,6 +14,7 @@ let mainWindow
 let service
 let serviceUrl
 let tray
+let loopbackAuthCookieRecovery
 /** Whether the user explicitly requested quit (tray menu or Cmd+Q). */
 let quitting = false
 
@@ -135,6 +137,13 @@ function createWindow() {
 
   mainWindow = new BrowserWindow(createWindowOptions())
   pinInstallerIcon(mainWindow)
+  loopbackAuthCookieRecovery = installLoopbackAuthCookieRecovery({
+    webContents: mainWindow.webContents,
+    getServiceUrl: () => serviceUrl,
+    loadServiceUrl: async (url) => {
+      if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.loadURL(url)
+    },
+  })
 
   if (process.platform === 'win32') {
     mainWindow.setMenu(null)
@@ -207,7 +216,7 @@ async function launch() {
   try {
     serviceUrl = await service.ready
     if (mainWindow && !mainWindow.isDestroyed()) {
-      await mainWindow.loadURL(serviceUrl)
+      await loopbackAuthCookieRecovery.loadFreshServiceUrl(serviceUrl)
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

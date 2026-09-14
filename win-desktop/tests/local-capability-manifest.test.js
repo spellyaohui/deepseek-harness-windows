@@ -50,9 +50,9 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.5-rc.3')
-  assert.equal(packageLock.version, '0.1.5-rc.3')
-  assert.equal(packageLock.packages[''].version, '0.1.5-rc.3')
+  assert.equal(packageJson.version, '0.1.5-rc.4')
+  assert.equal(packageLock.version, '0.1.5-rc.4')
+  assert.equal(packageLock.packages[''].version, '0.1.5-rc.4')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
   assert.equal(modelsPackage.version, '0.1.5-rc.1-desktop.3')
@@ -117,6 +117,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'release-notes/v0.1.5-rc.1.md',
     'release-notes/v0.1.5-rc.2.md',
     'release-notes/v0.1.5-rc.3.md',
+    'release-notes/v0.1.5-rc.4.md',
     'release-notes/v0.1.2-rc.7.md',
     'scripts/verify-alpha2-source.mjs',
     'scripts/verify-rc1-source.mjs',
@@ -178,6 +179,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'tests/cpa-provider-integration.test.js',
     'tests/desktop-settings.test.js',
     'tests/dsh-web-auth-url.test.js',
+    'tests/loopback-auth-cookies.test.js',
     'tests/grep-tool-argument-compatibility.test.js',
     'tests/heal-desktop-plugins.test.js',
     'tests/model-fetcher.test.js',
@@ -210,6 +212,9 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /blank optional Profile/i)
   assertContains('../AGENTS.md', /Alpha\.2 Web authentication startup invariant/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /authenticated startup URL/i)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /bounded loopback Cookie recovery/i)
+  assertContains('src/loopback-auth-cookies.js', /AUTH_COOKIE_PREFIX = 'dsh-auth-'/)
+  assertContains('src/loopback-auth-cookies.js', /details\?\.statusCode !== 431/)
   for (const relativePath of ['../README.md', 'README.md', '../docs/UPSTREAM_MAINTENANCE.md']) {
     assert.doesNotMatch(read(relativePath), /@nanmicoder\/dsh-auto-mode|Auto Mode/)
   }

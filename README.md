@@ -2,7 +2,13 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前版本：`v0.1.5-rc.3`（开发者预览）
+> 当前版本：`v0.1.5-rc.4`（开发者预览）
+
+## `v0.1.5-rc.4` 更新说明
+
+- 修复随机 loopback 端口长期累积 `dsh-auth-*` Cookie，最终让聚合插件请求返回 HTTP 431、启动时显示插件加载失败的问题；启动认证前只清理 `127.0.0.1` 上的旧 DSH 认证 Cookie。
+- 若当前 loopback 服务的 `/plugins/` 请求仍返回 431，桌面包装器会清理同一类 Cookie 并使用原始一次性认证地址自动重载一次；单次恢复锁避免循环，不影响其他 Cookie、缓存、会话、设置或凭据。
+- 官方 Harness 仍固定 `dsh-v0.1.5-rc.1`，AgentTeams 仍为本地 `0.1.18-desktop.1`，没有改动上游 tarball 或子智能体治理边界。
 
 ## `v0.1.5-rc.3` 更新说明
 

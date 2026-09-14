@@ -8,7 +8,7 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.1.5-rc.1` at `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`
-- Windows desktop wrapper: `0.1.5-rc.3`
+- Windows desktop wrapper: `0.1.5-rc.4`
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.2`
 - AgentTeams fork: `0.1.18-desktop.1`, based on upstream `v0.1.18` at fixed commit
@@ -16,6 +16,21 @@ prove it still exists.
 - CPA provider plugin: `0.1.8`
 - Models settings fork: `0.1.5-rc.1-desktop.3`
 - Desktop Settings plugin: `0.1.2`
+
+## Windows wrapper rc.4 loopback authentication hardening — 2026-09-15
+
+- `REAPPLY`: the official 0.1.5 client stores one 30-day `dsh-auth-*` Cookie
+  per random loopback authority, while browser Cookie scoping does not isolate
+  ports. The wrapper clears only stale `127.0.0.1` DSH authentication Cookies
+  before loading the canonical token URL so the aggregated plugin request
+  cannot grow past Node's request-header limit across restarts.
+- `REAPPLY`: a current-origin `/plugins/` HTTP 431 triggers the same cleanup
+  and canonical token-URL reload once. Other origins, routes, statuses,
+  Cookies, storage, settings, and session data are untouched; the one-shot
+  guard prevents a recovery loop.
+- The Harness source closure remains `dsh-v0.1.5-rc.1`, and AgentTeams remains
+  `0.1.18-desktop.1`. This wrapper hardening does not alter either upstream
+  package or their registered capability ownership.
 
 ## Harness 0.1.5-rc.1 / AgentTeams 0.1.18 refresh classification — 2026-09-13
 
@@ -169,7 +184,7 @@ upgrades only the AgentTeams source to upstream `v0.1.16-rc.3` at
 | Wrapper-wide tool-call guidance: derive arguments from current schemas/context, omit unknown or blank optional properties unless empty is explicitly meaningful, and never repeat failed invalid arguments unchanged | `win-desktop/tool-call-guidance-plugin` | Independent local system-prompt plugin. It registers no tools, settings, Provider behavior, or lifecycle state and stays at or below 500 characters. | `tool-call-guidance-plugin/lib/index.js`, `package.json`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `scripts/sync-local-plugin-artifacts.mjs` | `tests/tool-call-guidance.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest test |
 | Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | Compatibility rewrites over official Windows runtime packages | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
 | Hide only the native Subagent plugin settings card while retaining the Host namespace, saved settings, official Subagent runtime closure, and AgentTeams spawn path | `win-desktop` | `REAPPLY`: Alpha.2 provides no single-card visibility control. The Wrapper rewrites the client-module initial/HMR bundle snapshot boundary and changes only the exact Subagent Slot key to an equal-length unserved internal key. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/subagent-settings-card-visibility.test.js`, `tests/agent-teams-integration.test.js`, and the local capability manifest test |
-| Alpha.2 authenticated startup URL handoff: retain the complete canonical `http://127.0.0.1:<port>/?token=...` readiness URL, reject a bare loopback origin, and never persist or document the process token | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: Alpha.2 owns token issuance, cookie exchange, and clean-root redirect; the wrapper owns lossless capture of the official `dsh web:` URL and passes it directly to Electron. | `src/dsh-service.js`, `src/main.js` | `tests/dsh-web-auth-url.test.js` and the local capability manifest test |
+| Alpha.2 authenticated startup URL handoff and bounded loopback Cookie recovery: retain the complete canonical `http://127.0.0.1:<port>/?token=...` readiness URL, reject a bare loopback origin, never persist or document the process token, clear only stale `127.0.0.1` `dsh-auth-*` Cookies before the initial authenticated load, and recover once from a current-origin `/plugins/` HTTP 431 without a reload loop | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: Alpha.2 owns token issuance, cookie exchange, and clean-root redirect; the wrapper owns lossless capture of the official `dsh web:` URL plus the narrow cleanup required because Cookie scope does not isolate random ports. | `src/dsh-service.js`, `src/main.js`, `src/loopback-auth-cookies.js` | `tests/dsh-web-auth-url.test.js`, `tests/loopback-auth-cookies.test.js`, and the local capability manifest test |
 | Provider-neutral `grep` argument alias normalization at the `dsh-llm-pi-ai` durable tool-call boundary, limited to a missing `pattern` plus an exact single-line `description: "pattern: <non-empty value>"` shape | `win-desktop` | `REAPPLY` until upstream performs an equivalent deterministic normalization. No provider/model routing or optional settings toggle owns this behavior; existing `pattern` values and every ambiguous malformed call remain under the strict upstream Schema. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/grep-tool-argument-compatibility.test.js` and the local capability manifest test |
 | Explicit bounded-period usage-limit exhaustion is classified as terminal `QUOTA` at the official `dsh-llm` boundary, while transient `RATE_LIMIT` and standalone reset notices remain non-terminal | `win-desktop` | `REAPPLY`: RC.1 recognizes unqualified `usage limit` wording but misses provider messages such as `weekly usage limit`; the wrapper adds only this narrow loader rewrite and retains the upstream classifier for every other phrase. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/win-hide-console.test.js` and the local capability manifest test |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |

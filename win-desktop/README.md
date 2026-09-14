@@ -1,6 +1,12 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.1.5-rc.1` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.5-rc.3`。
+本目录把官方 `dsh-v0.1.5-rc.1` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.1.5-rc.4`。
+
+## `v0.1.5-rc.4` 更新说明
+
+- 启动认证前只清理 `127.0.0.1` 上由随机端口遗留的 `dsh-auth-*` Cookie，避免 Cookie 请求头持续累积并让聚合 `/plugins/` 请求触发 HTTP 431。
+- 当前服务的 `/plugins/` 若仍返回 431，会复用完整一次性认证 URL 自动清理并重载一次；恢复锁阻止重复重载，其他 Cookie、缓存、会话、设置和凭据保持不变。
+- 官方 Harness 继续固定 `dsh-v0.1.5-rc.1`，AgentTeams 继续固定 `0.1.18-desktop.1`；本次仅升级 Windows wrapper，不修改官方 tarball 或 AgentTeams 行为。
 
 ## `v0.1.5-rc.3` 更新说明
 
