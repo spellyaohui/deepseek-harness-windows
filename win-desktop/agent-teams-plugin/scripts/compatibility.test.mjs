@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { inspectInstallation } from './doctor.mjs'
-import { policy, requiredHostPeers, resolveDevelopmentHost, validatePolicy, validatePackageCompatibility } from './compatibility.mjs'
+import { policy, workspacePolicy, requiredHostPeers, resolveDevelopmentHost, validatePolicy, validatePackageCompatibility } from './compatibility.mjs'
 
 test('doctor runs through an installed bin symlink and reports success or failure', t => {
   const scriptsDir = fileURLToPath(new URL('.', import.meta.url))
@@ -41,7 +41,12 @@ test('doctor runs through an installed bin symlink and reports success or failur
 })
 
 test('policy rejects floating targets, duplicates, and alpha recommendation', () => {
-  assert.equal(validatePolicy(policy).length, 4)
+  assert.equal(policy.recommendedHost, '0.2.0-rc.2')
+  assert.deepEqual(policy.supportedHosts.map(host => host.version), [
+    '0.2.0-rc.2', '0.1.7-rc.2', '0.1.5-rc.3', '0.1.5-rc.2',
+    '0.1.5-rc.1', '0.1.2-rc.1', '0.1.2-alpha.5', '0.1.2-alpha.2',
+  ])
+  assert.deepEqual(validatePolicy(policy), policy.supportedHosts.map(host => host.version))
   for (const version of ['latest', '^0.1.2-rc.1', '0.1.2-rc.1\n']) {
     assert.throws(() => validatePolicy({ ...policy, supportedHosts: [{ version, track: 'recommended' }] }))
   }
@@ -103,10 +108,12 @@ test('doctor follows profile peers and rejects duplicate runtime identities', t 
 test('policy rejects missing or mixed development overrides', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   assert.doesNotThrow(() => validatePackageCompatibility(pkg))
-  delete pkg.pnpm.overrides['@deepseek-ai/dsh-agent']
-  assert.throws(() => validatePackageCompatibility(pkg), /override/)
-  pkg.pnpm.overrides['@deepseek-ai/dsh-agent'] = '0.1.2-alpha.2'
-  assert.throws(() => validatePackageCompatibility(pkg), /override/)
+  const workspace = structuredClone(workspacePolicy)
+  delete workspace.overrides['@deepseek-ai/dsh-agent']
+  assert.throws(() => validatePackageCompatibility(pkg, policy, workspace), /override/)
+  workspace.overrides['@deepseek-ai/dsh-agent'] = '0.1.2-alpha.2'
+  assert.throws(() => validatePackageCompatibility(pkg, policy, workspace), /override/)
+  assert.throws(() => validatePackageCompatibility({ ...pkg, pnpm: { overrides: {} } }), /pnpm-workspace.yaml/)
 })
 
 test('policy rejects removed host peers and range-qualified or conditional DSH overrides', () => {
@@ -117,9 +124,9 @@ test('policy rejects removed host peers and range-qualified or conditional DSH o
     assert.throws(() => validatePackageCompatibility(pkg), /Missing required host peer/)
   }
   for (const selector of ['parent>@deepseek-ai/dsh-agent', '@deepseek-ai/dsh-agent@^0.1.2', '@deepseek-ai/dsh@>=0.1>react']) {
-    const pkg = structuredClone(original)
-    pkg.pnpm.overrides[selector] = policy.recommendedHost
-    assert.throws(() => validatePackageCompatibility(pkg), /bare DSH package name/)
+    const workspace = structuredClone(workspacePolicy)
+    workspace.overrides[selector] = policy.recommendedHost
+    assert.throws(() => validatePackageCompatibility(original, policy, workspace), /bare DSH package name/)
   }
 })
 
@@ -162,15 +169,15 @@ test('doctor detects peer-only drift and a mismatched installed plugin', t => {
   assert.match(inspectInstallation(root, profile).problems.join(), /0\.1\.15/)
 })
 
-test('offline RC.1 file tarball pins count as the exact development host', () => {
+test('offline RC.2 file tarball pins count as the exact development host', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-  assert.match(pkg.devDependencies['@deepseek-ai/dsh'], /file:.*deepseek-ai-dsh-0\.1\.5-rc\.1\.tgz$/)
-  assert.match(pkg.devDependencies['@deepseek-ai/dsh-session-projection'], /file:.*deepseek-ai-dsh-session-projection-0\.1\.5-rc\.1\.tgz$/)
+  assert.match(pkg.devDependencies['@deepseek-ai/dsh'], /file:.*deepseek-ai-dsh-0\.2\.0-rc\.2\.tgz$/)
+  assert.match(pkg.devDependencies['@deepseek-ai/dsh-session-projection'], /file:.*deepseek-ai-dsh-session-projection-0\.2\.0-rc\.2\.tgz$/)
   assert.equal(resolveDevelopmentHost(pkg.devDependencies['@deepseek-ai/dsh']), policy.recommendedHost)
   assert.doesNotThrow(() => validatePackageCompatibility(pkg))
   const mixed = structuredClone(pkg)
   mixed.devDependencies['@deepseek-ai/dsh-agent'] = mixed.devDependencies['@deepseek-ai/dsh-agent']
-    .replace('deepseek-ai-dsh-agent-0.1.5-rc.1.tgz', 'deepseek-ai-dsh-agent-0.1.2-alpha.2.tgz')
+    .replace('deepseek-ai-dsh-agent-0.2.0-rc.2.tgz', 'deepseek-ai-dsh-agent-0.1.2-alpha.2.tgz')
   assert.throws(() => validatePackageCompatibility(mixed), /exact development host/)
 })
 

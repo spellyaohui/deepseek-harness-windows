@@ -18,7 +18,7 @@ import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent'
 import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent'
 import { createUserMessage, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, sessionOwnEvents, steerMemberPrompt } from './harness-compat.ts'
+import { guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, memberToolFilter, restrictableToolNames, sessionOwnEvents, startMemberWithLenientFilter } from './harness-compat.ts'
 import { join } from 'node:path'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
@@ -45,17 +45,6 @@ import { durableSessionId } from './agent-identity.ts'
 
 /** Persona snapshot of a profile protocol; the full text lives on team.json. */
 export const PERSONA_PROTOCOL_MAX_CHARS = 400
-
-/** Captain-only AgentTeams tools hidden from newly spawned members. */
-const MEMBER_DENIED_TOOLS = [
-  'agent_teams_create',
-  'agent_teams_add_member',
-  'agent_teams_remove_member',
-  'agent_teams_reassign_task',
-  'agent_teams_create_task',
-  'agent_teams_resume',
-  'agent_teams_delete',
-] as const
 
 /**
  * Restore the SessionId brand on a value that round-tripped through the
@@ -195,7 +184,7 @@ export function steerCaptainReport(captain: Pick<Agent, 'steer'>, from: string, 
   try {
     captain.steer(createUserMessage({
       content: [{ type: 'text', text: receipt ?? `AgentTeams message from member ${from}:\n\n${content}` }],
-      source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+      source: { kind: 'agent-teams' },
     }))
     return true
   } catch {
@@ -469,9 +458,28 @@ export function installMemberSelectionRuntime(
   onFailureSettled?: (workspace: string, teamId: string, memberName: string) => Promise<void>,
 ): MemberSelectionRuntime {
   const pending = new Map<string, MemberLlmSelection>()
-  const installedMembers = new WeakSet<Agent>()
-  const handleCreated = ({ agent: child }: { agent: Agent }): (() => void) | undefined => {
-    if (installedMembers.has(child)) return
+  const activeMembers = new Map<Agent, () => void>()
+  const agentRegistry = (ctx as unknown as { agents?: { get(id: string): Agent | undefined; list?: () => Iterable<Agent> } }).agents
+  const track = (child: Agent, teardown: () => void): (() => void) => {
+    let disposed = false
+    const dispose = (): void => {
+      if (disposed) return
+      disposed = true
+      activeMembers.delete(child)
+      teardown()
+    }
+    activeMembers.set(child, dispose)
+    try {
+      if (typeof child.ctx.effect === 'function') child.ctx.effect(() => dispose, 'agent-teams: member runtime')
+    } catch (error) {
+      dispose()
+      throw error
+    }
+    return dispose
+  }
+  const handleCreated = ({ agent: child }: { agent: Agent }, vetoable = false): (() => void) | undefined => {
+    const installed = activeMembers.get(child)
+    if (installed !== undefined) return installed
     const childId = durableSessionId(child)
     const descriptor = foldSubagentDescriptor(sessionOwnEvents(child.session))
     if (descriptor?.mode !== 'continuable' || !descriptor.label.startsWith(MEMBER_LABEL_PREFIX)) {
@@ -491,7 +499,7 @@ export function installMemberSelectionRuntime(
       ? undefined
       : resolveAndInstallDelegationPolicy(
           child,
-          ctx.agents.get(parentSessionId),
+          agentRegistry?.get(parentSessionId),
           delegationPolicy,
           { member: true },
         )
@@ -509,30 +517,58 @@ export function installMemberSelectionRuntime(
       if (!admitted) return { kind: 'reject' }
       return next()
     })
+    const failClosed = (error: unknown): (() => void) => {
+      const failure = new Error(`agent-teams: member initialization failed: ${String(error)}`, { cause: error })
+      ctx.logger.warn(failure.message)
+      const disposeRequest = child.ctx.on('agent/request', () => { throw failure }, { prepend: true })
+      return track(child, () => {
+        disposeRequest()
+        disposeAdmission()
+        disposePolicy()
+      })
+    }
     const key = pendingSelectionKey(parentSessionId, descriptor.label)
     let selection = pending.get(key)
     if (selection === undefined) {
-      const team = readTeamSync(join(workspace, stateDir), teamId)
-      if (team?.captainSessionId !== parentSessionId) {
+      let team: TeamState | undefined
+      try {
+        team = readTeamSync(join(workspace, stateDir), teamId)
+      } catch (error: unknown) {
+        if (!vetoable) return failClosed(error)
+        disposeAdmission()
         disposePolicy()
-        return disposeAdmission
+        throw error
+      }
+      if (team?.captainSessionId !== parentSessionId) {
+        return track(child, () => {
+          disposeAdmission()
+          disposePolicy()
+        })
       }
       const durableMember = team.members.find(member => member.name === memberName)
       try {
         selection = selectionFromMember(durableMember)
       } catch (error: unknown) {
+        if (!vetoable) return failClosed(error)
+        disposeAdmission()
         disposePolicy()
         throw error
       }
       if (selection === undefined) {
+        const error = new Error(`agent-teams: saved member "${memberName}" is missing a complete role model policy`)
+        if (!vetoable) return failClosed(error)
+        disposeAdmission()
         disposePolicy()
-        throw new Error(`agent-teams: saved member "${memberName}" is missing a complete role model policy`)
+        throw error
       }
       if (descriptor.agentProvider !== durableMember?.provider || descriptor.agentModel !== durableMember?.model) {
-        disposePolicy()
-        throw new Error(
+        const error = new Error(
           `agent-teams: saved model route for member "${memberName}" does not match its subagent descriptor`,
         )
+        if (!vetoable) return failClosed(error)
+        disposeAdmission()
+        disposePolicy()
+        throw error
       }
     }
 
@@ -606,17 +642,13 @@ export function installMemberSelectionRuntime(
         }
         return next()
       })
-      const cleanup = () => {
-        installedMembers.delete(child)
+      return track(child, () => {
         disposeFallback()
         disposeSelection()
         disposeFailure()
         disposeAdmission()
         disposePolicy()
-      }
-      installedMembers.add(child)
-      if (typeof child.ctx.effect === 'function') child.ctx.effect(() => cleanup, 'agent-teams: member runtime')
-      return cleanup
+      })
     } catch (error) {
       disposeAdmission()
       disposePolicy()
@@ -627,19 +659,36 @@ export function installMemberSelectionRuntime(
   // RC.1 publishes fully configured children through `agent/created`. Keep that
   // adapter so role Provider/model/reasoning stays authoritative on the first
   // request. Hosts that also expose continuable setup (FIFO + session-start)
-  // install both; WeakSet dedupes a child that is announced twice.
+  // install both; the shared active map dedupes a child announced twice.
   const hasRc1SendMessage = typeof (ctx.subagents as { sendMessage?: unknown }).sendMessage === 'function'
   const hasCreatedAdapter = typeof ctx.on === 'function' && hasRc1SendMessage
+  let stopCreated: (() => void) | undefined
   if (hasCreatedAdapter) {
-    ctx.on('agent/created', handleCreated)
+    stopCreated = ctx.on('agent/created', async (payload) => {
+      handleCreated(payload, 'source' in payload)
+      return undefined
+    })
   }
   if (hasContinuableMemberSetup(ctx.subagents) || !hasCreatedAdapter) {
     installContinuableMemberSetup(ctx, (childCtx, child) => {
       const legacyChild = child as Agent & { ctx?: Context }
       if (legacyChild.ctx === undefined) legacyChild.ctx = childCtx as unknown as Context
-      return handleCreated({ agent: child }) ?? (() => undefined)
+      return handleCreated({ agent: child }, true) ?? (() => undefined)
     })
   }
+
+  // HMR reaches this point with active Agents already in the host registry.
+  // They have no future creation event, so hydrate them through the same setup
+  // path only after the caller has registered the complete Team tool set.
+  for (const agent of agentRegistry?.list?.() ?? []) handleCreated({ agent }, false)
+
+  const dispose = (): void => {
+    stopCreated?.()
+    stopCreated = undefined
+    for (const release of [...activeMembers.values()]) release()
+  }
+  const rootEffect = (ctx as unknown as { effect?: (setup: () => () => void, name: string) => unknown }).effect
+  rootEffect?.call(ctx, () => dispose, 'agent-teams: member selection runtime')
 
   return {
     async withPending<T>(
@@ -785,14 +834,14 @@ export async function spawnMember(
   const label = `${MEMBER_LABEL_PREFIX}${team.id}:${member.name}`
   const gateway = agentTeamsSubagentGateway(ctx)
   const start = await selections.withPending(durableSessionId(captain), label, llmSelection, () => (
-    gateway.startContinuable({
+    startMemberWithLenientFilter((toolFilter) => gateway.startContinuable({
       provider: config.provider,
       label,
       request: {
         prompt: [{ type: 'text', text: initialPrompt ?? memberWelcome(team, member.name) }],
         parent: captain,
         persona: memberPersona(team, member, stateDir, config.executionPrompt),
-        toolFilter: { deny: [...MEMBER_DENIED_TOOLS, ...(config.maxDepth === 0 ? ['send_message'] : [])] },
+        toolFilter,
         agentOptions: {
           provider: llmSelection.provider,
           model: llmSelection.model,
@@ -804,7 +853,7 @@ export async function spawnMember(
         // the member-relative admission guard controls later delegation.
       },
       signal,
-    })
+    }), memberToolFilter(config.maxDepth, restrictableToolNames(captain)))
   ))
   member.id = start.childId
 }
@@ -851,11 +900,14 @@ export async function deliverToMember(
     if (mode === 'queue') {
       await gateway.sendMessage(captain, brandedSessionId(childId), [{ type: 'text', text }], { signal }, admit)
     } else {
-      await gateway.withChildLock(brandedSessionId(childId), async () => {
-        const parent = gateway.resolveParent(captain)
-        await admit()
-        await steerMemberPrompt(ctx.subagents, parent, brandedSessionId(childId), [{ type: 'text', text }], signal, ctx.agents.get(brandedSessionId(childId)))
-      })
+      await gateway.steerMessage(
+        captain,
+        brandedSessionId(childId),
+        [{ type: 'text', text }],
+        { signal },
+        ctx.agents.get(brandedSessionId(childId)),
+        admit,
+      )
     }
     return true
   } catch (error: unknown) {
@@ -871,9 +923,9 @@ export async function deliverToMember(
  * @param captain - the exact live captain agent (the member's parent).
  * @param childId - the member's durable child session id.
  */
-export function interruptMember(ctx: Context, captain: Agent, childId: string): void {
+export async function interruptMember(ctx: Context, captain: Agent, childId: string): Promise<void> {
   try {
-    agentTeamsSubagentGateway(ctx).interrupt(captain, brandedSessionId(childId))
+    await agentTeamsSubagentGateway(ctx).interrupt(captain, brandedSessionId(childId))
   } catch (error: unknown) {
     ctx.logger.warn(`agent-teams: interrupt of member ${childId} failed: ${String(error)}`)
   }

@@ -14,21 +14,19 @@
  * rows the user can still fill in by hand.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LlmDiscoveredModel } from '@deepseek-ai/dsh-api-remotes/client'
-import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconPlusOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatCapacity, parseCapacity } from './DeepSeekModelsEditor.tsx'
 import type { ModelsOperations } from './operations.ts'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
-import {
-  applyImageInputChoice, applyImageInputChoiceToAll, readImageInputChoice,
-} from './model-input.ts'
-import type { ImageInputChoice } from './model-input.ts'
+import type { en } from './locales.ts'
+import { ModelRow } from './ModelRow.tsx'
+import { applyImageInputChoiceToAll } from './model-input.ts'
 import { applyCapabilityProbeResult, capabilityResultStatus } from './model-capabilities.ts'
 import type { CapabilityStatus, ModelCapabilityProbeResult } from '../capability-contract.ts'
 import type { ModelCapabilityProbeRemote } from '../remote.ts'
-import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /**
@@ -42,7 +40,6 @@ function textOf(model: ModelDraft, key: string): string {
   const value = model[key]
   return typeof value === 'string' ? value : ''
 }
-
 /** A row's numeric field, or `undefined` when unset or not a number. */
 function numberOf(model: ModelDraft, key: string): number | undefined {
   const value = model[key]
@@ -65,7 +62,7 @@ export interface ProbeTarget {
   api?: string
   /** Key typed into the form and not yet stored, when there is one. */
   apiKey?: string
-  /** Credential reference resolved by the Host when no one-shot key is typed. */
+  /** Stored credential reference resolved only by the Host capability probe. */
   credentialRef?: string
 }
 
@@ -73,6 +70,10 @@ export interface ProbeTarget {
 export interface ModelListEditorProps {
   /** The rows as currently drafted. */
   models: readonly ModelDraft[]
+  /** Installed provider whose catalog supplies defaults without endpoint I/O. */
+  catalogProvider?: string | undefined
+  /** Route input types for models absent from the installed catalog. */
+  defaultInput?: readonly string[] | undefined
   /** Whether the user layer currently owns the whole array; absent on a create. */
   overridden?: boolean
   /** Replace the drafted rows. */
@@ -87,39 +88,22 @@ export interface ModelListEditorProps {
    * asking with a key the form has already refused spends a round trip to be
    * told what the field already says.
    */
-  probeBlocked?: ModelsKey | undefined
+  probeBlocked?: keyof typeof en | undefined
   /** The Host operations whose interrogation answers the fetch action. */
   operations: ModelsOperations
-  /** Host-side, provider-neutral capability probe; model editing remains available while it mounts. */
+  /** Optional Host probe; normal model editing remains available while it mounts. */
   modelCapabilities?: ModelCapabilityProbeRemote
   /** Section copy. */
-  t: (key: ModelsKey) => string
+  t: (key: keyof typeof en) => string
   /** Disable every control (read-only deployment or a pending write). */
   disabled: boolean
-}
-
-/** Disclosure chevron; rotates to point down while its row is open. */
-function IconChevron({ open }: { open: boolean }): ReactNode {
-  return (
-    <svg
-      width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden
-      style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform 120ms ease' }}
-    >
-      <path d="M6 3.5L10.5 8L6 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-/** Removal glyph for one model row. */
-function IconTrash(): ReactNode {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path
-        d="M2.5 4h11M6.5 4V2.5h3V4M4 4l.7 9a1 1 0 001 .9h4.6a1 1 0 001-.9L12 4M6.5 6.8v4.4M9.5 6.8v4.4"
-        stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"
-      />
-    </svg>
-  )
+  /**
+   * Called once per change with whether an endpoint interrogation is in
+   * flight. The owning card folds it into its own busy state so the surface
+   * around the card — a mode switch, say — can refuse to move while the
+   * answer, and the picker it opens, is still bound for this list.
+   */
+  onBusyChange?: (busy: boolean) => void
 }
 
 /** The two token counts edited as K/M-suffixed text behind a row's disclosure. */
@@ -152,17 +136,38 @@ function capacitySpelling(value: number | undefined): string {
   return value === undefined ? '' : formatCapacity(value)
 }
 
-/** Adopt a candidate, keeping whatever capacities the provider disclosed. */
+/** Adopt a candidate, preserving disclosed capacities and input types. */
 function adopt(candidate: LlmDiscoveredModel): ModelDraft {
   return {
     id: candidate.id,
     ...candidate.name === undefined ? {} : { name: candidate.name },
     ...candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow },
     ...candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens },
+    ...candidate.inputModalities === undefined ? {} : { input: [...candidate.inputModalities] },
   }
 }
 
-function capabilityStatusKey(status: CapabilityStatus): ModelsKey {
+/** Resolve the installed catalog's per-model input declaration before the route default. */
+export function inputFallbackForModel(
+  inputDefaults: ReadonlyMap<string, readonly string[] | undefined>,
+  defaultInput: readonly string[] | undefined,
+  modelId: string,
+): readonly string[] | undefined {
+  return inputDefaults.get(modelId) ?? defaultInput
+}
+
+/** Keep candidate filtering deterministic and independent of the picker presentation. */
+export function filterModelCandidates(
+  candidates: readonly LlmDiscoveredModel[],
+  query: string,
+): readonly LlmDiscoveredModel[] {
+  const normalized = query.trim().toLowerCase()
+  if (normalized.length === 0) return candidates
+  return candidates.filter(candidate => candidate.id.toLowerCase().includes(normalized)
+    || candidate.name?.toLowerCase().includes(normalized) === true)
+}
+
+function capabilityStatusKey(status: CapabilityStatus): keyof typeof en {
   switch (status) {
     case 'supported': return 'capabilitySupported'
     case 'unsupported': return 'capabilityUnsupported'
@@ -171,15 +176,9 @@ function capabilityStatusKey(status: CapabilityStatus): ModelsKey {
   }
 }
 
-function capabilitySummary(
-  result: ModelCapabilityProbeResult,
-  t: (key: ModelsKey) => string,
-): string {
+function capabilitySummary(result: ModelCapabilityProbeResult, t: (key: keyof typeof en) => string): string {
   const counts: Record<CapabilityStatus, number> = {
-    supported: 0,
-    unsupported: 0,
-    inconclusive: 0,
-    'not-applicable': 0,
+    supported: 0, unsupported: 0, inconclusive: 0, 'not-applicable': 0,
   }
   for (const check of Object.values(result.checks)) counts[check.status] += 1
   return [
@@ -190,13 +189,27 @@ function capabilitySummary(
 }
 
 function probeCandidate(model: ModelDraft): Record<string, unknown> {
-  return Object.hasOwn(model, 'reasoningEfforts')
-    ? { reasoningEfforts: model['reasoningEfforts'] }
-    : {}
+  return Object.hasOwn(model, 'reasoningEfforts') ? { reasoningEfforts: model['reasoningEfforts'] } : {}
 }
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** Construct the redacted client request; the Host resolves credentialRef. */
+export function capabilityProbeRequestFor(
+  modelId: string,
+  protocol: string,
+  baseURL: string,
+  target: Pick<ProbeTarget, 'credentialRef' | 'apiKey'>,
+  candidate: Record<string, unknown>,
+) {
+  return {
+    modelId, protocol, baseURL,
+    ...target.credentialRef === undefined ? {} : { credentialRef: target.credentialRef },
+    ...target.apiKey === undefined ? {} : { apiKey: target.apiKey },
+    candidate,
+  }
 }
 
 /**
@@ -205,22 +218,39 @@ function messageOf(error: unknown): string {
  * @returns the model-list editor.
  */
 export function ModelListEditor(props: ModelListEditorProps): ReactNode {
-  const { models, onChange, probe, operations, modelCapabilities, t, disabled } = props
+  const { models, onChange, probe, operations, modelCapabilities, t, disabled, onBusyChange } = props
+  const { catalogProvider } = props
   const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
   const [probeBusy, setProbeBusy] = useState(false)
-  const [probeFailure, setProbeFailure] = useState<string | undefined>(undefined)
-  const [probeNotice, setProbeNotice] = useState<string | undefined>(undefined)
+  useEffect(() => { onBusyChange?.(busy || probeBusy) }, [busy, probeBusy, onBusyChange])
+  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [inheritedCatalog, setInheritedCatalog] = useState<{
+    provider: string
+    models: readonly LlmDiscoveredModel[]
+  } | undefined>(undefined)
+  useEffect(() => {
+    if (catalogProvider === undefined) return
+    let current = true
+    void operations.discoverModels(probe.settingsNs, { provider: catalogProvider }).then((answer) => {
+      if (!current) return
+      setInheritedCatalog({ provider: catalogProvider, models: answer.kind === 'found' ? answer.models : [] })
+      setFailure(answer.kind === 'refused' ? answer.message : undefined)
+    })
+    return () => { current = false }
+  }, [catalogProvider, operations, probe.settingsNs])
+  const catalog = inheritedCatalog?.provider === catalogProvider ? inheritedCatalog?.models : undefined
+  const inputDefaults = useMemo(() => new Map(catalog?.map(model => [model.id, model.inputModalities])), [catalog])
+  const [candidates, setCandidates] = useState<readonly LlmDiscoveredModel[] | undefined>(undefined)
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
+  const [candidateQuery, setCandidateQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set())
   const [probeResults, setProbeResults] = useState<ReadonlyMap<string, ModelCapabilityProbeResult>>(new Map())
   const [overwriteExisting, setOverwriteExisting] = useState(false)
+  const [probeFailure, setProbeFailure] = useState<string | undefined>(undefined)
+  const [probeNotice, setProbeNotice] = useState<string | undefined>(undefined)
   const probeController = useRef<AbortController | null>(null)
   const modelsRef = useRef<readonly ModelDraft[]>(models)
   modelsRef.current = models
-  const [candidates, setCandidates] = useState<readonly LlmDiscoveredModel[] | undefined>(undefined)
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
-  // Rows carry an id and a name; capacities are the exception, so they stay
-  // folded until asked for rather than crowding every row with four inputs.
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
   // Capacities are edited as text, so a field's keystrokes are held here rather
   // than re-derived from the parsed count on every change — that would rewrite
@@ -284,48 +314,24 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     }))
   }
 
-  const setImageInputChoice = (index: number, choice: ImageInputChoice): void => {
-    onChange(models.map((model, at) => at === index ? applyImageInputChoice(model, choice) : model))
-  }
-
-  const selectableIds = models
-    .map(model => textOf(model, 'id').trim())
-    .filter(id => id.length > 0)
+  const selectableIds = models.map(model => textOf(model, 'id').trim()).filter(id => id.length > 0)
   const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.has(id))
-
   const toggleSelected = (id: string): void => {
-    if (id.length === 0) return
     setSelectedIds(current => {
       const next = new Set(current)
       if (!next.delete(id)) next.add(id)
       return next
     })
   }
-
-  const toggleAllSelected = (): void => {
-    setSelectedIds(allSelected ? new Set() : new Set(selectableIds))
-  }
-
-  const cancelProbe = (): void => {
-    probeController.current?.abort()
-  }
+  const toggleAllSelected = (): void => { setSelectedIds(allSelected ? new Set() : new Set(selectableIds)) }
+  const cancelProbe = (): void => { probeController.current?.abort() }
 
   const probeSelected = async (): Promise<void> => {
-    if (modelCapabilities === undefined) {
-      setProbeFailure(t('capabilityUnavailable'))
-      return
-    }
+    if (modelCapabilities === undefined) return setProbeFailure(t('capabilityUnavailable'))
     const ids = [...selectedIds].filter(id => selectableIds.includes(id))
-    if (ids.length === 0) {
-      setProbeFailure(t('capabilitySelectModelFirst'))
-      return
-    }
+    if (ids.length === 0) return setProbeFailure(t('capabilitySelectModelFirst'))
     const baseURL = probe.baseURL?.trim() ?? ''
-    if (baseURL.length === 0) {
-      setProbeFailure(t('capabilityNeedsBaseUrl'))
-      return
-    }
-
+    if (baseURL.length === 0) return setProbeFailure(t('capabilityNeedsBaseUrl'))
     const controller = new AbortController()
     probeController.current = controller
     setProbeBusy(true)
@@ -342,21 +348,16 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           setProbeFailure(`${id}: ${t('capabilityNeedsProtocol')}`)
           continue
         }
-        const response = await modelCapabilities.probe({
-          modelId: id,
-          protocol,
-          baseURL,
-          ...probe.credentialRef === undefined ? {} : { credentialRef: probe.credentialRef },
-          ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
-          candidate: probeCandidate(model),
-        }, controller.signal)
+        const response = await modelCapabilities.probe(
+          capabilityProbeRequestFor(id, protocol, baseURL, probe, probeCandidate(model)),
+          controller.signal,
+        )
         if (!response.ok) {
           setProbeFailure(`${id}: ${response.error.message}`)
           continue
         }
-        const result = response.value
-        setProbeResults(current => new Map(current).set(id, result))
-        const updated = applyCapabilityProbeResult(modelsRef.current, result, overwriteExisting)
+        setProbeResults(current => new Map(current).set(id, response.value))
+        const updated = applyCapabilityProbeResult(modelsRef.current, response.value, overwriteExisting)
         modelsRef.current = updated
         onChange(updated)
         completed += 1
@@ -388,6 +389,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
         return
       }
       const found = answer.models
+      if (catalogProvider !== undefined) setInheritedCatalog({ provider: catalogProvider, models: found })
       if (found.length === 0) {
         setFailure(t('fetchEmpty'))
         return
@@ -395,6 +397,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
       // Everything already configured starts unchecked, so adopting a
       // selection never silently rewrites a capacity the user corrected.
       const known = new Set(models.map(model => textOf(model, 'id')))
+      setCandidateQuery('')
       setCandidates(found)
       setPicked(new Set(found.filter(model => !known.has(model.id)).map(model => model.id)))
     } finally {
@@ -405,6 +408,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const closePicker = (): void => {
     setCandidates(undefined)
     setPicked(new Set())
+    setCandidateQuery('')
   }
 
   const adoptPicked = (): void => {
@@ -432,22 +436,24 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   }
 
   const activeCandidates = candidates ?? []
-  const allCandidatesPicked = activeCandidates.length > 0
-    && activeCandidates.every(candidate => picked.has(candidate.id))
+  const visibleCandidates = filterModelCandidates(activeCandidates, candidateQuery)
+  const allVisibleCandidatesPicked = visibleCandidates.length > 0
+    && visibleCandidates.every(candidate => picked.has(candidate.id))
 
-  const toggleAllCandidates = (): void => {
+  const toggleVisibleCandidates = (): void => {
     setPicked((current) => {
-      return activeCandidates.every(candidate => current.has(candidate.id))
-        ? new Set()
-        : new Set(activeCandidates.map(candidate => candidate.id))
+      if (visibleCandidates.every(candidate => current.has(candidate.id))) {
+        return new Set()
+      }
+      const next = new Set(current)
+      for (const candidate of visibleCandidates) next.add(candidate.id)
+      return next
     })
   }
 
   // A route the adapter already describes answers without an endpoint; only a
   // draft with neither has nothing to ask about.
   const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
-  const rowDisabled = disabled || probeBusy
-  const capabilityUnavailable = modelCapabilities === undefined
   return (
     <section className={styles['modelCatalog']} aria-label={t('models')}>
       <div className={styles['modelListHead']}>
@@ -465,7 +471,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           <button
             type="button"
             className={styles['linkButton']}
-            disabled={rowDisabled || models.length === 0}
+            disabled={disabled || probeBusy || models.length === 0}
             onClick={() => { onChange(applyImageInputChoiceToAll(models, 'image')) }}
           >
             {t('setAllModelsToImage')}
@@ -473,23 +479,23 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           <button
             type="button"
             className={styles['linkButton']}
-            disabled={rowDisabled || models.length === 0}
+            disabled={disabled || probeBusy || models.length === 0}
             onClick={() => { onChange(applyImageInputChoiceToAll(models, 'auto')) }}
           >
             {t('restoreAllModelsToAuto')}
           </button>
           {props.overridden === true && props.onReset !== undefined
-            ? (
-              <button
-                type="button"
-                className={styles['linkButton']}
-                disabled={rowDisabled}
-                onClick={props.onReset}
-              >
-                {t('resetModels')}
-              </button>
-            )
-            : null}
+          ? (
+            <button
+              type="button"
+              className={styles['linkButton']}
+              disabled={disabled || probeBusy}
+              onClick={props.onReset}
+            >
+              {t('resetModels')}
+            </button>
+          )
+          : null}
           <button
             type="button"
             className={styles['linkButton']}
@@ -506,209 +512,103 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
       <div className={styles['capabilityProbe']} aria-label={t('capabilityTitle')}>
         <div className={styles['capabilityProbeHead']}>
           <span className={styles['modelCatalogTitle']}>{t('capabilityTitle')}</span>
-          <span className={styles['modelCatalogMeta']}>
-            {`${t('capabilitySelected')} ${String(selectedIds.size)}/${String(selectableIds.length)}`}
-          </span>
+          <span className={styles['modelCatalogMeta']}>{`${t('capabilitySelected')} ${String(selectedIds.size)}/${String(selectableIds.length)}`}</span>
         </div>
         <div className={styles['capabilityProbeActions']}>
-          <button
-            type="button"
-            className={styles['linkButton']}
-            disabled={rowDisabled || capabilityUnavailable || selectableIds.length === 0}
-            onClick={toggleAllSelected}
-          >
+          <button type="button" className={styles['linkButton']}
+            disabled={disabled || busy || probeBusy || modelCapabilities === undefined || selectableIds.length === 0}
+            onClick={toggleAllSelected}>
             {t(allSelected ? 'capabilityDeselectAll' : 'capabilitySelectAll')}
           </button>
           <label className={styles['capabilityOverwrite']}>
-            <input
-              type="checkbox"
-              checked={overwriteExisting}
-              disabled={rowDisabled || capabilityUnavailable}
-              onChange={(event) => { setOverwriteExisting(event.target.checked) }}
-            />
+            <input type="checkbox" checked={overwriteExisting} disabled={disabled || busy || probeBusy || modelCapabilities === undefined}
+              onChange={(event) => { setOverwriteExisting(event.target.checked) }} />
             <span>{t('capabilityOverwrite')}</span>
           </label>
           {probeBusy
-            ? (
-              <button type="button" className={styles['secondaryButton']} onClick={cancelProbe}>
-                {t('capabilityCancel')}
-              </button>
-            )
-            : (
-              <button
-                type="button"
-                className={styles['primaryButton']}
-                disabled={disabled || busy || capabilityUnavailable || selectedIds.size === 0}
-                onClick={() => { void probeSelected() }}
-              >
-                {t('capabilityProbe')}
-              </button>
-            )}
+            ? <button type="button" className={styles['secondaryButton']} onClick={cancelProbe}>{t('capabilityCancel')}</button>
+            : <button type="button" className={styles['primaryButton']} disabled={disabled || busy || modelCapabilities === undefined || selectedIds.size === 0}
+              onClick={() => { void probeSelected() }}>{t('capabilityProbe')}</button>}
         </div>
         <p className={styles['advancedHint']}>{t('capabilityDraftHint')}</p>
-        {!overwriteExisting
-          ? <p className={styles['advancedHint']} role="note">{t('capabilityPreserveHint')}</p>
-          : null}
-        {capabilityUnavailable ? <p className={styles['error']} role="status">{t('capabilityUnavailable')}</p> : null}
+        {!overwriteExisting ? <p className={styles['advancedHint']} role="note">{t('capabilityPreserveHint')}</p> : null}
+        {modelCapabilities === undefined ? <p className={styles['error']} role="status">{t('capabilityUnavailable')}</p> : null}
         {probeNotice === undefined ? null : <p className={styles['savedNotice']} role="status" aria-live="polite">{probeNotice}</p>}
         {probeFailure === undefined ? null : <p className={styles['error']} role="alert">{probeFailure}</p>}
       </div>
       {models.length === 0 ? <p className={styles['modelEmpty']}>{t('modelsEmpty')}</p> : null}
-      {models.map((model, index) => (
-        <div key={index} className={styles['modelEntry']}>
-          <div className={styles['modelRow']}>
-            <input
-              type="checkbox"
-              checked={selectedIds.has(textOf(model, 'id').trim()) && textOf(model, 'id').trim().length > 0}
-              aria-label={`${t('capabilitySelectModel')} ${index + 1}`}
-              disabled={rowDisabled || capabilityUnavailable || textOf(model, 'id').trim().length === 0}
-              onChange={() => { toggleSelected(textOf(model, 'id').trim()) }}
-            />
-            <input
-              className={styles['input']}
-              type="text"
-              value={textOf(model, 'id')}
-              placeholder={t('modelId')}
-              aria-label={`${t('modelId')} ${index + 1}`}
-              disabled={rowDisabled}
-              onChange={(event) => { patch(index, { id: event.target.value }) }}
-            />
-            <input
-              className={styles['input']}
-              type="text"
-              value={textOf(model, 'name')}
-              placeholder={t('modelName')}
-              aria-label={`${t('modelName')} ${index + 1}`}
-              disabled={rowDisabled}
-              onChange={(event) => { patch(index, { name: event.target.value === '' ? undefined : event.target.value }) }}
-            />
-            <button
-              type="button"
-              className={styles['iconButton']}
-              aria-label={`${t('modelAdvanced')} ${index + 1}`}
-              aria-expanded={expanded.has(index)}
-              title={t('modelAdvanced')}
-              disabled={rowDisabled}
-              onClick={() => { toggleExpanded(index) }}
-            >
-              <IconChevron open={expanded.has(index)} />
-            </button>
-            <button
-              type="button"
-              className={`${styles['iconButton']} ${styles['iconButtonDanger']}`}
-              aria-label={`${t('removeModel')} ${index + 1}`}
-              title={t('removeModel')}
-              disabled={rowDisabled}
-              onClick={() => {
-                onChange(models.filter((_model, at) => at !== index))
-                // Both stores are keyed by position, so every row after this
-                // one shifts down and would otherwise inherit its neighbour's
-                // state — a different row's capacities popping open, or its
-                // half-typed text appearing in another row's field.
-                setExpanded((current) => {
-                  const next = new Set<number>()
-                  for (const at of current) {
-                    if (at < index) next.add(at)
-                    else if (at > index) next.add(at - 1)
-                  }
-                  return next
-                })
-                setEditing(current => reindexOnRemove(current, index))
-              }}
-            >
-              <IconTrash />
-            </button>
-          </div>
-          {expanded.has(index)
-            ? (
-              <div className={styles['modelAdvanced']}>
-                <label className={styles['modelField']}>
-                  <span className={styles['modelFieldLabel']}>{t('modelContextWindow')}</span>
-                  <input
-                    className={styles['input']}
-                    type="text"
-                    inputMode="numeric"
-                    value={capacityText(model, index, 'contextWindow')}
-                    placeholder={CAPACITY_HINT.contextWindow}
-                    aria-label={`${t('modelContextWindow')} ${index + 1}`}
-                    disabled={rowDisabled}
-                    onChange={(event) => { editCapacity(index, 'contextWindow', event.target.value) }}
-                  />
-                </label>
-                <label className={styles['modelField']}>
-                  <span className={styles['modelFieldLabel']}>{t('modelMaxTokens')}</span>
-                  <input
-                    className={styles['input']}
-                    type="text"
-                    inputMode="numeric"
-                    value={capacityText(model, index, 'maxTokens')}
-                    placeholder={CAPACITY_HINT.maxTokens}
-                    aria-label={`${t('modelMaxTokens')} ${index + 1}`}
-                    disabled={rowDisabled}
-                    onChange={(event) => { editCapacity(index, 'maxTokens', event.target.value) }}
-                  />
-                </label>
-                <label className={styles['modelField']}>
-                  <span className={styles['modelFieldLabel']}>{t('modelImageInput')}</span>
-                  {(() => {
-                    const imageChoice = readImageInputChoice(model)
-                    return (
-                      <>
-                        <select
-                          className={`${styles['input']} ${styles['selectInput']} ${styles['modelInputChoice']}`}
-                          value={imageChoice}
-                          aria-invalid={imageChoice === 'invalid'}
-                          disabled={rowDisabled}
-                          onChange={(event) => { setImageInputChoice(index, event.target.value as ImageInputChoice) }}
-                        >
-                          {imageChoice === 'invalid'
-                            ? <option value="invalid" disabled>{t('modelImageInvalid')}</option>
-                            : null}
-                          <option value="auto">{t('modelImageAuto')}</option>
-                          <option value="image">{t('modelImageSupported')}</option>
-                          <option value="text-only">{t('modelImageTextOnly')}</option>
-                        </select>
-                        <span className={styles['modelFieldHint']}>
-                          {t(imageChoice === 'auto'
-                            ? 'modelImageAutoHint'
-                            : imageChoice === 'image'
-                              ? 'modelImageSupportedHint'
-                              : imageChoice === 'text-only'
-                                ? 'modelImageTextOnlyHint'
-                                : 'modelImageInvalid')}
-                        </span>
-                        <span className={styles['modelFieldHint']}>{t('modelImageRestartHint')}</span>
-                      </>
-                    )
-                  })()}
-                </label>
-              </div>
-            )
-            : null}
-          {(() => {
-            const id = textOf(model, 'id').trim()
-            const result = id.length === 0 ? undefined : probeResults.get(id)
-            if (result === undefined) return null
-            const status = capabilityResultStatus(result)
-            return (
-              <div
-                className={`${styles['capabilityStatus']} ${styles[`capabilityStatus_${status.replace('-', '_')}`]}`}
-                data-status={status}
-                role="status"
-              >
-                <span>{t(capabilityStatusKey(status))}</span>
-                <span>{capabilitySummary(result, t)}</span>
-              </div>
-            )
-          })()}
-        </div>
-      ))}
+      <div className={styles['modelList']}>
+        {models.map((model, index) => (
+          <ModelRow
+            key={index}
+            model={model}
+            position={index + 1}
+            leadingControl={(
+              <input
+                type="checkbox"
+                checked={selectedIds.has(textOf(model, 'id').trim()) && textOf(model, 'id').trim().length > 0}
+                aria-label={`${t('capabilitySelectModel')} ${String(index + 1)}`}
+                disabled={disabled || probeBusy || modelCapabilities === undefined || textOf(model, 'id').trim().length === 0}
+                onChange={() => { toggleSelected(textOf(model, 'id').trim()) }}
+              />
+            )}
+            inputField="input"
+            inputFallback={inputFallbackForModel(inputDefaults, props.defaultInput, textOf(model, 'id'))}
+            inputLoading={catalogProvider !== undefined && catalog === undefined}
+            expanded={expanded.has(index)}
+            disabled={disabled || probeBusy}
+            t={t}
+            contextWindow={{
+              value: capacityText(model, index, 'contextWindow'),
+              placeholder: CAPACITY_HINT.contextWindow,
+              onChange: (text) => { editCapacity(index, 'contextWindow', text) },
+            }}
+            maxTokens={{
+              value: capacityText(model, index, 'maxTokens'),
+              placeholder: CAPACITY_HINT.maxTokens,
+              onChange: (text) => { editCapacity(index, 'maxTokens', text) },
+            }}
+            onFieldChange={(field, value) => { patch(index, { [field]: value }) }}
+            onChange={(next) => {
+              const updated = models.map((row, at) => at === index ? next : row)
+              modelsRef.current = updated
+              onChange(updated)
+            }}
+            onToggle={() => { toggleExpanded(index) }}
+            onRemove={() => {
+              onChange(models.filter((_model, at) => at !== index))
+              setExpanded((current) => {
+                const next = new Set<number>()
+                for (const at of current) {
+                  if (at < index) next.add(at)
+                  else if (at > index) next.add(at - 1)
+                }
+                return next
+              })
+              setEditing(current => reindexOnRemove(current, index))
+            }}
+            footer={(() => {
+              const id = textOf(model, 'id').trim()
+              const result = id.length === 0 ? undefined : probeResults.get(id)
+              if (result === undefined) return null
+              const status = capabilityResultStatus(result)
+              return (
+                <div className={`${styles['capabilityStatus']} ${styles[`capabilityStatus_${status.replace('-', '_')}`]}`} data-status={status} role="status">
+                  <span>{t(capabilityStatusKey(status))}</span>
+                  <span>{capabilitySummary(result, t)}</span>
+                </div>
+              )
+            })()}
+          />
+        ))}
+      </div>
       <button
         type="button"
         className={styles['addModelButton']}
-        disabled={rowDisabled}
+        disabled={disabled}
         onClick={() => { onChange([...models, { id: '' }]) }}
       >
+        <IconPlusOutlineRegular size={14} />
         {t('addModel')}
       </button>
       {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
@@ -726,28 +626,44 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           </>
         )}
       >
-        <div className={styles['candidateActions']}>
-          <Button variant="ghost" size="sm" onClick={toggleAllCandidates}>
-            {t(allCandidatesPicked ? 'fetchDeselectAll' : 'fetchSelectAll')}
+        <div className={styles['candidateToolbar']}>
+          <input
+            className={`${styles['input']} ${styles['candidateSearch']}`}
+            type="search"
+            value={candidateQuery}
+            placeholder={t('fetchSearch')}
+            aria-label={t('fetchSearch')}
+            onChange={(event) => { setCandidateQuery(event.target.value) }}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={visibleCandidates.length === 0}
+            onClick={toggleVisibleCandidates}
+          >
+            {t(allVisibleCandidatesPicked ? 'fetchDeselectAll' : 'fetchSelectAll')}
           </Button>
         </div>
-        <ul className={styles['candidateList']}>
-          {(candidates ?? []).map(candidate => (
-            <li key={candidate.id} className={styles['candidate']}>
-              <label className={styles['candidateLabel']}>
-                <input
-                  type="checkbox"
-                  checked={picked.has(candidate.id)}
-                  onChange={() => { toggle(candidate.id) }}
-                />
-                {/* The id alone: it is the string adoption writes, and the
-                    capacities the endpoint reported are adopted with it and
-                    editable in the row that appears. */}
-                <span className={styles['candidateId']}>{candidate.id}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
+        {visibleCandidates.length === 0
+          ? <p className={styles['candidateEmpty']} role="status">{t('fetchNoMatches')}</p>
+          : (
+            <ul className={styles['candidateList']}>
+              {visibleCandidates.map(candidate => (
+                <li key={candidate.id} className={styles['candidate']}>
+                  <label className={styles['candidateLabel']}>
+                    <input
+                      type="checkbox"
+                      checked={picked.has(candidate.id)}
+                      onChange={() => { toggle(candidate.id) }}
+                    />
+                    <span className={styles['candidateId']} title={candidate.name ?? candidate.id}>
+                      {candidate.id}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
       </Modal>
     </section>
   )

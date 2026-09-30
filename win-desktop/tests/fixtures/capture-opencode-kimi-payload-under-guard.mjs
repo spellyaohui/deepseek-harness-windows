@@ -35,8 +35,10 @@ const schema = Type.Object({
 schema.properties.choices.items = [{ type: 'string' }, { type: 'number' }]
 
 const events = stream(model, {
-  messages: [{ role: 'user', content: 'hi', timestamp: 0 }],
-  tools: [{ name: 'probe', description: 'capture serialized tool schema', parameters: schema }],
+  messages: [
+    { role: 'system', content: '', toolsAdded: [{ name: 'probe', description: 'capture serialized tool schema', parameters: schema }], timestamp: 0 },
+    { role: 'user', content: 'hi', timestamp: 0 },
+  ],
 }, {
   apiKey: 'test',
   onPayload(payload) {

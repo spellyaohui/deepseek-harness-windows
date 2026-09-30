@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
+import { sha256File } from '../scripts/verify-rc1-source.mjs'
 
 const require = createRequire(import.meta.url)
 const wrapperRoot = dirname(fileURLToPath(new URL('../package.json', import.meta.url)))
@@ -23,12 +24,12 @@ const localDependencies = {
 }
 
 const localVersions = {
-  '@deepseek-ai/dsh-client-ui-settings-models': '0.1.5-rc.1-desktop.3',
-  '@deepseek-ai/dsh-cpa-provider': '0.1.8',
+  '@deepseek-ai/dsh-client-ui-settings-models': '0.2.0-rc.2-desktop.1',
+  '@deepseek-ai/dsh-cpa-provider': '0.1.10',
   '@deepseek-ai/dsh-desktop-settings': '0.1.2',
   '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.18-desktop.1',
+  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.1',
 }
 
 const sourcePluginDirectories = [
@@ -50,20 +51,20 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.1.5-rc.4')
-  assert.equal(packageLock.version, '0.1.5-rc.4')
-  assert.equal(packageLock.packages[''].version, '0.1.5-rc.4')
+  assert.equal(packageJson.version, '0.2.0-rc.2')
+  assert.equal(packageLock.version, '0.2.0-rc.2')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.2')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
-  assert.equal(modelsPackage.version, '0.1.5-rc.1-desktop.3')
+  assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.1')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.1.5-rc.1-desktop.3',
+    '0.2.0-rc.2-desktop.1',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.18-desktop.1')
+  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.1')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.18-desktop.1',
+    '0.1.22-desktop.1',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -113,11 +114,16 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     '../docs/UPSTREAM_MAINTENANCE.md',
     '../docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md',
     '../docs/UPSTREAM_RC1_SOURCE_MANIFEST.md',
+    '../docs/UPSTREAM_017_SOURCE_MANIFEST.md',
+    '../docs/UPSTREAM_020_SOURCE_MANIFEST.md',
     'release-notes/v0.1.2-rc.8.md',
     'release-notes/v0.1.5-rc.1.md',
     'release-notes/v0.1.5-rc.2.md',
     'release-notes/v0.1.5-rc.3.md',
     'release-notes/v0.1.5-rc.4.md',
+    'release-notes/v0.1.5-rc.5.md',
+    'release-notes/v0.1.7-rc.2.md',
+    'release-notes/v0.2.0-rc.2.md',
     'release-notes/v0.1.2-rc.7.md',
     'scripts/verify-alpha2-source.mjs',
     'scripts/verify-rc1-source.mjs',
@@ -134,6 +140,8 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'models-settings-plugin/tests/capability-ui.test.js',
     'models-settings-plugin/tests/models-section-availability.test.js',
     'models-settings-plugin/tests/output-link-safety.test.js',
+    'models-settings-plugin/tests/upstream-v017-models.test.js',
+    'models-settings-plugin/tests/model-list-upstream-runtime.test.js',
     'models-settings-plugin/scripts/detach-output-links.mjs',
     'cpa-provider-plugin/tests/capacity.test.js',
     'cpa-provider-plugin/tests/client-registration.test.js',
@@ -147,6 +155,13 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/release-notes/v0.1.17.md',
     'agent-teams-plugin/release-notes/v0.1.18.md',
     'agent-teams-plugin/release-notes/v0.1.18-desktop.1.md',
+    'agent-teams-plugin/release-notes/v0.1.19-desktop.1.md',
+    'agent-teams-plugin/release-notes/v0.1.21-desktop.1.md',
+    'agent-teams-plugin/release-notes/v0.1.22-desktop.1.md',
+    'assets/cli/dsh.cmd',
+    'assets/cli/command-path.ps1',
+    'src/command-management.js',
+    'tests/command-management.test.js',
     'agent-teams-plugin/release-notes/v0.1.16-rc.2.md',
     'agent-teams-plugin/release-notes/v0.1.16-rc.1.md',
     'agent-teams-plugin/release-notes/v0.1.15-alpha.1.md',
@@ -158,7 +173,13 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/scripts/release-metadata.mjs',
     'agent-teams-plugin/scripts/release-metadata.test.mjs',
     'agent-teams-plugin/src/harness-compat.ts',
+    'agent-teams-plugin/src/tool-names.ts',
     'agent-teams-plugin/scripts/harness-compat-tdd.mjs',
+    'agent-teams-plugin/scripts/routing-policy-assembly-verify.mjs',
+    'agent-teams-plugin/scripts/routing-policy-lifecycle-verify.mjs',
+    'agent-teams-plugin/scripts/hmr-member-runtime-verify.mjs',
+    'agent-teams-plugin/scripts/issue-159.test.mjs',
+    'agent-teams-plugin/scripts/workspace-activity.test.mjs',
     'agent-teams-plugin/scripts/stability-tdd.mjs',
     'agent-teams-plugin/src/mailbox.ts',
     'agent-teams-plugin/src/status-render.ts',
@@ -196,9 +217,37 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     const normalized = relativePath.startsWith('../') ? relativePath.slice(3) : relativePath
     assert.equal(existsSync(join(base, normalized)), true, `${relativePath} must remain present`)
   }
+
+  const manifest = read('../docs/UPSTREAM_017_SOURCE_MANIFEST.md')
+  const rows = [...manifest.matchAll(/^\| (vendor|dsh) \| ([^|]+) \| ([^|]+) \| ([a-f0-9]{64}) \| (upstream\/dsh-v0\.1\.7-rc\.2\/tarballs\/[^|]+) \|$/gm)]
+  assert.equal(rows.length, 323)
+  assert.equal(rows.filter(row => row[1] === 'vendor').length, 9)
+  assert.equal(rows.filter(row => row[1] === 'dsh').length, 314)
+  const files = new Set()
+  for (const row of rows) {
+    const file = row[5].trim()
+    assert.match(file, /^upstream\/dsh-v0\.1\.7-rc\.2\/tarballs\/(?:vendor|dsh)\/[A-Za-z0-9.-]+\.tgz$/)
+    assert.equal(files.has(file), false, `duplicated official tarball: ${file}`)
+    files.add(file)
+    assert.equal(sha256File(join(repositoryRoot, file)), row[4], `official tarball changed: ${file}`)
+  }
+  const actualFiles = ['vendor', 'dsh'].flatMap(family => readdirSync(join(repositoryRoot, 'upstream/dsh-v0.1.7-rc.2/tarballs', family))
+    .filter(name => name.endsWith('.tgz')).map(name => `upstream/dsh-v0.1.7-rc.2/tarballs/${family}/${name}`))
+  assert.deepEqual(actualFiles.sort(), [...files].sort())
+})
+
+test('the recommended 0.2.0 source manifest matches every packed official tarball', () => {
+  const manifest = read('../docs/UPSTREAM_020_SOURCE_MANIFEST.md')
+  assert.match(manifest, /639ed015397290b3745d163aafe02ffee4aa3f84/u)
+  const rows = [...manifest.matchAll(/^\| (vendor|dsh) \| ([^|]+) \| ([^|]+) \| ([a-f0-9]{64}) \| (upstream\/dsh-v0\.2\.0-rc\.2\/tarballs\/[^|]+) \|$/gmu)]
+  assert.equal(rows.length, 327)
+  for (const row of rows) {
+    assert.equal(sha256File(join(repositoryRoot, row[5].trim())), row[4], row[2].trim())
+  }
 })
 
 test('critical integration markers retain local capability ownership', () => {
+  assert.match(agentTeamsPackage.scripts.verify, /hmr-member-runtime-verify\.mjs/)
   assertContains('../AGENTS.md', /AgentTeams `v0\.1\.16-rc\.1` interaction invariants/)
   assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.6` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
@@ -281,16 +330,16 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /rewriteKnownToolArgumentAliases/)
   assertContains('src/win-hide-console-rewrite.js', /rewriteQuotaErrorClassification/)
   assertContains('src/win-hide-console-rewrite.js', /isExplicitPeriodUsageLimitExceeded/)
-  assertContains('src/win-hide-console-rewrite.js', /rewriteDesktopClientBundle/)
-  assertContains('src/win-hide-console-rewrite.js', /__windows_hidden_subagent/)
+  assert.doesNotMatch(read('src/win-hide-console-rewrite.js'), /rewriteDesktopClientBundle|__windows_hidden_subagent/)
   assertContains('src/win-hide-console-rewrite.js', /x-opencode-session/)
-  assertContains('../AGENTS.md', /hide only the native Subagent plugin settings card/i)
+  assertContains('../AGENTS.md', /Native Subagent and AgentTeams settings remain separately visible/i)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /native Subagent plugin settings card/i)
   for (const dependency of [
     '@deepseek-ai/dsh-subagent',
     '@deepseek-ai/dsh-subagent-fork-in-process',
     '@deepseek-ai/dsh-subagent-in-process-driver',
     '@deepseek-ai/dsh-subagent-spawn-in-process',
+    '@deepseek-ai/dsh-client-ui-settings-subagent',
   ]) {
     assert.equal(typeof packageJson.dependencies[dependency], 'string')
     assert.equal(typeof packageLock.packages['']?.dependencies?.[dependency], 'string')

@@ -33,9 +33,9 @@ function createRuntime(currentMode, requestApproval = async () => 'allowed-once'
     shell: {
       sandboxMode: currentMode,
       resolve: (request) => request,
-      run: async () => {
+      execute: async () => {
         runnerCalls += 1
-        return successfulResult()
+        return { result: async () => successfulResult() }
       },
     },
     shellEnv: { collect: () => ({}) },

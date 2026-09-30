@@ -10,7 +10,7 @@ export interface ActivityMember {
   readonly role: string
   readonly provider?: string
   readonly model?: string
-  readonly reasoningMode: RoleReasoningMode
+  readonly reasoningMode?: RoleReasoningMode
   readonly reasoningEffort?: string
   readonly executionPrompt?: string
   readonly status?: 'idle' | 'working' | 'removed'
@@ -199,6 +199,7 @@ export interface ActivityPollingRuntime {
   readonly schedule?: (callback: () => void, intervalMs: number) => unknown
   readonly cancel?: (timer: unknown) => void
   readonly publishSnapshots?: (update: Partial<ActivitySnapshots>) => void
+  readonly onStatus?: (status: 'ready' | 'error') => void
 }
 
 /** Handle returned by one current-session polling loop. */
@@ -261,9 +262,11 @@ export function startActivityPolling(
         cache: 'no-store',
         signal: controller.signal,
       })
-      if (!liveResponse.ok) return
+      if (!liveResponse.ok) throw new Error('Activity unavailable')
       const body = (await liveResponse.json()) as { teams?: unknown }
-      if (cancelled || !Array.isArray(body.teams)) return
+      if (cancelled) return
+      if (!Array.isArray(body.teams)) throw new Error('Invalid activity response')
+      runtime.onStatus?.('ready')
       const liveTeams = body.teams as readonly ActivityTeam[]
       publishSnapshots({ teams: liveTeams })
       const previousDiscoveredKeys = discoveredLiveKeys
@@ -295,13 +298,15 @@ export function startActivityPolling(
         cache: 'no-store',
         signal: controller.signal,
       })
-      if (!archivedResponse.ok) return
+      if (!archivedResponse.ok) throw new Error('Archive unavailable')
       const archivedBody = (await archivedResponse.json()) as { teams?: unknown }
-      if (cancelled || !Array.isArray(archivedBody.teams)) return
+      if (cancelled) return
+      if (!Array.isArray(archivedBody.teams)) throw new Error('Invalid archive response')
       publishSnapshots({ archivedTeams: archivedBody.teams as readonly ActivityTeam[] })
       discoveryComplete = true
     } catch (error: unknown) {
       if ((error as { name?: unknown })?.name === 'AbortError') return
+      if (!cancelled) runtime.onStatus?.('error')
       // Host restarting; keep the last snapshot and retry on the next tick.
     } finally {
       inFlight = false

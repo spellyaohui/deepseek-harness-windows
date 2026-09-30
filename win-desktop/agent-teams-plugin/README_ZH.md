@@ -26,6 +26,12 @@
 
 查看[最新版本说明](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest)，或浏览[完整发布历史](https://github.com/NanmiCoder/dsh-agent-teams/releases)。同一份 Markdown 说明也会随 npm 包发布到 `release-notes/` 目录。
 
+### v0.1.21-desktop.1
+
+- 采用上游 v0.1.21 团队工作区/侧栏、成员会话导航、历史卡作用域、报告来源校验和证据去重。
+- 跟随推荐 Harness 0.1.7-rc.2，保留严格 V2、角色级 Provider/模型/思考策略、认证 Web/CAS、质量扩展与唯一 durable-session 网关。
+- 官方 Native 配置与本地“AgentTeams 团队”配置分开可见。固定来源及能力归属见 [UPSTREAM.md](./UPSTREAM.md)。
+
 ### v0.1.16-rc.3
 
 - 推荐的 Harness 宿主矩阵没有变化（`0.1.2-rc.1`、`0.1.2-alpha.5`、`0.1.2-alpha.2`），本次只升级 AgentTeams 上游基线。

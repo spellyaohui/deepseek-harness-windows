@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const wrapperRoot = resolve(dirname(scriptPath), '..')
+const EXPECTED_DSH_HOST_VERSION = '0.2.0-rc.2'
 
 export const REQUIRED_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/dsh-app-boot',
@@ -79,17 +80,17 @@ function resolvePackageManifest(name, requiringPath) {
 function dependencyEdges(manifest) {
   const edges = []
   const required = new Set()
-  for (const name of Object.keys(manifest.dependencies ?? {})) {
+  for (const [name, spec] of Object.entries(manifest.dependencies ?? {})) {
     required.add(name)
-    edges.push({ name, optional: false })
+    edges.push({ name, spec, optional: false })
   }
-  for (const name of Object.keys(manifest.optionalDependencies ?? {})) {
-    if (!required.has(name)) edges.push({ name, optional: true })
+  for (const [name, spec] of Object.entries(manifest.optionalDependencies ?? {})) {
+    if (!required.has(name)) edges.push({ name, spec, optional: true })
   }
-  for (const name of Object.keys(manifest.peerDependencies ?? {})) {
+  for (const [name, spec] of Object.entries(manifest.peerDependencies ?? {})) {
     if (required.has(name)) continue
     const optional = manifest.peerDependenciesMeta?.[name]?.optional === true
-    edges.push({ name, optional })
+    edges.push({ name, spec, optional })
   }
   return edges
 }
@@ -124,8 +125,12 @@ export function verifyRuntimeClosure({
   const packagePath = resolve(absoluteAppRoot, 'package.json')
   if (!existsSync(anchorPath)) throw new Error(`runtime anchor is missing: ${anchorPath}`)
   const rootManifest = readJson(packagePath, 'runtime package.json')
-  const pending = Object.keys(rootManifest.dependencies ?? {}).map(name => ({
+  const localOwners = new Set(Object.entries(rootManifest.dependencies ?? {})
+    .filter(([, spec]) => typeof spec === 'string' && spec.startsWith('file:') && !spec.endsWith('.tgz'))
+    .map(([name]) => name))
+  const pending = Object.entries(rootManifest.dependencies ?? {}).map(([name, spec]) => ({
     name,
+    spec,
     requiringPath: anchorPath,
     requiredBy: rootManifest.name ?? '<app>',
     optional: false,
@@ -148,8 +153,20 @@ export function verifyRuntimeClosure({
     const realManifestPath = realpathSync(manifestPath)
     if (visited.has(realManifestPath)) continue
     const manifest = readJson(realManifestPath, `${edge.name} package.json`)
-    if (manifest.name !== edge.name) {
+    const alias = typeof edge.spec === 'string' && edge.spec.startsWith('npm:')
+      ? edge.spec.slice(4) : ''
+    const aliasSeparator = alias.lastIndexOf('@')
+    const declaredAlias = aliasSeparator > 0 && alias.slice(0, aliasSeparator) === manifest.name
+      && alias.slice(aliasSeparator + 1) === manifest.version
+    if (manifest.name !== edge.name && !declaredAlias) {
       throw new Error(`runtime dependency identity mismatch: requested ${edge.name}, found ${String(manifest.name)}`)
+    }
+    const isDsh = manifest.name === '@deepseek-ai/dsh' || manifest.name.startsWith('@deepseek-ai/dsh-')
+    const directLocalPath = join(absoluteAppRoot, 'node_modules', ...manifest.name.split('/'), 'package.json')
+    const localOwner = localOwners.has(manifest.name) && existsSync(directLocalPath)
+      && realpathSync(directLocalPath) === realManifestPath
+    if (isDsh && !localOwner && manifest.version !== EXPECTED_DSH_HOST_VERSION) {
+      throw new Error(`${manifest.name}@${manifest.version} differs from pinned host ${EXPECTED_DSH_HOST_VERSION}`)
     }
     visited.add(realManifestPath)
     packages.push({

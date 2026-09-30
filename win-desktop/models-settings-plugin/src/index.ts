@@ -1,12 +1,26 @@
+/** Host configuration and page bootstrap for Models credential onboarding. */
+
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-host-webserver'
+import { type Config, ONBOARDING_CONFIG_GLOBAL } from './onboarding-config.ts'
 import { ModelCapabilityProbeService } from './capability-probe-service.ts'
 
-/** Host loader entry for the browser implementation exported from `./client`. */
+export { Config } from './onboarding-config.ts'
 
-/** Wait for the credential seam before registering the Host Remote service. */
+/**
+ * Publish the credential-onboarding choice before browser plugins activate.
+ * @param ctx - Host context collecting the page's initialization data.
+ * @param config - plugin options with schema defaults applied by the Loader.
+ */
 export const inject = ['credentials']
 
-/** Register the provider-neutral model capability probe service. */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: Config): void {
   new ModelCapabilityProbeService(ctx)
+  ctx.on('webserver/index-inject', (table) => {
+    table.push({
+      kind: 'global',
+      name: ONBOARDING_CONFIG_GLOBAL,
+      value: { credentialOnboarding: config.credentialOnboarding },
+    })
+  })
 }

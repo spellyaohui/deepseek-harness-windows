@@ -1,17 +1,19 @@
 import { createRequire } from 'node:module'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createRuntimeResolution } from '@deepseek-ai/dsh-app-boot'
 import {
   buildDshArgs,
   generateAgentTeamsPatch,
-  healDesktopPluginFallback,
   resolveAgentTeamsPatch,
-  resolveDesktopInstallAnchor,
+  resolveWinHideConsoleImport,
 } from '../src/dsh-service.js'
+import { rewriteDesktopConsoleSource } from '../src/win-hide-console-rewrite.js'
 
 const PLUGINS = [
   '@deepseek-ai/dsh-app-boot',
@@ -43,31 +45,71 @@ test('profile directory cannot resolve desktop plugins before healing', () => {
   }
 })
 
-test('healing the desktop install anchor makes desktop plugins resolvable from the profile', async () => {
+test('official runtime resolution includes desktop plugins without writing profile links', async () => {
   const { home, profileDir } = makeHome()
   try {
-    await healDesktopPluginFallback({
-      installAnchor: resolveDesktopInstallAnchor(),
+    const resolution = await createRuntimeResolution({
+      installAnchor: fileURLToPath(new URL('../package.json', import.meta.url)),
       home,
     })
     const require = createRequire(join(profileDir, 'package.json'))
     for (const plugin of PLUGINS) {
-      const resolved = require.resolve(`${plugin}/package.json`)
+      const entry = resolution.entries.find(entry => entry.name === plugin)
+      assert.equal(entry?.scope, 'installation')
+      const resolved = join(entry.packageDir, 'package.json')
       const expected = fileURLToPath(import.meta.resolve(`${plugin}/package.json`))
       assert.equal(resolved, expected)
+      assert.throws(() => require.resolve(plugin), { code: 'MODULE_NOT_FOUND' })
     }
   } finally {
     rmSync(home, { recursive: true, force: true })
   }
 })
 
-test('service launch awaits Alpha.2 module healing before spawning dsh', () => {
-  const source = readFileSync(new URL('../src/dsh-service.js', import.meta.url), 'utf8')
-  assert.match(source, /export async function startDshService/)
-  const heal = source.indexOf('await healDesktopPluginFallback')
-  const spawn = source.indexOf('const child = spawn(')
-  assert.ok(heal >= 0, 'service launch must await module fallback healing')
-  assert.ok(spawn > heal, 'dsh must spawn only after module fallback healing settles')
+test('desktop preload supplies the wrapper anchor to the real official profile launcher', () => {
+  const profileBootUrl = import.meta.resolve('@deepseek-ai/dsh/lib/profile-boot.js')
+  const result = spawnSync(process.execPath, [
+    '--expose-internals', '--import', resolveWinHideConsoleImport(), '--input-type=module', '-e',
+    `import { INSTALL_ANCHOR } from ${JSON.stringify(profileBootUrl)}; console.log(INSTALL_ANCHOR)`,
+  ], { encoding: 'utf8', windowsHide: true })
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(result.stdout.trim(), fileURLToPath(new URL('../package.json', import.meta.url)))
+})
+
+test('the pinned Electron runtime loads the real host native loader and desktop installation anchor offline', () => {
+  const require = createRequire(import.meta.url)
+  const electronRoot = dirname(require.resolve('electron/package.json'))
+  const executable = join(electronRoot, 'dist', readFileSync(join(electronRoot, 'path.txt'), 'utf8').trim())
+  assert.ok(existsSync(executable), 'prepare the pinned Electron binary outside the offline gate')
+  const profileBootUrl = import.meta.resolve('@deepseek-ai/dsh/lib/profile-boot.js')
+  const builtinPath = require.resolve('node-addon-require-builtin')
+  const env = Object.fromEntries(['PATH', 'SystemRoot', 'ComSpec', 'TEMP', 'TMP', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA']
+    .filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]))
+  const result = spawnSync(executable, [
+    '--import', resolveWinHideConsoleImport(), '--input-type=module', '-e',
+    `import { createRequire } from 'node:module';
+     import { INSTALL_ANCHOR } from ${JSON.stringify(profileBootUrl)};
+     const require = createRequire(import.meta.url);
+     const loader = require(${JSON.stringify(builtinPath)}).requireBuiltin('internal/modules/esm/loader');
+     if (typeof loader.getOrInitializeCascadedLoader !== 'function') throw new Error('host internal loader unavailable');
+     console.log(JSON.stringify({ version: process.versions.electron, anchor: INSTALL_ANCHOR }));`,
+  ], { cwd: fileURLToPath(new URL('..', import.meta.url)), env: { ...env, ELECTRON_RUN_AS_NODE: '1' }, encoding: 'utf8', windowsHide: true, timeout: 30000 })
+  assert.equal(result.status, 0, result.stderr || result.error?.message)
+  const runtime = JSON.parse(result.stdout.trim())
+  assert.equal(runtime.version, packageJson.devDependencies.electron)
+  assert.equal(packageLock.packages['node_modules/electron'].version, runtime.version)
+  assert.equal(runtime.anchor, fileURLToPath(new URL('../package.json', import.meta.url)))
+})
+
+test('the profile-anchor rewrite is scoped, idempotent, and refuses anchor drift', () => {
+  const source = 'const INSTALL_ANCHOR = fileURLToPath(new URL("../package.json", import.meta.url));'
+  const url = 'file:///fixture/node_modules/@deepseek-ai/dsh/lib/profile-boot-fixture.js'
+  const rewritten = rewriteDesktopConsoleSource(source, url)
+  assert.equal(rewritten, `const INSTALL_ANCHOR = ${JSON.stringify(fileURLToPath(new URL('../package.json', import.meta.url)))};`)
+  assert.equal(rewriteDesktopConsoleSource(rewritten, url), rewritten)
+  assert.equal(rewriteDesktopConsoleSource(source, pathToFileURL('C:/fixture/other/index.js').href), source)
+  assert.throws(() => rewriteDesktopConsoleSource('', url), /installation anchor drift/)
+  assert.throws(() => rewriteDesktopConsoleSource(`${source}\n${source}`, url), /installation anchor drift/)
 })
 
 test('dsh web args omit AUTO and retain the Windows and desktop patches', () => {
@@ -94,10 +136,10 @@ test('wrapper dependency graph contains no AUTO plugin', () => {
 })
 
 test('desktop shell declares dsh-app-boot as a direct runtime dependency', () => {
-  const hostBoot = 'file:../upstream/dsh-v0.1.5-rc.1/tarballs/dsh/deepseek-ai-dsh-app-boot-0.1.5-rc.1.tgz'
+  const hostBoot = 'file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-app-boot-0.2.0-rc.2.tgz'
   assert.equal(packageJson.dependencies['@deepseek-ai/dsh-app-boot'], hostBoot)
   assert.equal(packageLock.packages[''].dependencies['@deepseek-ai/dsh-app-boot'], hostBoot)
-  assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.1.5-rc.1')
+  assert.equal(packageLock.packages['node_modules/@deepseek-ai/dsh-app-boot']?.version, '0.2.0-rc.2')
 })
 
 test('desktop shell declares the boot loader runtime closure directly', () => {

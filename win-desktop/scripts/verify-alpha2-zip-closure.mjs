@@ -60,7 +60,7 @@ export function collectManifestHashes(appRoot) {
       }
     }
   }
-  for (const path of ['package.json', 'src/dsh-service.js']) {
+  for (const path of ['package.json', 'src/dsh-service.js', 'assets/cli/dsh.cmd', 'assets/cli/command-path.ps1']) {
     hashes.set(path, sha256(join(absoluteRoot, ...path.split('/'))))
   }
   return hashes

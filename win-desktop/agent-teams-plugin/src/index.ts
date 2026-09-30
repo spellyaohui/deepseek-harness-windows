@@ -17,7 +17,7 @@
  * @module dsh-agent-teams
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 // Declaration merge only: makes ctx.llm, ctx.subagents and ctx.systemPrompt visible.
 import type {} from '@deepseek-ai/dsh-llm'
@@ -50,6 +50,7 @@ import {
   type DelegationPolicyId,
   type DelegationPolicyRuntime,
 } from './routing-policy.ts'
+import { TEAM_TOOL_NAMES } from './tool-names.ts'
 import { authenticatedWebRoutes, readJsonRequest, RequestBodyError, type BrowserRequestGate, type WebRouteHost } from './web-routes.ts'
 import { durableSessionId } from './agent-identity.ts'
 
@@ -63,7 +64,7 @@ export const inject = ['tools', 'llm', 'subagents', 'systemPrompt', 'agents']
 
 /** Plugin configuration. */
 export interface Config {
-  delegationMode?: DelegationMode
+  delegationMode?: Volatile<DelegationMode>
   /**
    * State directory name under the captain's workspace; team state lives at
    * `<workspace>/<stateDir>/<teamId>/` (default `.agent-teams`).
@@ -91,6 +92,11 @@ export interface Config {
   slashCommand?: boolean
 }
 
+/** Serialized config accepts a value; the live runtime receives its stable ref. */
+export interface ConfigInput extends Omit<Config, 'delegationMode'> {
+  delegationMode?: DelegationMode
+}
+
 // `z.object()` has an implicit `{}` default in Schemastery.  Fallback routes
 // are optional, so model absence explicitly; otherwise a missing route is
 // validated as an empty object and fails on the required provider/model keys.
@@ -99,8 +105,8 @@ const fallbackRouteConfig = z.union([
   z.const(undefined),
 ])
 
-export const Config: z<Config> = z.object({
-  delegationMode: z.union(['teams', 'native']).default('teams'),
+export const Config: z<ConfigInput, Config> = z.object({
+  delegationMode: z.union(['teams', 'native']).default('teams').volatile(),
   stateDir: z.string().default('.agent-teams'),
   memberProvider: z.string().default('spawn'),
   executionPrompt: z.string(),
@@ -152,7 +158,11 @@ export function usageSectionText(
 ): string {
   const isPolicy = policyOrToolNames === 'teams-v1' || policyOrToolNames === 'native-v1'
   const policy: DelegationPolicyId = isPolicy ? policyOrToolNames as DelegationPolicyId : 'native-v1'
+  const resolvedToolNames = isPolicy ? toolNamesOrProfiles : policyOrToolNames
   const resolvedProfilesText = isPolicy ? profilesText : toolNamesOrProfiles
+  const stagedPlanToolNames = ['agent_teams_edit_plan', 'agent_teams_amend_task']
+    .filter(name => resolvedToolNames.includes(name))
+    .join(' and ')
   return `${policyMarker(policy)}
 
 ${delegationPolicyUsagePreamble(policy)}
@@ -164,17 +174,17 @@ State first:
 - running -> status, create-task, message, reassign, delete; never replacement Team, edit-plan, or approve.
 - halted -> agent_teams_resume(reason). Escalated is running; ask the user at the review-loop ceiling.
 
-Approval/Profile: Default delegation uses approval="automatic": omit name so AgentTeams generates it; captain planning creates task names/contracts—never ask the user to name a task. Use approval="required" only when the user explicitly asks to review the plan before startup; never self-approve in that create/edit turn. Approve only after agent_teams_status shows active=true and phase=staged; “继续/确认” alone is insufficient. Return/discard forbids replacement. Profiles add roster + seed tasks/guardrails; fallback retries only when eligible. If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.
+Approval/Profile: Default delegation uses approval="automatic": omit name so AgentTeams generates it; captain planning creates task names/contracts—never ask the user to name a task. Use approval="required" only when the user explicitly asks to review the plan before startup; never self-approve in that create/edit turn. Approve only after agent_teams_status shows active=true and phase=staged; “继续/确认” alone is insufficient. Return/discard forbids replacement. Profiles add roster/guardrails. If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.
 
 Reasoning/routes: roles own target-default, route-aware, or explicit. target-default uses role/captain route without effort; route-aware inherits captain effort only on the same provider/model; explicit requires role provider/model + effort. Omit provider/model for captain route or provide both for another route.
 
-Tasks/execution: plan dependencies; scheduler gives ready shared work to idle members. Create/reassign may name an active member or captain; create may omit assignee for shared pool. Claim assigned work with task_id only; captain supplies assignee only for a real member. Do not duplicate slow work. A pause parks its attempt; message the member. Updates use current attempt_id; stale means ownership changed—reassign. agent_teams_status is read-only; do not busy-poll. detail="full" gets full reports/routes, acknowledge=true consumes shown mail, and captain-only wake="recover" handles restart/stuck recovery. Never inspect or edit .agent-teams state files or plugin source code.
+Tasks/execution: plan dependencies; scheduler gives ready shared work to idle members. Create/reassign may name an active member or captain; create may omit assignee for shared pool. Claim assigned work with task_id only; captain supplies assignee only for a real member. A pause parks its attempt; message the member. Updates use current attempt_id; stale means ownership changed—reassign. agent_teams_status is read-only; do not busy-poll. detail="full" gets full reports/routes, acknowledge=true consumes shown mail, and captain-only wake="recover" handles restart/stuck recovery. Never inspect or edit .agent-teams state files or plugin source code.
 
 Quality mode: requirements, implementation, verification, review, repair, and integration are opt-in. Build the staged DAG; implementation depends on requirements and waits for verdict=pass. Quality tasks need objective/acceptance and verification evidence; review/requirements pass only with verdict=pass; needs_revision/reject fail with findings. Review failure triggers repair/next-review and rewires pending integration; do not recreate the loop. Derive workspace-relative POSIX inScope, deliverable paths, and verification commands; exclude .env, secrets, .git. Implementation/repair deliverables must be covered by inScope; changedPaths=[] needs noChangesReason and cannot hide deliverables. Delivery waits for all gates.
 
 Present the Team result, then call agent_teams_delete unless work continues. Never perform a real deployment without explicit user confirmation.
 
-  Use registered agent_teams_* schemas.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`
+  Use registered agent_teams_* schemas; staged-plan controls include ${stagedPlanToolNames}.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`
 }
 
 /** Fixed member-scoped protocol; captain planning and mutation tools stay hidden. */
@@ -189,9 +199,7 @@ The task assignment and its dependency results are authoritative. Claim by task 
 }
 
 export function apply(ctx: Context, config: Config): void {
-  const settings = createAgentTeamsSettingsRuntime(ctx, {
-    delegationMode: config.delegationMode ?? 'teams',
-  })
+  const settings = createAgentTeamsSettingsRuntime(ctx, config.delegationMode)
 
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',
@@ -211,21 +219,7 @@ export function apply(ctx: Context, config: Config): void {
   // member spawn (`spawnMember`), the earliest point the provider list is
   // settled, rather than here.
 
-  const toolNames = [
-    'agent_teams_create',
-    'agent_teams_approve',
-    'agent_teams_edit_plan',
-    'agent_teams_add_member',
-    'agent_teams_remove_member',
-    'agent_teams_create_task',
-    'agent_teams_reassign_task',
-    'agent_teams_claim_task',
-    'agent_teams_update_task',
-    'agent_teams_send_message',
-    'agent_teams_status',
-    'agent_teams_resume',
-    'agent_teams_delete',
-  ].join(', ')
+  const toolNames = TEAM_TOOL_NAMES.join(', ')
   const delegationPolicy: DelegationPolicyRuntime = {
     defaultMode: () => settings.get().delegationMode,
     order: config.promptSectionOrder ?? 117,
@@ -233,11 +227,14 @@ export function apply(ctx: Context, config: Config): void {
     memberText: (policy) => memberUsageSectionText(policy),
   }
   resolved.delegationPolicy = delegationPolicy
-  registerDelegationPolicyLifecycle(ctx, delegationPolicy)
 
   // Exported for TDD / docs checks. Not a public runtime API.
 
   const agentTeamsRuntime = registerAgentTeamsTools(ctx, resolved)
+  // Tool registration is synchronous. Hydrate existing children only after the
+  // complete registry exists, otherwise their member-specific captain deny-list
+  // would be permanently computed from an empty set during HMR remount.
+  registerDelegationPolicyLifecycle(ctx, delegationPolicy)
 
   // Deterministic activation surfaces: the closed-namespace `/agent-teams`
   // host command (surfaces in the Web GUI slash menu via the Harness

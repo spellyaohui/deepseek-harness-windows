@@ -29,9 +29,9 @@ function writePackage(appRoot, name, manifest) {
   writeFileSync(join(packageRoot, 'index.js'), 'module.exports = {}\n', 'utf8')
 }
 
-function writeApp(appRoot, dependencies) {
+function writeApp(appRoot, dependencies, version = '1.0.0') {
   mkdirSync(join(appRoot, 'src'), { recursive: true })
-  writeJson(join(appRoot, 'package.json'), { name: 'fixture-app', version: '1.0.0', dependencies })
+  writeJson(join(appRoot, 'package.json'), { name: 'fixture-app', version, dependencies })
   writeFileSync(join(appRoot, 'src', 'dsh-service.js'), 'export {}\n', 'utf8')
 }
 
@@ -103,6 +103,22 @@ test('runtime closure rejects a missing non-optional transitive dependency', () 
     () => verifyRuntimeClosure({ appRoot, requiredPackages: ['alpha'] }),
     /cannot resolve runtime dependency missing required by alpha/u,
   )
+})
+
+test('runtime closure rejects a mixed official DSH cohort', () => {
+  const appRoot = temporaryRoot()
+  writeApp(appRoot, { '@deepseek-ai/dsh-agent': '0.2.0-rc.2' }, '0.2.0-rc.2')
+  writePackage(appRoot, '@deepseek-ai/dsh-agent', { version: '0.1.7-rc.2' })
+  assert.throws(() => verifyRuntimeClosure({ appRoot, requiredPackages: [] }), /dsh-agent.*0\.1\.7-rc\.2.*0\.2\.0-rc\.2/u)
+})
+
+test('runtime closure accepts only an explicitly declared npm alias identity', () => {
+  const appRoot = temporaryRoot()
+  writeApp(appRoot, { '@fixture/alias': 'npm:@fixture/real@1.0.0' })
+  writePackage(appRoot, '@fixture/alias', { name: '@fixture/real', version: '1.0.0' })
+  assert.doesNotThrow(() => verifyRuntimeClosure({ appRoot, requiredPackages: [] }))
+  writeApp(appRoot, { '@fixture/alias': '1.0.0' })
+  assert.throws(() => verifyRuntimeClosure({ appRoot, requiredPackages: [] }), /identity mismatch/u)
 })
 
 test('release-critical runtime package list includes the Alpha.2 and Cordis boot closure', () => {

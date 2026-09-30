@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 export const policy = JSON.parse(readFileSync(new URL('../compatibility.json', import.meta.url), 'utf8'))
+// JSON is valid YAML; keep the published compatibility diagnostic dependency-free.
+export const workspacePolicy = JSON.parse(readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8'))
 
 // Windows 桌面 fork 用本地 RC.1 tarball 的 file: 规格钉死开发宿主，避免离线门禁走网络安装。
 // 把 tarball 文件名中的版本视为精确宿主版本。
@@ -50,11 +52,29 @@ export function validatePolicy(input) {
   const recommended = hosts.filter(host => host.track === 'recommended')
   if (recommended.length !== 1 || recommended[0].version !== input.recommendedHost) throw new Error('Exactly one recommended host is required')
   if (/-(alpha|beta)\./.test(input.recommendedHost)) throw new Error('Alpha/beta hosts cannot be the ordinary-user recommendation')
+  const candidates = input.sourceCandidates ?? []
+  if (!Array.isArray(candidates)) throw new Error('sourceCandidates must be an array')
+  for (const candidate of candidates) {
+    if (typeof candidate.version !== 'string' || candidate.version.trim() !== candidate.version
+        || !/^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/.test(candidate.version)
+        || versions.has(candidate.version)
+        || candidate.repository !== 'https://github.com/deepseek-ai/deepseek-harness'
+        || typeof candidate.commit !== 'string' || !/^[a-f0-9]{40}$/.test(candidate.commit)
+        || typeof candidate.evidence !== 'string' || !candidate.evidence.startsWith('docs/')) {
+      throw new Error('Source candidates require a unique exact version, official repository, commit and evidence')
+    }
+    versions.add(candidate.version)
+  }
   return hosts.map(host => host.version)
 }
 
-export function validatePackageCompatibility(pkg, input = policy) {
+export function declaredHostVersions(input = policy) {
+  return [...validatePolicy(input), ...(input.sourceCandidates ?? []).map(candidate => candidate.version)]
+}
+
+export function validatePackageCompatibility(pkg, input = policy, workspace = workspacePolicy) {
   const versions = validatePolicy(input)
+  const declaredVersions = declaredHostVersions(input)
   for (const name of requiredHostPeers) {
     if (typeof pkg.peerDependencies?.[name] !== 'string' || pkg.peerDependencies[name].trim() === '') {
       throw new Error(`Missing required host peer declaration: ${name}`)
@@ -67,7 +87,8 @@ export function validatePackageCompatibility(pkg, input = policy) {
       if (resolveDevelopmentHost(version) !== baseline) throw new Error(`${name} must match the exact development host ${baseline}`)
     }
   }
-  const overrides = pkg.pnpm?.overrides ?? {}
+  if (pkg.pnpm?.overrides) throw new Error('Move pnpm.overrides to pnpm-workspace.yaml for pnpm 11')
+  const overrides = workspace.overrides ?? {}
   const dshNames = Object.keys(pkg.devDependencies ?? {}).filter(name => name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-'))
   for (const name of dshNames) {
     if (resolveDevelopmentHost(overrides[name]) !== baseline) throw new Error(`${name} requires an exact pnpm override to ${baseline}`)
@@ -83,8 +104,8 @@ export function validatePackageCompatibility(pkg, input = policy) {
   for (const [name, range] of Object.entries(pkg.peerDependencies ?? {})) {
     if (name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-')) {
       const declared = range.split('||').map(value => value.trim())
-      if (declared.length !== versions.length || versions.some(version => !declared.includes(version))) {
-        throw new Error(`${name} peer range must enumerate the supported host targets`)
+      if (declared.length !== declaredVersions.length || declaredVersions.some(version => !declared.includes(version))) {
+        throw new Error(`${name} peer range must enumerate the supported host targets and source candidates`)
       }
     }
   }

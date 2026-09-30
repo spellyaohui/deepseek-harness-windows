@@ -2,7 +2,30 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前版本：`v0.1.5-rc.4`（开发者预览）
+> 当前源码版本：`v0.2.0-rc.2`（开发者预览；本地测试安装包已生成，尚未发布）
+
+## `v0.2.0-rc.2` 更新说明
+
+- 跟随 AgentTeams 稳定版 `v0.1.22` 的推荐宿主，固定官方 Harness `dsh-v0.2.0-rc.2`（commit `639ed015397290b3745d163aafe02ffee4aa3f84`）与 AgentTeams `0.1.22-desktop.1`（上游 commit `9cba4fe4171f27c019991cafd2a107f87ef3517b`）；完整官方包来源见 [0.2.0 来源清单](docs/UPSTREAM_020_SOURCE_MANIFEST.md)。
+- 保留上游计划审核、模型搜索、文件侧栏、终端、插件提示、模型目录及可选异步提问；本地角色路由、严格 V2、质量门、统一子会话网关、CPA 和 provider-neutral Models 扩展继续各归其主。官方 Native 与 AgentTeams 设置继续分开显示。
+- Windows 托盘新增手动“管理 dsh 命令…”；仅已安装应用在用户明确确认后才按官方所有权规则修改当前用户 PATH，启动时不自动安装。系统 PATH 已有优先命令时会拒绝无效安装。本轮没有执行真实 PATH 修改。
+- 离线 `verify:upstream` 已通过：Models 50/50、CPA 27/27、AgentTeams 全套及包装器 149/149；隔离打包版 Electron 启动进入新版 Web 首屏。本地 EXE/ZIP 测试包已生成，未发版、调用真实模型或进行长时间运行验收。
+- 实际安装已完成，安装目录全部 25,783 个文件与打包目录的大小及 SHA-256 一致，已安装运行时闭包通过。安装中途退出在用户暂停卡巴斯基后用同一 EXE 重试成功，尚未确认具体拦截规则。当前仅提交源码，等待用户功能测试通过后再发版。
+
+## `v0.1.7-rc.2` 更新说明
+
+- 跟随 AgentTeams 稳定版 `v0.1.21` 的推荐宿主，固定官方 Harness `dsh-v0.1.7-rc.2`（commit `477b4f420553e8a52c2fbccc464d7561b239c443`）与 AgentTeams `0.1.21-desktop.1`（上游 commit `f60d40d7dddbdd2283a2d79f823a9c9852e19d13`），不采用 `0.1.22-rc.1` 预发布。
+- 优先采用上游团队工作区/右侧栏、历史团队卡与成员会话导航、过期报告与重复证据治理，以及新宿主的插件管理、Agent 预设、快捷键、文件预览和 Session format v4。统一 durable gateway 已适配成员首次启动前设置、后续投递、中断、退役与 drain。
+- 按用户决策保留两个职责不同的入口：官方“插件 → 子智能体”管理 Native 深度、并发和允许模型；“设置 → AgentTeams 团队”管理 Team/Native 委派与 Profile 角色的 Provider、模型和思考策略。移除旧的原生卡片隐藏重写，不增加旧 Team 迁移层。
+- Models 基于官方 `0.1.7-rc.2` 的自定义 API 引导、账户优先排列、共享模型行和逐模型输入模态重新适配；保留 provider-neutral 的图片三态、串行草稿探测、协议合法兼容字段、推理档位和保存校验，CPA 继续独立维护。
+- 桌面运行时固定 Electron `44.0.0`，与新宿主官方桌面锁定版本一致。真实 Electron 原生加载器回归、隔离启动及界面加载通过；完整离线 `verify:upstream` 包含 Models 50/50、CPA 27/27、AgentTeams 全套和包装器 134/134。
+- 来源清单与逐项能力分类见 [上游维护登记](docs/UPSTREAM_MAINTENANCE.md)。本轮未生成安装包、未提交、未推送或创建 Release。
+
+## `v0.1.5-rc.5` 更新说明
+
+- AgentTeams 更新为本地 `0.1.19-desktop.1`，对应上游 `v0.1.19`（commit `6ef77bff4893fb22bd5ba39cb6b2c5693eba85be`）。成员因明确的 host tool-filter 拒绝无法启动时，可使用上游恢复路径；repair scope 推断和仅 captain 可修改任务契约也采用上游实现。
+- 所有子会话的启动、投递、打断、退役和 drain 仍经由本地统一 durable gateway；严格 V2、角色路由、Team/Native、质量门、Profile 和认证 Web/CAS 边界保持不变。
+- 官方 Harness 仍固定 `dsh-v0.1.5-rc.1`，未变更 tarball 或 peer range。
 
 ## `v0.1.5-rc.4` 更新说明
 
@@ -202,11 +225,11 @@
 - 在独立 Electron 窗口中启动官方 `dsh web`。
 - 使用随机 loopback 端口，避免固定端口冲突。
 - Windows 子进程隐藏控制台窗口。
-- 主程序设置界面中的“桌面”与“子智能体”TAB，沿用同一 Harness 设置外壳和主题。
+- 主程序设置中的“桌面”与“AgentTeams 团队”入口沿用 Harness 设置外壳和主题；官方“插件 → 子智能体”单独管理 Native 配置。
 - “模型”设置中的 `CPA / CLIProxyAPI` 插件：填写 API 地址和 Token，从 `/v1/models` 获取模型，并供主会话与 AgentTeams 共用。
 - AgentTeams 插件集成；成员 Provider、模型与 reasoning policy 在 Profile 角色卡中配置。权限模式由上游 Harness 官方预设负责。
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。角色 Profile 保存后需重启才用于新团队。
-- OpenAI 兼容流缺少 `finish_reason` 时的兼容处理。
+- OpenCode 完整工具流缺少 `finish_reason` 时的兼容处理；不完整的流仍严格报错。
 
 ## `v0.1.1-rc.19` 更新说明
 
@@ -275,7 +298,7 @@ Windows 安装包请从 [GitHub Releases](https://github.com/spellyaohui/deepsee
 
 打开“设置 → 模型”，找到 `CPA / CLIProxyAPI` 提供方行并点击“编辑”展开配置。填写 API 地址和 Token，展开模型目录后获取模型、选择需要启用的模型并应用。地址会规范到 `/v1`，模型固定通过 `openai-responses` 调用；Token 写入 Harness 凭据存储，不进入普通设置文件。
 
-保存后，主会话可以选择 Provider `cpa`；“设置 → 子智能体”中的 AgentTeams 也会从同一个 Harness 模型目录读取 CPA 模型，不维护第二份模型清单。
+保存后，主会话可以选择 Provider `cpa`；“设置 → AgentTeams 团队”中的 Profile 角色也会从同一个 Harness 模型目录读取 CPA 模型，不维护第二份模型清单。
 
 CPA 模型默认声明 `text + image` 输入模态，以便 CLIProxyAPI 的 Responses 网关接收图片；如果某个网关中的具体模型确实是纯文本，可在原生提供方编辑器中保留该模型的显式 `input: ['text']` 覆盖。
 
@@ -287,13 +310,15 @@ CPA R 协议线级别为 `none / minimal / low / medium / high / xhigh / max`。
 
 ```powershell
 cd win-desktop
-npm ci --legacy-peer-deps --install-links=true
-npm test
+npm ci --install-links=true
+node node_modules/electron/install.js
 npm run verify:upstream
 npm run dist:win
 ```
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.18`（固定提交 `68fe529d602b1eea1f1ecaee99857d20a4f94be0`），本地版本为 `0.1.18-desktop.1`。本次采用上游原子 roster/DAG、lazy-start、消息/attempt 清理与恢复；仅保留严格 V2、本地角色模型策略、统一子智能体网关、质量门、Revision/CAS 和认证边界等上游未覆盖能力。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+AgentTeams、Models 和 CPA 的 `lib/` 是可重建输出，不进入 Git；`verify:upstream` 会先编译插件并同步已安装依赖，再执行完整测试。不要在首次编译前直接启动应用。
+
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.22`（固定提交 `9cba4fe4171f27c019991cafd2a107f87ef3517b`），本地版本为 `0.1.22-desktop.1`，推荐宿主固定为 Harness `0.2.0-rc.2`。上游负责团队工作区、成员导航、任务生命周期和证据治理；仅重应用上游未覆盖的严格 V2、角色模型/思考策略、统一 durable gateway、质量扩展、Revision/CAS 和认证边界。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

@@ -1,11 +1,42 @@
 # Upstream baseline
 
 - Package: `@deepseek-ai/dsh-client-ui-settings-models`
-- Version/tag: `0.1.5-rc.1` / `dsh-v0.1.5-rc.1`
-- Commit: `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`
+- Version/tag: `0.2.0-rc.2` / `dsh-v0.2.0-rc.2`
+- Commit: `639ed015397290b3745d163aafe02ffee4aa3f84`
 - Source directory: `packages/client/ui-settings-models`
-- Imported: 2026-09-11
-- Local desktop fork: `0.1.5-rc.1-desktop.3`
+- Imported: 2026-09-30
+- Local desktop fork: `0.2.0-rc.2-desktop.1`
+
+## 2026-09-30 Harness 0.2.0-rc.2 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: the official 0.2.0 Models editor source is retained
+  with its current onboarding, provider ordering, shared model row and catalog
+  behavior. Do not reproduce upstream client features in this fork.
+- `REAPPLY`: only provider-neutral image-input states, malformed-input save
+  rejection, sequential cancellable draft probes, explicit overwrite, legal
+  protocol compatibility fields, late Remote availability and generated-output
+  detachment remain local. CPA, OpenCode and model-name rules stay outside.
+- The fork builds against official 0.2.0 tarballs. All 50 Models tests pass
+  in the complete wrapper offline gate.
+
+## 2026-09-28 Harness 0.1.7-rc.2 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: use the complete new Models source, custom API
+  onboarding, account-first provider ordering, current configForms/credentials,
+  shared ModelRow, per-model inputTypes/catalog defaults and candidate search.
+  The inherited catalog is read without materializing a model override.
+- `REAPPLY`: keep provider-neutral auto/image/text-only semantics and the
+  malformed-input save gate on the shared input-control seam; retain draft-only
+  sequential capability/reasoning probing, cancellation, explicit overwrite,
+  protocol-legal compat patches, normalization waterfall, late optional Remote
+  lookup and byte-preserving prebuild detachment. No provider/model heuristic
+  is introduced.
+- Stored custom credentials retain `credentialRef` only in the Host capability
+  probe request. The official discovery request stays on its own upstream wire
+  contract, and a typed one-shot key still takes precedence without persistence.
+- Host pins/locks now use only official 0.1.7 tarballs. Build/typecheck and all
+  50 tests, including upstream UI/source and pure runtime-helper regressions,
+  pass inside the complete wrapper `verify:upstream` gate.
 
 ## Intentional desktop difference
 

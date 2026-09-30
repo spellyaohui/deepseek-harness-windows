@@ -15,7 +15,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face
 // (settings/credentials invalidations ride the allowlist) into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-// Type-only: contributes the generated credentials/settings and llm Remote namespaces.
 import type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
 import type {} from '@deepseek-ai/dsh-llm/remote'
 import { ModelsSection } from './ModelsSection.tsx'
@@ -24,12 +23,13 @@ import { DeepSeekOnboardingDialog } from './DeepSeekOnboardingDialog.tsx'
 import type { DeepSeekOnboardingInjected } from './DeepSeekOnboardingDialog.tsx'
 import { WelcomeNotice } from './WelcomeNotice.tsx'
 import type { WelcomeNoticeInjected } from './WelcomeNotice.tsx'
-import { decodeWelcomeSection, WelcomeNoticeStore } from './welcome-store.ts'
+import { WelcomeNoticeStore } from './welcome-store.ts'
 import { ModelsSettingsStore } from './store.ts'
 import { createModelsOperations, type ModelsRemoteContext } from './operations.ts'
 import { createSettingsSchemaOperations } from './schema-operations.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from '../onboarding-copy.ts'
+import { Config, ONBOARDING_CONFIG_GLOBAL } from '../onboarding-config.ts'
 import { TYPERT_REMOTE } from '../remote.ts'
 import { createLateBoundCapabilityRemote, resolveCapabilityRemote } from './models-section-availability.ts'
 import type {
@@ -56,12 +56,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.models'
 
-/** Forwarded Alpha.2 events consumed by this independently packed client. */
 interface ModelsRemoteEvents {
-  $on(
-    event: 'settings/document-updated' | 'credentials/reference-updated' | 'llm/adapters-updated',
-    listener: (...args: unknown[]) => void,
-  ): () => void
+  $on(event: string, listener: (...args: unknown[]) => void): () => void
 }
 
 export type {
@@ -85,8 +81,8 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  * constrained; registration depends on each slot through `slots.inject()`.
  */
 export const inject = [
-  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
-  'settingsScope', 'settingsSchema',
+  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session',
+  'configForms', 'settingsSchema',
 ]
 
 /**
@@ -97,23 +93,22 @@ export const inject = [
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(async () => {
-    const dispose = await ctx.remote.$mount(TYPERT_REMOTE)
+    const dispose = await ctx.remote.$mount(TYPERT_REMOTE as never)
     return () => dispose()
   }, 'ui-settings-models: capability probe Remote')
-
+  const page = globalThis as Partial<Record<typeof ONBOARDING_CONFIG_GLOBAL, unknown>>
+  const payload = page[ONBOARDING_CONFIG_GLOBAL]
+  const configured = Config(payload === undefined ? {} : payload)
+  const credentialOnboarding = configured.credentialOnboarding && !('dshDesktop' in globalThis)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)
   // Bound once here, where the Remote namespaces are declared in this plugin's
   // own `inject`; the cards receive callbacks and never a context.
-  // Generated Remote declarations may resolve through distinct pnpm peer
-  // instances in this independently packed fork. Runtime namespaces are the
-  // official Alpha.2 faces; adapt them once to the structural consumer seam.
   const remoteContext = ctx as unknown as ModelsRemoteContext
-  const remoteEvents = ctx.remote as unknown as ModelsRemoteEvents
   const operations = createModelsOperations(remoteContext)
-  const controller = new ModelsSettingsStore(remoteContext, schema, ctx.settingsScope.describe())
-  const normalizeProfile: ProviderProfileNormalizer = (provider, value) => {
+  const controller = new ModelsSettingsStore(remoteContext, schema, ctx.configForms.describe())
+  const normalizeProviderProfile: ProviderProfileNormalizer = (provider, value) => {
     const payload = ctx.waterfall(
       'settings.models/normalize-provider-profile',
       { provider, value },
@@ -135,24 +130,23 @@ export function apply(ctx: ClientContext): void {
     hooks: { snapshot: controller.store },
     operations,
     modelCapabilities,
-    normalizeProviderProfile: normalizeProfile,
+    normalizeProviderProfile,
     schema,
     t,
   })
   const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
+    automatic: credentialOnboarding,
     controller,
     hooks: { models: controller.store },
     operations,
-    normalizeProviderProfile: normalizeProfile,
+    modelCapabilities,
+    normalizeProviderProfile,
     schema,
     t,
   })
   // The scope's own memory mode is what keeps a remote browser process-local,
   // so the store needs no isLoopback branch of its own.
-  const welcomeController = new WelcomeNoticeStore(ctx.settingsScope.bind({
-    namespace: WELCOME_NOTICE_SETTINGS_NAMESPACE,
-    decode: decodeWelcomeSection,
-  }))
+  const welcomeController = new WelcomeNoticeStore(ctx.configForms.get<Record<string, unknown>>(WELCOME_NOTICE_SETTINGS_NAMESPACE))
   const welcomeInjected = (): WelcomeNoticeInjected => ({
     controller: welcomeController,
     hooks: { welcome: welcomeController.store },
@@ -160,14 +154,16 @@ export function apply(ctx: ClientContext): void {
   })
 
   // Pushed invalidations converge every open surface without polling. The
-  // settingsScope injection makes ui-settings activate first, and remote
+  // configForms injection makes ui-settings activate first, and remote
   // dispatch preserves listener order; its listener therefore starts the
   // mirror refresh before this store joins that refresh. The welcome notice
   // follows its settings scope, so it needs no subscription here.
+  const remoteEvents = ctx.remote as unknown as ModelsRemoteEvents
   ctx.effect(() => {
     const refreshModels = (): void => { refreshIfLoaded(controller) }
     const disposers = [
       remoteEvents.$on('settings/document-updated', () => { refreshModels() }),
+      remoteEvents.$on('credentials/record-updated', refreshModels),
       remoteEvents.$on('credentials/reference-updated', refreshModels),
       remoteEvents.$on('llm/adapters-updated', refreshModels),
       ctx.on('connection/reset', refreshModels),
@@ -189,7 +185,7 @@ export function apply(ctx: ClientContext): void {
       'settings.models.footer': { kind: 'list', scope: 'root' },
     },
   }, ModelsSection))
-  ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
+  if (!('dshDesktop' in globalThis)) ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'welcome-notice',
     order: -100,
@@ -198,6 +194,7 @@ export function apply(ctx: ClientContext): void {
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
     id: 'deepseek-official',
+    children: { 'settings.models.sign-in': { kind: 'single', scope: 'root' } },
     order: 0,
     inject: deepSeekOnboardingInjected,
   }, DeepSeekOnboardingDialog))

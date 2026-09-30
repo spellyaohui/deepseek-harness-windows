@@ -52,14 +52,15 @@ evidence that the local capability is preserved.
   loader boundary, OpenCode stream recovery, verified OpenCode model-protocol
   and image-capability reconciliation, the manual capability-validation bridge,
   plugin mounting, and startup integration.
-- The Windows wrapper may hide only the native Subagent plugin settings card by
-  rewriting the exact Alpha.2 client-module bundle snapshot boundary. The
-  Subagent Host namespace, saved settings, official runtime dependencies, and
-  AgentTeams `memberProvider: spawn` path must remain installed and active. The
-  replacement Slot key stays byte-length equal to preserve the authored source
-  map, and both initial and HMR snapshot paths use the same package-ID-scoped
-  transformer. Future upstream refreshes must retain the focused regression or
-  prove an `UPSTREAM_EQUIVALENT` single-card composition control.
+- Native Subagent and AgentTeams settings remain separately visible. The
+  official Native page owns native depth, capacity, and allowed model routes;
+  AgentTeams owns role-specific Provider/model/reasoning and Team lifecycle.
+  This user-approved Harness 0.1.7 separation supersedes the Alpha.2 native-card
+  hiding rewrite. The Subagent Host namespace, saved settings, official runtime
+  dependencies, and AgentTeams `memberProvider: spawn` path stay installed and
+  active. Keep `tests/subagent-settings-card-visibility.test.js` to prove the
+  wrapper leaves official initial and HMR client snapshots unmodified and both
+  settings clients remain available.
 
 ## Release `v0.1.1-rc.17` interaction invariants
 

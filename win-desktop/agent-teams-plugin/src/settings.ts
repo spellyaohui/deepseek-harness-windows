@@ -1,6 +1,6 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { SettingsNamespace, SettingsScope } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 
 export type DelegationMode = 'teams' | 'native'
 
@@ -32,35 +32,14 @@ export interface AgentTeamsSettingsRuntime {
 
 export function createAgentTeamsSettingsRuntime(
   ctx: Context,
-  base: Partial<AgentTeamsSettings>,
+  delegationMode: Volatile<DelegationMode> | undefined,
 ): AgentTeamsSettingsRuntime {
-  const baseSettings = normalizeAgentTeamsSettings(base)
-  let current = baseSettings
-  let attachment = 0
   ctx.inject(['settings'], (settingsCtx) => {
-    const currentAttachment = ++attachment
-    const scope: SettingsScope<AgentTeamsSettings> = settingsCtx.settings.register(
-      AGENT_TEAMS_SETTINGS_NAMESPACE,
-      AgentTeamsSettingsSchema,
-      { base: baseSettings, applies: 'live' },
-    )
-    current = normalizeAgentTeamsSettings(scope.get())
-    settingsCtx.effect(() => {
-      const unwatch = scope.watch((next) => {
-        if (currentAttachment === attachment) {
-          current = normalizeAgentTeamsSettings(next)
-        }
-      })
-      return () => {
-        unwatch()
-        if (currentAttachment === attachment) {
-          attachment += 1
-          current = baseSettings
-        }
-      }
-    }, 'agent-teams: settings watch')
+    // The v0.1.7 settings service projects volatile Config fields itself.
+    // Keep the bespoke Team/Native page as the only AgentTeams editor.
+    settingsCtx.effect(() => settingsCtx.settings.configure({ auto: false }, ctx.fiber))
   })
   return {
-    get: () => current,
+    get: () => normalizeAgentTeamsSettings({ delegationMode: delegationMode?.get() }),
   }
 }

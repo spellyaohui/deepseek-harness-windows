@@ -3,8 +3,6 @@ import { fileURLToPath } from 'node:url'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import * as electron from 'electron'
-import { healProfilesModuleFallback } from '@deepseek-ai/dsh-app-boot'
-import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { getDesktopSettings } from './desktop-settings.js'
 import {
   getAgentTeamsProfileSnapshot,
@@ -85,23 +83,6 @@ export function resolveWinHideConsoleImport() {
   return new URL('./win-hide-console.mjs', import.meta.url).href
 }
 
-export function resolveDesktopInstallAnchor() {
-  return fileURLToPath(new URL('../package.json', import.meta.url))
-}
-
-/**
- * Out-of-tree plugins are imported from `$DSH_HOME/profiles/<name>`. Official
- * dsh only heals packages in `@deepseek-ai/dsh`'s dependency closure into
- * `$DSH_HOME/profiles/node_modules`. Wrapper-owned desktop plugins live on
- * this package.json, so they need a second heal from that anchor.
- */
-export function healDesktopPluginFallback({
-  installAnchor = resolveDesktopInstallAnchor(),
-  home = resolveDshHome(),
-} = {}) {
-  return healProfilesModuleFallback({ installAnchor, home })
-}
-
 export function extractReadyUrl(output) {
   return READY_PATTERN.exec(output)?.[1]
 }
@@ -144,10 +125,6 @@ export async function startDshService({
   if (!electronExecutable) {
     throw new Error('缺少 Electron 可执行文件路径')
   }
-
-  await healDesktopPluginFallback({
-    home: resolveDshHome(undefined, environment),
-  })
 
   // Generate the AgentTeams patch from desktop settings before launching.
   const agentTeamsPatch = generateAgentTeamsPatch()

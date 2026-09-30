@@ -4,12 +4,22 @@ import { pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
+import { memberToolFilter } from '../lib/harness-compat.js'
 import {
   installDelegationPolicy,
   NATIVE_DELEGATION_TOOLS,
   policyMarker,
 } from '../lib/routing-policy.js'
 
+const teamMemberTools = [
+  'agent_teams_claim_task', 'agent_teams_update_task', 'agent_teams_send_message', 'agent_teams_status',
+]
+const teamCaptainTools = [
+  'agent_teams_create', 'agent_teams_approve', 'agent_teams_edit_plan',
+  'agent_teams_add_member', 'agent_teams_remove_member', 'agent_teams_create_task',
+  'agent_teams_reassign_task', 'agent_teams_amend_task', 'agent_teams_resume', 'agent_teams_delete',
+]
+const teamToolNames = new Set([...teamMemberTools, ...teamCaptainTools])
 const require = createRequire(import.meta.url)
 const toolsPackage = require.resolve('@deepseek-ai/dsh-tools/package.json')
 const toolsRequire = createRequire(toolsPackage)
@@ -33,7 +43,7 @@ const hostPlugin = Object.assign((ctx) => { hostContext = ctx }, {
 await root.plugin(hostPlugin)
 
 const reportingTools = ['agent_teams_send_message', 'agent_teams_update_task']
-for (const name of [...NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent'), ...reportingTools]) {
+for (const name of [...NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent'), ...teamToolNames]) {
   root.tools.register(defineContentToolFixture({
     name,
     description: `${name} integration fixture`,
@@ -44,7 +54,7 @@ for (const name of [...NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent
 
 const scopedNativeCalls = []
 
-function scopedAgent(id, policy, parent) {
+function scopedAgent(id, policy, parent, member = false) {
   const agent = {
     id,
     options: { provider: 'fake', model: 'fake-model' },
@@ -65,12 +75,19 @@ function scopedAgent(id, policy, parent) {
       return []
     },
   }))
-  const dispose = installDelegationPolicy({
+  const disposeMemberFilter = member
+    ? agent.ctx.tools.restrict({ deny: memberToolFilter(1, teamToolNames).deny })
+    : () => {}
+  const disposePolicy = installDelegationPolicy({
     agent,
     policy,
     order: 117,
     text: `${policyMarker(policy)}\n\nreal assembly policy fixture`,
   })
+  const dispose = () => {
+    disposePolicy()
+    disposeMemberFilter()
+  }
   return { agent, scope, dispose }
 }
 
@@ -104,13 +121,15 @@ check('Team scoped native delegation is rejected before fixture execution',
 check('Team captain marker is model-visible through the real prompt assembler',
   renderPrompt(captainAssembly).includes(policyMarker('teams-v1')))
 
-const teamMember = scopedAgent('assembly-team-member', 'teams-v1', teamCaptain.agent)
+const teamMember = scopedAgent('assembly-team-member', 'teams-v1', teamCaptain.agent, true)
 const memberAssembly = await assembleFor(teamMember.agent)
 check('unpublished Team member final assembled schemas hide every global native delegation tool',
   NATIVE_DELEGATION_TOOLS.filter(name => name !== 'subagent')
     .every(name => !memberAssembly.tools.some(tool => tool.name === name)))
 check('unpublished Team member keeps member-local reporting schemas',
   reportingTools.every(name => memberAssembly.tools.some(tool => tool.name === name)))
+check('unpublished Team member final assembled schemas exclude every captain-only AgentTeams tool',
+  teamCaptainTools.every(name => !memberAssembly.tools.some(tool => tool.name === name)))
 check('unpublished Team member marker is model-visible through the real prompt assembler',
   renderPrompt(memberAssembly).includes(policyMarker('teams-v1')))
 

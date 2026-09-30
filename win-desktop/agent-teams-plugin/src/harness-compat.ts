@@ -12,6 +12,13 @@ import type { ContentBlock, MessageId, MessageSource } from '@deepseek-ai/dsh-ll
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import { SubagentError } from '@deepseek-ai/dsh-subagent'
+import { CAPTAIN_TOOL_NAMES } from './tool-names.ts'
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'agent-teams': { readonly kind: 'agent-teams' }
+  }
+}
 
 /**
  * Exact protocol exported by dsh-subagent/internal in Alpha.5 and rc.1.
@@ -44,6 +51,20 @@ function boundary(runtime: Context['subagents']): RuntimeBoundary {
 
 function unsupported(detail: string): never {
   throw new Error(`agent-teams: unsupported Harness subagent contract (${detail}); use an explicitly tested Harness version and a coherent dependency installation`)
+}
+
+/** 0.1.7 admits children through agent/created; legacy hosts use session-start. */
+export function onAgentReady(ctx: Context, listener: (agent: Agent, vetoable: boolean) => void): () => void {
+  const stopCreated = ctx.on('agent/created', payload => {
+    // RC.1 exposes `source` and permits vetoing. Older compatibility fixtures
+    // and hosts can still announce the Agent on this channel without it; treat
+    // that shape like session-start so policy hydration is not silently lost.
+    listener(payload.agent, 'source' in payload)
+    return undefined
+  })
+  const legacy = ctx as unknown as { on(name: 'agent/session-start', listener: (payload: { agent: Agent }) => void): () => void }
+  const stopLegacy = legacy.on('agent/session-start', ({ agent }) => listener(agent, false))
+  return () => { stopCreated(); stopLegacy() }
 }
 
 /** True when a distinct host-authored turn can be queued without public steer. */
@@ -91,13 +112,14 @@ export function installContinuableMemberSetup(ctx: Context, setup: Setup): void 
   const installed = new WeakSet<Agent>()
   const active = new Set<() => void>()
   ctx.effect(() => {
-    const stop = ctx.on('agent/session-start', ({ agent }) => {
+    const stop = onAgentReady(ctx, (agent, vetoable) => {
       if (installed.has(agent)) return
       // Deliberately synchronous: awaiting here loses the first-request race.
       let teardown: () => void
       try {
         teardown = setup(agent.ctx, agent)
       } catch (error: unknown) {
+        if (vetoable) throw error
         // session-start is a notification: Harness logs a thrown listener and
         // still admits the first prompt. Reject request assembly explicitly so
         // a malformed saved route cannot silently execute on a default model.
@@ -137,7 +159,7 @@ export async function queueMemberPrompt(
   content: ContentBlock[], signal: AbortSignal,
 ): Promise<MessageId> {
   const host = boundary(runtime)
-  const source: MessageSource = { kind: 'plugin', plugin: 'dsh-agent-teams' }
+  const source: MessageSource = { kind: 'agent-teams' }
   if (typeof host.followup === 'function') {
     return host.followup.call(runtime, parent, childId, content, { source, signal })
   }
@@ -154,7 +176,7 @@ export async function steerMemberPrompt(
   content: ContentBlock[], signal: AbortSignal, live?: Agent,
 ): Promise<MessageId> {
   const host = boundary(runtime)
-  const source: MessageSource = { kind: 'plugin', plugin: 'dsh-agent-teams' }
+  const source: MessageSource = { kind: 'agent-teams' }
   const deliver = host[hostPromptDeliver]
   if (typeof deliver === 'function') return deliver.call(runtime, parent, childId, content, source, signal, 'steer')
   if (typeof host.sendMessage === 'function') return host.sendMessage.call(runtime, parent, childId, content, { signal })
@@ -231,4 +253,53 @@ export function guardSubagentDelivery(
       if (typeof send === 'function') restore('sendMessage', guardedSend)
     }
   }, 'agent-teams: retired member guard')
+}
+
+interface ToolsRegistryView {
+  restrictableNames?: ReadonlySet<string>
+}
+
+/** Read the host's restrictable names when that optional modern view exists. */
+export function restrictableToolNames(agent: Agent): ReadonlySet<string> | undefined {
+  const agentCtx = (agent as unknown as { ctx?: { tools?: { view?: (scope?: unknown) => ToolsRegistryView } } }).ctx
+  const tools = agentCtx?.tools
+  if (typeof tools?.view !== 'function') return undefined
+  try {
+    const names = tools.view.call(tools, agentCtx)?.restrictableNames
+    return names instanceof Set ? names : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Keep local captain controls denied; forward the optional host tool only when present. */
+export function memberToolFilter(maxDepth: number | undefined, knownTools: ReadonlySet<string> | undefined): { deny: string[] } {
+  const depthDeny = maxDepth === 0 && (knownTools === undefined || knownTools.has('send_message'))
+    ? ['send_message']
+    : []
+  return { deny: [...CAPTAIN_TOOL_NAMES, ...depthDeny] }
+}
+
+function unknownToolNames(error: unknown): string[] {
+  const message = error instanceof Error ? error.message : String(error)
+  if (!message.includes('unknown global tool')) return []
+  return [...message.matchAll(/"([^"]+)"/g)].map(match => match[1] as string)
+}
+
+/** Retry only an explicit host unknown-tool error, and only while the filter shrinks. */
+export async function startMemberWithLenientFilter<T>(
+  start: (filter: { deny: string[] }) => Promise<T>,
+  filter: { deny: string[] },
+): Promise<T> {
+  let deny = [...filter.deny]
+  for (;;) {
+    try {
+      return await start({ deny })
+    } catch (error: unknown) {
+      const unknown = unknownToolNames(error)
+      const remaining = deny.filter(name => !unknown.includes(name))
+      if (unknown.length === 0 || remaining.length === deny.length) throw error
+      deny = remaining
+    }
+  }
 }

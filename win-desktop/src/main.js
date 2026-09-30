@@ -6,6 +6,7 @@ import { loadDesktopSettings, getDesktopSettings } from './desktop-settings.js'
 import { installSettingsIpc } from './settings-window.js'
 import { prepareOpencodeCatalog } from './model-fetcher.js'
 import { installLoopbackAuthCookieRecovery } from './loopback-auth-cookies.js'
+import { installedCommandActions, manageDshCommand } from './command-management.js'
 
 const APP_NAME = 'DeepSeek Harness'
 const connectingPage = fileURLToPath(new URL('./connecting.html', import.meta.url))
@@ -15,6 +16,7 @@ let service
 let serviceUrl
 let tray
 let loopbackAuthCookieRecovery
+let commandManagementPending = false
 /** Whether the user explicitly requested quit (tray menu or Cmd+Q). */
 let quitting = false
 
@@ -79,6 +81,10 @@ function createTray() {
         label: '打开设置',
         click: () => openMainSettings(),
       },
+      {
+        label: '管理 dsh 命令…',
+        click: () => { void openDshCommandManagement() },
+      },
       { type: 'separator' },
       {
         label: '退出',
@@ -105,6 +111,41 @@ function createTray() {
 
   rebuildMenu()
 
+}
+
+async function openDshCommandManagement() {
+  if (commandManagementPending) return
+  commandManagementPending = true
+  try {
+    const actions = installedCommandActions(app.getAppPath())
+    const result = await manageDshCommand({
+      ...actions,
+      installed: process.platform === 'win32' && app.isPackaged,
+      confirm: async ({ operation, state, foreignCommand }) => {
+        const removing = operation === 'remove'
+        const { response } = await dialog.showMessageBox({
+          type: foreignCommand ? 'warning' : 'question',
+          title: '管理 dsh 命令',
+          message: removing ? '移除本应用管理的 dsh 命令？' : '将本应用的 dsh 命令加入当前用户 PATH？',
+          detail: foreignCommand
+            ? `当前 dsh 命令：${state.activeCommand}\n安装后本应用命令会优先；原命令文件不会删除。`
+            : `命令目录：${state.directory}\n仅修改当前用户 PATH，不修改系统 PATH。`,
+          buttons: [removing ? '移除' : '安装', '取消'],
+          defaultId: 1,
+          cancelId: 1,
+          noLink: true,
+        })
+        return response === 0
+      },
+    })
+    if (result !== 'cancelled') {
+      await dialog.showMessageBox({ type: 'info', title: '管理 dsh 命令', message: result === 'install' ? 'dsh 命令已安装。' : 'dsh 命令已移除。' })
+    }
+  } catch (error) {
+    dialog.showErrorBox('管理 dsh 命令失败', error instanceof Error ? error.message : String(error))
+  } finally {
+    commandManagementPending = false
+  }
 }
 
 function showMainWindow() {

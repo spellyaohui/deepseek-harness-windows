@@ -17,7 +17,7 @@ import {
 } from '@deepseek-ai/dsh-subagent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { durableSessionId } from './agent-identity.ts'
-import { hasHostPromptQueue, queueMemberPrompt } from './harness-compat.ts'
+import { hasHostPromptQueue, queueMemberPrompt, steerMemberPrompt } from './harness-compat.ts'
 
 type SubagentRuntimeLike = {
   startContinuable(spec: ContinuableStartSpec): Promise<ContinuableStart>
@@ -55,8 +55,19 @@ export interface AgentTeamsSubagentGateway {
     options: SubagentSendMessageOptions,
     admission?: (parent: Agent) => void | Promise<void>,
   ): Promise<unknown>
+  /** Deliver one Team-owned steer through the same child admission lock. */
+  steerMessage(
+    parent: Agent,
+    childId: SessionId,
+    content: ContentBlock[],
+    options: SubagentSendMessageOptions,
+    live: Agent | undefined,
+    admission?: (parent: Agent) => void | Promise<void>,
+  ): Promise<unknown>
   /** Interrupt one Team-owned direct child. */
-  interrupt(parent: Agent, childId: SessionId): void
+  interrupt(parent: Agent, childId: SessionId): Promise<void>
+  /** Mark a child retired and interrupt it under one admission lock. */
+  retireAndInterrupt(parent: Agent, childId: SessionId, retire: () => Promise<void>): Promise<void>
   /** Atomically interrupt and drain selected Team-owned direct children. */
   interruptAndDrain(
     parent: Agent,
@@ -110,6 +121,9 @@ function resolveParent(ctx: Context, parent: Agent): Agent {
 export function createAgentTeamsSubagentGateway(ctx: Context): AgentTeamsSubagentGateway {
   const runtime = ctx.subagents as unknown as SubagentRuntimeLike
   const childLocks = new Map<SessionId, Promise<void>>()
+  // Starts have no child id until the host resolves them, so serialize them by
+  // the durable parent Session instead of pretending they share a child lock.
+  const parentStartLocks = new Map<SessionId, Promise<void>>()
   const withChildLock = async <T>(childId: SessionId, operation: () => Promise<T>): Promise<T> => {
     const previous = childLocks.get(childId) ?? Promise.resolve()
     let release!: () => void
@@ -134,15 +148,33 @@ export function createAgentTeamsSubagentGateway(ctx: Context): AgentTeamsSubagen
     return acquire(0)
   }
 
+  const withParentStartLock = async <T>(parentId: SessionId, operation: () => Promise<T>): Promise<T> => {
+    const previous = parentStartLocks.get(parentId) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const tail = previous.then(() => gate)
+    parentStartLocks.set(parentId, tail)
+    await previous
+    try {
+      return await operation()
+    } finally {
+      release()
+      if (parentStartLocks.get(parentId) === tail) parentStartLocks.delete(parentId)
+    }
+  }
+
   return {
     resolveParent(parent) {
       return resolveParent(ctx, parent)
     },
     startContinuable(spec) {
-      const parent = resolveParent(ctx, spec.request.parent)
-      return runtime.startContinuable({
-        ...spec,
-        request: { ...spec.request, parent },
+      const parentId = durableSessionId(spec.request.parent) as SessionId
+      return withParentStartLock(parentId, async () => {
+        const parent = resolveParent(ctx, spec.request.parent)
+        return runtime.startContinuable({
+          ...spec,
+          request: { ...spec.request, parent },
+        })
       })
     },
     sendMessage(parent, childId, content, options, admission) {
@@ -158,9 +190,29 @@ export function createAgentTeamsSubagentGateway(ctx: Context): AgentTeamsSubagen
         throw new Error('subagent runtime does not expose message delivery')
       })
     },
+    steerMessage(parent, childId, content, options, live, admission) {
+      return withChildLock(childId, async () => {
+        const canonicalParent = resolveParent(ctx, parent)
+        await admission?.(canonicalParent)
+        return steerMemberPrompt(ctx.subagents, canonicalParent, childId, content, options.signal, live)
+      })
+    },
     interrupt(parent, childId) {
-      const canonicalParent = resolveParent(ctx, parent)
-      runtime.interrupt(childId, { kind: 'ancestor', agent: canonicalParent })
+      return withChildLock(childId, async () => {
+        const canonicalParent = resolveParent(ctx, parent)
+        runtime.interrupt(childId, { kind: 'ancestor', agent: canonicalParent })
+      })
+    },
+    retireAndInterrupt(parent, childId, retire) {
+      return withChildLock(childId, async () => {
+        const canonicalParent = resolveParent(ctx, parent)
+        await retire()
+        try {
+          runtime.interrupt(childId, { kind: 'ancestor', agent: canonicalParent })
+        } catch (error: unknown) {
+          ctx.logger.warn(`agent-teams: interrupt of member ${childId} failed: ${String(error)}`)
+        }
+      })
     },
     async interruptAndDrain(parent, childIds, fallback) {
       const ids = [...new Set(childIds)]

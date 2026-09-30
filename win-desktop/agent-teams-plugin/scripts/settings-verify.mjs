@@ -21,53 +21,44 @@ assert.deepEqual(normalizeAgentTeamsSettings({
 
 function createHarness(initialValue) {
   let injectCallback
-  const watchers = new Set()
   let value = initialValue
+  let presentation
   const ctx = {
+    fiber: { id: 'agent-teams' },
     inject: (_services, callback) => { injectCallback = callback },
   }
   const attach = () => {
     let dispose
     injectCallback({
       settings: {
-        register: (_namespace, _schema, options) => {
-          value ??= options.base
-          return {
-            get: () => value,
-            watch: (watcher) => {
-              watchers.add(watcher)
-              return () => watchers.delete(watcher)
-            },
-          }
+        configure: (next) => {
+          presentation = next
+          return () => { presentation = undefined }
         },
       },
       effect: (callback) => { dispose = callback() },
     })
     return {
       publish: (next) => {
-        const previous = value
         value = next
-        for (const watcher of watchers) watcher(next, previous)
       },
+      presentation: () => presentation,
       detach: () => dispose?.(),
     }
   }
-  return { ctx, attach }
+  return { ctx, attach, ref: { get: () => value } }
 }
 
-const harness = createHarness(undefined)
-const runtime = createAgentTeamsSettingsRuntime(harness.ctx, { delegationMode: 'native' })
+const harness = createHarness('native')
+const runtime = createAgentTeamsSettingsRuntime(harness.ctx, harness.ref)
 assert.deepEqual(runtime.get(), { delegationMode: 'native' })
 const attachment = harness.attach()
 assert.deepEqual(runtime.get(), { delegationMode: 'native' })
-attachment.publish({
-  delegationMode: 'teams',
-  memberModel: 'ignored-model',
-  migrationVersion: 1,
-})
+assert.deepEqual(attachment.presentation(), { auto: false })
+attachment.publish('teams')
 assert.deepEqual(runtime.get(), { delegationMode: 'teams' })
 attachment.detach()
-assert.deepEqual(runtime.get(), { delegationMode: 'native' })
+assert.equal(attachment.presentation(), undefined)
 
 const source = await readFile(new URL('../src/settings.ts', import.meta.url), 'utf8')
 assert.doesNotMatch(source, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|migrationVersion|LegacyDesktop|normalizeLegacy|createLegacy|MIGRATION/)

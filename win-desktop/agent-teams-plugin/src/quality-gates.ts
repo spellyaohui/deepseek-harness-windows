@@ -16,6 +16,8 @@ import {
   type ReviewPolicy,
   type ReviewVerdict,
   type TaskKind,
+  type TaskEvidence,
+  type TaskRevision,
   type TaskStatus,
   type TeamState,
   type TeamTask,
@@ -440,6 +442,11 @@ export function validateCreateTask(team: TeamState, input: CreateTaskInput): Val
     if (!team.tasks.some((item) => item.id === sourceTaskId)) {
       return { ok: false, error: `source task "${sourceTaskId}" does not exist` }
     }
+    const duplicate = team.tasks.find(item => taskKindOf(item) === 'repair'
+      && OPEN_STATUSES.includes(item.status) && item.sourceTaskId === input.sourceTaskId
+      && findingKey(item.sourceFindingIds ?? []) === findingKey(input.sourceFindingIds ?? []))
+    if (duplicate !== undefined) return { ok: false, error: `repair task ${duplicate.id} already covers these findings; use that task instead of creating duplicate work` }
+
   }
 
   const dependencies = input.dependencies ?? []
@@ -623,6 +630,94 @@ function findingKey(ids: readonly string[]): string {
   return [...ids].sort().join(',')
 }
 
+const REPAIR_SCOPE_PATH_PATTERN = /(?:[A-Za-z0-9_.\-]+(?:\/[A-Za-z0-9_.\-]+)+|[\w.\-]+\.(?:tsx?|jsx?|mjs|cjs|json|md|txt|ya?ml|py|rs|go|java|html?|css|scss|sh|ps1|toml|xml|sql))(?::\d+)?/gu
+const REPAIR_SCOPE_LINE_SUFFIX = /:\d+$/
+
+/** Derive a satisfiable repair scope from both the observation and required fix. */
+export function repairScopeFromFindings(findings: readonly ReviewFinding[], fallback: string[] | undefined): string[] | undefined {
+  const derived: string[] = []
+  const push = (raw: string): void => {
+    const normalized = normalizeWorkspacePath(raw.replace(REPAIR_SCOPE_LINE_SUFFIX, ''))
+    if (normalized === undefined) return
+    if (isDefaultExcluded(normalized)) throw new Error(`repair scope contains protected path "${normalized}"`)
+    if (!derived.includes(normalized)) derived.push(normalized)
+  }
+  for (const finding of findings) {
+    if (nonemptyString(finding.file)) push(finding.file)
+    for (const match of finding.requiredFix.matchAll(REPAIR_SCOPE_PATH_PATTERN)) push(match[0])
+  }
+  if (derived.length > 0) return derived
+  if (fallback === undefined) return undefined
+  for (const path of fallback) {
+    const normalized = normalizeWorkspacePath(path)
+    if (normalized === undefined || isDefaultExcluded(normalized)) {
+      throw new Error(`repair scope contains protected path "${path}"`)
+    }
+  }
+  return [...new Set(fallback)]
+}
+
+export interface ContractAmendmentInput {
+  objective?: string
+  acceptance?: string[]
+  verify?: string[]
+  inScope?: string[]
+  outOfScope?: string[]
+}
+
+export interface AmendTaskContractResult {
+  ok: boolean
+  error?: string
+  task?: TeamTask
+  revision?: TaskRevision
+}
+
+const AMENDABLE_CONTRACT_FIELDS = ['objective', 'acceptance', 'verify', 'inScope', 'outOfScope'] as const
+
+/** Apply one audited captain contract replacement before a passing review freezes it. */
+export function amendTaskContract(team: TeamState, task: TeamTask, input: ContractAmendmentInput, by: string, reason: string): AmendTaskContractResult {
+  if (!nonemptyString(by)) return { ok: false, error: 'contract amendment requires a non-empty author identity' }
+  if (!nonemptyString(reason)) return { ok: false, error: 'contract amendment requires a non-empty reason' }
+  if (TERMINAL_TASK_STATUSES.includes(task.status)) return { ok: false, error: `task ${task.id} is ${task.status}; terminal contracts are immutable` }
+  if (taskKindOf(task) === 'work') return { ok: false, error: `task ${task.id} has kind=work and no contract to amend` }
+  if (!AMENDABLE_CONTRACT_FIELDS.some((field) => input[field] !== undefined)) {
+    return { ok: false, error: `amendment requires at least one of: ${AMENDABLE_CONTRACT_FIELDS.join(', ')}` }
+  }
+  const next: Record<string, unknown> = {}
+  const previous: Record<string, unknown> = {}
+  if (input.objective !== undefined) {
+    if (!nonemptyString(input.objective)) return { ok: false, error: 'amended objective must be a non-empty string' }
+    next.objective = input.objective
+    previous.objective = task.objective
+  }
+  for (const field of ['acceptance', 'verify'] as const) {
+    const value = input[field]
+    if (value === undefined) continue
+    if (!nonemptyStringList(value)) return { ok: false, error: `amended ${field} must be a non-empty list of non-empty strings` }
+    next[field] = value
+    previous[field] = task[field]
+  }
+  for (const field of ['inScope', 'outOfScope'] as const) {
+    const value = input[field]
+    if (value === undefined) continue
+    if (!nonemptyStringList(value)) return { ok: false, error: `amended ${field} must be a non-empty list of non-empty strings` }
+    if (value.some((entry) => normalizeWorkspacePath(entry) === undefined)) {
+      return { ok: false, error: `amended ${field} entries must be workspace-relative paths` }
+    }
+    if (value.some((entry) => isDefaultExcluded(normalizeWorkspacePath(entry)!))) {
+      return { ok: false, error: `amended ${field} entries cannot include protected paths` }
+    }
+    next[field] = value
+    previous[field] = task[field]
+  }
+  if (team.tasks.some((item) => (
+    (taskKindOf(item) === 'review' || taskKindOf(item) === 'requirements')
+    && item.reviewedTaskId === task.id && item.verdict === 'pass'
+  ))) return { ok: false, error: `task ${task.id} already passed review; its contract is frozen` }
+  const revision: TaskRevision = { at: Date.now(), by, reason, fields: Object.keys(next), previous }
+  return { ok: true, revision, task: { ...task, ...next, revisions: [...(task.revisions ?? []), revision], updatedAt: Date.now() } as TeamTask }
+}
+
 const CAPTAIN_ASSIGNEE = 'captain'
 const OPEN_FOLLOW_UP_STATUSES: readonly TaskStatus[] = ['pending', 'claimed', 'in_progress']
 
@@ -655,6 +750,12 @@ function hasOpenFollowUp(team: TeamState, sourceTaskId: string, findingIds: read
     && findingKey(item.sourceFindingIds ?? []) === key
     && OPEN_FOLLOW_UP_STATUSES.includes(item.status)
   ))
+}
+
+function withoutScopeConflicts(outOfScope: readonly string[] | undefined, inScope: readonly string[] | undefined): string[] | undefined {
+  if (outOfScope === undefined) return undefined
+  const conflicting = new Set(inScopeOverlap(outOfScope, inScope ?? []))
+  return outOfScope.filter((pattern) => !conflicting.has(pattern))
 }
 
 export function planQualityFollowUp(team: TeamState, closed: TeamTask): PlanQualityFollowUpResult {
@@ -692,7 +793,7 @@ export function planQualityFollowUp(team: TeamState, closed: TeamTask): PlanQual
   if (countRepairAttempts(team, sourceId, findingIds) >= policy.maxRepairAttempts) {
     return { ...empty, escalated: true, status: 'escalated' }
   }
-  const files = findings.map((finding) => finding.file).filter((file): file is string => nonemptyString(file))
+  const repairScope = repairScopeFromFindings(findings, source?.inScope)
   const implementer = schedulableAssignee(source?.assignee, team)
   const repair: PlannedFollowUpTask = {
     id: `repair-round-${nextRound}`,
@@ -702,8 +803,8 @@ export function planQualityFollowUp(team: TeamState, closed: TeamTask): PlanQual
     dependencies: [sourceId],
     round: nextRound,
     objective: source?.objective ?? closed.objective ?? `Fix findings from ${sourceId}`,
-    inScope: files.length > 0 ? files : source?.inScope,
-    outOfScope: source?.outOfScope,
+    inScope: repairScope,
+    outOfScope: withoutScopeConflicts(source?.outOfScope, repairScope),
     verify: source?.verify,
     acceptance: findings.map((finding) => finding.requiredFix),
     sourceTaskId: sourceId,
@@ -851,8 +952,19 @@ export function isCommandResult(value: unknown): value is CommandResult {
     && (value['evidence'] === undefined || typeof value['evidence'] === 'string')
 }
 
+export function isTaskRevision(value: unknown): value is TaskRevision {
+  if (!isRecord(value)) return false
+  return Number.isSafeInteger(value.at)
+    && nonemptyString(value.by)
+    && nonemptyString(value.reason)
+    && nonemptyStringList(value.fields)
+    && isRecord(value.previous)
+}
+
 export function hasValidQualityTaskFields(value: Record<string, unknown>): boolean {
-  if (!(TASK_KINDS as readonly string[]).includes(value['kind'] as string)) return false
+  // This helper validates the optional quality extension; full durable Task V2
+  // validation still requires kind in state.ts before it reaches this seam.
+  if (value['kind'] !== undefined && !(TASK_KINDS as readonly string[]).includes(value['kind'] as string)) return false
   if (value['verdict'] !== undefined && !(REVIEW_VERDICTS as readonly string[]).includes(value['verdict'] as string)) return false
   if (value['round'] !== undefined && !(Number.isSafeInteger(value['round']) && (value['round'] as number) >= 1)) return false
   if (value['objective'] !== undefined && !nonemptyString(value['objective'])) return false
@@ -877,6 +989,10 @@ export function hasValidQualityTaskFields(value: Record<string, unknown>): boole
   }
   if (value['commandsRun'] !== undefined) {
     if (!Array.isArray(value['commandsRun']) || !value['commandsRun'].every(isCommandResult)) return false
+  }
+  if (value['supplementalEvidence'] !== undefined && (!Array.isArray(value['supplementalEvidence']) || !value['supplementalEvidence'].every(isTaskEvidence))) return false
+  if (value['revisions'] !== undefined) {
+    if (!Array.isArray(value['revisions']) || !value['revisions'].every(isTaskRevision)) return false
   }
   return true
 }
@@ -1034,3 +1150,48 @@ export function describeQualityLoop(team: TeamState): QualityLoopSnapshot {
 }
 
 export { QUALITY_KINDS, WRITE_KINDS }
+
+/** Persisted evidence must remain loadable after process restart. */
+export function isTaskEvidence(value: unknown): value is TaskEvidence {
+  if (!isRecord(value)) return false
+  return typeof value['at'] === 'number' && Number.isFinite(value['at'])
+    && nonemptyString(value['by']) && Number.isSafeInteger(value['attempt']) && (value['attempt'] as number) >= 0
+    && (value['attemptId'] === undefined || nonemptyString(value['attemptId']))
+    && (value['note'] === undefined || nonemptyString(value['note']))
+    && (value['acceptanceResults'] === undefined || (Array.isArray(value['acceptanceResults']) && value['acceptanceResults'].every(isAcceptanceResult)))
+    && (value['commandsRun'] === undefined || (Array.isArray(value['commandsRun']) && value['commandsRun'].every(isCommandResult)))
+    && (value['note'] !== undefined || (Array.isArray(value['acceptanceResults']) && value['acceptanceResults'].length > 0) || (Array.isArray(value['commandsRun']) && value['commandsRun'].length > 0))
+}
+
+/** Append observations without mutating the original result or its completion time. */
+export function appendTaskEvidence(task: TeamTask, input: QualityCompletionUpdate & { evidence_note?: string }, by: string): boolean {
+  if (!TERMINAL_TASK_STATUSES.includes(task.status)) throw new Error('supplemental evidence requires a terminal task')
+  // Key order must not turn a retried JSON object into a different observation.
+  const stable = (value: unknown): string => JSON.stringify(value, (_key, item) =>
+    typeof item === 'object' && item !== null && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)
+  for (const key of ['status', 'output', 'verdict', 'findings', 'changedPaths'] as const) {
+    if (input[key] !== undefined && stable(input[key]) !== stable(task[key])) {
+      throw new Error(`terminal task ${task.id} is immutable: cannot change ${key}; append evidence with evidence_note, acceptanceResults or commandsRun instead. Do not reclaim or redo completed work.`)
+    }
+  }
+  const prior = (task.supplementalEvidence ?? []).filter(row => row.by === by && row.attempt === (task.attempt ?? 0) && row.attemptId === task.attemptId)
+  const freshItems = <T>(items: T[] | undefined, existing: T[]): T[] => {
+    const seen = new Set(existing.map(stable))
+    return (items ?? []).filter(item => { const key = stable(item); if (seen.has(key)) return false; seen.add(key); return true })
+  }
+  const acceptanceResults = freshItems(input.acceptanceResults, [...task.acceptanceResults ?? [], ...prior.flatMap(row => row.acceptanceResults ?? [])])
+  const commandsRun = freshItems(input.commandsRun, [...task.commandsRun ?? [], ...prior.flatMap(row => row.commandsRun ?? [])])
+  const trimmed = input.evidence_note?.trim()
+  const note = trimmed && !prior.some(row => row.note === trimmed) ? trimmed : undefined
+  if (!note && acceptanceResults.length === 0 && commandsRun.length === 0) return false
+  const entry: TaskEvidence = { at: Date.now(), by, attempt: task.attempt ?? 0,
+    ...task.attemptId === undefined ? {} : { attemptId: task.attemptId },
+    ...note === undefined ? {} : { note },
+    ...acceptanceResults.length === 0 ? {} : { acceptanceResults },
+    ...commandsRun.length === 0 ? {} : { commandsRun },
+  }
+  if (!isTaskEvidence(entry)) throw new Error('invalid supplemental evidence')
+  task.supplementalEvidence = [...task.supplementalEvidence ?? [], entry]
+  return true
+}

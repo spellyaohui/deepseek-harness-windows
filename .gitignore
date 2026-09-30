@@ -10,6 +10,9 @@
 **/playwright-report/
 **/*.asar
 **/*.blockmap
+/win-desktop/agent-teams-plugin/lib/
+/win-desktop/models-settings-plugin/lib/
+/win-desktop/cpa-provider-plugin/lib/
 *.exe
 *.msi
 *.msix

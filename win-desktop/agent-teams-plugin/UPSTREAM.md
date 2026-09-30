@@ -1,16 +1,94 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.18`
-- Tag: `v0.1.18`
-- Source commit: `68fe529d602b1eea1f1ecaee99857d20a4f94be0`
-- Imported: `2026-09-13`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.22`
+- Tag: `v0.1.22`
+- Source commit: `9cba4fe4171f27c019991cafd2a107f87ef3517b`
+- Imported: `2026-09-30`
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.18-desktop.1`.
+- Desktop fork version is `0.1.22-desktop.1`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-09-30 v0.1.22 / Harness 0.2.0-rc.2 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: the upstream v0.1.22 runtime `src/` is unchanged
+  from v0.1.21, so its workspace, mailbox, scheduler, recovery, evidence,
+  first-start setup and official tool contracts stay authoritative. Import
+  the eight-host compatibility/doctor/release contract and retain the full
+  existing lifecycle, issue-159, HMR, quality and workspace regressions.
+- `REAPPLY`: preserve role-level Provider/model/reasoning, numbered-member
+  inheritance, strict V2, Profile editing, compact prompt/status, Team/Native
+  authority, authenticated Web/CAS, and the single exact-live-Agent durable
+  child-operation gateway. A saved model ID absent from the new catalog stays
+  an unresolved explicit selection, never an automatic replacement. No legacy
+  Team/Profile migration layer or second tool set is added.
+- `SUPERSEDED_BY_DESIGN`: keep the official Native page and local Team page
+  separately visible, as the user approved; never restore the old hiding
+  rewrite. The upstream prebuilt Git entrypoints remain its distribution
+  contract; the desktop `file:` fork still builds locally from source.
+- Recommended Harness is exactly `0.2.0-rc.2`. The bounded peer matrix also
+  retains `0.1.7-rc.2 || 0.1.5-rc.3 || 0.1.5-rc.2 || 0.1.5-rc.1 ||
+  0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2`; this desktop runtime and
+  offline development pins use only official 0.2.0 tarballs.
+- Full plugin verification and the wrapper offline upstream gate pass. This
+  provenance records source integration, not installer or publication.
+
+## 2026-09-28 v0.1.21 / Harness 0.1.7-rc.2 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: upstream owns the workspace collaboration tab,
+  addressed member navigation, owner-scoped historical cards, bounded open
+  events, stale/foreign report rejection, evidence deduplication, new-attempt
+  evidence reset and terminal supplemental evidence. Retained workspace,
+  issue-159, lifecycle, quality and host-contract regressions exercise these
+  imported paths.
+- `UPSTREAM_EQUIVALENT`: adopt the complete upstream captain-only tool-name
+  set and existing/new/legacy Agent policy attachment in the existing local
+  policy owner. Members expose only claim/update/send/status; modern
+  `agent/created`, legacy `agent/session-start` and existing-Agent hydration
+  share one deduplicated lifecycle with scope/root disposal. Keep the real
+  ToolRuntime assembly and focused routing-policy lifecycle regressions;
+  do not mount a duplicate upstream capabilities/prompt listener beside it.
+- `UPSTREAM_EQUIVALENT + REAPPLY`: use upstream awaited first-start setup and
+  modern continuation primitives inside the existing durable child-operation
+  gateway. The gateway remains the only admission owner for exact live-Agent
+  identity and serialized start, send, interrupt, retirement and drain. The
+  upstream mailbox and task engine remain their semantic owners.
+- `REAPPLY`: preserve role-level Provider/model/reasoning, numbered role
+  inheritance, strict V2, compact prompt/status, quality extensions, Profile
+  editing, Team/Native policy and authenticated Web/CAS. No second policy
+  plugin, tool set, scheduler or legacy Team/Profile migration is added.
+- `REAPPLY`: register the complete tool surface before hydrating existing
+  member policy and model hooks. Root/child disposal releases the frozen
+  route/effort, admission, fallback and failure hooks before remount; malformed
+  durable roles stay fail-closed. `hmr-member-runtime-verify.mjs` calls the real
+  plugin entry and covers registration order, remount, cleanup and Native mode.
+- `SUPERSEDED_BY_DESIGN`: the user chose visible, separate Native and Team
+  configuration. The official Plugins page owns Native controls; the local
+  section is labelled `AgentTeams 团队` / `AgentTeams`. The wrapper removes
+  only its old native-card hiding transformer, not official runtime packages,
+  saved settings or the member spawn path.
+- Recommended Harness is exactly `0.1.7-rc.2`. The bounded peer matrix is
+  `0.1.7-rc.2 || 0.1.5-rc.3 || 0.1.5-rc.2 || 0.1.5-rc.1 ||
+  0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2`; all development pins use
+  the unmodified 0.1.7 official tarballs. The npm `next` prerelease
+  `0.1.22-rc.1` is not this stable source baseline.
+- Full plugin verification and the wrapper offline upstream gate pass. This
+  provenance records source integration, not an installer or publication.
+
+## 2026-09-17 v0.1.19 / Harness 0.1.5-rc.1 refresh classification
+
+- `UPSTREAM_EQUIVALENT`: upstream v0.1.19 owns member-start recovery when the
+  host rejects filtered tool names, repair-scope inference, and captain-only
+  task amendment. The retained focused regressions run those imported paths.
+- `REAPPLY`: the Windows fork keeps one durable gateway for child start,
+  queue/steer delivery, interrupt, retirement, and drain. Strict V2 state,
+  role routing, Team/Native policy, authenticated Web/CAS boundaries, local
+  quality contracts, Profiles, and desktop injects remain local owners.
+- The recommended Harness host remains `0.1.5-rc.1`; the official tarball
+  identity, peer ranges, and all fixed `file:` host pins are unchanged.
 
 ## 2026-09-14 desktop.1 model-call boundary hardening
 
@@ -84,14 +162,14 @@
 
 - Harness settings namespace and browser settings section.
 - Role-level member provider/model/reasoning policy and Profile role-card editor.
-- Versioned Team/Native routing policy persisted in Session v3 `system/message`,
+- Versioned Team/Native routing policy persisted in Session `system/message` (current format v4),
   with a read-only legacy `request/header.system` fallback.
 - Agent-scoped suppression of native delegation tools in Team mode.
 - Strict Profile and Team `schemaVersion: 2` validation; older data remains on disk but is rejected and never migrated.
 - Desktop integration and regression verification.
-- Offline tarball development pins: `@deepseek-ai/dsh` and every local `dsh-*` `devDependency` stay `file:` paths under `upstream/dsh-v0.1.5-rc.1/tarballs`. `scripts/compatibility.mjs` treats the tarball filename version as the exact supported host so the publish contract can pass without a network install.
-- `scripts/doctor.mjs` treats a same-host `-desktop.N` Models fork as the active 0.1.5 cohort, because the Windows wrapper replaces `@deepseek-ai/dsh-client-ui-settings-models` with the local editor fork.
-- Extra settings injects and peers (`dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-settings`, `dsh-client-ui-slots`, `dsh-settings`, `dsh-workspace`) remain because the Windows Profile editor and settings section consume them. Their peer ranges enumerate `0.1.5-rc.1 || 0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2`.
+- Offline tarball development pins: `@deepseek-ai/dsh` and every local `dsh-*` `devDependency` stay `file:` paths under `upstream/dsh-v0.2.0-rc.2/tarballs`. `scripts/compatibility.mjs` treats the tarball filename version as the exact supported host so the publish contract can pass without a network install.
+- `scripts/doctor.mjs` treats a same-host `-desktop.N` Models fork as the active 0.2.0 cohort, because the Windows wrapper replaces `@deepseek-ai/dsh-client-ui-settings-models` with the local editor fork.
+- Extra settings injects and peers (`dsh-api-remotes`, `dsh-client-connection`, `dsh-client-ui-settings`, `dsh-client-ui-slots`, `dsh-settings`, `dsh-workspace`) remain because the Windows Profile editor and settings section consume them. Their peer ranges enumerate the same eight bounded hosts above.
 
 ## 2026-09-10 v0.1.16-rc.3 refresh classification
 
@@ -185,7 +263,7 @@
   migration across activity snapshots, browser mutations, Host validation and
   one-time Web approval credentials, and restores upstream `v0.1.15` Alpha.2
   Connection authentication plus Host/Origin checks for every raw Web route.
-- The current `.desktop.7` release routes every continuable child start,
+- The historical `.desktop.7` release routes every continuable child start,
   follow-up, interrupt, retirement, and drain through one durable-session
   gateway. It resolves only the exact live Agent (rejecting stale or same-ID
   pseudo-handles) and serializes each child operation so a retirement race

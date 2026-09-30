@@ -7,15 +7,116 @@ prove it still exists.
 
 ## Current local identities
 
-- Official Harness source closure: `dsh-v0.1.5-rc.1` at `183f08e9c6dde7e36cd2318eaee70b0da08fb35e`
-- Windows desktop wrapper: `0.1.5-rc.4`
+- Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
+- Windows desktop wrapper: `0.2.0-rc.2`
+- Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode capability validation plugin: `0.1.2`
-- AgentTeams fork: `0.1.18-desktop.1`, based on upstream `v0.1.18` at fixed commit
-  `68fe529d602b1eea1f1ecaee99857d20a4f94be0`
-- CPA provider plugin: `0.1.8`
-- Models settings fork: `0.1.5-rc.1-desktop.3`
+- AgentTeams fork: `0.1.22-desktop.1`, based on upstream `v0.1.22` at fixed commit
+  `9cba4fe4171f27c019991cafd2a107f87ef3517b`
+- CPA provider plugin: `0.1.10`
+- Models settings fork: `0.2.0-rc.2-desktop.1`
 - Desktop Settings plugin: `0.1.2`
+
+## Harness 0.2.0-rc.2 / AgentTeams 0.1.22 refresh classification — 2026-09-30
+
+This is the active classification. The 0.1.7 and earlier sections below are
+historical evidence. AgentTeams stable `v0.1.22` recommends Harness
+`0.2.0-rc.2`; its previous seven supported hosts remain peer-compatible, but
+this wrapper installs only the recommended cohort. The fixed official source
+closure contains 9 vendor and 318 DSH tarballs with exact SHA-256 identities
+in `UPSTREAM_020_SOURCE_MANIFEST.md`. A fresh real `node_modules` resolves 891
+production packages with no old DSH cohort mixed in.
+
+| Registered capability/owner | Classification | Migration and retained proof |
+| --- | --- | --- |
+| Official Harness runtime and new client behavior | `UPSTREAM_EQUIVALENT` | Use the entire fixed 0.2.0 graph, including plan review, model-selector search, file-sidebar actions, terminal fixes, plugin guidance, updated model catalog and opt-in async questions. Do not reimplement these in the wrapper. Exact host-cohort, manifest-hash, closure and isolated authenticated Electron startup checks pass. |
+| AgentTeams lifecycle, mailbox, workspace, report evidence and official release contract | `UPSTREAM_EQUIVALENT` | The v0.1.22 runtime `src/` has no delta from v0.1.21; retain its scheduler, child recovery, workspace UI, report/evidence checks and eight-host compatibility/doctor behavior. The full plugin suite passes. Upstream prebuilt Git entrypoints remain upstream distribution-owned; the bundled local fork still builds from source. |
+| AgentTeams role policy, strict V2, quality, Profiles, Team/Native, Web auth/CAS and compact status/prompt | `REAPPLY` | None is replaced by the v0.1.22 source. Retain the single local policy/tool layer and all selection, HMR, quality, routing and Web regressions. A saved unavailable model ID remains explicit and unresolved rather than silently rerouted. |
+| Durable child-operation gateway | `REAPPLY` | Retain exact live-Agent admission and per-child serialization for start, queue/steer, interrupt, retirement and drain. Existing gateway and member-failure regressions pass; no direct bypass is added. |
+| Provider-neutral Models editor and capability probing | `UPSTREAM_EQUIVALENT + REAPPLY` | Consume the complete official 0.2.0 Models source and reapply only image-input choice, strict malformed-input save behavior, draft-only capability/reasoning probes, late Remote fallback, and output detachment. Models 50/50 pass; no provider-specific rule enters the fork. |
+| CPA provider | `REAPPLY` | Pin the new host/Models cohort while retaining one native editor row, credentials, capacities, reasoning and path-scoped migration. CPA 27/27 and wrapper integration pass. |
+| Official Native Subagent versus Team settings | `SUPERSEDED_BY_DESIGN` | Keep both user-approved surfaces and their separate authority; the old native-card hiding rewrite stays removed. Initial/HMR client snapshot and both client-module regressions pass. |
+| Wrapper boot, profile resolution and authenticated Web | `UPSTREAM_EQUIVALENT + REAPPLY` | Use the official Host graph and in-memory plugin resolution; retain the desktop installation anchor, full-token loopback handoff and bounded Cookie recovery. Real native-loader and isolated authenticated Electron startup pass. |
+| Hidden Windows console, shell validation, grep alias, bounded-period QUOTA and OpenCode transport | `UPSTREAM_EQUIVALENT + REAPPLY` | Keep upstream hidden subprocess/STARTUPINFO behavior; reapply only runner preload, current validator normalization, exact grep repair, quota classification, Kimi schema/stream and OpenCode session affinity. The 0.2.0 pi-ai transcript/client anchors were updated without changing upstream modules; actual installed-module regressions pass. |
+| Desktop Settings and compact tool guidance | `REAPPLY` | Keep autosave/rollback and the independent bounded prompt section; wrapper integration passes. |
+| Windows `dsh` command ownership | `UPSTREAM_EQUIVALENT + REAPPLY` | Reuse the official PowerShell HKCU PATH ownership/CAS worker and adapt the installed wrapper launcher plus explicit Electron tray confirmation. A local read-only machine-PATH classification guard rejects an install that cannot take precedence over an existing system command. Tests cover cancellation, stale fingerprint, occupied command, machine precedence, missing launcher, owned removal and quoted arguments. No actual PATH write or installed-EXE execution was performed. |
+| Retired local Session Markdown and AUTO plugins | Remain removed | Do not restore them or alter stale user data. |
+
+The full offline, install-free `win-desktop/npm run verify:upstream` gate passes:
+Models 50/50, CPA 27/27, complete AgentTeams suites, wrapper 149/149 and the
+real dependency closure. The isolated Electron instance displayed the new
+first-run Web UI without loading existing user configuration. The two settings
+clients were verified in source/bundle integration, not manually rendered in
+that first-run window. Live provider calls, overnight endurance, installed
+launcher execution and user acceptance remain untested. A later user-authorized
+local build produced unsigned EXE, ZIP and blockmap assets and passed both packed
+dependency closures. Actual installation now matches all 25,783 unpacked files
+by size and SHA-256, with the installed dependency closure passing. An interrupted
+installation succeeded with the same EXE after the user paused Kaspersky; the
+specific interception rule is unconfirmed. The user has authorized a source-only
+commit/push checkpoint, not a tag, GitHub Release or asset upload. Generated
+AgentTeams, Models and CPA `lib` output remains on disk but is no longer tracked;
+the offline gate rebuilds and synchronizes it before packaging. The npm 11 install
+reports an unreviewed script for the official `dsh-subprocess-local` `file:`
+tarball on Windows; its install script only chmods the POSIX node-pty spawn
+helper, which is absent on this platform. The official package is unmodified.
+
+## Harness 0.1.7-rc.2 / AgentTeams 0.1.21 refresh classification — 2026-09-28
+
+This is a historical classification. All dated 0.1.5/0.1.2 entries below are
+historical evidence, not current runtime identities. AgentTeams stable
+`v0.1.21` recommends Harness `0.1.7-rc.2`; `0.1.22-rc.1` is a separate npm
+`next` prerelease and is not used here. The official closure contains 9 vendor
+and 314 DSH tarballs, packed from the fixed source using pnpm 11.7.0 and
+verified with the official packed-install checks before import. Artifact
+identities and SHA-256 are recorded in `UPSTREAM_017_SOURCE_MANIFEST.md`.
+
+| Registered capability/owner | Classification | Migration and retained proof |
+| --- | --- | --- |
+| Harness runtime and new product features | `UPSTREAM_EQUIVALENT` | Use the official 0.1.7 graph, plugin manager, Agent preset registry, shortcuts, custom API/account onboarding, file/Office preview and Session format v4. Obsolete host packages are replaced by their official PTC/settings/preset successors; official tarballs are not edited. Actual installed dependency closure and isolated Electron startup/client-bundle checks pass. |
+| AgentTeams lifecycle, delivery, recovery, workspace/sidebar and report evidence | `UPSTREAM_EQUIVALENT` | Adopt v0.1.21 workspace/tab integration, addressed member navigation, owner-scoped historical cards and bounded open events; retain upstream stale/foreign report rejection, evidence deduplication, fresh-attempt evidence reset, terminal evidence supplementation and pre-start member setup. The lifecycle, quality, `issue-159`, workspace-activity and host-contract checks remain active. |
+| AgentTeams complete member tool surface and policy lifecycle | `UPSTREAM_EQUIVALENT` | Adopt the upstream captain-only tool set and existing/new/legacy Agent attachment within the existing policy owner, without a second capabilities/prompt listener. Members expose only claim/update/send/status. Use `onAgentReady` plus existing-Agent hydration, exact-once attachment and Agent/root disposal; retain the real ToolRuntime assembly and `routing-policy-lifecycle-verify.mjs` regressions. |
+| AgentTeams role policy, strict V2, numbered inheritance, compact status/prompt, task-input normalization, Profile editor, Team/Native and authenticated Web/CAS | `REAPPLY` | Preserve the existing independent owner and all registered regressions. Register the complete tools before existing-member hydration; pair root/child cleanup for frozen route/effort, admission, fallback and failure hooks. `hmr-member-runtime-verify.mjs` exercises the real plugin entry, remount and malformed-role rejection. No global member model override, legacy Team/Profile migration, second tool set or new scheduler is introduced. The local section is labelled `AgentTeams 团队` / `AgentTeams`. |
+| Durable child-operation gateway | `REAPPLY` | Admit the new upstream pre-start setup and continuation primitives through the same exact-live-Agent identity boundary and per-child lock for start, queue/steer, interrupt, retirement and drain. Upstream mailbox/task semantics remain authoritative; no direct `ctx.subagents.*` bypass is added. |
+| CPA | `REAPPLY` | Update only host/Models peers and locked development artifacts to the new cohort; retain the single native row, independent credential/address/reasoning/capacity ownership, path-scoped legacy-provider migration and malformed-input pass-through. CPA 27/27 and wrapper integration pass. |
+| Models settings | `UPSTREAM_EQUIVALENT + REAPPLY` | Rebase on official custom API onboarding, account-first order, shared ModelRow, per-model catalog input fallback and model-candidate search. Keep only provider-neutral normalization, auto/image/text-only, invalid save rejection, sequential cancellable draft-only probe, overwrite/effort/compat contracts, stored-credential Host seam, late Remote availability and output detachment. Models 50/50 pass. |
+| Native Subagent settings visibility | `SUPERSEDED_BY_DESIGN` | User explicitly chose separate Native and Team responsibilities. Delete the old settings-card hiding transformer; official initial/HMR client snapshots remain byte-identical. Native depth/concurrency/allowed-model controls remain on the official Plugins page; Team role routes remain in the local settings section. Preserve and migrate `subagent-settings-card-visibility.test.js`; both entries render in an isolated actual Electron window. |
+| Local plugin startup resolution | `SUPERSEDED_BY_DESIGN + REAPPLY` | Replace obsolete physical profile fallback healing with official in-memory `createRuntimeResolution` / PluginPackages. The scoped desktop preload changes only the official profile-launcher's installation anchor to the wrapper package; profile paths and user data are not rewritten. Retain `heal-desktop-plugins.test.js`, including the real Electron native loader/anchor check. |
+| Hidden console and shell/filesystem escalation | `UPSTREAM_EQUIVALENT + REAPPLY` | Use official Windows Node-subprocess hiding and hidden CreateProcess STARTUPINFO; remove duplicate Win32 flag rewriting. Reapply preload inheritance for production and tsx development ACL runners and the existing argument normalization before actual current Pwsh/Bash/fs validators. Real runtime validation/approval and runner-hook regressions pass. |
+| Authentication handoff/Cookie recovery, exact grep alias, bounded-period QUOTA and OpenCode compatibility/validation | `REAPPLY` | Retain each narrow wrapper-owned boundary, including Kimi first-request Schema lowering, stream recovery, exact session affinity and provider-neutral manual catalog validation. No provider-specific code is moved into Models. Existing installed-module and IPC regressions pass. |
+| Desktop Settings and compact tool-call guidance | `REAPPLY` | Keep immediate autosave/rollback, window bridge and the independent ≤500-character guidance section with no additional tools. Their wrapper regressions pass. |
+| Retired local Session Markdown and AUTO plugins | Remain removed | Do not restore the retired local plugins or migrate/clear their stale user data. Official host optional/experimental packages are not default-mounted as replacements. |
+
+The supported host peers enumerate `0.1.7-rc.2 || 0.1.5-rc.3 ||
+0.1.5-rc.2 || 0.1.5-rc.1 || 0.1.2-rc.1 || 0.1.2-alpha.5 ||
+0.1.2-alpha.2`; runtime and development pins use only 0.1.7. A fresh real
+`win-desktop/node_modules` install was prepared outside the offline gate,
+without `--force` or `--legacy-peer-deps`. Electron 43.4.1 was rejected by the
+new official native loader; the supported official 44.0.0 cohort passes the
+new real-runtime regression instead of bypassing the fingerprint check.
+
+Acceptance: full offline `npm run verify:upstream` passes (Models 50/50,
+CPA 27/27, AgentTeams complete suites, wrapper 134/134); production closure
+contains 625 resolved packages and zero old RC.1 packages. An isolated
+Electron host serves the 68-entry/3-batch client graph and both Native and Team
+settings without client errors. No live provider/model request or overnight
+endurance test is claimed. No commit, push, tag, installer or Release is part
+of this source refresh.
+
+## Harness 0.1.5-rc.1 / AgentTeams 0.1.19 refresh classification — 2026-09-17
+
+This is a historical AgentTeams classification. Earlier AgentTeams rows remain
+historical release evidence.
+
+- `UPSTREAM_EQUIVALENT`: v0.1.19 supplies member-start recovery after an
+  explicit host tool-filter rejection, repair-scope inference, and captain-only
+  task amendment. Keep the imported-path regressions for all three behaviors.
+- `REAPPLY`: retain the unified durable child-operation gateway and all local
+  strict V2, role routing, Team/Native, quality, Profile, authenticated Web/CAS,
+  desktop-inject, and routing-policy behavior.
+- `REAPPLY`: preserve the official `dsh-v0.1.5-rc.1` closure, its fixed tarball
+  identities, and all host peer ranges; this refresh changes no Harness package.
 
 ## Windows wrapper rc.4 loopback authentication hardening — 2026-09-15
 
@@ -34,7 +135,7 @@ prove it still exists.
 
 ## Harness 0.1.5-rc.1 / AgentTeams 0.1.18 refresh classification — 2026-09-13
 
-This is the current classification. The 2026-09-11 AgentTeams 0.1.17 and
+This is a historical classification. The 2026-09-11 AgentTeams 0.1.17 and
 earlier entries below remain historical release evidence.
 
 - `REAPPLY`: the desktop.1 model-call boundary reuses the existing optional
@@ -81,7 +182,7 @@ earlier entries below remain historical release evidence.
 
 ## Harness 0.1.5-rc.1 / AgentTeams 0.1.17 refresh classification — 2026-09-11
 
-This is the current classification; dated 0.1.2 / 0.1.16 rows below remain
+This is a historical classification; dated 0.1.2 / 0.1.16 rows below remain
 historical evidence only.
 
 - `UPSTREAM_EQUIVALENT`: use the complete fixed Harness 0.1.5 release family,
@@ -154,9 +255,13 @@ upgrades only the AgentTeams source to upstream `v0.1.16-rc.3` at
 
 ## AgentTeams owner
 
+The file-level owner tables below retain their 0.1.7-era wording and test
+paths as historical registration detail. The 0.2.0 classification above is
+authoritative for current versions, source identities and ownership decisions.
+
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `子智能体` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, the durable-session subagent gateway, and the RC.1 release contract | `win-desktop/agent-teams-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: v0.1.18 owns atomic roster/task planning, dormant lazy-start members, mailbox de-duplication and receipts, stale-attempt filtering, descendant/queued-input cleanup, retired cold-restore rejection, missing-attempt recovery, delivery guards, explicit depth defaults, host adapter/`harness-compat`, activity UI, and the publish/compatibility/doctor contract; the Windows fork reapplies role-policy, prompt budget, Profile input, catalog, quality extensions, strict V2, compact status, Team/Native, authenticated Web CAS, the durable-session gateway admission seam, extra settings injects, and offline `0.1.5-rc.1` `file:` tarball host pins | `src/index.ts`, `src/web-routes.ts`, `src/harness-compat.ts`, `src/mailbox.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `compatibility.json`, `scripts/compatibility.mjs`, `scripts/doctor.mjs`, `scripts/release-metadata.mjs`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/stability-tdd.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/harness-compat-tdd.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, `scripts/web-routes-verify.mjs`, `scripts/compatibility.mjs`, `scripts/compatibility.test.mjs`, `scripts/release-metadata.test.mjs`, and `scripts/doctor.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
+| Harness-native `AgentTeams 团队` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, the durable-session subagent gateway, and the RC.1 release contract | `win-desktop/agent-teams-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: v0.1.21 owns atomic roster/task planning, dormant lazy-start members, mailbox de-duplication and receipts, stale-attempt filtering, descendant/queued-input cleanup, retired cold-restore rejection, missing-attempt recovery, delivery guards, explicit depth defaults, host adapter/`harness-compat`, workspace/sidebar activity, addressed member and historical-card navigation, stale report/evidence rejection and deduplication, pre-start setup, member-start recovery, repair-scope inference, captain-only task amendment, and the publish/compatibility/doctor contract; the Windows fork reapplies role-policy, prompt budget, Profile input, catalog, quality extensions, strict V2, compact status, Team/Native, authenticated Web CAS, the durable-session gateway admission seam, extra settings injects, and offline `0.1.7-rc.2` `file:` tarball host pins | `src/index.ts`, `src/web-routes.ts`, `src/harness-compat.ts`, `src/mailbox.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `src/client/WorkspaceActivity.tsx`, `src/client/workspace-state.ts`, `src/client/session-navigation.ts`, `src/tool-names.ts`, `compatibility.json`, `scripts/compatibility.mjs`, `scripts/doctor.mjs`, `scripts/release-metadata.mjs`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/stability-tdd.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/harness-compat-tdd.mjs`, `scripts/workspace-activity.test.mjs`, `scripts/issue-159.test.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, `scripts/web-routes-verify.mjs`, `scripts/compatibility.mjs`, `scripts/compatibility.test.mjs`, `scripts/release-metadata.test.mjs`, and `scripts/doctor.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
 | Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
 ## CPA owner
@@ -169,7 +274,7 @@ upgrades only the AgentTeams source to upstream `v0.1.16-rc.3` at
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Alpha.2 `settings.models.provider-card`/footer slot integration, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, one sequential cancellable capability probe with explicit overwrite, and page-level degradation when that Remote is absent or late | `win-desktop/models-settings-plugin` | `SUPERSEDED_BY_DESIGN + REAPPLY`: Alpha.2 replaces the rc.2 Models/Onboarding/Slot architecture; the fork is rebased onto that design and reapplies only provider-neutral image/reasoning capability contracts and the late Remote seam. CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork. | `src/client/ModelsSection.tsx`, `src/client/models-section-availability.ts`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/alpha2-base.test.js`, `tests/models-section-availability.test.js`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/alpha2-client-contract.test.js`, `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
+| Official 0.1.7 custom API onboarding, account-first ordering, shared ModelRow/inputTypes and `settings.models.provider-card`/footer slot integration, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, one sequential cancellable capability probe with explicit overwrite, and page-level degradation when that Remote is absent or late | `win-desktop/models-settings-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: use the complete 0.1.7 native Models architecture and reapply only provider-neutral image/reasoning capability contracts, profile normalization and the late Remote seam. CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork. | `src/client/ModelsSection.tsx`, `src/client/models-section-availability.ts`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/upstream-v017-models.test.js`, `tests/model-list-upstream-runtime.test.js`, `tests/alpha2-base.test.js`, `tests/models-section-availability.test.js`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/alpha2-client-contract.test.js`, `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
 
 ## Desktop Settings owner
 
@@ -182,13 +287,13 @@ upgrades only the AgentTeams source to upstream `v0.1.16-rc.3` at
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
 | Wrapper-wide tool-call guidance: derive arguments from current schemas/context, omit unknown or blank optional properties unless empty is explicitly meaningful, and never repeat failed invalid arguments unchanged | `win-desktop/tool-call-guidance-plugin` | Independent local system-prompt plugin. It registers no tools, settings, Provider behavior, or lifecycle state and stays at or below 500 characters. | `tool-call-guidance-plugin/lib/index.js`, `package.json`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `scripts/sync-local-plugin-artifacts.mjs` | `tests/tool-call-guidance.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest test |
-| Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | Compatibility rewrites over official Windows runtime packages | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
-| Hide only the native Subagent plugin settings card while retaining the Host namespace, saved settings, official Subagent runtime closure, and AgentTeams spawn path | `win-desktop` | `REAPPLY`: Alpha.2 provides no single-card visibility control. The Wrapper rewrites the client-module initial/HMR bundle snapshot boundary and changes only the exact Subagent Slot key to an equal-length unserved internal key. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/subagent-settings-card-visibility.test.js`, `tests/agent-teams-integration.test.js`, and the local capability manifest test |
+| Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: official Node hiding and hidden Win32 STARTUPINFO replace duplicate flags; retain only runner preload inheritance and validator-first argument normalization | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
+| Keep the official native Subagent plugin settings card and the local AgentTeams section separately visible, while retaining Host namespaces, saved settings, official runtime closure and AgentTeams spawn | Official Native client plus `win-desktop/agent-teams-plugin` | `SUPERSEDED_BY_DESIGN`: the user chose separate Native/Team responsibilities for 0.1.7. The old hiding transformer is removed; official initial and HMR bundle snapshots are unmodified. | `agent-teams-plugin/src/client/index.tsx`, `agent-teams-plugin/src/client/locales.ts`, `src/win-hide-console-rewrite.js` | `tests/subagent-settings-card-visibility.test.js`, `tests/agent-teams-integration.test.js`, and the local capability manifest test |
 | Alpha.2 authenticated startup URL handoff and bounded loopback Cookie recovery: retain the complete canonical `http://127.0.0.1:<port>/?token=...` readiness URL, reject a bare loopback origin, never persist or document the process token, clear only stale `127.0.0.1` `dsh-auth-*` Cookies before the initial authenticated load, and recover once from a current-origin `/plugins/` HTTP 431 without a reload loop | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: Alpha.2 owns token issuance, cookie exchange, and clean-root redirect; the wrapper owns lossless capture of the official `dsh web:` URL plus the narrow cleanup required because Cookie scope does not isolate random ports. | `src/dsh-service.js`, `src/main.js`, `src/loopback-auth-cookies.js` | `tests/dsh-web-auth-url.test.js`, `tests/loopback-auth-cookies.test.js`, and the local capability manifest test |
 | Provider-neutral `grep` argument alias normalization at the `dsh-llm-pi-ai` durable tool-call boundary, limited to a missing `pattern` plus an exact single-line `description: "pattern: <non-empty value>"` shape | `win-desktop` | `REAPPLY` until upstream performs an equivalent deterministic normalization. No provider/model routing or optional settings toggle owns this behavior; existing `pattern` values and every ambiguous malformed call remain under the strict upstream Schema. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/grep-tool-argument-compatibility.test.js` and the local capability manifest test |
 | Explicit bounded-period usage-limit exhaustion is classified as terminal `QUOTA` at the official `dsh-llm` boundary, while transient `RATE_LIMIT` and standalone reset notices remain non-terminal | `win-desktop` | `REAPPLY`: RC.1 recognizes unqualified `usage limit` wording but misses provider messages such as `weekly usage limit`; the wrapper adds only this narrow loader rewrite and retains the upstream classifier for every other phrase. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/win-hide-console.test.js` and the local capability manifest test |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |
-| Local plugin installation, patch graph, startup healing, compiled-local-plugin artifact synchronization, OpenCode model-catalog preparation, verified OpenCode protocol/image-capability reconciliation (static, persisted and live catalogs), including Kimi K3's tool-compatible first-request profile, official-client Schema lowering, provider-wide OpenCode Go session affinity, and the narrow manual validation bridge | `win-desktop` plus `opencode-capabilities-plugin` | `REAPPLY` until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; known legacy modality mappings may correct only input capability, while unknown models retain text-only fallback. Every OpenCode Go model must receive `x-opencode-session` from the active Harness session, including with `cacheRetention: "none"`; generic providers remain unchanged. Kimi K3 must keep `supportsStrictMode: false`, reasoning-content replay, deferred-tool handling, and Kimi Schema normalization for ref siblings and tuple-style `items`. Do not infer an unknown model's protocol or retry a 500 over another endpoint. | `package.json`, `package-lock.json`, `scripts/sync-local-plugin-artifacts.mjs`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js`, `src/win-hide-console-rewrite.js`, `src/preload.cjs`, `src/settings-window.js`, `opencode-capabilities-plugin/lib/client.js` | `tests/heal-desktop-plugins.test.js`, `tests/local-plugin-artifacts.test.js`, `tests/model-fetcher.test.js`, `tests/opencode-stream-rewrite.test.js`, `tests/opencode-capabilities-integration.test.js`, and the local capability manifest test |
+| Local plugin installation, patch graph, official in-memory profile resolution with a scoped wrapper installation anchor, compiled-local-plugin artifact synchronization, OpenCode model-catalog preparation, verified OpenCode protocol/image-capability reconciliation (static, persisted and live catalogs), including Kimi K3's tool-compatible first-request profile, official-client Schema lowering, provider-wide OpenCode Go session affinity, and the narrow manual validation bridge | `win-desktop` plus `opencode-capabilities-plugin` | `SUPERSEDED_BY_DESIGN + REAPPLY` for startup (official runtime resolver replaces physical profile links); `REAPPLY` for OpenCode until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; known legacy modality mappings may correct only input capability, while unknown models retain text-only fallback. Every OpenCode Go model must receive `x-opencode-session` from the active Harness session, including with `cacheRetention: "none"`; generic providers remain unchanged. Kimi K3 must keep `supportsStrictMode: false`, reasoning-content replay, deferred-tool handling, and Kimi Schema normalization for ref siblings and tuple-style `items`. Do not infer an unknown model's protocol or retry a 500 over another endpoint. | `package.json`, `package-lock.json`, `scripts/sync-local-plugin-artifacts.mjs`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js`, `src/win-hide-console-rewrite.js`, `src/preload.cjs`, `src/settings-window.js`, `opencode-capabilities-plugin/lib/client.js` | `tests/heal-desktop-plugins.test.js`, `tests/local-plugin-artifacts.test.js`, `tests/model-fetcher.test.js`, `tests/opencode-stream-rewrite.test.js`, `tests/opencode-capabilities-integration.test.js`, and the local capability manifest test |
 
 OpenCode 官方客户端在其请求准备代码中会为 `providerID` 以 `opencode` 开头的请求设置
 `x-opencode-session`；OpenCode Go 网关也以该头作为会话粘性标识。Windows 包装器
@@ -205,7 +310,7 @@ those stable ignored tarball paths; the checked-in
 `UPSTREAM_ALPHA2_SOURCE_MANIFEST.md` records all package identities and hashes.
 
 This historical classification is retained for provenance; the active runtime
-identity is the RC.1 refresh recorded above.
+identity is the 0.1.7 refresh recorded above.
 
 The Alpha.2-era migration classification was:
 

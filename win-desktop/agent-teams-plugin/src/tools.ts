@@ -20,6 +20,7 @@ import { join } from 'node:path'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
   acknowledgeMailbox,
+  amendTaskContract,
   appendMailbox,
   assertExpectedPlanRevision,
   archiveTeamDir,
@@ -56,12 +57,12 @@ import {
   taskKindOf,
 } from './state.ts'
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, type AcceptanceResult, type CommandResult, type ReviewFinding, type ReviewVerdict, type TaskKind } from './types.ts'
+import { appendTaskEvidence } from './quality-gates.ts'
 import {
   deliverToMember,
   installMemberDelegationGuard,
   installRetiredMemberGuard,
   installMemberSelectionRuntime,
-  interruptMember,
   memberActivity,
   resolveMemberLlmSelection,
   steerCaptainReport,
@@ -567,7 +568,7 @@ export function notifyStagedPlanApproved(captain: Pick<Agent, 'steer'>, teamName
   try {
     captain.steer(createUserMessage({
       content: [{ type: 'text', text: stagedPlanApprovedContext(teamName) }],
-      source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+      source: { kind: 'agent-teams' },
     }))
     return true
   } catch {
@@ -605,12 +606,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
   installMemberDelegationGuard(ctx, config.stateDir, config.memberMaxDepth ?? 0)
   installMailboxAdmission(ctx, config.stateDir)
   const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt, dispatch: dispatchMember })
-  const memberSelections = installMemberSelectionRuntime(
-    ctx,
-    config.stateDir,
-    config.delegationPolicy,
-    (workspace, teamId, memberName) => scheduler.kickMember(workspace, teamId, memberName),
-  )
+  let memberSelections!: ReturnType<typeof installMemberSelectionRuntime>
   const statusFingerprints = new Map<string, string>()
   const maxStatusFingerprints = 256
   const approvalCredentials = createApprovalCredentialStore()
@@ -896,10 +892,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         const gateway = agentTeamsSubagentGateway(ctx)
         await Promise.all(spawned.map(async (member) => {
           if (member.id === '') return
-          await gateway.withChildLock(member.id as SessionId, async () => {
-            await recordRetiredMemberIds(stateRoot, [member.id]).catch(() => undefined)
-            interruptMember(ctx, captain, member.id)
-          })
+          await gateway.retireAndInterrupt(captain, member.id as SessionId, () => (
+            recordRetiredMemberIds(stateRoot, [member.id]).catch(() => undefined)
+          ))
         }))
         throw error
       }
@@ -910,7 +905,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           type: 'text',
           text: `AgentTeams approval committed: team=${approved.teamId}; source=${approved.approvalSource}; planRevision=${approved.planRevision}; evidence=${approved.approvalEvidenceId}.`,
         }],
-        source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+        source: { kind: 'agent-teams' },
       }))
     } catch {
       ctx.logger.warn(`agent-teams: post-approval context injection failed for "${teamId}"; the running Team remains committed`)
@@ -952,7 +947,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
     try {
       captain.followup(createUserMessage({
         content: [{ type: 'text', text: stagedPlanFeedbackContext(prepared.teamName) }],
-        source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+        source: { kind: 'agent-teams' },
       }))
     } catch (error: unknown) {
       // Do not leave the durable UI in a false waiting state when the live
@@ -991,7 +986,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
     try {
       captain.inject(createUserMessage({
         content: [{ type: 'text', text: stagedPlanDiscardContext(discarded.teamName) }],
-        source: { kind: 'plugin', plugin: 'dsh-agent-teams' },
+        source: { kind: 'agent-teams' },
       }))
     } catch (error: unknown) {
       // The archive is already authoritative. Cancellation still prevents a
@@ -1639,10 +1634,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           // listings and cannot be resumed, then surface the write failure.
           if (member.id !== '') {
             const gateway = agentTeamsSubagentGateway(ctx)
-            await gateway.withChildLock(member.id as SessionId, async () => {
-              await recordRetiredMemberIds(stateRoot, [member.id]).catch(() => undefined)
-              interruptMember(ctx, captain, member.id)
-            })
+            await gateway.retireAndInterrupt(captain, member.id as SessionId, () => (
+              recordRetiredMemberIds(stateRoot, [member.id]).catch(() => undefined)
+            ))
           }
           throw error
         }
@@ -2182,7 +2176,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_update_task',
-    description: 'Update a task status/output. Members must supply the current attempt_id returned by claim_task; stale attempts are rejected after takeover/reassignment. Terminal results are immutable. Implementation/repair completion must report actual changedPaths; empty changedPaths requires noChangesReason and is invalid when deliverables were declared. A captain must use reassign_task(assignee="captain") before updating member-owned work.',
+    description: 'Update a task status/output. Members must supply the current attempt_id returned by claim_task; stale attempts are rejected after takeover/reassignment. Terminal results are immutable, but their owner or captain may append attributed acceptanceResults, commandsRun, or evidence_note without changing the result.',
     parameters: {
       task_id: { type: 'string', required: true, description: 'The task id to update.' },
       status: {
@@ -2191,6 +2185,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         description: 'New status (in_progress, completed, failed, cancelled).',
       },
       output: { type: 'string', description: 'Result summary; set when completing or failing.' },
+      evidence_note: { type: 'string', description: 'Append-only observation for a terminal task; does not reopen or change its result.' },
       attempt_id: { type: 'string', description: 'Current execution capability returned by claim_task (required for members when present on the task).' },
       verdict: {
         type: 'string',
@@ -2261,11 +2256,12 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           output: { type: 'string' },
           attempt: { type: 'number', required: true },
           attempt_id: { type: 'string' },
+          evidence_count: { type: 'number' },
         },
       },
       render: (args, value) => [{
         type: 'text',
-        text: `Task ${value.task_id} attempt ${value.attempt} → ${value.status}${value.output !== undefined ? `\nOutput: ${value.output}` : ''}`,
+        text: `Task ${value.task_id} attempt ${value.attempt} → ${value.status}${value.output !== undefined ? `\nOutput: ${value.output}` : ''}${value.evidence_count === undefined ? '' : `\nSupplemental evidence records: ${value.evidence_count}. Original result unchanged.`}`,
       }],
     },
     async execute(args, exec) {
@@ -2291,19 +2287,24 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           }
         }
         if (TERMINAL_TASK_STATUSES.includes(task.status)) {
-          const sameStatus = args.status === undefined || args.status === task.status
-          const sameOutput = args.output === undefined || args.output === task.output
-          if (!sameStatus || !sameOutput) {
-            throw new Error(`terminal task ${task.id} is immutable; use agent_teams_reassign_task to retry failed/cancelled work`)
-          }
+          const appended = appendTaskEvidence(task, {
+            ...args,
+            findings: parseFindings(args.findings),
+            changedPaths: normalizeBlankOptionalTaskFields(args).changedPaths,
+            acceptanceResults: parseAcceptanceResults(args.acceptanceResults),
+            commandsRun: parseCommandResults(args.commandsRun),
+          }, identity.name)
+          if (appended) await writeTeam(stateRoot, fresh)
           return {
             task_id: task.id,
             status: task.status,
             attempt: task.attempt ?? 0,
+            evidence_count: task.supplementalEvidence?.length ?? 0,
             ...task.attemptId === undefined ? {} : { attempt_id: task.attemptId },
             ...task.output !== undefined ? { output: task.output } : {},
           }
         }
+        if (args.evidence_note?.trim()) throw new Error('evidence_note is only valid for terminal tasks')
         const input = normalizeBlankOptionalTaskFields(args)
         const findings = parseFindings(input.findings)
         const acceptanceResults = parseAcceptanceResults(args.acceptanceResults)
@@ -2377,9 +2378,86 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
   }))
 
   ctx.tools.register(defineTool({
+    name: 'agent_teams_amend_task',
+    description: 'Captain-only controlled contract amendment for one non-terminal quality task. Replace a wrong objective, acceptance, verify, inScope, or outOfScope only when the current contract makes honest completion impossible. Every amendment records the previous values and reason; lists are full replacements. A task is frozen after a passing review or requirements judgment.',
+    parameters: {
+      task_id: { type: 'string', required: true, description: 'Task whose contract is being amended.' },
+      reason: { type: 'string', required: true, description: 'Why the current contract is wrong; stored in the revision ledger.' },
+      objective: { type: 'string', description: 'Replacement objective.' },
+      acceptance: { type: 'array', items: { type: 'string' }, description: 'Replacement acceptance criteria.' },
+      verify: { type: 'array', items: { type: 'string' }, description: 'Replacement verification commands.' },
+      inScope: { type: 'array', items: { type: 'string' }, description: 'Replacement workspace-relative inScope paths.' },
+      outOfScope: { type: 'array', items: { type: 'string' }, description: 'Replacement workspace-relative outOfScope paths.' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          task_id: { type: 'string', required: true },
+          status: { type: 'string', required: true },
+          revised_fields: { type: 'string', required: true },
+          revision_count: { type: 'number', required: true },
+          contract: { type: 'string', required: true },
+        },
+      },
+      render: (_args, value) => [{ type: 'text', text: `Task ${value.task_id} contract amended (${value.revised_fields}); ${value.revision_count} revision(s) on record.` }],
+    },
+    async execute(args, exec) {
+      const captain = requireCaptain(exec)
+      const captainId = durableSessionId(captain)
+      const workspace = workspaceOf(captain)
+      const stateRoot = stateRootOf(workspace, config)
+      const team = await requireCaptainTeam(workspace, config, captain)
+      const amended = await withTeamLock(teamLockKey(stateRoot, team.id), async () => {
+        const fresh = await requireFreshCaptainTeam(stateRoot, team.id, captainId)
+        const task = requireTask(fresh, args.task_id)
+        const result = amendTaskContract(fresh, task, normalizeBlankOptionalTaskFields({
+          ...args.objective === undefined ? {} : { objective: args.objective },
+          ...args.acceptance === undefined ? {} : { acceptance: args.acceptance },
+          ...args.verify === undefined ? {} : { verify: args.verify },
+          ...args.inScope === undefined ? {} : { inScope: args.inScope },
+          ...args.outOfScope === undefined ? {} : { outOfScope: args.outOfScope },
+        }), CAPTAIN_KEY, args.reason)
+        if (!result.ok || result.task === undefined) throw new Error(result.error ?? 'amend_task rejected by quality gates')
+        Object.assign(task, result.task)
+        await writeTeam(stateRoot, fresh)
+        return {
+          taskId: task.id,
+          status: task.status,
+          fields: result.revision?.fields ?? [],
+          revisionCount: task.revisions?.length ?? 0,
+          contract: {
+            ...task.objective === undefined ? {} : { objective: task.objective },
+            ...task.acceptance === undefined ? {} : { acceptance: task.acceptance },
+            ...task.verify === undefined ? {} : { verify: task.verify },
+            ...task.inScope === undefined ? {} : { inScope: task.inScope },
+            ...task.outOfScope === undefined ? {} : { outOfScope: task.outOfScope },
+          },
+        }
+      })
+      appendTeamEvent(ctx, captainSessionOf(ctx, team.captainSessionId, captain.session), 'agent-teams/task-amended', {
+        teamId: team.id,
+        taskId: amended.taskId,
+        fields: amended.fields,
+        reason: args.reason,
+      })
+      return {
+        task_id: amended.taskId,
+        status: amended.status,
+        revised_fields: amended.fields.join(', '),
+        revision_count: amended.revisionCount,
+        contract: JSON.stringify(amended.contract),
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'agent_teams_send_message',
     description: 'Send a message to the captain or to a teammate. Messages go straight into the recipient\'s mailbox; when the captain agent is online the plugin also schedules live delivery (member recipients get the message as their next turn; a running captain sees it at the nearest model step). No relay is involved: teammates talk to each other directly, exactly like the Claude Code AgentTeams mailbox model.',
     parameters: {
+      source_task_id: { type: 'string', description: 'Sender task paired with source_attempt_id for a member report.' },
+      source_attempt_id: { type: 'string', description: 'Current source execution capability paired with source_task_id.' },
       to: { type: 'string', required: true, description: 'Recipient: "captain" or a member name.' },
       content: { type: 'string', required: true, description: 'The message text.' },
       from: { type: 'string', description: 'Sender (defaults to the caller: the captain, or the calling member).' },
@@ -2414,8 +2492,24 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (args.from !== undefined && args.from !== from) {
           throw new Error(`agent_teams_send_message: "from" must be your own identity ("${from}"), not "${args.from}"`)
         }
+        const sourceTaskId = args.source_task_id?.trim() || undefined
+        const sourceAttemptId = args.source_attempt_id?.trim() || undefined
+        if ((sourceTaskId === undefined) !== (sourceAttemptId === undefined)) {
+          throw new Error('send_message requires source_task_id and source_attempt_id together')
+        }
+        const source = sourceTaskId === undefined
+          ? identity.kind === 'member' ? memberOpenTask(fresh, identity.name) : undefined
+          : requireTask(fresh, sourceTaskId)
+        if (sourceTaskId !== undefined && (source?.assignee !== identity.name || source.attemptId !== sourceAttemptId)) {
+          throw new Error('stale or foreign source attempt; stop sending results from the revoked task')
+        }
+        const sourceFields = source?.attemptId === undefined ? {} : {
+          sourceTaskId: source.id,
+          sourceAttemptId: source.attemptId,
+          sourceTaskStatus: source.status,
+        }
         if (to === CAPTAIN_KEY) {
-          const message = { ...createMessage(from, CAPTAIN_KEY, args.content), deliveryClaimedAt: Date.now() }
+          const message = { ...createMessage(from, CAPTAIN_KEY, args.content), ...sourceFields, deliveryClaimedAt: Date.now() }
           await appendMailbox(stateRoot, fresh.id, CAPTAIN_KEY, message)
           appendTeamEvent(ctx, captainSessionOf(ctx, fresh.captainSessionId, caller.session), 'agent-teams/message-sent', {
             teamId: fresh.id,
@@ -2434,6 +2528,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         const owned = memberOpenTask(fresh, recipient.name)
         const message = {
           ...createMessage(from, recipient.name, args.content),
+          ...sourceFields,
           deliveryClaimedAt: Date.now(),
           ...(owned?.attemptId === undefined ? {} : { taskId: owned.id, attemptId: owned.attemptId }),
         }
@@ -2800,6 +2895,15 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       return { deleted: true, team_name: team.name }
     },
   }))
+  // Do this after every `agent_teams_*` registration. Existing continuable
+  // members are hydrated synchronously and their policy must see the whole
+  // tool registry, rather than an early partial registry during HMR.
+  memberSelections = installMemberSelectionRuntime(
+    ctx,
+    config.stateDir,
+    config.delegationPolicy,
+    (workspace, teamId, memberName) => scheduler.kickMember(workspace, teamId, memberName),
+  )
   return runtime
 }
 

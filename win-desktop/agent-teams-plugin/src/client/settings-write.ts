@@ -1,7 +1,7 @@
 import type {
   SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SettingsDescribeFace, SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm, SettingsDescribeFace } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
 
@@ -32,7 +32,7 @@ export interface SettingsApi {
     describe(): Promise<RemoteResult<SettingsDescribeValue>>
   }
 }
-type SettingsReadScope = Pick<SettingsScope<AgentTeamsSettings>, 'getSnapshot'>
+type SettingsReadScope = Pick<ConfigForm<AgentTeamsSettings>, 'getSnapshot'>
 
 export interface AgentTeamsSettingsWriter {
   write(ops: readonly SettingsPathOpView[]): Promise<SettingsWriteState>

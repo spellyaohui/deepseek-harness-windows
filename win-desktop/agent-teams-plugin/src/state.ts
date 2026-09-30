@@ -23,6 +23,7 @@ import { hasValidQualityTaskFields, isReviewPolicy } from './quality-gates.ts'
 
 export {
   buildCoverageMatrix,
+  amendTaskContract,
   canDeclareDelivery,
   classifyChangedPath,
   collectChangedPaths,
@@ -310,7 +311,7 @@ export function activateTaskAttempt(task: TeamTask, assignee: string): string {
   task.attemptId = attemptId
   task.handoffId = undefined
   task.reassigning = false
-  task.output = undefined
+  clearAttemptResult(task)
   task.updatedAt = Date.now()
   return attemptId
 }
@@ -346,8 +347,18 @@ export function invalidateTaskAttempt(
   task.status = 'pending'
   task.assignee = nextAssignee
   task.reassigning = reassigning
-  task.output = undefined
+  clearAttemptResult(task)
   task.updatedAt = Date.now()
+}
+
+/** A fresh attempt must not inherit terminal evidence from a revoked owner. */
+function clearAttemptResult(task: TeamTask): void {
+  task.output = undefined
+  task.verdict = undefined
+  task.findings = undefined
+  task.changedPaths = undefined
+  task.acceptanceResults = undefined
+  task.commandsRun = undefined
 }
 
 /**

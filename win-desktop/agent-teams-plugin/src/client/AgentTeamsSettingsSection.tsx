@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
 import { loadModelCatalog, type ModelCatalogEntry, type ModelCatalogState } from './model-catalog.ts'
@@ -23,7 +23,7 @@ type CatalogViewState = ModelCatalogState | {
 }
 
 export interface AgentTeamsSettingsSectionInjected {
-  settings: SettingsScope<AgentTeamsSettings>
+  settings: ConfigForm<AgentTeamsSettings>
   writer: AgentTeamsSettingsWriter
 }
 

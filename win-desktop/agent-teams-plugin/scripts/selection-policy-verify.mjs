@@ -5,6 +5,11 @@ import { findMemberRoleTemplate, selectMemberCandidate } from '../lib/selection-
 const captain = { provider: 'cpa', model: 'cheap-captain', reasoningEffort: 'high' }
 
 assert.deepEqual(selectMemberCandidate({
+  captain: { provider: 'fixture', model: 'current-id', reasoningEffort: 'high' },
+  role: { provider: 'fixture', model: 'removed-model-id', reasoningMode: 'target-default' },
+}), { provider: 'fixture', model: 'removed-model-id' })
+
+assert.deepEqual(selectMemberCandidate({
   captain,
   role: { reasoningMode: 'target-default' },
 }), { provider: 'cpa', model: 'cheap-captain' })

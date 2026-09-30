@@ -15,7 +15,7 @@ import { createTeamDir } from '../lib/state.js'
 const queueKey = Symbol.for('dsh.subagent.queuePrompt')
 const deliverKey = Symbol.for('dsh.subagent.deliverPrompt')
 const signal = new AbortController().signal
-const source = { kind: 'plugin', plugin: 'dsh-agent-teams' }
+const source = { kind: 'agent-teams' }
 const content = [{ type: 'text', text: 'next distinct turn' }]
 
 function scope(extra = {}) {

@@ -40,8 +40,8 @@ test('normalizes OpenCode Go Kimi tool schemas before Pi serializes the request'
   assert.match(rewritten, /model\.id\.toLowerCase\(\)\.includes\("kimi"\)/)
   assert.match(rewritten, /return \{ \$ref: schema\.\$ref \}/)
   assert.match(rewritten, /Array\.isArray\(normalized\.items\)/)
-  assert.match(rewritten, /convertTools\(activeTools, compat, model\)/)
-  assert.match(rewritten, /convertTools\(deferredTools, compat, model\)/)
+  assert.match(rewritten, /convertTools\(transcriptTools\.requestTools, compat, model\)/)
+  assert.match(rewritten, /convertTools\(addedTools, compat, model\)/)
   assert.equal(rewriteOpenCodeKimiToolSchemas(rewritten), rewritten)
 })
 
@@ -52,7 +52,7 @@ test('adds OpenCode Go session affinity even when prompt-cache retention is disa
   assert.match(rewritten, /compat\.sendSessionAffinityHeaders \|\| model\.provider === "opencode-go"/)
   assert.match(rewritten, /headers\["x-opencode-session"\] = sessionId/)
   assert.match(rewritten, /const clientSessionId = model\.provider === "opencode-go" \? options\?\.sessionId : cacheSessionId/)
-  assert.match(rewritten, /createClient\(model, context, apiKey, options\?\.headers, options\?\.fetch, clientSessionId, compat\)/)
+  assert.match(rewritten, /createClient\(model, normalizedContext, apiKey, options\?\.headers, options\?\.fetch, clientSessionId, compat\)/)
   assert.equal(rewriteOpenCodeGoSessionAffinity(rewritten), rewritten)
 })
 
@@ -63,7 +63,7 @@ test('adds the same session affinity to the OpenAI Responses route used by Muse 
   assert.match(rewritten, /model\.provider === "opencode-go"/)
   assert.match(rewritten, /headers\["x-opencode-session"\] = sessionId/)
   assert.match(rewritten, /const clientSessionId = model\.provider === "opencode-go" \? options\?\.sessionId : cacheSessionId/)
-  assert.match(rewritten, /createClient\(model, context, apiKey, options\?\.headers, options\?\.fetch, clientSessionId\)/)
+  assert.match(rewritten, /createClient\(model, normalizedContext, apiKey, options\?\.headers, options\?\.fetch, clientSessionId\)/)
   assert.equal(rewriteOpenCodeGoSessionAffinity(rewritten), rewritten)
 })
 

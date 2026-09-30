@@ -6,21 +6,15 @@
  */
 
 import type {
-  CredentialInfo, LlmConfigurableProvider, LlmDiscoveredModel, LlmModelDiscoveryRequest,
-  LlmProviderInfo,
+  CredentialInfo, LlmConfigurableProvider, LlmDiscoveredModel, LlmModelDiscoveryRequest, LlmProviderInfo,
   SettingsNamespaceView, SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 
-/** Structural result shared by the generated Remote namespaces used here. */
 export type ModelsRemoteResult<Value> =
   | { readonly ok: true; readonly value: Value }
   | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
 
-/**
- * The exact Alpha.2 Remote face consumed by Models. Keeping this structural at
- * the package boundary avoids depending on declaration merging across pnpm
- * peer instances while preserving the generated Remote runtime calls.
- */
+/** Structural Alpha.2 Remote face, avoiding duplicate pnpm declaration identities. */
 export interface ModelsRemoteContext {
   readonly remote: {
     readonly credentials: {
@@ -29,45 +23,28 @@ export interface ModelsRemoteContext {
       unset(ref: string): Promise<ModelsRemoteResult<void>>
     }
     readonly settings: {
-      mutate(
-        ns: string,
-        ops: SettingsPathOpView[],
-        expectedRevision: number | undefined,
-      ): Promise<ModelsRemoteResult<SettingsNamespaceView>>
+      mutate(ns: string, ops: SettingsPathOpView[], expectedRevision: number | undefined): Promise<ModelsRemoteResult<SettingsNamespaceView>>
     }
     readonly llm: {
-      discoverModels(
-        settingsNs: string,
-        request: LlmModelDiscoveryRequest,
-        signal?: AbortSignal,
-      ): Promise<ModelsRemoteResult<LlmDiscoveredModel[]>>
+      discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<ModelsRemoteResult<LlmDiscoveredModel[]>>
       listProviders(): Promise<ModelsRemoteResult<LlmProviderInfo[]>>
       listConfigurableProviders(): Promise<ModelsRemoteResult<LlmConfigurableProvider[]>>
+    }
+    readonly session: {
+      modelCatalog(): Promise<ModelsRemoteResult<{ groups: readonly { id: string; models: readonly unknown[] }[] }>>
     }
   }
 }
 
-/**
- * What one namespace write answered. A `written` result carries the stored
- * user subtree and the new revision.
- */
+/** What one namespace write answered. */
 export type SettingsWriteOutcome =
-  | { readonly kind: 'written'; readonly view: SettingsNamespaceView }
-  /**
-   * The stored revision moved after the card read it, so the draft is stale.
-   * The message stays for callers that report the Host diagnostic as it is.
-   */
+  { readonly kind: 'written'; readonly view: SettingsNamespaceView }
   | { readonly kind: 'conflict'; readonly message: string }
-  /** Any other refusal, with the Host's own diagnostic. */
   | { readonly kind: 'refused'; readonly message: string }
 
-/**
- * What one endpoint interrogation answered. A `found` result preserves the
- * candidates in the provider's own order.
- */
+/** What one endpoint interrogation answered. */
 export type ModelDiscoveryOutcome =
-  | { readonly kind: 'found'; readonly models: readonly LlmDiscoveredModel[] }
-  /** The interrogation was refused, with the Host's own diagnostic. */
+  { readonly kind: 'found'; readonly models: readonly LlmDiscoveredModel[] }
   | { readonly kind: 'refused'; readonly message: string }
 
 /** The Host operations the Models page and its cards invoke. */

@@ -26,6 +26,17 @@ Ask in natural language. The plugin provides the team protocol, thirteen coordin
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.22-desktop.1
+
+- Follows upstream stable v0.1.22 and its recommended Harness 0.2.0-rc.2; retains the previous seven supported hosts.
+- Preserves the upstream lifecycle and desktop-only role routing, strict V2, authenticated Web/CAS, quality contracts and single durable-session gateway.
+
+### v0.1.21-desktop.1
+
+- Uses upstream v0.1.21 workspace/sidebar activity, addressed member navigation, owner-scoped historical cards, report provenance and evidence deduplication.
+- Follows the recommended Harness 0.1.7-rc.2 while preserving strict V2, per-role Provider/model/reasoning, authenticated Web/CAS, quality extensions and the single durable-session gateway.
+- Keeps the official Native settings visible separately from the local AgentTeams settings. See [UPSTREAM.md](./UPSTREAM.md) for fixed source identities and capability ownership.
+
 ### v0.1.16-rc.3
 
 - Follows the unchanged recommended Harness host matrix (`0.1.2-rc.1`, `0.1.2-alpha.5`, `0.1.2-alpha.2`) while upgrading the AgentTeams upstream baseline.

@@ -121,18 +121,11 @@ test('rewrite normalizes real Pwsh and Bash module escalation before validation'
     [bashSource, bashSourcePath, 'validateBashArgs', 'Bash'],
   ]) {
     const rewritten = rewriteDesktopConsoleSource(source, pathToFileURL(sourcePath).href)
-    const oldExecuteBlock = `async execute(args, exec) {
-\t\t\t${validator}(args);
-\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);`
-    const expectedPatch = `async execute(args, exec) {
-\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);
-\t\t\t${normalizeRedundantEscalationArgs.toString()}
-\t\t\targs = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);
-\t\t\t${validator}(args);`
     assert.notEqual(rewritten, source, `expected ${name} source to be rewritten`)
-    assert.ok(rewritten.includes(`${validator}(args);`), `expected real ${name} module validator`)
-    assert.ok(!rewritten.includes(oldExecuteBlock), `expected old ${name} validation order to be removed`)
-    assert.ok(rewritten.includes(expectedPatch), `expected complete ${name} normalization patch before validation`)
+    const executeAt = rewritten.indexOf('async execute(args, exec) {')
+    const normalizedAt = rewritten.indexOf('args = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);', executeAt)
+    const validatedAt = rewritten.indexOf(`${validator}(args`, executeAt)
+    assert.ok(normalizedAt > executeAt && validatedAt > normalizedAt, `expected ${name} normalization before its real validator`)
     assert.equal(rewriteDesktopConsoleSource(rewritten, pathToFileURL(sourcePath).href), rewritten)
   }
 })
@@ -278,6 +271,7 @@ test('rewrite hides sandbox CreateProcess windows without CREATE_NO_WINDOW', () 
   assert.equal([...rewritten.matchAll(/dwFlags: 257,/g)].length, 2)
   assert.equal([...rewritten.matchAll(/wShowWindow: 0,/g)].length, 2)
   assert.doesNotMatch(rewritten, /dwFlags: 256,/)
+  assert.equal(rewritten, sandboxAclSource, 'upstream owns hidden CreateProcess startup flags')
 })
 
 test('rewrite injects the console-hide preload into the Windows ACL runner argv', () => {
@@ -290,7 +284,9 @@ test('rewrite injects the console-hide preload into the Windows ACL runner argv'
   assert.ok(
     rewritten.includes(`return [process.execPath, "--import", ${JSON.stringify(hook)}, builtEntry];`),
   )
-  assert.ok(rewritten.includes('"--import",\n\t\t\t"tsx/esm"'))
+  assert.ok(rewritten.includes('`data:text/javascript,${encodeURIComponent(registration)}`'))
+  assert.equal(rewritten.split(JSON.stringify(hook)).length - 1, 2, 'both production and source runners inherit the preload')
+  assert.equal(rewriteDesktopConsoleSource(rewritten, 'file:///x/node_modules/@deepseek-ai/dsh-sandbox-local/lib/index.js', hook), rewritten)
 })
 
 test('injectWindowsHideArgs preserves callbacks and existing options', () => {

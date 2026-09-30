@@ -8,6 +8,12 @@
  * + SW_HIDE instead — a console still exists, but the window stays hidden.
  */
 
+import { fileURLToPath } from 'node:url'
+
+const DESKTOP_INSTALL_ANCHOR = fileURLToPath(new URL('../package.json', import.meta.url))
+const PROFILE_INSTALL_ANCHOR_NEEDLE = 'const INSTALL_ANCHOR = fileURLToPath(new URL("../package.json", import.meta.url));'
+const PROFILE_INSTALL_ANCHOR_PATCH = `const INSTALL_ANCHOR = ${JSON.stringify(DESKTOP_INSTALL_ANCHOR)};`
+
 const STARTF_USESHOWWINDOW = 1
 const STARTF_USESTDHANDLES = 256
 const HIDDEN_CONSOLE_STARTF = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES
@@ -20,13 +26,17 @@ const TASKKILL_NEEDLE = '], { stdio: "ignore" });'
 const TASKKILL_PATCH = '], { stdio: "ignore", windowsHide: true });'
 const TASKKILL_UPSTREAM_EQUIVALENT = `stdio: "ignore",
 \t\twindowsHide: true`
-const SANDBOX_DWFLAGS_NEEDLE = 'dwFlags: 256,'
-const SANDBOX_DWFLAGS_PATCH = `dwFlags: ${String(HIDDEN_CONSOLE_STARTF)},\n\t\twShowWindow: 0,`
 const RUNNER_PROD_NEEDLE = 'if (existsSync(builtEntry)) return [process.execPath, builtEntry];'
 const RUNNER_DEV_NEEDLE = `return [
 			process.execPath,
 			"--import",
 			"tsx/esm",
+			sourceEntry
+		];`
+const RUNNER_DEV_017_NEEDLE = `return [
+			process.execPath,
+			"--import",
+			\`data:text/javascript,\${encodeURIComponent(registration)}\`,
 			sourceEntry
 		];`
 const SUBPROCESS_RUNNER_PROD_PATTERN = /if \(extname\(fileURLToPath\(import\.meta\.url\)\) !== "\.ts"\) return \[process\.execPath, fileURLToPath\(import\.meta\.resolve\("@deepseek-ai\/dsh-subprocess-local\/runner"\)\)\];/
@@ -59,10 +69,13 @@ const OPENCODE_MISSING_FINISH_ALPHA2_PATCH = `if ((compat.supportsFinishReason &
             }`
 const OPENCODE_ACTIVE_TOOLS_NEEDLE = 'params.tools = convertTools(activeTools, compat);'
 const OPENCODE_DEFERRED_TOOLS_NEEDLE = 'tools: convertTools(deferredTools, compat),'
+const OPENCODE_TRANSCRIPT_TOOLS_NEEDLE = 'params.tools = convertTools(transcriptTools.requestTools, compat);'
+const OPENCODE_TRANSCRIPT_ADDED_TOOLS_NEEDLE = 'tools: convertTools(addedTools, compat),'
 const OPENCODE_CONVERT_TOOLS_NEEDLE = 'function convertTools(tools, compat) {'
 const OPENCODE_COMPLETIONS_CACHE_SESSION_NEEDLE = 'const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;'
 const OPENCODE_COMPLETIONS_CLIENT_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, cacheSessionId, compat);'
 const OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, options?.fetch, cacheSessionId, compat);'
+const OPENCODE_COMPLETIONS_CLIENT_020_NEEDLE = 'const client = createClient(model, normalizedContext, apiKey, options?.headers, options?.fetch, cacheSessionId, compat);'
 const OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE = `if (sessionId && compat.sendSessionAffinityHeaders) {
         if (compat.sessionAffinityFormat === "openrouter") {`
 const OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH = `if (sessionId && (compat.sendSessionAffinityHeaders || model.provider === "opencode-go")) {
@@ -73,6 +86,7 @@ const OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH = `if (sessionId && (compat.se
 const OPENCODE_RESPONSES_CACHE_SESSION_NEEDLE = 'const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;'
 const OPENCODE_RESPONSES_CLIENT_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, cacheSessionId);'
 const OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE = 'const client = createClient(model, context, apiKey, options?.headers, options?.fetch, cacheSessionId);'
+const OPENCODE_RESPONSES_CLIENT_020_NEEDLE = 'const client = createClient(model, normalizedContext, apiKey, options?.headers, options?.fetch, cacheSessionId);'
 const OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE = `if (sessionId) {
         if (compat.sessionAffinityFormat === "openrouter") {`
 const OPENCODE_RESPONSES_SESSION_AFFINITY_PATCH = `if (sessionId) {
@@ -213,15 +227,16 @@ export function rewriteQuotaErrorClassification(source) {
 }
 
 function rewriteShellEscalationSource(source, validator) {
-  const needle = `async execute(args, exec) {
-\t\t\t${validator}(args);
-\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);`
-  const patch = `async execute(args, exec) {
-\t\t\tconst standingPolicy = resolveSandboxPolicy(exec);
-\t\t\t${normalizeRedundantEscalationArgs.toString()}
-\t\t\targs = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);
-\t\t\t${validator}(args);`
-  return source.includes(needle) ? source.replace(needle, patch) : source
+  const oldOrder = new RegExp(`async execute\\(args, exec\\) \\{\\n(\\t+)(${validator}\\(args\\);)\\n\\1const standingPolicy = resolveSandboxPolicy\\(exec\\);`)
+  const currentOrder = new RegExp(`async execute\\(args, exec\\) \\{\\n(\\t+)const standingPolicy = resolveSandboxPolicy\\(exec\\);\\n\\1(${validator}\\(args, standingPolicy\\?\\.mode\\);)`)
+  const match = oldOrder.exec(source) ?? currentOrder.exec(source)
+  if (match === null) return source
+  const [, indent, validation] = match
+  return source.replace(match[0], `async execute(args, exec) {
+${indent}const standingPolicy = resolveSandboxPolicy(exec);
+${indent}${normalizeRedundantEscalationArgs.toString()}
+${indent}args = normalizeRedundantEscalationArgs(args, standingPolicy?.mode);
+${indent}${validation}`)
 }
 
 function rewriteFsEscalationSource(source) {
@@ -237,69 +252,21 @@ function rewriteFsEscalationSource(source) {
   return source.includes(needle) ? source.replace(needle, patch) : source
 }
 
-/**
- * Hide the duplicate native Subagent settings card at the browser bundle
- * boundary without changing the Host namespace or any Subagent runtime.
- * The replacement is byte-length equal so the authored source map stays
- * aligned. All unrelated client bundles are returned by identity.
- */
-export function rewriteDesktopClientBundle(id, bundle) {
-  const targetId = '@deepseek-ai/dsh-client-ui-settings-plugins'
-  if (id !== targetId) return bundle
-
-  const needle = 'key: SUBAGENT_MODEL_SELECTION_NS,'
-  const patch = 'key: "__windows_hidden_subagent",'
-  const source = Buffer.isBuffer(bundle) ? bundle.toString('utf8') : String(bundle)
-  if (source.includes(patch)) return bundle
-
-  const first = source.indexOf(needle)
-  const unique = first !== -1 && source.indexOf(needle, first + needle.length) === -1
-  if (!unique || Buffer.byteLength(needle) !== Buffer.byteLength(patch)) {
-    throw new Error('Subagent settings card rewrite anchor drift')
-  }
-  const rewritten = source.replace(needle, patch)
-  return Buffer.isBuffer(bundle) ? Buffer.from(rewritten) : rewritten
-}
-
-/**
- * Route both initial and HMR client artifact snapshots through the same
- * package-scoped transformer in the official Alpha.2 client-module Host.
- */
-export function rewriteDesktopClientModuleHostSource(source) {
-  const marker = 'function rewriteDesktopClientBundle(id, bundle)'
-  if (source.includes(marker)) return source
-
-  const classNeedle = 'var ClientModuleRegistry = class extends Service {'
-  const initialNeedle = 'const bundle = readFileSync(clientPath);'
-  const rebuiltNeedle = 'const bundle = readFileSync(record.meta.clientPath);'
-  const unique = (needle) => {
-    const first = source.indexOf(needle)
-    return first !== -1 && source.indexOf(needle, first + needle.length) === -1
-  }
-  if (![classNeedle, initialNeedle, rebuiltNeedle].every(unique)) {
-    throw new Error('Subagent settings card Host rewrite anchor drift')
-  }
-  return source
-    .replace(classNeedle, `${rewriteDesktopClientBundle.toString()}\n${classNeedle}`)
-    .replace(
-      initialNeedle,
-      'const bundle = rewriteDesktopClientBundle(pkgName, readFileSync(clientPath));',
-    )
-    .replace(
-      rebuiltNeedle,
-      'const bundle = rewriteDesktopClientBundle(id, readFileSync(record.meta.clientPath));',
-    )
-}
-
 export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUrl = '') {
   const url = decodeURIComponent(String(moduleUrl))
   let next = source
 
   const normalizedUrl = url.replaceAll('\\', '/')
-  if (normalizedUrl.includes('@deepseek-ai/dsh-client-modules/lib/index.js')) {
-    next = rewriteDesktopClientModuleHostSource(next)
+  if (/\/@deepseek-ai\/dsh\/lib\/profile-boot-[^/]+\.js$/.test(normalizedUrl)
+    && !next.includes(PROFILE_INSTALL_ANCHOR_PATCH)) {
+    const first = next.indexOf(PROFILE_INSTALL_ANCHOR_NEEDLE)
+    if (first === -1 || next.indexOf(PROFILE_INSTALL_ANCHOR_NEEDLE, first + PROFILE_INSTALL_ANCHOR_NEEDLE.length) !== -1) {
+      throw new Error('Desktop profile installation anchor drift')
+    }
+    // Use the official in-memory resolver with the wrapper's complete closure.
+    // No profile dependency links or alternative resolution service are created.
+    next = next.replace(PROFILE_INSTALL_ANCHOR_NEEDLE, PROFILE_INSTALL_ANCHOR_PATCH)
   }
-
   if (url.includes('@deepseek-ai/dsh-subprocess-local')) {
     if (next.includes(SUBPROCESS_SPAWN_NEEDLE)
       && !next.includes(SUBPROCESS_SPAWN_PATCH)
@@ -330,12 +297,6 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
     }
   }
 
-  if (url.includes('@deepseek-ai/dsh-win32-process')) {
-    if (next.includes(SANDBOX_DWFLAGS_NEEDLE)) {
-      next = next.replaceAll(SANDBOX_DWFLAGS_NEEDLE, SANDBOX_DWFLAGS_PATCH)
-    }
-  }
-
   if (url.includes('@deepseek-ai/dsh-sandbox-local') && hookImportUrl) {
     const runnerProdPatch = `if (existsSync(builtEntry)) return [process.execPath, "--import", ${JSON.stringify(hookImportUrl)}, builtEntry];`
     if (next.includes(RUNNER_PROD_NEEDLE)) {
@@ -351,6 +312,11 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
 		];`
     if (next.includes(RUNNER_DEV_NEEDLE)) {
       next = next.replace(RUNNER_DEV_NEEDLE, runnerDevPatch)
+    }
+    if (next.includes(RUNNER_DEV_017_NEEDLE)) {
+      next = next.replace(RUNNER_DEV_017_NEEDLE, RUNNER_DEV_017_NEEDLE.replace(
+        'process.execPath,', `process.execPath,\n\t\t\t"--import",\n\t\t\t${JSON.stringify(hookImportUrl)},`,
+      ))
     }
   }
 
@@ -422,17 +388,17 @@ function rewriteOpenCodeGoCompletionsSessionAffinity(source) {
     && next.includes(OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE)) {
     next = next.replace(OPENCODE_COMPLETIONS_SESSION_AFFINITY_NEEDLE, OPENCODE_COMPLETIONS_SESSION_AFFINITY_PATCH)
   }
-  const clientNeedle = next.includes(OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE)
-    ? OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE
+  const clientNeedle = next.includes(OPENCODE_COMPLETIONS_CLIENT_020_NEEDLE)
+    ? OPENCODE_COMPLETIONS_CLIENT_020_NEEDLE
+    : next.includes(OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE)
+      ? OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE
     : next.includes(OPENCODE_COMPLETIONS_CLIENT_NEEDLE)
       ? OPENCODE_COMPLETIONS_CLIENT_NEEDLE
       : undefined
   if (!next.includes('const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId')
     && next.includes(OPENCODE_COMPLETIONS_CACHE_SESSION_NEEDLE)
     && clientNeedle !== undefined) {
-    const clientPatch = clientNeedle === OPENCODE_COMPLETIONS_CLIENT_ALPHA2_NEEDLE
-      ? 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, options?.fetch, clientSessionId, compat);'
-      : 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId, compat);'
+    const clientPatch = `const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            ${clientNeedle.replace('cacheSessionId, compat)', 'clientSessionId, compat)')}`
     next = next.replace(
       clientNeedle,
       clientPatch,
@@ -447,17 +413,17 @@ function rewriteOpenCodeGoResponsesSessionAffinity(source) {
     && next.includes(OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE)) {
     next = next.replace(OPENCODE_RESPONSES_SESSION_AFFINITY_NEEDLE, OPENCODE_RESPONSES_SESSION_AFFINITY_PATCH)
   }
-  const clientNeedle = next.includes(OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE)
-    ? OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE
+  const clientNeedle = next.includes(OPENCODE_RESPONSES_CLIENT_020_NEEDLE)
+    ? OPENCODE_RESPONSES_CLIENT_020_NEEDLE
+    : next.includes(OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE)
+      ? OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE
     : next.includes(OPENCODE_RESPONSES_CLIENT_NEEDLE)
       ? OPENCODE_RESPONSES_CLIENT_NEEDLE
       : undefined
   if (!next.includes('const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId')
     && next.includes(OPENCODE_RESPONSES_CACHE_SESSION_NEEDLE)
     && clientNeedle !== undefined) {
-    const clientPatch = clientNeedle === OPENCODE_RESPONSES_CLIENT_ALPHA2_NEEDLE
-      ? 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, options?.fetch, clientSessionId);'
-      : 'const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            const client = createClient(model, context, apiKey, options?.headers, clientSessionId);'
+    const clientPatch = `const clientSessionId = model.provider === "opencode-go" ? options?.sessionId : cacheSessionId;\n            ${clientNeedle.replace('cacheSessionId)', 'clientSessionId)')}`
     next = next.replace(
       clientNeedle,
       clientPatch,
@@ -473,13 +439,17 @@ function rewriteOpenCodeGoResponsesSessionAffinity(source) {
  */
 export function rewriteOpenCodeKimiToolSchemas(source) {
   if (source.includes('function normalizeOpenCodeKimiToolSchema(schema)')) return source
+  const activeToolsNeedle = source.includes(OPENCODE_TRANSCRIPT_TOOLS_NEEDLE)
+    ? OPENCODE_TRANSCRIPT_TOOLS_NEEDLE : OPENCODE_ACTIVE_TOOLS_NEEDLE
+  const addedToolsNeedle = source.includes(OPENCODE_TRANSCRIPT_ADDED_TOOLS_NEEDLE)
+    ? OPENCODE_TRANSCRIPT_ADDED_TOOLS_NEEDLE : OPENCODE_DEFERRED_TOOLS_NEEDLE
   const parametersNeedle = source.includes(OPENCODE_ALPHA2_TOOL_PARAMETERS_NEEDLE)
     ? OPENCODE_ALPHA2_TOOL_PARAMETERS_NEEDLE
     : source.includes(OPENCODE_LEGACY_TOOL_PARAMETERS_NEEDLE)
       ? OPENCODE_LEGACY_TOOL_PARAMETERS_NEEDLE
       : undefined
-  if (!source.includes(OPENCODE_ACTIVE_TOOLS_NEEDLE)
-    || !source.includes(OPENCODE_DEFERRED_TOOLS_NEEDLE)
+  if (!source.includes(activeToolsNeedle)
+    || !source.includes(addedToolsNeedle)
     || !source.includes(OPENCODE_CONVERT_TOOLS_NEEDLE)
     || parametersNeedle === undefined) {
     return source
@@ -490,8 +460,8 @@ export function rewriteOpenCodeKimiToolSchemas(source) {
     : 'parameters: isOpenCodeKimi ? normalizeOpenCodeKimiToolSchema(tool.parameters) : tool.parameters, // TypeBox already generates JSON Schema'
 
   let next = source
-    .replace(OPENCODE_ACTIVE_TOOLS_NEEDLE, 'params.tools = convertTools(activeTools, compat, model);')
-    .replace(OPENCODE_DEFERRED_TOOLS_NEEDLE, 'tools: convertTools(deferredTools, compat, model),')
+    .replace(activeToolsNeedle, activeToolsNeedle.replace('compat);', 'compat, model);'))
+    .replace(addedToolsNeedle, addedToolsNeedle.replace('compat),', 'compat, model),'))
     .replace(OPENCODE_CONVERT_TOOLS_NEEDLE, OPENCODE_KIMI_SCHEMA_HELPER)
     .replace(parametersNeedle, parametersPatch)
   if (next.includes(OPENCODE_STRICT_TOOL_NEEDLE)) {

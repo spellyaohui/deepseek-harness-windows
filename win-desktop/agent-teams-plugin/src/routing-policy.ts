@@ -5,7 +5,8 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 import type { DelegationMode } from './settings.ts'
-import { sessionOwnEvents } from './harness-compat.ts'
+import { onAgentReady, sessionOwnEvents } from './harness-compat.ts'
+import { CAPTAIN_TOOL_NAMES } from './tool-names.ts'
 
 export type DelegationPolicyId = 'teams-v1' | 'native-v1'
 export const POLICY_PREFIX = 'AgentTeams delegation policy:'
@@ -104,6 +105,7 @@ export function installDelegationPolicy(input: {
   policy: DelegationPolicyId
   order: number
   text: string
+  member?: boolean
 }): () => void {
   const { agent, policy } = input
   const installed = installedPolicies.get(agent)
@@ -119,9 +121,13 @@ export function installDelegationPolicy(input: {
     order: input.order,
     text: input.text,
   })
-  let disposeRestriction = (): void => undefined
+  const restrictions: Array<() => void> = []
   let disposeGuard = (): void => undefined
   try {
+    if (input.member === true) {
+      const deny = CAPTAIN_TOOL_NAMES.filter(name => agent.ctx.tools.get(name) !== undefined)
+      if (deny.length > 0) restrictions.push(agent.ctx.tools.restrict({ deny }))
+    }
     if (policy === 'teams-v1') {
       // `restrict()` can only name inherited/global registrations. The built-in
       // `subagent` Host tool is scope-local in Harness 0.1.5, so it must never
@@ -129,7 +135,7 @@ export function installDelegationPolicy(input: {
       const deny = NATIVE_DELEGATION_TOOLS.filter(
         (name) => name !== 'subagent' && agent.ctx.tools.get(name) !== undefined,
       )
-      if (deny.length > 0) disposeRestriction = agent.ctx.tools.restrict({ deny })
+      if (deny.length > 0) restrictions.push(agent.ctx.tools.restrict({ deny }))
       // Scoped tools deliberately survive `restrict()`. Guard every native
       // delegation name at execution time so a scope-local registration cannot
       // bypass the Team-only AgentTeams delegation policy.
@@ -141,7 +147,7 @@ export function installDelegationPolicy(input: {
     }
   } catch (error) {
     disposeGuard()
-    disposeRestriction()
+    for (const disposeRestriction of [...restrictions].reverse()) disposeRestriction()
     disposePrompt()
     throw error
   }
@@ -153,7 +159,7 @@ export function installDelegationPolicy(input: {
     active = false
     installedPolicies.delete(agent)
     disposeGuard()
-    disposeRestriction()
+    for (const disposeRestriction of [...restrictions].reverse()) disposeRestriction()
     disposePrompt()
   }
 }
@@ -177,26 +183,57 @@ export function resolveAndInstallDelegationPolicy(
     policy,
     order: runtime.order,
     text: options.member ? (runtime.memberText?.(policy) ?? runtime.text(policy)) : runtime.text(policy),
+    member: options.member,
   })
   return { policy, dispose }
 }
 
-/** Register the synchronous `agent/created` policy installer from the plugin root. */
+/** Register policy installation for new, legacy, and already-live Agents. */
 export function registerDelegationPolicyLifecycle(
   ctx: Context,
   runtime: DelegationPolicyRuntime,
 ): () => void {
-  return ctx.on('agent/created', ({ agent }) => {
-    // AgentTeams' member runtime installs the member-scoped policy itself
-    // after validating the durable descriptor and pending role selection.
-    // Skipping this early captain installation prevents the child from
-    // assembling captain-only guidance during its first request.
-    const ownEvents = sessionOwnEvents(agent.session)
-    if (ownEvents.some(event => event?.type === 'subagent/descriptor'
-      && typeof event.data?.label === 'string'
-      && event.data.label.startsWith('agent-teams:'))) return
+  const active = new Map<Agent, () => void>()
+  let mounted = true
+  const attach = (agent: Agent): void => {
+    if (!mounted || active.has(agent)) return
+    let member = false
+    try {
+      member = sessionOwnEvents(agent.session).some(event => event?.type === 'subagent/descriptor'
+        && typeof event.data?.label === 'string'
+        && event.data.label.startsWith('agent-teams:'))
+    } catch (error) {
+      ctx.logger.warn(`agent-teams: policy membership hydration failed: ${String(error)}`)
+    }
     const parentSession = agent.session.header.parentSession
     const parent = parentSession === undefined ? undefined : ctx.agents.get(parentSession)
-    resolveAndInstallDelegationPolicy(agent, parent, runtime)
-  })
+    const installed = resolveAndInstallDelegationPolicy(agent, parent, runtime, { member })
+    let disposed = false
+    const dispose = (): void => {
+      if (disposed) return
+      disposed = true
+      active.delete(agent)
+      installed.dispose()
+    }
+    active.set(agent, dispose)
+    try {
+      const agentEffect = (agent.ctx as unknown as { effect?: (setup: () => () => void, name: string) => unknown }).effect
+      agentEffect?.call(agent.ctx, () => dispose, 'agent-teams: delegation policy lifecycle')
+    } catch (error) {
+      dispose()
+      throw error
+    }
+  }
+  const stopReady = onAgentReady(ctx, agent => { attach(agent) })
+  const agents = ctx.agents as typeof ctx.agents & { list?: () => Iterable<Agent> }
+  for (const agent of agents.list?.() ?? []) attach(agent)
+  const dispose = (): void => {
+    if (!mounted) return
+    mounted = false
+    stopReady()
+    for (const release of [...active.values()]) release()
+  }
+  const rootEffect = (ctx as unknown as { effect?: (setup: () => () => void, name: string) => unknown }).effect
+  rootEffect?.call(ctx, () => dispose, 'agent-teams: delegation policy lifecycle')
+  return dispose
 }

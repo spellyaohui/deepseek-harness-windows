@@ -80,6 +80,7 @@ import { buildStagedTaskMutationPayload } from '../lib/client/staged-task-mutati
 import { steerCaptainReport } from '../lib/members.js'
 import { renderStatus, statusFingerprint } from '../lib/status-render.js'
 import { usageSectionText } from '../lib/index.js'
+import { TEAM_TOOL_NAMES } from '../lib/tool-names.js'
 import { parseProfileInvocation, resolveTeamProfile, formatProfilesForPrompt } from '../lib/profiles.js'
 import { buildActivationDirective } from '../lib/command.js'
 import { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
@@ -185,7 +186,7 @@ check(
 
 const softwareDeliveryPrompt = usageSectionText(
   'teams-v1',
-  'agent_teams_create, agent_teams_approve, agent_teams_edit_plan, agent_teams_add_member, agent_teams_remove_member, agent_teams_create_task, agent_teams_reassign_task, agent_teams_claim_task, agent_teams_update_task, agent_teams_send_message, agent_teams_status, agent_teams_resume, agent_teams_delete',
+  TEAM_TOOL_NAMES.join(', '),
   formatProfilesForPrompt({
     'software-delivery': {
       description: 'A general software delivery team for analysis, implementation, verification, and review.',
@@ -434,6 +435,7 @@ const artworkSource = await readFile(new URL('../src/client/artwork.ts', import.
 const hostSource = await readFile(new URL('../src/index.ts', import.meta.url), 'utf8')
 const snapshotSource = await readFile(new URL('../src/snapshot.ts', import.meta.url), 'utf8')
 const toolsSource = await readFile(new URL('../src/tools.ts', import.meta.url), 'utf8')
+const toolNamesSource = await readFile(new URL('../src/tool-names.ts', import.meta.url), 'utf8')
 const localesSource = await readFile(new URL('../src/client/locales.ts', import.meta.url), 'utf8')
 const localeKeys = Object.keys(agentTeamsZh).sort()
 const englishLocaleKeys = Object.keys(agentTeamsEn).sort()
@@ -446,22 +448,26 @@ check(
       === JSON.stringify(placeholders(agentTeamsEn[key]))),
 )
 check(
-  'client registers the official locale namespace on all three visible slots',
+  'client registers workspace card and activity surfaces with the official locale namespace',
   AGENT_TEAMS_LOCALE_NAMESPACE === 'agentTeams'
     && clientIndexSource.includes("'uiConversation', 'slots', 'sessions', 'locale', 'modelDirectories'")
+    && clientIndexSource.includes('ctx.uiConversation.events.register(agentTeamsCardDefinition)')
     && clientIndexSource.includes('ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en })')
-    && clientIndexSource.match(/locale:\s*AGENT_TEAMS_LOCALE_NAMESPACE/gu)?.length === 3,
+    && clientIndexSource.match(/locale:\s*AGENT_TEAMS_LOCALE_NAMESPACE/gu)?.length === 6,
 )
 check(
-  'activity panel renders only current V2 live/archive snapshots',
-  !activityPanelSource.includes('historicCardTeam')
-    && !activityPanelSource.includes('visibleHistoric')
-    && !activityPanelSource.includes('setHistoric'),
+  'activity panel retains historical card summaries only for their owning captain session',
+  activityPanelSource.includes('historicCardTeam')
+    && activityPanelSource.includes('visibleHistoric')
+    && activityPanelSource.includes('setHistoric')
+    && activityPanelSource.includes('owner === current'),
 )
 check(
-  'activity-panel summon carries no historic card projection payload',
-  !agentTeamsCardSource.includes('historical session review')
-    && !agentTeamsCardSource.includes('detail:'),
+  'activity-panel summon carries a bounded team identity and roster projection',
+  agentTeamsCardSource.includes('teamId: data.teamId')
+    && agentTeamsCardSource.includes('captainSessionId: data.captainSessionId')
+    && agentTeamsCardSource.includes('members: data.members')
+    && agentTeamsCardSource.includes('detail:'),
 )
 check(
   'activity monitor has no archive-driven target retirement path',
@@ -470,9 +476,10 @@ check(
     && !activityMonitorSource.includes('target.active'),
 )
 check(
-  'member navigation has no ordinary session fallback',
-  !sessionNavigationSource.includes('sessions.open(childSessionId)')
-    && !sessionNavigationSource.includes("return 'session'"),
+  'member navigation uses addressed continuables when available and a legacy session fallback otherwise',
+  sessionNavigationSource.includes('sessions.open(childSessionId)')
+    && sessionNavigationSource.includes("return 'session'")
+    && sessionNavigationSource.includes("mode: 'continuable'"),
 )
 check(
   'slash command transcript hides the duplicate pre-message result row',
@@ -553,7 +560,12 @@ check(
     && toolsSource.includes('updateStagedPlanBatch')
     && toolsSource.includes("action: 'remove_member'")
     && toolsSource.includes('none of the edits are saved')
-    && hostSource.includes('agent_teams_edit_plan')
+    && toolNamesSource.includes("'agent_teams_edit_plan'")
+    && toolNamesSource.includes("'agent_teams_amend_task'")
+    && hostSource.includes('TEAM_TOOL_NAMES.join')
+    && softwareDeliveryPrompt.includes('agent_teams_edit_plan')
+    && softwareDeliveryPrompt.includes('agent_teams_amend_task')
+    && softwareDeliveryPrompt.length <= 3500
     && hostSource.includes('Never inspect or edit .agent-teams state files or plugin source code'),
 )
 check(
@@ -1447,18 +1459,18 @@ const mismatchedRetainedOneShot = await openAgentTeamMember({
   openSubagent: () => { retainedOneShotOpenCalls += 1 },
 }, 'captain-session', 'member-session')
 check(
-  'retained one-shot member navigation is rejected without opening',
-  retainedOneShot === undefined
-    && mismatchedRetainedOneShot === undefined
-    && retainedOneShotOpenCalls === 0,
+  'retained one-shot member navigation is rewritten to the requested continuable child',
+  retainedOneShot === 'subagent'
+    && mismatchedRetainedOneShot === 'subagent'
+    && retainedOneShotOpenCalls === 2,
 )
 const legacyNavigationCalls = []
 const legacyNavigation = await openAgentTeamMember({
   open: (id) => { legacyNavigationCalls.push(id) },
 }, 'captain-session', 'member-session')
 check(
-  'missing addressed member navigation does not open another session',
-  legacyNavigation === undefined && legacyNavigationCalls.length === 0,
+  'legacy member navigation opens the requested ordinary session only',
+  legacyNavigation === 'session' && legacyNavigationCalls[0] === 'member-session',
 )
 check(
   'agent team cards derive a stable id from the standard create tool call',

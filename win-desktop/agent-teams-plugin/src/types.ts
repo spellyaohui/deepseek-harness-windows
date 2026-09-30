@@ -80,6 +80,26 @@ export interface CommandResult {
   evidence?: string
 }
 
+/** Append-only observation tied to the attempt that produced it. */
+export interface TaskEvidence {
+  at: number
+  by: string
+  attempt: number
+  attemptId?: string
+  note?: string
+  acceptanceResults?: AcceptanceResult[]
+  commandsRun?: CommandResult[]
+}
+
+/** One captain-only contract amendment retained with the task audit trail. */
+export interface TaskRevision {
+  at: number
+  by: string
+  reason: string
+  fields: string[]
+  previous: Record<string, unknown>
+}
+
 /** Profile / team review-loop limits. */
 export interface ReviewPolicy {
   requirementsMinRounds?: number
@@ -136,6 +156,8 @@ export interface TeamTask {
   noChangesReason?: string
   acceptanceResults?: AcceptanceResult[]
   commandsRun?: CommandResult[]
+  /** Append-only observations which never replace the terminal result. */
+  supplementalEvidence?: TaskEvidence[]
   reviewedTaskId?: string
   reviewedAttempt?: number
   /** Repair source: the implementation / previous successful artifact. */
@@ -143,6 +165,8 @@ export interface TeamTask {
   sourceFindingIds?: string[]
   /** User-constraint / goal items this task claims to cover. */
   coverageOf?: string[]
+  /** Captain-only contract amendments, oldest first. */
+  revisions?: TaskRevision[]
   createdAt: number
   updatedAt: number
 }
@@ -199,6 +223,10 @@ export interface TeamMessage {
   /** Guidance is scoped to the recipient's execution generation, when present. */
   taskId?: string
   attemptId?: string
+  /** Source execution generation, independent of recipient guidance. */
+  sourceTaskId?: string
+  sourceAttemptId?: string
+  sourceTaskStatus?: TaskStatus
   /** Cancelled delivery is retained for audit but must not wake the recipient. */
   discardedAt?: number
 }

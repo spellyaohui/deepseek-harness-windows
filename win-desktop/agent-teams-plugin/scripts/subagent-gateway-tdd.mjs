@@ -91,6 +91,50 @@ check(
   starts.length === 1 && starts[0].request.parent === canonicalParent,
 )
 
+const parentStartEvents = []
+let releaseFirstParentStart
+let firstParentStartObserved
+const firstParentStartReady = new Promise(resolve => { firstParentStartObserved = resolve })
+const parentStartGateway = createAgentTeamsSubagentGateway({
+  agents: { get: id => liveAgents.get(id) },
+  subagents: {
+    async startContinuable(spec) {
+      parentStartEvents.push({ label: spec.label, parent: spec.request.parent })
+      if (spec.label === 'team:first') {
+        firstParentStartObserved()
+        await new Promise(resolve => { releaseFirstParentStart = resolve })
+      }
+      return { childId: `${spec.label}-child`, messageId: `${spec.label}-message` }
+    },
+    interrupt() {},
+  },
+  logger: { warn() {} },
+})
+const firstParentStart = parentStartGateway.startContinuable({
+  provider: 'spawn', label: 'team:first',
+  request: { parent: replacementParent, prompt: [{ type: 'text', text: 'first' }] }, signal: signal(),
+})
+await firstParentStartReady
+const secondParentStart = parentStartGateway.startContinuable({
+  provider: 'spawn', label: 'team:second',
+  request: { parent: replacementParent, prompt: [{ type: 'text', text: 'second' }] }, signal: signal(),
+})
+await Promise.resolve()
+check(
+  'concurrent starts for one durable parent queue before host start',
+  parentStartEvents.length === 1 && parentStartEvents[0].label === 'team:first',
+  JSON.stringify(parentStartEvents),
+)
+releaseFirstParentStart()
+await Promise.all([firstParentStart, secondParentStart])
+check(
+  'queued parent starts preserve order and exact live parent resolution',
+  parentStartEvents.length === 2
+    && parentStartEvents[1].label === 'team:second'
+    && parentStartEvents.every((entry) => entry.parent === canonicalParent),
+  JSON.stringify(parentStartEvents),
+)
+
 let sameIdError
 try {
   await gateway.startContinuable({
@@ -134,7 +178,7 @@ check(
   sends.length === 1 && /not attached/i.test(String(staleSendError?.message ?? staleSendError)),
 )
 
-gateway.interrupt(replacementParent, 'child-session')
+await gateway.interrupt(replacementParent, 'child-session')
 check(
   'interrupt uses the canonical live ancestor',
   interrupts.length === 1
@@ -144,13 +188,34 @@ check(
 
 let staleInterruptError
 try {
-  gateway.interrupt(staleSameIdParent, 'child-session')
+  await gateway.interrupt(staleSameIdParent, 'child-session')
 } catch (error) {
   staleInterruptError = error
 }
 check(
   'interrupt rejects a stale same-id parent',
   interrupts.length === 1 && /not attached/i.test(String(staleInterruptError?.message ?? staleInterruptError)),
+)
+
+let releaseInterruptLock
+const interruptLock = gateway.withChildLock('child-session', async () => {
+  await new Promise(resolve => { releaseInterruptLock = resolve })
+})
+await Promise.resolve()
+const queuedInterrupt = gateway.interrupt(replacementParent, 'child-session')
+await Promise.resolve()
+check(
+  'interrupt waits for the per-child gateway lock',
+  interrupts.length === 1,
+  JSON.stringify(interrupts),
+)
+releaseInterruptLock()
+await interruptLock
+await queuedInterrupt
+check(
+  'queued interrupt runs after the per-child gateway lock releases',
+  interrupts.length === 2 && interrupts[1].authority.agent === canonicalParent,
+  JSON.stringify(interrupts),
 )
 
 await gateway.drainContinuableChildren?.(replacementParent, ['child-b', 'child-a', 'child-a'])
@@ -237,8 +302,8 @@ check(
 )
 check(
   'member removal serializes retirement with the gateway child lock',
-  builtTools.includes('await gateway.withChildLock(')
-    && builtTools.includes('await recordRetiredMemberIds(stateRoot, [revoked.member.id])'),
+  builtTools.includes('await gateway.retireAndInterrupt(')
+    && builtTools.includes('recordRetiredMemberIds(stateRoot, [revoked.member.id])'),
 )
 const deleteStart = builtTools.indexOf("name: 'agent_teams_delete'")
 const deleteEnd = deleteStart >= 0 ? builtTools.indexOf('return runtime;', deleteStart) : -1
@@ -253,8 +318,7 @@ check(
 )
 check(
   'team halt keeps interrupt and drain inside one gateway boundary',
-  builtTools.includes('await gateway.interruptAndDrain(')
-    && builtTools.includes('await gateway.withChildLock('),
+  builtTools.includes('await gateway.interruptAndDrain('),
 )
 
 const workspace = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-gateway-'))
@@ -291,7 +355,7 @@ try {
     signal(),
   )
   await deliveryReady
-  const retireOperation = retirementGateway.withChildLock(retiredChildId, async () => {
+  const retireOperation = retirementGateway.retireAndInterrupt(retirementParent, retiredChildId, async () => {
     await recordRetiredMemberIds(stateRoot, [retiredChildId])
     retired = true
   })
