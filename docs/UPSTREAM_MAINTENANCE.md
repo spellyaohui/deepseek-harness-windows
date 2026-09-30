@@ -48,14 +48,18 @@ Models 50/50, CPA 27/27, complete AgentTeams suites, wrapper 149/149 and the
 real dependency closure. The isolated Electron instance displayed the new
 first-run Web UI without loading existing user configuration. The two settings
 clients were verified in source/bundle integration, not manually rendered in
-that first-run window. Live provider calls, overnight endurance, installed
-launcher execution and user acceptance remain untested. A later user-authorized
+that first-run window. No additional live-provider, overnight-endurance or
+installed-launcher acceptance results are claimed here. A later user-authorized
 local build produced unsigned EXE, ZIP and blockmap assets and passed both packed
 dependency closures. Actual installation now matches all 25,783 unpacked files
 by size and SHA-256, with the installed dependency closure passing. An interrupted
 installation succeeded with the same EXE after the user paused Kaspersky; the
-specific interception rule is unconfirmed. The user has authorized a source-only
-commit/push checkpoint, not a tag, GitHub Release or asset upload. Generated
+specific interception rule is unconfirmed. After the source-only commit/push
+checkpoint, the user confirmed the local build was ready and authorized a
+GitHub prerelease on 2026-09-30. The same tested EXE, ZIP and blockmap are reused,
+not rebuilt; their hashes, unsigned status and remote-asset verification belong
+to `win-desktop/release-notes/v0.2.0-rc.2.md`. The full offline gate and both
+packaged dependency closures were rerun before publication. Generated
 AgentTeams, Models and CPA `lib` output remains on disk but is no longer tracked;
 the offline gate rebuilds and synchronizes it before packaging. The npm 11 install
 reports an unreviewed script for the official `dsh-subprocess-local` `file:`

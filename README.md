@@ -2,15 +2,15 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.2`（开发者预览；本地测试安装包已生成，尚未发布）
+> 当前版本：`v0.2.0-rc.2`（Windows x64 预发布）· [下载安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.2)
 
 ## `v0.2.0-rc.2` 更新说明
 
 - 跟随 AgentTeams 稳定版 `v0.1.22` 的推荐宿主，固定官方 Harness `dsh-v0.2.0-rc.2`（commit `639ed015397290b3745d163aafe02ffee4aa3f84`）与 AgentTeams `0.1.22-desktop.1`（上游 commit `9cba4fe4171f27c019991cafd2a107f87ef3517b`）；完整官方包来源见 [0.2.0 来源清单](docs/UPSTREAM_020_SOURCE_MANIFEST.md)。
 - 保留上游计划审核、模型搜索、文件侧栏、终端、插件提示、模型目录及可选异步提问；本地角色路由、严格 V2、质量门、统一子会话网关、CPA 和 provider-neutral Models 扩展继续各归其主。官方 Native 与 AgentTeams 设置继续分开显示。
 - Windows 托盘新增手动“管理 dsh 命令…”；仅已安装应用在用户明确确认后才按官方所有权规则修改当前用户 PATH，启动时不自动安装。系统 PATH 已有优先命令时会拒绝无效安装。本轮没有执行真实 PATH 修改。
-- 离线 `verify:upstream` 已通过：Models 50/50、CPA 27/27、AgentTeams 全套及包装器 149/149；隔离打包版 Electron 启动进入新版 Web 首屏。本地 EXE/ZIP 测试包已生成，未发版、调用真实模型或进行长时间运行验收。
-- 实际安装已完成，安装目录全部 25,783 个文件与打包目录的大小及 SHA-256 一致，已安装运行时闭包通过。安装中途退出在用户暂停卡巴斯基后用同一 EXE 重试成功，尚未确认具体拦截规则。当前仅提交源码，等待用户功能测试通过后再发版。
+- 发布前重新通过离线 `verify:upstream`：Models 50/50、CPA 27/27、AgentTeams 全套及包装器 149/149；打包目录和 ZIP 依赖闭包通过。发布的是用户确认可发布的同一份本地测试包，未重新打包或修改已安装程序。
+- 实际安装已完成，安装目录全部 25,783 个文件与打包目录的大小及 SHA-256 一致，已安装运行时闭包通过。安装中途退出在用户暂停卡巴斯基后用同一 EXE 重试成功，尚未确认具体拦截规则。安装包未作 Authenticode 签名；此发布不宣称新增真实模型、PATH 命令或长时间运行的独立验收。
 
 ## `v0.1.7-rc.2` 更新说明
 

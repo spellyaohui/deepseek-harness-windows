@@ -1,14 +1,14 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前源码版本为 `0.2.0-rc.2`；本地测试安装包已生成，尚未发布。
+本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.2.0-rc.2`；[Windows x64 预发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.2)。
 
 ## `v0.2.0-rc.2` 更新说明
 
 - 固定 AgentTeams 稳定版 `v0.1.22`（`9cba4fe4171f27c019991cafd2a107f87ef3517b`）及推荐 Harness `dsh-v0.2.0-rc.2`（`639ed015397290b3745d163aafe02ffee4aa3f84`）。官方 9 个 vendor 与 318 个 DSH tarball 原样使用，不混用旧宿主。
 - 使用上游新 Web/Host 能力；保留本地子智能体角色策略、严格 V2、质量、统一网关、官方 Native/Team 设置分工、CPA 和 Models 中立扩展。新版 pi-ai 的工具 transcript 与客户端锚点已适配 OpenCode 专属 Kimi Schema/会话亲和补丁，普通 Provider 不受影响。
 - 托盘“管理 dsh 命令…”仅在已安装程序、存在本地 launcher 且用户明确确认时调用官方 Windows HKCU PATH 所有权规则；不在启动时改 PATH，系统 PATH 已有优先命令时拒绝无效安装。
-- 完整离线门禁通过：Models 50/50、CPA 27/27、AgentTeams 全套、包装器 149/149；隔离打包版 Electron 成功显示新版首屏。EXE/ZIP 已生成并通过闭包检查；未进行真实模型、安装后 PATH 命令与长时间运行测试。
-- 实际安装完成后，全部 25,783 个文件与 `win-unpacked` 的大小及 SHA-256 一致，已安装运行时闭包通过。安装中途退出在用户暂停卡巴斯基后用同一 EXE 重试成功，具体拦截规则未确认。当前只提交源码，不创建 GitHub Release 或上传安装包，等待用户功能验收。
+- 发布前完整离线门禁再次通过：Models 50/50、CPA 27/27、AgentTeams 全套、包装器 149/149；EXE/ZIP 闭包及官方图标检查通过。发布用户确认的同一份测试包，不重新打包或修改已安装程序；不宣称新增真实模型、安装后 PATH 命令与长时间运行的独立验收。
+- 实际安装完成后，全部 25,783 个文件与 `win-unpacked` 的大小及 SHA-256 一致，已安装运行时闭包通过。安装中途退出在用户暂停卡巴斯基后用同一 EXE 重试成功，具体拦截规则未确认。EXE 未作 Authenticode 签名，可能出现 SmartScreen 或安全软件提醒；资产大小和 SHA-256 见发布说明。
 
 ## `v0.1.7-rc.2` 更新说明
 
@@ -269,7 +269,7 @@ AgentTeams、Models 和 CPA 的 `lib/` 为可重建输出，不进入 Git；完�
 
 上游同步的能力清单、所有权边界与强制回归流程见 [上游维护文档](../docs/UPSTREAM_MAINTENANCE.md)。
 
-本次本地测试包产物在 `win-desktop/dist/`：
+本次发布产物保留在本地 `win-desktop/dist/`，并作为 GitHub Release 资产提供：
 
 | 文件 | 说明 |
 | --- | --- |
