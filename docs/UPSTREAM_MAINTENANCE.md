@@ -40,6 +40,15 @@ files. Dependency installation is an explicit separate preparation phase.
 The Windows workflow builds without developer caches and installs its own EXE
 on a second disposable runner; completion evidence belongs to the Release notes.
 
+Cloud build b3c7e8d passed the full offline gate (164 wrapper tests), produced
+the release EXE/ZIP and passed both packaged closures (868/867 production
+packages, 1,041 matching manifests). A second clean Windows runner installed
+that exact EXE and passed real desktop startup, Models catalogue, AgentTeams
+save/restart, web opt-out restart and legacy disabled-Web preset checks. The
+renderer reported zero exceptions; no live model request was made. Installer
+path and DOM-readiness corrections affect only the acceptance harness.
+Evidence: Actions runs 36823482174 (build) and 36825551884 (installed acceptance).
+
 ## Desktop 0.2.0-rc.9 built-in web tools preference — 2026-10-01
 
 Classification: REAPPLY. Desktop Settings owns the native 扩展设置 section,

@@ -3,6 +3,11 @@ on:
   push:
     branches: [fix/rc10-installed-validation]
   workflow_dispatch:
+    inputs:
+      build_run:
+        description: Run ID containing the verified-windows-installers artifact
+        type: string
+        required: true
 permissions:
   actions: read
   contents: write
@@ -21,7 +26,7 @@ jobs:
         with:
           name: verified-windows-installers
           path: installers
-          run-id: 36823482174
+          run-id: ${{ inputs.build_run || '36823482174' }}
           github-token: ${{ github.token }}
       - name: Install the previously built and closure-verified NSIS EXE
         run: |
@@ -35,7 +40,12 @@ jobs:
       - name: Stage exactly these tested files in the existing draft Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload v0.2.0-rc.10 installers/* --repo $env:GITHUB_REPOSITORY
+        run: |
+          $draft = gh release view v0.2.0-rc.10 --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Published assets are immutable acceptance evidence. A manual later
+          # check validates its own artifact without replacing that Release.
+          if ($draft -eq 'true') { gh release upload v0.2.0-rc.10 installers/* --repo $env:GITHUB_REPOSITORY }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
