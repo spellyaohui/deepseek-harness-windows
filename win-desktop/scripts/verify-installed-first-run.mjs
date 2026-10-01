@@ -71,10 +71,13 @@ async function launch() {
     assert.equal(reply.result.ok, true, JSON.stringify(reply.result))
     return reply.result.value
   }
-  for (let attempt = 0; attempt < 40; attempt++) {
-    if (await evaluate(`Boolean(document.body.innerText.trim() && window.dshDesktop)`)) break
+  let pageReady = false
+  for (let attempt = 0; attempt < 80; attempt++) {
+    pageReady = await evaluate(`Boolean(document.readyState !== 'loading' && document.body?.innerText.trim() && window.dshDesktop)`)
+    if (pageReady) break
     await delay(250)
   }
+  assert.equal(pageReady, true, 'The installed Web UI must finish loading and render visible content')
   assert.equal(await evaluate('Boolean(window.dshDesktop)'), true, 'Production preload bridge must mount')
   return { evaluate, rpc }
 }
