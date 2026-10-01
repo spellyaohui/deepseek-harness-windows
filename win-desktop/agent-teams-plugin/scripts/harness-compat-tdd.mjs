@@ -262,7 +262,13 @@ await test('a child inheriting another member descriptor does not acquire member
 for (const fallbackActive of [false, true]) {
   await test(`cold resume restores route and effort coherently (fallbackActive=${fallbackActive})`, async t => {
     const workspace = await mkdtemp(join(tmpdir(), 'agent-teams-compat-'))
-    t.after(() => rm(workspace, { recursive: true, force: true }))
+    const ctx = scope({ subagents: modernRuntime() })
+    t.after(async () => {
+      ctx.dispose()
+      // Windows scanners can briefly retain handles after the awaited writes.
+      // Exhausted retries still fail the test; no cleanup error is swallowed.
+      await rm(workspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+    })
     await createTeamDir(join(workspace, '.agent-teams'), {
       schemaVersion: 2,
       id: 'team', name: 'Team', captainSessionId: 'captain', createdAt: 1, taskSeq: 0, tasks: [],
@@ -275,8 +281,6 @@ for (const fallbackActive of [false, true]) {
         ...(fallbackActive ? { activeProvider: 'backup', activeModel: 'backup-model' } : {}),
       }],
     })
-    const ctx = scope({ subagents: modernRuntime() })
-    t.after(() => ctx.dispose())
     installMemberSelectionRuntime(ctx, '.agent-teams')
     const agent = child({ workspace })
     ctx.emit('agent/session-start', { agent, source: 'resume' })
