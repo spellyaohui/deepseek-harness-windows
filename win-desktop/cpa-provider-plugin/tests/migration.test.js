@@ -32,15 +32,15 @@ test('migrates an existing CPA profile that predates image capability declaratio
       apiKeyEnv: 'CPA_API_KEY',
       api: 'openai-responses',
       baseURL: 'https://proxy.example.invalid/v1',
-      defaultInput: ['text', 'image'],
+      defaultInput: ['text'],
       models: [{
         id: 'gpt-5.6-sol',
         name: 'gpt-5.6-sol',
         contextWindow: 272000,
         maxTokens: 131072,
-        input: ['text', 'image'],
+        input: ['text'],
         reasoningEfforts: {
-          off: 'none', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max',
+          minimal: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max',
         },
       }],
     },
@@ -60,12 +60,12 @@ test('does not rewrite a current CPA profile or an unrelated settings descriptor
           apiKeyEnv: 'CPA_API_KEY',
           api: 'openai-responses',
           baseURL: 'https://proxy.example.invalid/v1',
-          defaultInput: ['text', 'image'],
+          defaultInput: ['text'],
           models: [{
             id: 'text-only',
             input: ['text'],
             reasoningEfforts: {
-              off: 'none', minimal: 'minimal', low: 'low', medium: 'medium',
+              minimal: 'minimal', low: 'low', medium: 'medium',
               high: 'high', xhigh: 'xhigh', max: 'max',
             },
           }],
@@ -75,32 +75,15 @@ test('does not rewrite a current CPA profile or an unrelated settings descriptor
   }), undefined)
 })
 
-test('does not reinterpret current automatic CPA models as explicit image overrides', () => {
-  const currentReasoning = {
-    off: 'none', minimal: 'minimal', low: 'low', medium: 'medium',
-    high: 'high', xhigh: 'xhigh', max: 'max',
-  }
-
-  for (const model of [
-    { id: 'automatic', reasoningEfforts: currentReasoning },
-    { id: 'empty-automatic', input: [], reasoningEfforts: currentReasoning },
-  ]) {
-    assert.equal(cpaProfileMigration({
-      ns: 'llm-pi-ai',
-      revision: 12,
-      user: {
-        providers: {
-          cpa: {
-            displayName: 'CPA / CLIProxyAPI',
-            apiKeyEnv: 'CPA_API_KEY',
-            api: 'openai-responses',
-            baseURL: 'https://proxy.example.invalid/v1',
-            defaultInput: ['text', 'image'],
-            models: [model],
-          },
-        },
-      },
-    }), undefined)
+test('materializes legacy missing input as text without changing an explicit reasoning subset', () => {
+  for (const input of [undefined, []]) {
+    const reasoningEfforts = { high: 'custom-high' }
+    const migration = cpaProfileMigration({ ns: 'llm-pi-ai', revision: 12, user: { providers: { cpa: {
+      displayName: 'CPA / CLIProxyAPI', apiKeyEnv: 'CPA_API_KEY', api: 'openai-responses', baseURL: 'https://proxy.example.invalid/v1', defaultInput: ['text', 'image'], models: [{ id: 'legacy', input, reasoningEfforts }],
+    } } } })
+    assert.equal(migration.expectedRevision, 12)
+    assert.deepEqual(migration.ops[0].value.models[0].input, ['text'])
+    assert.deepEqual(migration.ops[0].value.models[0].reasoningEfforts, reasoningEfforts)
   }
 })
 
@@ -121,7 +104,7 @@ test('preserves an explicit text-only model while upgrading the provider default
     },
   })
 
-  assert.deepEqual(migration?.ops[0].value.defaultInput, ['text', 'image'])
+  assert.deepEqual(migration?.ops[0].value.defaultInput, ['text'])
   assert.deepEqual(migration?.ops[0].value.models[0].input, ['text'])
 })
 
@@ -142,7 +125,7 @@ test('preserves malformed model input while upgrading a legacy provider default'
     },
   })
 
-  assert.deepEqual(migration?.ops[0].value.defaultInput, ['text', 'image'])
+  assert.deepEqual(migration?.ops[0].value.defaultInput, ['text'])
   assert.equal(migration?.ops[0].value.models[0].input, 'image')
 })
 
@@ -180,6 +163,6 @@ test('host startup applies the legacy migration through a revision-guarded path 
   assert.equal(writes[0][0], 'llm-pi-ai')
   assert.equal(writes[0][2], 19)
   assert.deepEqual(writes[0][1][0].path, ['providers', 'cpa'])
-  assert.deepEqual(writes[0][1][0].value.defaultInput, ['text', 'image'])
-  assert.deepEqual(writes[0][1][0].value.models[0].input, ['text', 'image'])
+  assert.deepEqual(writes[0][1][0].value.defaultInput, ['text'])
+  assert.deepEqual(writes[0][1][0].value.models[0].input, ['text'])
 })

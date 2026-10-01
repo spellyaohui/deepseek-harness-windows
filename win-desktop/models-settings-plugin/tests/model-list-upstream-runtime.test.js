@@ -20,20 +20,8 @@ registerHooks({
 })
 
 const {
-  capabilityProbeRequestFor, filterModelCandidates, inputFallbackForModel,
+  filterModelCandidates,
 } = await import('../lib/client/ModelListEditor.js')
-const { automaticInputHintKey } = await import('../lib/client/ModelInputTypes.js')
-
-test('installed catalog input types override the route default without materializing a draft value', () => {
-  const defaults = new Map([
-    ['vision-model', ['text', 'image']],
-  ])
-  assert.deepEqual(inputFallbackForModel(defaults, ['text'], 'vision-model'), ['text', 'image'])
-  assert.deepEqual(inputFallbackForModel(defaults, ['text'], 'unknown-model'), ['text'])
-  assert.equal(automaticInputHintKey(inputFallbackForModel(defaults, ['text'], 'vision-model')), 'modelImageSupportedHint')
-  assert.equal(automaticInputHintKey(inputFallbackForModel(defaults, ['text'], 'unknown-model')), 'modelImageAutoHint')
-})
-
 test('candidate search filters ids and display names without changing the selected source rows', () => {
   const rows = [
     { id: 'gpt-vision', name: 'Vision' },
@@ -42,14 +30,4 @@ test('candidate search filters ids and display names without changing the select
   assert.deepEqual(filterModelCandidates(rows, 'vision').map(row => row.id), ['gpt-vision'])
   assert.deepEqual(filterModelCandidates(rows, 'general').map(row => row.id), ['plain-text'])
   assert.equal(filterModelCandidates(rows, 'missing').length, 0)
-})
-
-test('capability probe sends a stored credential reference to the Host without replacing a typed key', () => {
-  const request = capabilityProbeRequestFor(
-    'custom-model', 'openai-completions', 'https://example.invalid/v1',
-    { credentialRef: 'providers.custom.apiKey', apiKey: 'one-shot' }, { reasoningEfforts: { low: 'low' } },
-  )
-  assert.equal(request.credentialRef, 'providers.custom.apiKey')
-  assert.equal(request.apiKey, 'one-shot')
-  assert.deepEqual(request.candidate, { reasoningEfforts: { low: 'low' } })
 })

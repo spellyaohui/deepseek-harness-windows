@@ -105,6 +105,7 @@ export function AgentTeamsSettingsSection({
             <span>{t('settings.write.error', { message: visibleWriteError ?? writeView.error })}</span>
             {writeView.ops !== null && (
               <Button
+                className={css.retryButton}
                 type="button"
                 variant="outline"
                 size="sm"

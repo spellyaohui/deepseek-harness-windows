@@ -36,7 +36,7 @@ import { deriveKeyRef } from './store.ts'
 import { protocolLabel } from './protocol-label.ts'
 import type { ModelsOperations } from './operations.ts'
 import type { en } from './locales.ts'
-import type { ModelCapabilityProbeRemote } from '../remote.ts'
+import { materializeModelChoices } from './model-reasoning.ts'
 import { normalizeProviderProfile } from './provider-profile.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import styles from './ModelsSection.module.css'
@@ -77,8 +77,6 @@ export interface CustomProviderCardProps {
   revision: number
   /** The Host operations this card writes and interrogates through. */
   operations: ModelsOperations
-  /** Optional Host probe; normal editing remains available while it mounts. */
-  modelCapabilities?: ModelCapabilityProbeRemote
   /** Adapter-owned profile normalization seam. */
   normalizeProviderProfile?: ProviderProfileNormalizer
   /** Section copy. */
@@ -171,7 +169,8 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         ...storesKey ? { apiKeyEnv: keyRef } : {},
         api: protocol,
         baseURL: normalizedBaseURL,
-        models: models.map(model => ({ ...model })),
+        defaultInput: ['text'],
+        models: models.map(materializeModelChoices),
       }
       const normalized = normalizeProviderProfile(route, profile, props.normalizeProviderProfile)
       if (!normalized.ok) return normalized.message
@@ -218,6 +217,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
 
   return (
     <div className={styles['editor']}>
+      <div className={styles['providerFields']}>
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('customRoute')}</span>
         <input
@@ -294,20 +294,20 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           ? null
           : <p className={styles['error']}>{t(keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure)}</p>}
       </div>
+      </div>
       <ModelListEditor
         models={models}
         onChange={setModels}
-        probe={{
+        discovery={{
           settingsNs: NS,
           baseURL: normalizedBaseURL,
           api: protocol,
           ...keyValue.length === 0 ? {} : { apiKey: keyValue },
         }}
-        probeBlocked={baseUrlInvalid
+        discoveryBlocked={baseUrlInvalid
           ? 'customBaseUrlInvalid'
           : keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
         operations={operations}
-        {...props.modelCapabilities === undefined ? {} : { modelCapabilities: props.modelCapabilities }}
         t={t}
         disabled={profileDisabled}
         onBusyChange={setListBusy}

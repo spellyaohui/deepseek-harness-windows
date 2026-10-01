@@ -424,7 +424,7 @@ packages:
     version: 1.8.5
 
   '@deepseek-ai/dsh-agent-preset-registry@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-agent-preset-registry-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-e6Xf2BbX/2al2Lti9Ixmviz3GCHDhKCu4Pt1pmr86Vz2A6jjbDMmY8qiyRkA2yVsUMzQQgLxU46ym2akrrJtTA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-agent-preset-registry-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-iqpUFSmYEpWle5QuCFaIqE6/yfioaiWZzybBhHnHqSFJ05q69AZqm94x+pM7NU9Yee7diYfrUZwMJ2h6cupw1Q==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-agent-preset-registry-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -441,7 +441,7 @@ packages:
       '@deepseek-ai/dsh-typert-protocol': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-agent@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-agent-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-nKW/+7KWAmNMzj6tP3BwDf8I1O/l5+RyVmkyGt8AqUTDWJVyqWhUPqxk62893nR8cFcqhjyqo769KPsAFC7zjw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-agent-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-hf7v/U6UMv5m8MxqQZBD49QtIdBUSvWy0sMUC2eTiFTvplr5o8Yt3qH4YCfCcFFpzXjCcmZZYnFJcr21WU0N9w==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-agent-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -459,14 +459,14 @@ packages:
         optional: true
 
   '@deepseek-ai/dsh-api-remotes@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-gT7brbf0NQSZBnIc8YIPyk4eU0PJWuo0ZyqCIDasXHdTiM4QyCz4dPNNJFZxNgFsnHQmRFsUD/6yKD1IYzZA1Q==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-6wgDWpJdDSaauri36/4NdDYIUQqrlWKgMn+UvHvflJMf8gAc7+ujP9KGA14nMzCQhxIXNwmrMJ00AwyuXYuunA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-api-remotes-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
       '@deepseek-ai/dsh-scope': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-api-settings-controller@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-api-settings-controller-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-h/W7RDUv+kOZ62izdtUmIKPGbtDjysQPqp6hV/CKVqDXcW4oqm0WsKdQiEVqtLjgjWchdBstosPfxijglvq1CQ==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-api-settings-controller-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-tFgnXmNsr6H/vHVXL9jJSQKuuoWUr0jpn2gODatK+jfX0YufYmg0WQSY9SW/IHCqUyERa+TztyOeTyLxER1fvw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-api-settings-controller-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -478,7 +478,7 @@ packages:
       '@deepseek-ai/dsh-typert-protocol': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-app-boot@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-app-boot-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-hrkYIcqfkSfFamph5thkge8ZUtLHTmZcuwxtDQh3UFadm9InVbyH4WdzMdwVtpvg45xS+SuqGeI+Qwc2PJbSgw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-app-boot-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-3MZEThGQ31xY24Om0lLspp298Fx4jO2pi7EJkKmN5vux8fL/H0OfL83v2mjXtQWtXVc1aVHl5Jixyohi1nierA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-app-boot-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -502,14 +502,14 @@ packages:
       '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-client-connection@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-connection-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-AygQ/sOtMkWQyHpr5VzEvilu6CTgBYcJjslrZvERT8Mu53i/PBOFI3WpdyTecOtOiv4g0IAJOZABLH7txv49tA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-connection-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-yUZ6jUxNWgiwZnOCbBmV/UzrpO4X3EheaYNibEmGSsjZMT0D4HPeZPE1prveOz7UNJIHj9gePeW1qjOKZ9QGpw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-connection-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
       '@deepseek-ai/dsh-scope': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-client-locale@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-BC7MDupbT/TCOZTJFJowcT4BJpZOhSSY0agbtqaYhNi9d5vHyLapMcntAI/EsEXBxWj46G6RfyCbvWbQFwEU4A==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-K8jGHo27xTRQ42LPov1qZBvr9+lV3/fP8vx+hT7n6yJEdSXkgs4LUm/NSPtUcODAyR5YK+vTjkNl50J58qDU4w==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-locale-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -521,19 +521,19 @@ packages:
       '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-client-ui-primitives@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-SYPrB6mUEeT+vzvJSMS+F2VK0ZQcQeSLY6F/CETLUczKD3tin/Neirgk2CfnVkUsM5k9T07L3k2eZl25vOXR9A==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-1cenRWVEufo3JFqYfFEoagh5KWPcpmfHx2juHaN30Fp3XdfaFphQN6d2KZ5bev0dZiWElVzfWRSBWlpfZwZoYg==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-primitives-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-client-ui-renderer@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-renderer-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-eqGsiN+jeAASXV5m4rCCHYZQA5SeJgBWSRxz8nLHO6m1coQ4VQkamJ6aJPJVQFyE8XG7BV+oo4ro9OSul3gVYw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-renderer-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-S2/VJGgff7N0bZNyukUiTyoMaZkt0hMDdzKcYbd1LbXZJfJ3pUfVM8Uvpbm8df6fDnQmFnsNrnDHduIShMmZoA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-renderer-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-client-ui-settings@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-settings-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-Unimu+X69/2dEzC9JUoOtUnpofG/oCbuZ6V9bk85S8Io/X0+MRmhQ/j6sXxlZcmX/P/4WDRbAEOY5tSJ+0NI6A==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-settings-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-yZ3xeB0ArjESNQL7Lkgqc9ALgtt84HPlydVsPsQUCZSqllmUOaSPwb/+R+BE6TOYCU/9/CUfgXhyUqF4RzGE/w==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-settings-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -595,7 +595,7 @@ packages:
       '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-llm@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-llm-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-EF37QlJvmDO5iNSb6iw4DInoWPUkhMfE37Yag7VJSXYy9pTih1rvoFQnivbMGWg9X8CPT6SIyzYWsczXhWLPhA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-llm-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-Amipe6gBX6Tn/1gmLYAAaTnDIE7EaYv8CLmOUtuHSWQx3HcIhcMNhuXrSY4iyoigWFXCnqy7t1FbsVAlvlzCsg==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-llm-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -620,7 +620,7 @@ packages:
       '@deepseek-ai/dsh-sandbox': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-sandbox-policy@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-sandbox-policy-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-iQmTxjEYnyPd9DCXmIasZvrd+YOjT7Bb72je50kA2jmpq1veP7RmjHLz1OLk0QjwzEiWIU8UczXBQW+DGjdU0w==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-sandbox-policy-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-Z5d/YUoWMhUYaX00G05RnUULcssk3iZ71fvBtaP4QvyO0e+JwaeMZuQI+APaIrKZOSp6Rt4Hzfo1odcdjHvUVw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-sandbox-policy-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -632,7 +632,7 @@ packages:
       '@deepseek-ai/dsh-system-prompt': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-sandbox@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-sandbox-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-ScWdVOqFcptRSxy1WPAfIuIzjQjQxeEnPRkZ47sSc50c9VGggQRbgVzoYs6pxT3qYkFXKj8YTNLgsfpaNoe9HQ==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-sandbox-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-f0yWaq36egipK7e0y4EmuU/iLHHkKZeZ9+Mo34S5zBjgZwWARnKcED10sFZKzCnNSDrEBPCxSVjhGdvDE6FHhw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-sandbox-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -640,7 +640,7 @@ packages:
       '@deepseek-ai/dsh-session': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-scope@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-scope-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-UtEViBmiSKJa5NMURBmDJ//UAbYxhI4RCPvTFmqJJwUOSODhth8QcUbpjfOZXIQX4Tw4qxHfK7JtGhvUBEltyA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-scope-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-VNPjFnXhHfxWURqOPM25ACnh6WEdqd/03kdhV3BW+Cv6nO4lJgirMtk157MwBIfOlLHlMB9FywaHevkiTbKZ4A==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-scope-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -654,14 +654,14 @@ packages:
       '@deepseek-ai/dsh-session': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-session@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-session-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-FT3onkaXUSvL0fMLQZv6o4/X9rZ2yKtj+PYuqrL9NaWZkfPWVyh0S/1NAf7nPIvHV32/HAmmG5RASKmPaHqCFw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-session-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-FR7C1gvS2JAwncFjruMox+8GKzlTn75y9vVNBTcV5+xCJD8AYu5QBbUMVm36D2Pgbs8X00KWymeQ1nr4hC+PqQ==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-session-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
       '@deepseek-ai/dsh-scope': 0.2.0-rc.2
 
   '@deepseek-ai/dsh-settings@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-settings-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-kLabndq2HxXQ72lHGJsXat3Xkf1AiNTIgNoXZqoaR8m1x824yJOB3Rz5VAorrYUS9TDyqQ3ItqG31CntyiMX7g==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-settings-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-GKKt0RzIEkMBqViYFioR5TP2JhgaZGwNQFJ9zrH8gvv+w3dLDR6UDzA5nx9vqlLZG4OWgjawssEF5ITtKwfh+w==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-settings-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -671,7 +671,7 @@ packages:
       '@deepseek-ai/schemastery': ~3.18.4
 
   '@deepseek-ai/dsh-system-prompt@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-system-prompt-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-PHqiAR+INWT84HzOFxyHbkNZB0p/TQFvXXWqvV6Wr8eX0fhJNSUovBLl2MeDKeLZ+9mszu83w4Fnsp1FtCxBIw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-system-prompt-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-D0awvSeudbQVk6zqpE1adbQqkPAMftLSuF8EW0k1dj7yZ2MDxBONDS5LD+qyC/wBWIMOzglzEBrzuI8SYpeJNA==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-system-prompt-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -686,7 +686,7 @@ packages:
       '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-tools@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-tools-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-DimjH2fDPUSsvTafTvYtqrbtnMfWVeYuhwRDEJ5ld1jSTt34oqw9w0MWYn/M8DHqHBZNacn3I+lKsbmBfNc4hQ==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-tools-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-JytjjCr8IQ5iArQrAqe/M6/pv44QELTu1jSqvTD66RV3hPZGgsAAa3yggatvaJdNp18nt1ySC1RIKsWqNt5PlQ==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-tools-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4
@@ -708,7 +708,7 @@ packages:
       '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-user-approval@file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-user-approval-0.2.0-rc.2.tgz':
-    resolution: {integrity: sha512-XO4VYtAQYeW+vnDrW3sSu9EsTc+Y3RVJavDRIm4fEd8nNBj6usIT07Oj7xYjT/+UssxFujou7cGNML+gi/FNsw==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-user-approval-0.2.0-rc.2.tgz}
+    resolution: {integrity: sha512-76KuNF0ruIi0Zt1h1s1Fau36lOWP9UwUZE7+NKMOsAYITprlPaZTZ6utK09HqKrfO7U7qHmy3P6LvpkmY8Yq+g==, tarball: file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-user-approval-0.2.0-rc.2.tgz}
     version: 0.2.0-rc.2
     peerDependencies:
       '@deepseek-ai/cordis': ~4.0.4

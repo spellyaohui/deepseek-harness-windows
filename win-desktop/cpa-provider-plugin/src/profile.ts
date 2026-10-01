@@ -1,10 +1,10 @@
 import { normalizeCpaBaseURL } from './address.ts'
-import { reasoningEffortsForModel } from './reasoning.ts'
+import { normalizeManualEfforts, reasoningEffortsForModel } from './reasoning.ts'
 import type { CpaDraft, CpaInputModality, CpaModelCandidate, CpaModelProfile, CpaProviderProfile } from './types.ts'
 
 type UnknownRecord = Record<string, unknown>
 
-const CPA_INPUT_MODALITIES: CpaInputModality[] = ['text', 'image']
+const CPA_INPUT_MODALITIES: CpaInputModality[] = ['text']
 
 /** Merge a fresh listing with configured rows the endpoint temporarily omitted. */
 export function mergeCpaCandidates(
@@ -85,13 +85,12 @@ export function normalizeCpaProviderProfile(value: UnknownRecord): UnknownRecord
     const model = rawModel as UnknownRecord
     const id = typeof model['id'] === 'string' ? model['id'].trim() : ''
     if (id === '') return model
-    // Keep model-level input byte-for-byte: missing/empty means the native
-    // editor's automatic mode, while malformed values must reach its shared
-    // validation gate instead of being hidden by CPA normalization.
+    // Preserve explicit input, manual reasoning subsets, and malformed data for validation.
     return {
       ...model,
       id,
-      reasoningEfforts: reasoningEffortsForModel(id),
+      ...(model['input'] === undefined || Array.isArray(model['input']) && model['input'].length === 0) ? { input: ['text'] } : {},
+      reasoningEfforts: normalizeManualEfforts(model['reasoningEfforts']),
     }
   })
 
@@ -101,10 +100,7 @@ export function normalizeCpaProviderProfile(value: UnknownRecord): UnknownRecord
     apiKeyEnv: 'CPA_API_KEY',
     api: 'openai-responses',
     baseURL: normalizeCpaBaseURL(baseURL),
-    // CPA is a multimodal gateway by contract. Keep a per-model ['text']
-    // override when a deployment has a genuinely text-only model, but do not
-    // let an old route-level text-only default disable image admission for
-    // newly added CPA models.
+    // New models default to text until the user enables images.
     defaultInput: [...CPA_INPUT_MODALITIES],
     models,
   }

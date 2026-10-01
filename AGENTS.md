@@ -42,15 +42,18 @@ evidence that the local capability is preserved.
   card; the single native `CPA / CLIProxyAPI` row owns its editor chrome.
 - The Models settings fork owns the provider-neutral native editor and its
   additive slot/normalization seam; it must not contain CPA-specific rules.
-- Desktop Settings owns the Harness-native `桌面` settings section and window
-  behavior bridge.
+- Desktop Settings owns the Harness-native `扩展设置` section (stable slot id
+  `desktop`), window behavior and built-in web-tools preference bridge. The
+  wrapper owns the exact official `dsh-tool-web` activation rewrite: opt-out
+  removes search/fetch registrations and guidance from every mount, retaining
+  ctx.web, providers, user preset declarations and independent MCP tools.
 - Wrapper tool-call guidance owns only the compact cross-tool system-prompt
   discipline for optional arguments and failed-call retries.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
   provider-neutral exact `grep` argument alias normalization at the pi-ai
   durable boundary, bounded-period usage-quota classification at the dsh-llm
   loader boundary, OpenCode stream recovery, verified OpenCode model-protocol
-  and image-capability reconciliation, the manual capability-validation bridge,
+  and image-capability reconciliation, manual model declaration integration,
   plugin mounting, and startup integration.
 - Native Subagent and AgentTeams settings remain separately visible. The
   official Native page owns native depth, capacity, and allowed model routes;
@@ -68,14 +71,7 @@ evidence that the local capability is preserved.
   row. The expandable native editor must retain API address, Token, model
   discovery, model selection, text/image input modalities, raw context/output
   capacities, and model-specific R reasoning levels.
-- Existing CPA profiles created before image modalities were persisted must be
-  migrated on startup through the CPA plugin's path-scoped, revision-guarded
-  settings mutation. The migration must preserve unrelated providers,
-  credentials, raw capacities, and explicit per-model text-only overrides.
-  Once a profile already carries the current text/image Provider default,
-  missing or empty model-level `input` is intentional `auto` and must not be
-  materialized again. Native CPA edits must also leave malformed `input`
-  untouched so the provider-neutral Models validator can reject it.
+- CPA's path-scoped, revision-guarded startup normalization preserves credentials, raw capacities, explicit image/text choices, malformed declarations and manual reasoning subsets. Missing/empty legacy model input becomes text; new models default to text and all six explicit reasoning levels. Never overwrite a user reasoning subset on Save or startup.
 - The `桌面` section has no save button. Changing close behavior immediately
   persists through the existing IPC bridge, disables the selector while the
   write is pending, announces success, and restores the prior committed value
@@ -88,10 +84,7 @@ evidence that the local capability is preserved.
   a server 500 never triggers an alternative-protocol retry.
 - Before that same catalog is used, the wrapper corrects the documented
   text/image input capability for verified current and legacy OpenCode models.
-  Unknown models stay text-only. “设置 → 模型 → OpenCode 模型能力” can run the
-  same offline-safe catalog validation manually; it writes no provider settings,
-  addresses, credentials, or Token, and requires restart before the repaired
-  catalog is loaded.
+  Unknown models stay text-only. The manual OpenCode capability card, plugin and IPC are intentionally removed at rc.4; do not restore them.
 - `opencode-go/kimi-k3` retains its verified Chat Completions transport and
   Kimi-specific tool compatibility: no OpenAI `strict` field, required
   reasoning-content replay, deferred-tool handling, and the official-client
@@ -121,6 +114,8 @@ evidence that the local capability is preserved.
 
 ## Alpha.2 Web authentication startup invariant
 
+- Desktop-owned plugin insertions are a default layer beneath profile, Home and CLI settings. Do not launch the AgentTeams/CPA/Desktop Settings/guidance insertions as a final `--patch` overlay: that makes user saves target an entry before it exists. Keep the scoped, drift-guarded app-boot seam and the real SettingsForms/ConfigEditor save/restart regression, including Home/CLI refusal and stale-revision protection. Never weaken the official ConfigEditor checks or rewrite a user's patch/manifest to make a save succeed.
+
 - Alpha.2 prints a canonical loopback URL containing a fresh process token.
   The Windows wrapper must pass the complete `http://127.0.0.1:<port>/?token=...`
   URL from the `dsh web:` readiness line to Electron; capturing only the origin
@@ -148,6 +143,16 @@ evidence that the local capability is preserved.
   old AUTO sessions or delete stale user Profile caches.
 
 ## AgentTeams `v0.1.16-rc.1` interaction invariants
+
+- The Windows-owned `software-delivery` default provides Chinese description,
+  protocol, team guidance and distinct analyst/implementer/tester/reviewer role
+  prompts. Stable member IDs and role reasoning/routing stay unchanged. Read must
+  preserve saved V2 prompts; new defaults are applied only by an explicit
+  draft restore and Save. Restore eligibility depends on the selected Profile's
+  difference from its built-in baseline, even when the saved draft is clean.
+  Retry/save controls remain single-line in narrow windows and long errors wrap.
+  Preserve profile-store/default-YAML parity, member-persona injection and the
+  3,500-character captain prompt budget regressions.
 
 - Global AgentTeams settings own only Team/Native delegation. Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
@@ -254,50 +259,15 @@ evidence that the local capability is preserved.
   serializes each child operation; no direct `ctx.subagents.*` call may bypass
   this admission boundary.
 
-## Models settings fork `v0.1.1-rc.2-desktop.6` interaction invariants
+## Models settings fork `0.2.0-rc.2-desktop.3` interaction invariants
 
-- Each pi-ai model row owns its image-input choice: `auto`, `image`, or
-  `text-only`. Persist `auto` by deleting the model-level `input`, `image` as
-  `['text', 'image']`, and `text-only` as `['text']`.
-- Missing or empty `input` resolves to `auto`; a valid non-empty list containing
-  `image` resolves to `image`, and a valid text-only list resolves to
-  `text-only`. Malformed values are invalid and block save; they must not be
-  filtered, cleared, or silently downgraded.
-- The editor must preserve every unedited model field, including protocol,
-  capacities, reasoning, cost, and compat records. Provider-scoped bulk
-  actions operate only on the unsaved draft and must use the same pure
-  normalization contract.
-- The existing model editor owns one provider-neutral capability probe surface:
-  rows are selected individually, probes run sequentially against the current
-  explicit protocol/address, cancellation preserves completed draft results,
-  and only an explicit overwrite toggle may replace existing capability
-  fields. The probe never writes settings before the parent Save action.
-- The capability Remote is optional at initial render because its mount is
-  asynchronous. Missing or delayed Remote state must leave the Models page,
-  Provider editors, model rows, input modes, and Save flow available; only the
-  probe controls may degrade to an unavailable notice.
-- A Remote namespace is an independent Cordis service named
-  `remote.<namespace>`. Optional or late-bound namespace access must use
-  `ctx.get('remote.<namespace>')` at action time; `ctx.remote.<namespace>` is
-  legal only in a Fiber that declares that exact service in `inject`.
-- Capability outcomes use `supported` / `unsupported` / `inconclusive` /
-  `not-applicable`; authentication/proxy-auth failures (401/403/407),
-  transient HTTP, timeout, rate-limit, 5xx, and network failures remain
-  inconclusive. Stored credentials resolve only in Host, and a typed draft key
-  is one-shot and never returned or persisted by the probe.
-- The Models fork remains provider-neutral: no CPA, OpenCode, woyaopro, or
-  model-name heuristics belong there. Unknown automatic models remain
-  fail-closed through pi-ai's text-only default, and a saved choice requires
-  restart before the runtime loads it.
-- Before Models TypeScript/Rolldown output is regenerated, the build detaches
-  every existing `lib` output directory entry with identical bytes so a
-  consumer/indexer memory map cannot trigger Windows `os error 1224`; the
-  generated output remains ignored by the package's source ownership rules.
-- OpenCode catalog hydration must never rewrite persisted provider settings;
-  manual model-level declarations remain higher precedence than installed
-  catalogs and provider defaults. Preserve the model-input unit/UI tests,
-  wrapper ownership regressions, and capability-manifest markers through every
-  upstream refresh.
+- User-requested replacement: capability probing and its Remote/Host service are removed. Keep model discovery, native provider editors, onboarding, credential boundaries, Save/CAS and draft cancellation.
+- Every pi-ai model uses image or text-only; persist ['text', 'image'] or ['text']. Missing/empty input displays and saves as text. New providers/models default to text. Malformed input remains invalid and blocks Save.
+- Offer Default, Minimal, Low, Medium, High, Xhigh and Max. Default always uses the server default; each model can select the six explicit levels. Save selected levels as reasoningEfforts without off (Default is supplied by Harness), or false when none are selected. Preserve existing selected wire mappings and every unrelated model field; malformed efforts block Save.
+- List operations, bulk input actions, expandable model settings and footer Save/Cancel have separate layout groups and remain usable at narrow widths.
+- Models stays provider-neutral. CPA, OpenCode and model-name rules stay with their owners. Manual declarations override catalogs and defaults, and saved changes require restart.
+- Before generated lib writes, detach each existing output entry with identical bytes to prevent Windows os error 1224. Keep detachment and manual declaration regressions through future refreshes.
+- OpenCode startup transport, schema and session routing compatibility remains wrapper-owned; no hydration writes provider settings.
 
 Do not collapse these owners into one plugin during conflict resolution. Do not
 move provider-specific behavior into the Models fork.

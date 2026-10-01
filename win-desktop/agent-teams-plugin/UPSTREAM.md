@@ -9,8 +9,53 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.22-desktop.1`.
+- Desktop fork version is `0.1.22-desktop.4`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-10-01 desktop.4 captain subagent compatibility
+
+Classification: REAPPLY. This is a local Team/Native compatibility capability,
+not an upstream refresh. A captain-scoped around-dispatch adapter replaces only
+the official subagent body. The existing AgentTeams tools retain policy and
+validation authority; child operations still cross the exact-live-Agent gateway.
+Official schemas, Session route allowlists, role reasoning, staged approval,
+halts, member caps and durable task attempts remain authoritative. Members and
+installations without the adapter still fail closed. Native mode is unchanged.
+
+Evidence: fourteen real-runtime offline regressions and the complete install-free
+verify:upstream gate pass before this record is updated. No user state migration
+or live provider request is part of this evidence. Harness stays 0.2.0-rc.2.
+
+## 2026-10-01 desktop.3 official settings typography
+
+Classification remains REAPPLY; no upstream source or Harness revision changes.
+The settings root explicitly uses the existing global font at 14px/22px. Helper
+text is 12px/18px; form labels and inputs use the official 13px/1.5 contract,
+with 34px single-line controls and official control surface tokens. No Profile
+values, member instructions, save/CAS semantics or route policies change.
+
+Evidence: the complete offline verify:upstream gate passes after the source
+change. Browser-computed styles match the actual official SettingsValueField;
+320/768/1024/1440px checks show no control or page overflow, and keyboard focus
+remains visible. This is a visual correction owned by the AgentTeams client.
+
+## 2026-10-01 desktop.2 settings and Chinese default guidance
+
+Classification remains `REAPPLY`; the upstream source revision and Harness host
+stay unchanged. AgentTeams owns settings layout and the draft-only Profile
+restore flow. Save/retry buttons do not shrink or wrap; long errors wrap safely.
+Restore eligibility compares the selected Profile with its built-in baseline,
+independently of whether the entire draft differs from the committed document.
+The wrapper owns Chinese default description, protocol, team instructions and
+four distinct member instructions. Existing valid V2 saved prompts are preserved;
+there is no automatic legacy migration or new global routing override.
+
+Evidence: wrapper profile-store V2 preservation/static-YAML parity tests and
+actual AgentTeams profile resolution/member-persona injection; the real default
+captain prompt is 3,424 characters, within the 3,500-character budget. Existing
+serialized write/recovery and full plugin regressions pass. Isolated browser
+checks exercise failed write/retry, busy state, 400px layout, saved-old-default
+restore, draft-only behavior and explicit Save. No live model requests are used.
 
 ## 2026-09-30 v0.1.22 / Harness 0.2.0-rc.2 refresh classification
 

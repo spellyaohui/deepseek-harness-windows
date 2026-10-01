@@ -77,6 +77,7 @@ import { installMailboxAdmission, mailboxPrompt } from './mailbox.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
 import type { DelegationPolicyRuntime } from './routing-policy.ts'
 import { listConfiguredProfiles, resolveTeamProfile } from './profiles.ts'
+import { createSubagentCompatibility, type SubagentCompatibility } from './subagent-compat.ts'
 import { renderStatus, statusFingerprint } from './status-render.ts'
 import { automaticTeamName } from './team-name.ts'
 import { chatApprovalEvidence } from './approval-evidence.ts'
@@ -192,6 +193,7 @@ export interface ApprovedTeamResult {
 
 /** Runtime bridge shared by model-facing tools and the Web staging surface. */
 export interface AgentTeamsRuntime {
+  delegateSubagent: SubagentCompatibility
   updateStagedPlan(captain: Agent, teamId: string, mutation: StagedPlanMutation, options: StagedPlanUpdateOptions, signal?: AbortSignal): Promise<TeamState>
   updateStagedPlanBatch(captain: Agent, teamId: string, mutations: readonly StagedPlanMutation[], options: StagedPlanUpdateOptions, signal?: AbortSignal): Promise<TeamState>
   prepareWebApproval(captain: Agent, teamId: string, expectedPlanRevision: number): Promise<PreparedWebApproval>
@@ -999,6 +1001,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
   }
 
   const runtime: AgentTeamsRuntime = {
+    delegateSubagent: createSubagentCompatibility(ctx, config),
     updateStagedPlan,
     updateStagedPlanBatch,
     prepareWebApproval,

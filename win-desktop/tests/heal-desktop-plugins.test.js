@@ -18,7 +18,6 @@ import { rewriteDesktopConsoleSource } from '../src/win-hide-console-rewrite.js'
 const PLUGINS = [
   '@deepseek-ai/dsh-app-boot',
   '@nanmicoder/dsh-agent-teams',
-  '@deepseek-ai/dsh-opencode-capabilities',
   '@deepseek-ai/dsh-tool-call-guidance',
 ]
 
@@ -112,7 +111,7 @@ test('the profile-anchor rewrite is scoped, idempotent, and refuses anchor drift
   assert.throws(() => rewriteDesktopConsoleSource(`${source}\n${source}`, url), /installation anchor drift/)
 })
 
-test('dsh web args omit AUTO and retain the Windows and desktop patches', () => {
+test('dsh web args retain the Windows picker overlay and keep desktop defaults out of CLI overlays', () => {
   const args = buildDshArgs('entry.js', {
     platform: 'win32',
     windowsPickerPatch: 'picker.patch.yml',
@@ -123,7 +122,6 @@ test('dsh web args omit AUTO and retain the Windows and desktop patches', () => 
   assert.equal(args[1], 'hide-console.mjs')
   assert.deepEqual(args.filter(value => value.endsWith('.patch.yml')), [
     'picker.patch.yml',
-    'desktop.patch.yml',
   ])
   assert.doesNotMatch(JSON.stringify(args), /auto-mode/i)
   assert.match(resolveAgentTeamsPatch(), /config[\\/]agent-teams\.patch\.yml$/)

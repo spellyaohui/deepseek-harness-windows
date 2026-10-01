@@ -39,9 +39,9 @@ test('wrapper installs the local Models fork and CPA plugin', () => {
     'file:cpa-provider-plugin',
   )
   assert.notEqual(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.link, true)
-  assert.equal(sourceCpaPackage.version, '0.1.10')
-  assert.equal(cpaPackage.version, '0.1.10')
-  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.10')
+  assert.equal(sourceCpaPackage.version, '0.1.11')
+  assert.equal(cpaPackage.version, '0.1.11')
+  assert.equal(lockfile.packages['node_modules/@deepseek-ai/dsh-cpa-provider']?.version, '0.1.11')
   assert.match(sourceCpaPackage.scripts.build, /^node scripts\/detach-output-links\.mjs && /)
 })
 
@@ -53,7 +53,7 @@ test('static and generated desktop patches both mount CPA', () => {
 
 test('built browser packages expose the native Models slot without a duplicate CPA card', () => {
   assert.match(modelsBundle, /settings\.models\.provider-card/)
-  assert.match(modelsBundle, /modelImageAuto/)
+  assert.doesNotMatch(modelsBundle, /modelImageAuto|capabilityProbe/)
   assert.match(modelsBundle, /modelImageSupported/)
   assert.match(modelsBundle, /modelImageTextOnly/)
   assert.match(cpaBundle, /normalize-provider-profile/)
@@ -69,20 +69,20 @@ test('CPA host startup migrates legacy persisted profiles before image admission
   assert.match(cpaMigrationBundle, /normalizeCpaProviderProfile/)
   assert.match(cpaMigrationBundle, /expectedRevision/)
   assert.match(cpaBundle, /defaultInput/)
-  assert.match(cpaBundle, /["']text["'],\s*["']image["']/)
+  assert.match(cpaBundle, /defaultInput/)
 })
 
 test('CPA native saves round-trip automatic and invalid model input states', () => {
-  const automatic = applyImageInputChoice({ id: 'automatic', input: ['text'] }, 'auto')
+  const automatic = applyImageInputChoice({ id: 'automatic', input: ['text'] }, 'text-only')
   const normalized = normalizeCpaProviderProfile({
     baseURL: 'https://proxy.example.invalid/v1',
     defaultInput: ['text', 'image'],
     models: [automatic, { id: 'invalid', input: 'image' }],
   })
 
-  assert.equal(readImageInputChoice(normalized.models[0]), 'auto')
+  assert.equal(readImageInputChoice(normalized.models[0]), 'text-only')
   assert.equal(readImageInputChoice(normalized.models[1]), 'invalid')
-  assert.deepEqual(normalized.defaultInput, ['text', 'image'])
+  assert.deepEqual(normalized.defaultInput, ['text'])
 })
 
 test('desktop composition contains no credential value', () => {

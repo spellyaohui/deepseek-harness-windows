@@ -2,6 +2,11 @@
   <a href="./README.md">English</a> · <strong>简体中文</strong>
 </p>
 
+当前桌面分支为 `0.1.22-desktop.4`，宿主保持 Harness `0.2.0-rc.2`。
+Team 模式下队长的原生 `subagent` 自动转交到真实团队成员和任务；前后台、路由、审批、暂停、成员权限均保留。Native 模式不变。
+配置页字号、字重、行高与表单控件对齐官方组件。
+继续保留保存重试按钮和“恢复内置”的启用条件。Windows 包装器提供中文团队说明、协作协议及四成员职责提示；已保存的提示词不会自动覆盖。需要新版默认提示时，选择 `software-delivery`，点击“恢复内置”与“保存 Profile”，再重启 Harness。
+
 <p align="center">
   <img src="./assets/readme/hero.svg" width="100%" alt="dsh-agent-teams 把一个 DeepSeek Harness 会话变成可协作的多智能体团队">
 </p>
@@ -98,7 +103,7 @@
 
 ### v0.1.14-desktop.10
 
-- 队长系统提示改为生命周期优先的状态机；内置 `software-delivery` 完整提示为 3,353 字符，同时保留审批、角色推理路由、依赖、attempt/reassign、质量门禁、停止/恢复、清理和部署确认规则。
+- 队长系统提示保持生命周期优先的状态机；当前中文内置 `software-delivery` 队长提示为 3,424 字符，低于 3,500 字符上限，同时保留审批、角色推理路由、依赖、attempt/reassign、质量门禁、停止/恢复、清理和部署确认规则。
 - 可选 `profile` 缺失、空字符串或纯空白时创建相同的 ad-hoc Team，不会隐式选择默认 Profile。
 - 非空未知 Profile 仍在持久化状态或启动成员前严格失败；创建工具会列出当前配置名称，并提示未指定时省略该属性。
 

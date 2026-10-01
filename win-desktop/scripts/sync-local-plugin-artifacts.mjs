@@ -8,7 +8,6 @@ export const LOCAL_PLUGIN_ARTIFACTS = Object.freeze([
   ['models-settings-plugin', '@deepseek-ai/dsh-client-ui-settings-models'],
   ['cpa-provider-plugin', '@deepseek-ai/dsh-cpa-provider'],
   ['desktop-settings-plugin', '@deepseek-ai/dsh-desktop-settings'],
-  ['opencode-capabilities-plugin', '@deepseek-ai/dsh-opencode-capabilities'],
   ['tool-call-guidance-plugin', '@deepseek-ai/dsh-tool-call-guidance'],
   ['agent-teams-plugin', '@nanmicoder/dsh-agent-teams'],
 ])

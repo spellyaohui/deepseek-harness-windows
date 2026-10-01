@@ -26,6 +26,26 @@ Ask in natural language. The plugin provides the team protocol, thirteen coordin
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.22-desktop.4
+
+- Routes captain-only official continuable subagent calls through the existing Team tool policy pipeline and durable scheduler.
+- Preserves official input/output validation, Session model allowlists, role routing, staged/halted boundaries, member caps and Native mode. Foreground waits for the real task result.
+- Retains fail-closed native guards without an adapter and for members; HMR disposal restores the official native tool.
+- Fourteen offline integration tests use real Cordis, ToolRuntime, AgentLoop, spawn, JSONL sessions and Team state; only the external LLM boundary is controlled.
+
+### v0.1.22-desktop.3
+
+- Matches the pinned Harness settings typography: 14px body, 12px helper text, 13px form labels and controls with 1.5 line height.
+- Uses the official 34px control height, border/background/radius tokens, and compact heading hierarchy.
+- Keeps Chinese prompts, visible keyboard focus, single-line retry/save controls and all existing Profile/save/routing contracts.
+
+### v0.1.22-desktop.2
+
+- Keeps retry/save buttons on one line and lets long errors wrap within narrow settings windows.
+- Enables explicit built-in restore whenever the selected saved Profile differs from the desktop default, without an unrelated draft edit. Restore is draft-only until Save.
+- The wrapper supplies Chinese software-delivery descriptions, protocol, team guidance and four distinct member prompts; existing saved instructions remain intact.
+- Preserves Harness 0.2.0-rc.2, strict V2 and per-role routing. See [UPSTREAM.md](./UPSTREAM.md).
+
 ### v0.1.22-desktop.1
 
 - Follows upstream stable v0.1.22 and its recommended Harness 0.2.0-rc.2; retains the previous seven supported hosts.

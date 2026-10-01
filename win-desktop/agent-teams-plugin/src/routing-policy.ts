@@ -7,6 +7,7 @@ import type {} from '@deepseek-ai/dsh-tools'
 import type { DelegationMode } from './settings.ts'
 import { onAgentReady, sessionOwnEvents } from './harness-compat.ts'
 import { CAPTAIN_TOOL_NAMES } from './tool-names.ts'
+import type { SubagentCompatibility } from './subagent-compat.ts'
 
 export type DelegationPolicyId = 'teams-v1' | 'native-v1'
 export const POLICY_PREFIX = 'AgentTeams delegation policy:'
@@ -23,7 +24,7 @@ export function policyMarker(policy: DelegationPolicyId): string {
 /** Policy-specific activation guidance placed before the shared AgentTeams protocol. */
 export function delegationPolicyUsagePreamble(policy: DelegationPolicyId): string {
   return policy === 'teams-v1'
-    ? 'AgentTeams is the only genuine delegation path. Genuine delegation uses only agent_teams_* tools; ordinary single-agent work does not require creating a team. When genuine delegation is useful, you are the captain of a multi-agent team.'
+    ? 'AgentTeams owns delegation. Captain subagent calls route to real Team members/tasks; coordinate them with agent_teams_* tools. Ordinary single-agent work needs no Team. When delegating, you are the captain.'
     : 'When the user asks to run something with AgentTeams (e.g. "use AgentTeams to do X"), or an activation message from the /agent-teams slash command arrives, you are the captain of a multi-agent team.'
 }
 
@@ -97,6 +98,7 @@ export interface DelegationPolicyRuntime {
   text(policy: DelegationPolicyId): string
   /** Fixed member-scoped prompt, so children never receive captain rules. */
   memberText?: (policy: DelegationPolicyId) => string
+  subagentCompatibility?: SubagentCompatibility
 }
 
 /** Install one policy prompt plus Team-mode native-delegation enforcement in an Agent scope. */
@@ -106,6 +108,7 @@ export function installDelegationPolicy(input: {
   order: number
   text: string
   member?: boolean
+  subagentCompatibility?: SubagentCompatibility
 }): () => void {
   const { agent, policy } = input
   const installed = installedPolicies.get(agent)
@@ -123,12 +126,23 @@ export function installDelegationPolicy(input: {
   })
   const restrictions: Array<() => void> = []
   let disposeGuard = (): void => undefined
+  let disposeCompatibility = (): void => undefined
   try {
     if (input.member === true) {
       const deny = CAPTAIN_TOOL_NAMES.filter(name => agent.ctx.tools.get(name) !== undefined)
       if (deny.length > 0) restrictions.push(agent.ctx.tools.restrict({ deny }))
     }
     if (policy === 'teams-v1') {
+      const compatibility = input.member === true ? undefined : input.subagentCompatibility
+      if (compatibility !== undefined) {
+        disposeCompatibility = agent.ctx.on('tools/execute', async (execution, next) => {
+          if (execution.name !== 'subagent' || execution.agent !== agent) return next()
+          const value = await compatibility(execution)
+          // ToolRuntime validates and renders this through the original official
+          // output contract. Never execute the unmanaged native tool body.
+          return { isError: false, value, content: [] }
+        })
+      }
       // `restrict()` can only name inherited/global registrations. The built-in
       // `subagent` Host tool is scope-local in Harness 0.1.5, so it must never
       // enter the global deny list; the scoped execution guard below owns it.
@@ -141,12 +155,14 @@ export function installDelegationPolicy(input: {
       // bypass the Team-only AgentTeams delegation policy.
       disposeGuard = agent.ctx.tools.guard((execution) => (
         nativeDelegationToolNames.has(execution.name)
+          && !(execution.name === 'subagent' && execution.agent === agent && compatibility !== undefined)
           ? `AgentTeams Team policy forbids native delegation tool "${execution.name}"; use agent_teams_* tools`
           : undefined
       ))
     }
   } catch (error) {
     disposeGuard()
+    disposeCompatibility()
     for (const disposeRestriction of [...restrictions].reverse()) disposeRestriction()
     disposePrompt()
     throw error
@@ -159,6 +175,7 @@ export function installDelegationPolicy(input: {
     active = false
     installedPolicies.delete(agent)
     disposeGuard()
+    disposeCompatibility()
     for (const disposeRestriction of [...restrictions].reverse()) disposeRestriction()
     disposePrompt()
   }
@@ -184,6 +201,7 @@ export function resolveAndInstallDelegationPolicy(
     order: runtime.order,
     text: options.member ? (runtime.memberText?.(policy) ?? runtime.text(policy)) : runtime.text(policy),
     member: options.member,
+    subagentCompatibility: runtime.subagentCompatibility,
   })
   return { policy, dispose }
 }

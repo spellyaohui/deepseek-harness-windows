@@ -6,6 +6,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import type { ModelsKey } from './locales.ts'
+import { ModelReasoningLevels } from './ModelReasoningLevels.tsx'
 import { ModelInputTypes } from './ModelInputTypes.tsx'
 import styles from './ModelsSection.module.css'
 
@@ -52,8 +53,9 @@ export function ModelRow(props: ModelRowProps): ReactNode {
       <div className={styles['modelRow']}>
         {props.leadingControl}
         {(['id', 'name'] as const).map(field => (
+          <label key={field} className={styles['modelField']}>
+            <span className={styles['modelFieldLabel']}>{t(field === 'id' ? 'modelId' : 'modelName')}</span>
           <input
-            key={field}
             className={styles['input']}
             type="text"
             value={typeof model[field] === 'string' ? model[field] : ''}
@@ -66,16 +68,18 @@ export function ModelRow(props: ModelRowProps): ReactNode {
             }}
             onBlur={field === 'id' ? event => props.onIdBlur?.(event.target.value) : undefined}
           />
+          </label>
         ))}
         <button
           type="button"
-          className={styles['iconButton']}
+          className={styles['modelSettingsButton']}
           aria-label={`${t('modelAdvanced')} ${String(position)}`}
           aria-expanded={props.expanded}
           title={t('modelAdvanced')}
           onClick={props.onToggle}
         >
-          {props.expanded ? <IconChevronDownOutlineRegular /> : <IconChevronRightOutlineRegular />}
+          {t('modelAdvanced')}
+          {props.expanded ? <IconChevronDownOutlineRegular size={14} /> : <IconChevronRightOutlineRegular size={14} />}
         </button>
         <button
           type="button"
@@ -107,6 +111,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
                 />
               </label>
             ))}
+            {props.inputField === 'input' ? <ModelReasoningLevels model={model} position={position} disabled={disabled} t={t} onChange={props.onChange} /> : null}
             <ModelInputTypes
               model={model} field={props.inputField} position={position}
               fallback={props.inputFallback} disabled={disabled || props.inputLoading === true} t={t} onChange={props.onChange}

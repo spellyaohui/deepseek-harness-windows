@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-settings-models",
   "description": "Desktop-maintained Models settings plugin with an additive provider-card slot",
-  "version": "0.2.0-rc.2-desktop.1",
+  "version": "0.2.0-rc.2-desktop.3",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
@@ -18,10 +18,6 @@
     "./client": {
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
-    },
-    "./remote": {
-      "types": "./lib/typert.remote-client.d.ts",
-      "default": "./lib/typert.remote-client.js"
     },
     "./package.json": "./package.json"
   },
@@ -45,7 +41,7 @@
     }
   },
   "scripts": {
-    "build": "node scripts/detach-output-links.mjs && tsc -p tsconfig.json && tsc -p tsconfig.client.json && node scripts/prepare-remote-artifacts.mjs && tsdown",
+    "build": "node scripts/detach-output-links.mjs && tsc -p tsconfig.json && tsc -p tsconfig.client.json && tsdown",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "test": "pnpm build && node --test tests/*.test.js"
   },

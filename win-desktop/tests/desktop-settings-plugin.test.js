@@ -20,7 +20,8 @@ test('desktop settings client registers a native settings section', () => {
   assert.match(clientSource, /ctx\.slots\.inject\('settings\.section'/)
   assert.match(clientSource, /窗口行为/)
   assert.doesNotMatch(clientSource, /保存设置/)
-  assert.match(clientSource, /bridge\.setSettings\(\{ closeBehavior \}\)/)
+  assert.match(clientSource, /bridge\.setSettings\(patch\)/)
+  assert.match(clientSource, /persist\(\{ closeBehavior: event\.target\.value \}, '已保存'\)/)
   assert.match(clientSource, /setSaving\(true\)/)
   assert.match(clientSource, /setSettings\(previous\)/)
   assert.match(clientSource, /role: message\.startsWith\('保存失败'\) \? 'alert' : 'status'/)
@@ -36,7 +37,7 @@ test('wrapper packs the local AgentTeams package instead of linking its dev depe
   assert.equal(npmrcSource.trim(), 'install-links=true')
   const installed = packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']
   assert.notEqual(installed.link, true)
-  assert.equal(installed.version, '0.1.22-desktop.1')
+  assert.equal(installed.version, '0.1.22-desktop.4')
 })
 
 test('desktop settings plugin is included in the DSH patch graph', () => {
@@ -69,5 +70,5 @@ test('desktop settings are only served through the Harness modal bridge and tab'
   assert.equal(existsSync(new URL('../src/settings.html', import.meta.url)), false)
   assert.equal(existsSync(new URL('../src/settings-preload.cjs', import.meta.url)), false)
   assert.match(settingsWindowSource, /installSettingsIpc/)
-  assert.match(clientSource, /label: \(\) => '桌面'/)
+  assert.match(clientSource, /label: \(\) => '扩展设置'/)
 })

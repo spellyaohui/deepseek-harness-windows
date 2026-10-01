@@ -7,8 +7,8 @@ const source = (path) => readFileSync(new URL(`../src/client/${path}`, import.me
 test('the 0.1.7 editor retains per-model input-types through shared model rows', () => {
   assert.equal(existsSync(new URL('../src/client/ModelInputTypes.tsx', import.meta.url)), true)
   assert.match(source('ModelRow.tsx'), /ModelInputTypes/)
-  assert.match(source('ModelListEditor.tsx'), /inputDefaults/)
-  assert.match(source('ModelListEditor.tsx'), /inputFallbackForModel/)
+  assert.match(source('ModelListEditor.tsx'), /materializeModelChoices/)
+  assert.match(source('ModelListEditor.tsx'), /input: \['text'\]/)
   assert.match(source('ModelInputTypes.tsx'), /readImageInputChoice/)
   assert.match(source('DeepSeekModelsEditor.tsx'), /inputField="inputModalities"/)
 })

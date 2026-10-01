@@ -1,5 +1,6 @@
 /** Input-type declarations shared by the DeepSeek and pi-ai catalog editors. */
 
+import { useId } from 'react'
 import type { ReactNode } from 'react'
 import { Checkbox } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
@@ -26,22 +27,16 @@ interface ModelInputTypesProps {
   onChange: (model: DeepSeekModelDraft) => void
 }
 
-/** Describe the effective inherited default without materializing an override. */
-export function automaticInputHintKey(fallback: readonly string[] | undefined): ModelsKey {
-  return fallback?.includes('image') === true ? 'modelImageSupportedHint' : 'modelImageAutoHint'
-}
-
 /**
  * Edit a nonempty set of input types, displaying inherited types before an override exists.
  * @param props - model declaration and row replacement action.
  * @returns the labeled text and image checkboxes.
  */
 export function ModelInputTypes({ model, field, position, disabled, fallback, t, onChange }: ModelInputTypesProps): ReactNode {
+  const inputGroup = useId()
   if (field === 'input') {
     const choice = readImageInputChoice(model)
-    const hintKey = choice === 'auto'
-      ? automaticInputHintKey(fallback)
-      : choice === 'image'
+    const hintKey = choice === 'image'
         ? 'modelImageSupportedHint'
         : choice === 'text-only'
           ? 'modelImageTextOnlyHint'
@@ -51,12 +46,12 @@ export function ModelInputTypes({ model, field, position, disabled, fallback, t,
         <legend className={styles['modelFieldLabel']}>{t('modelImageInput')}</legend>
         <div className={styles['modelInputChoices']}>
           {([
-            ['auto', 'modelImageAuto'], ['image', 'modelImageInput'], ['text-only', 'modelImageTextOnly'],
+            ['text-only', 'modelImageTextOnly'], ['image', 'modelImageInput'],
           ] as const).map(([value, label]) => (
             <label key={value}>
               <input
                 type="radio"
-                name={`model-input-${String(position)}`}
+                name={`model-input-${inputGroup}`}
                 value={value}
                 checked={choice === value}
                 disabled={disabled}

@@ -231,6 +231,7 @@ export function apply(ctx: Context, config: Config): void {
   // Exported for TDD / docs checks. Not a public runtime API.
 
   const agentTeamsRuntime = registerAgentTeamsTools(ctx, resolved)
+  delegationPolicy.subagentCompatibility = agentTeamsRuntime.delegateSubagent
   // Tool registration is synchronous. Hydrate existing children only after the
   // complete registry exists, otherwise their member-specific captain deny-list
   // would be permanently computed from an empty set during HMR remount.

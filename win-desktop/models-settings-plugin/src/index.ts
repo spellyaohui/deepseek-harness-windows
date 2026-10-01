@@ -3,7 +3,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { type Config, ONBOARDING_CONFIG_GLOBAL } from './onboarding-config.ts'
-import { ModelCapabilityProbeService } from './capability-probe-service.ts'
 
 export { Config } from './onboarding-config.ts'
 
@@ -15,7 +14,6 @@ export { Config } from './onboarding-config.ts'
 export const inject = ['credentials']
 
 export function apply(ctx: Context, config: Config): void {
-  new ModelCapabilityProbeService(ctx)
   ctx.on('webserver/index-inject', (table) => {
     table.push({
       kind: 'global',

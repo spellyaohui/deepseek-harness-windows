@@ -38,7 +38,7 @@ import { protocolLabel } from './protocol-label.ts'
 import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import type { en } from './locales.ts'
-import type { ModelCapabilityProbeRemote } from '../remote.ts'
+import { materializeModelChoices } from './model-reasoning.ts'
 import { normalizeProviderProfile } from './provider-profile.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import styles from './ModelsSection.module.css'
@@ -72,8 +72,6 @@ export interface ProviderEditorProps {
   settingsPath: readonly string[]
   /** The Host operations this card writes and interrogates through. */
   operations: ModelsOperations
-  /** Optional Host probe; ordinary editing remains available while it mounts. */
-  modelCapabilities?: ModelCapabilityProbeRemote
   /** Adapter-owned normalization before schema validation and write. */
   normalizeProviderProfile?: ProviderProfileNormalizer
   /** Section copy. */
@@ -234,7 +232,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   // so a bad row is named by its position rather than by a blanket message.
   const modelFailure = validateDeepSeekModels(schema.getPath(draft, ['models']))
   const keyFailure = apiKeyFailure(keyDraft)
-  // What a probe or a write must carry: the typed key with paste whitespace
+  // What a discovery or a write must carry: the typed key with paste whitespace
   // removed. A blank field yields an empty string, which both call sites read
   // as "no key supplied" rather than as a key — that is how a card whose
   // provider already has a stored key is edited without re-entering it.
@@ -248,16 +246,13 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   // an edited-but-unsaved endpoint, and a key typed but not yet stored.
   const probeApi = stringAt(draft, 'api') ?? stringAt(fallback, 'api')
   const probeBaseURL = stringAt(draft, 'baseURL') ?? stringAt(fallback, 'baseURL')
-  const probe = {
+  const discovery = {
     settingsNs: namespace.ns,
     // Naming the route lets an adapter that already describes it answer from
     // its own registry — better metadata, no network call, no endpoint needed.
     provider: props.provider,
     ...probeBaseURL === undefined ? {} : { baseURL: probeBaseURL },
     ...probeApi === undefined ? {} : { api: probeApi },
-    // Discovery ignores this extra field; capability probes hand it to the
-    // Host, which is the only side permitted to resolve stored credentials.
-    credentialRef: keyRef,
     ...keyValue.length === 0 ? {} : { apiKey: keyValue },
   }
   /**
@@ -274,6 +269,18 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       && stringAt(fallback, 'apiKeyEnv') === undefined && keyValue.length > 0
       ? schema.setPath(draft, ['apiKeyEnv'], keyRef)
       : draft
+    const materializesNativeProfile = layout === 'pi-ai'
+      && fallback === undefined
+      && committedOriginal === undefined
+    if (materializesNativeProfile && next['models'] === undefined) {
+      const catalog = await operations.discoverModels(namespace.ns, { provider: props.provider })
+      if (catalog.kind === 'refused') return catalog.message
+      next = { ...next, defaultInput: ['text'], models: catalog.models.map(model =>
+        materializeModelChoices({ id: model.id, ...model.name === undefined ? {} : { name: model.name } })) }
+    }
+    if (layout === 'pi-ai' && Array.isArray(next['models'])) {
+      next = { ...next, models: next['models'].map(model => materializeModelChoices(model as Record<string, unknown>)) }
+    }
     const normalized = normalizeProviderProfile(props.provider, next, props.normalizeProviderProfile)
     if (!normalized.ok) return normalized.message
     next = normalized.value
@@ -293,15 +300,9 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       const sectionError = schema.validate(node, next)
       if (sectionError !== undefined) return sectionError
     }
-    const materializesNativeProfile = layout === 'pi-ai'
-      && fallback === undefined
-      && committedOriginal === undefined
-      && Object.keys(next).length === 0
     const ops: SettingsPathOpView[] = props.credentialOnly === true
       ? []
-      : materializesNativeProfile
-        ? [{ op: 'set', path: [...settingsPath], value: {} }]
-        : pathOps(settingsPath, committedOriginal, next)
+      : pathOps(settingsPath, committedOriginal, next)
     if (ops.length > 0) {
       const written = await operations.writeSettings(ns, ops, expectedRevision)
       if (written.kind !== 'written') return written.kind === 'conflict' ? t('conflict') : written.message
@@ -367,7 +368,6 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     const models = modelDrafts(modelsOverridden ? customModels : inheritedModels())
     const defaultContextWindow = schema.getPath(fallback, ['defaultContextWindow'])
     const defaultMaxTokens = schema.getPath(fallback, ['maxTokens'])
-    const defaultInput = schema.getPath(fallback, ['defaultInput'])
     const keyPlaceholder = keyLocked
       ? t('keyEnvLocked')
       : keyState?.configured === true && props.credentialRequired !== true
@@ -409,6 +409,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
         {props.credentialOnly === true ? null : <details className={styles['customized']}>
           <summary className={styles['customizedSummary']}>{t('customized')}</summary>
           <div className={styles['customizedBody']}>
+            <div className={styles['providerFields']}>
             {/* The name and the protocol are the create card's two remaining
                 profile fields; a route the adapter ships defaults both from
                 its catalog entry and neither belongs on its card. */}
@@ -479,6 +480,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 </div>
               )
               : null}
+            </div>
             {/* Both families edit the same rows through the same contract; only
                 the extras differ — DeepSeek's inherited capacities, pi-ai's
                 endpoint interrogation. */}
@@ -495,11 +497,8 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
               : (
                 <ModelListEditor
                   {...catalogProps}
-                  {...props.modelCapabilities === undefined ? {} : { modelCapabilities: props.modelCapabilities }}
-                  catalogProvider={props.declared === true ? undefined : props.provider}
-                  defaultInput={Array.isArray(defaultInput) ? defaultInput : undefined}
-                  probe={probe}
-                  probeBlocked={keyFailure}
+                  discovery={discovery}
+                  discoveryBlocked={keyFailure}
                   operations={operations}
                   onBusyChange={setListBusy}
                 />

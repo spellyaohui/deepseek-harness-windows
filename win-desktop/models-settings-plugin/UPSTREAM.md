@@ -5,7 +5,28 @@
 - Commit: `639ed015397290b3745d163aafe02ffee4aa3f84`
 - Source directory: `packages/client/ui-settings-models`
 - Imported: 2026-09-30
-- Local desktop fork: `0.2.0-rc.2-desktop.1`
+- Local desktop fork: `0.2.0-rc.2-desktop.3`
+
+## 2026-10-01 manual declaration replacement
+
+User-requested SUPERSEDED_BY_DESIGN: remove the network capability probe and Remote, replace auto image input with manual image/text-only choices, and offer seven default reasoning choices with per-model subsets. Keep provider-neutral draft/Save ownership, credential safety, malformed-value rejection, untouched fields, onboarding, discovery and output detachment. CPA retains manual subsets and defaults new models to text. Regressions now cover manual declarations through the official 0.2.0 catalog, rather than the retired probe. Older sections below record historical designs.
+
+## 2026-09-30 capability Remote repair
+
+The official source revision and runtime remain `0.2.0-rc.2` at the fixed
+commit above. The local capability contribution now supplies strict-codec
+`create()` factories required by the official Typert registry. Its descriptor
+and Client `$mount` call use their actual TypeScript contracts without casts.
+The provider-neutral ownership, late optional namespace lookup, draft-only
+results, parent Save action, and credential boundary are unchanged.
+
+The regression uses the official Cordis, Client Gateway, and TypertRegistry
+with only the transport replaced. It proves mounting, probe routing, late
+lookup, cancellation, disposal, and strict request/result validation. Models
+52/52, CPA 27/27, AgentTeams, the runtime closure, and wrapper 150/150 passed
+in the complete offline gate before packaging. Same-commit archive recovery
+and immutable original records are described in
+[`SOURCE_ARCHIVE_REBUILD_20260930.md`](../../docs/SOURCE_ARCHIVE_REBUILD_20260930.md).
 
 ## 2026-09-30 Harness 0.2.0-rc.2 refresh classification
 

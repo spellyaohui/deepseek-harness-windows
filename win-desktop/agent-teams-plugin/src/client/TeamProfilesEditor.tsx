@@ -326,10 +326,10 @@ function MemberEditor({
       <label className={css.field}>
         <span>{t('settings.profiles.memberPrompt')}</span>
         <textarea
-          className={css.profileTextarea}
+          className={`${css.profileTextarea} ${css.profilePrompt}`}
           value={member.executionPrompt ?? ''}
           disabled={disabled}
-          rows={3}
+          rows={8}
           onChange={(event) => update('executionPrompt', event.currentTarget.value)}
         />
       </label>
@@ -505,12 +505,13 @@ function ProfileForm({
         <label className={`${css.field} ${css.profileWideField}`}>
           <span>{t('settings.profiles.executionPrompt')}</span>
           <textarea
-            className={css.profileTextarea}
+            className={`${css.profileTextarea} ${css.profilePrompt}`}
             value={profile.executionPrompt ?? ''}
             disabled={disabled}
             rows={4}
             onChange={(event) => setOptionalText('executionPrompt', event.currentTarget.value)}
           />
+          <small className={css.profileHint}>{t('settings.profiles.executionPromptHelp')}</small>
         </label>
       </div>
 
@@ -689,6 +690,8 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
   const builtInNames = snapshot?.builtInNames ?? []
   const builtInProfiles = snapshot?.builtInProfiles ?? {}
   const selectedIsBuiltIn = selectedName !== '' && builtInNames.includes(selectedName)
+  const differsFromBuiltIn = selectedIsBuiltIn && builtInProfiles[selectedName] !== undefined
+    && JSON.stringify(selectedProfile) !== JSON.stringify(builtInProfiles[selectedName])
   const dirty = JSON.stringify(profiles) !== JSON.stringify(committedProfiles)
   const controlsDisabled = !writable || loading || saving
   const catalogReady = catalog.status === 'ready'
@@ -924,7 +927,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
                 </Button>
               )}
               {selectedIsBuiltIn && (
-                <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !dirty} onClick={restoreProfile}>
+                <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !differsFromBuiltIn} onClick={restoreProfile}>
                   {t('settings.profiles.restore')}
                 </Button>
               )}

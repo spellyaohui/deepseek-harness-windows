@@ -17,7 +17,6 @@ import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type {} from './slot-contract.ts'
 import type { en } from './locales.ts'
-import type { ModelCapabilityProbeRemote } from '../remote.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './DeepSeekOnboardingDialog.module.css'
@@ -34,7 +33,6 @@ export interface DeepSeekOnboardingInjected {
   controller: ModelsSettingsStore
   /** The Host operations the reused Models credential editor writes through. */
   operations: ModelsOperations
-  modelCapabilities?: ModelCapabilityProbeRemote
   normalizeProviderProfile: ProviderProfileNormalizer
   /** Settings schema and immutable path callbacks. */
   schema: SettingsSchemaOperations
@@ -58,7 +56,7 @@ function assertNever(_value: never): never {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, operations, modelCapabilities, normalizeProviderProfile, schema, t, renderSlot, automatic, explicit = false } = props
+  const { complete, controller, useModels, operations, normalizeProviderProfile, schema, t, renderSlot, automatic, explicit = false } = props
   const [apiKey, setApiKey] = useState(explicit)
   const state = useModels(snapshot => snapshot)
   const readiness = onboardingReadiness(state)
@@ -120,7 +118,6 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           schema={schema}
           settingsPath={row.entry.settingsPath}
           operations={operations}
-          {...modelCapabilities === undefined ? {} : { modelCapabilities }}
           normalizeProviderProfile={normalizeProviderProfile}
           t={t}
           readOnly={false}

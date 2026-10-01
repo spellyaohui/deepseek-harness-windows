@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-windows",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.10",
   "description": "Windows 桌面包装器：启动官方 DeepSeek Harness Web UI",
   "type": "module",
   "main": "src/main.js",
@@ -209,7 +209,6 @@
     "@deepseek-ai/dsh-message-feedback": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-message-feedback-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-native-command": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-native-command-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-office-to-pdf": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-office-to-pdf-0.2.0-rc.2.tgz",
-    "@deepseek-ai/dsh-opencode-capabilities": "file:opencode-capabilities-plugin",
     "@deepseek-ai/dsh-otel": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-otel-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-output-retention": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-output-retention-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-package-manifest": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-package-manifest-0.2.0-rc.2.tgz",

@@ -9,6 +9,10 @@ import yaml from 'js-yaml'
 import { generateAgentTeamsPatch } from '../src/dsh-service.js'
 import { BUILTIN_AGENT_TEAMS_PROFILES } from '../src/agent-teams-profile-store.js'
 import { buildHostModelCatalog } from '../agent-teams-plugin/lib/host-model-catalog.js'
+import { formatProfilesForPrompt, resolveTeamProfile } from '../agent-teams-plugin/lib/profiles.js'
+import { memberPersona } from '../agent-teams-plugin/lib/members.js'
+import { usageSectionText } from '../agent-teams-plugin/lib/index.js'
+import { TEAM_TOOL_NAMES } from '../agent-teams-plugin/lib/tool-names.js'
 
 const wrapperRoot = fileURLToPath(new URL('..', import.meta.url))
 const pluginRoot = join(wrapperRoot, 'node_modules', '@nanmicoder', 'dsh-agent-teams')
@@ -19,6 +23,29 @@ const consoleHideImport = new URL('../src/win-hide-console.mjs', import.meta.url
 function readText(...segments) {
   return readFileSync(join(...segments), 'utf8')
 }
+
+test('Chinese built-in guidance reaches each member persona without changing routing or the captain prompt budget', () => {
+  const profile = resolveTeamProfile(BUILTIN_AGENT_TEAMS_PROFILES, 'software-delivery', 8)
+  const source = BUILTIN_AGENT_TEAMS_PROFILES['software-delivery']
+  const team = {
+    id: 'guidance-fixture', name: '中文交付团队', description: '验证中文职责提示',
+    profile: { name: 'software-delivery', protocol: profile.protocol },
+    captainSessionId: 'captain-fixture', createdAt: 0, members: [], tasks: [], taskSeq: 0,
+  }
+  assert.equal(profile.executionPrompt, source.executionPrompt)
+  for (const member of profile.members) {
+    const original = source.members.find((row) => row.name === member.name)
+    assert.equal(member.executionPrompt, original.executionPrompt)
+    assert.equal(member.reasoningMode, 'target-default')
+    assert.equal(member.provider, undefined)
+    const persona = memberPersona(team, { ...member, id: member.name, joinedAt: 0, status: 'idle' }, '.agent-teams', profile.executionPrompt)
+    assert.ok(persona.includes(original.executionPrompt))
+    assert.ok(persona.includes(original.role))
+    assert.ok(persona.includes(source.protocol))
+  }
+  const prompt = usageSectionText('teams-v1', TEAM_TOOL_NAMES.join(', '), formatProfilesForPrompt(BUILTIN_AGENT_TEAMS_PROFILES))
+  assert.ok(prompt.length <= 3500, `captain prompt length = ${prompt.length}`)
+})
 
 test('AgentTeams global settings expose delegation mode only', () => {
   const settingsSource = readText(agentTeamsSourceRoot, 'settings.ts')
@@ -53,7 +80,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
 
     const metadata = JSON.parse(readText(pluginRoot, 'package.json'))
     assert.equal(metadata.name, '@nanmicoder/dsh-agent-teams')
-    assert.equal(metadata.version, '0.1.22-desktop.1')
+    assert.equal(metadata.version, '0.1.22-desktop.4')
     assert.equal(metadata.exports['./client'].default, './lib/client.js')
 
     const imported = spawnSync(process.execPath, [

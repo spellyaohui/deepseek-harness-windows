@@ -35,7 +35,6 @@ import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor, type ProviderEditorProps } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
-import type { ModelCapabilityProbeRemote } from '../remote.ts'
 import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import styles from './ModelsSection.module.css'
 
@@ -50,7 +49,6 @@ export interface ModelsSectionInjected {
   /** The Host operations the section and its cards invoke. */
   operations: ModelsOperations
   /** Late-bound provider-neutral capability probe. */
-  modelCapabilities?: ModelCapabilityProbeRemote
   /** Adapter-owned profile normalization seam. */
   normalizeProviderProfile: ProviderProfileNormalizer
   /** Settings schema and immutable path callbacks. */
@@ -115,7 +113,7 @@ interface CatalogDraft {
 /** Values that vary around the shared provider-editor rendering. */
 interface ProviderEditorRenderProps extends Pick<
   ProviderEditorProps,
-  'namespace' | 'schema' | 'operations' | 'modelCapabilities' | 'normalizeProviderProfile' | 't' | 'readOnly' | 'onClose'
+  'namespace' | 'schema' | 'operations' | 'normalizeProviderProfile' | 't' | 'readOnly' | 'onClose'
 > {
   target: EditorTarget
 }
@@ -227,16 +225,16 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  const { controller, useSnapshot, operations, modelCapabilities, normalizeProviderProfile, schema, t, renderSlot } = props
+  const { controller, useSnapshot, operations, normalizeProviderProfile, schema, t, renderSlot } = props
   if (
     controller === undefined || useSnapshot === undefined || operations === undefined
     || normalizeProviderProfile === undefined || schema === undefined || t === undefined
   ) return null
-  return <Loaded injected={{ controller, useSnapshot, operations, ...modelCapabilities === undefined ? {} : { modelCapabilities }, normalizeProviderProfile, schema, t }} renderSlot={renderSlot} />
+  return <Loaded injected={{ controller, useSnapshot, operations, normalizeProviderProfile, schema, t }} renderSlot={renderSlot} />
 }
 
 function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderSlot: ModelsRenderSlot }): ReactNode {
-  const { controller, operations, modelCapabilities, normalizeProviderProfile, schema, t } = injected
+  const { controller, operations, normalizeProviderProfile, schema, t } = injected
   const snapshot = injected.useSnapshot(value => value)
   const state = { ...snapshot, rows: snapshot.rows.map(row => row.entry.provider === 'deepseek-account'
     ? { ...row, entry: { ...row.entry, displayName: t('deepSeekAccount') } } : row) }
@@ -420,7 +418,6 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                   namespace,
                   schema,
                   operations,
-                  modelCapabilities,
                   normalizeProviderProfile,
                   t,
                   readOnly: !state.writable,
@@ -517,7 +514,6 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                   namespace,
                   schema,
                   operations,
-                  modelCapabilities,
                   normalizeProviderProfile,
                   t,
                   readOnly: !state.writable,
@@ -607,7 +603,6 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                       schema={schema}
                       settingsPath={draft.target.settingsPath}
                       operations={operations}
-                      {...modelCapabilities === undefined ? {} : { modelCapabilities }}
                       normalizeProviderProfile={normalizeProviderProfile}
                       t={t}
                       readOnly={!state.writable}
@@ -637,7 +632,6 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                       protocols={protocols}
                       revision={piAi.revision}
                       operations={operations}
-                      {...modelCapabilities === undefined ? {} : { modelCapabilities }}
                       normalizeProviderProfile={normalizeProviderProfile}
                       t={t}
                       readOnly={!state.writable}

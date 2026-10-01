@@ -1,8 +1,48 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器当前版本为 `0.2.0-rc.2`；[Windows x64 预发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.2)。
+本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.10`；[最新安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)。
 
-## `v0.2.0-rc.2` 更新说明
+## `v0.2.0-rc.10` 更新说明
+
+- 修复关闭内置联网工具后，旧 `web: disabled: true` 配置导致 Agent 预设加载失败的问题；不改写用户配置。
+- 提供 650 个逐包校验的固定构建输入，以及干净 Windows 构建与安装后首次启动的自动验收。构建步骤见 [干净机器构建指南](../docs/CLEAN_WINDOWS_BUILD.md)。
+- Harness 继续固定为 `0.2.0-rc.2`。
+
+## `v0.2.0-rc.9` 更新说明
+
+- “桌面”改为“扩展设置”，增加 DSH 内置网页搜索和网页读取开关，默认开启，自动保存，重启应用生效。
+- 关闭覆盖所有 Agent 预设和后续成员；保留底层网络服务、用户预设配置和独立 MCP 工具。
+- 使用官方开关样式，保持官方字体；保存失败回滚，窄窗口正常布局。
+- Harness 固定 `0.2.0-rc.2`，AgentTeams `0.1.22-desktop.4`，桌面设置插件 `0.1.4`。
+
+## 历史：`v0.2.0-rc.7` 更新说明
+
+- 桌面和 AgentTeams 配置页沿用官方字体，统一普通文字 14px、辅助说明 12px、表单标签与输入 13px。
+- 提示词使用官方表单的 19.5px 行高；保留多行编辑空间，修正标题字重、控件高度、圆角与间距。
+- 桌面设置去掉额外的卡片内缩，与官方内容列对齐；关闭行为仍即时保存并保留失败回滚。
+- 保留中文职责提示、保存重试、显式恢复内置、七档手动模型配置与原有路由。
+- Harness 固定 `0.2.0-rc.2`，AgentTeams `0.1.22-desktop.3`，桌面设置插件 `0.1.3`。
+
+## 历史：`v0.2.0-rc.5` 更新说明
+
+- 修复 AgentTeams 团队设置保存时报“被 Home Patch 或命令行覆盖”的问题。桌面自带插件作为默认层加载，用户设置随后叠加，保存后重启仍保留。
+- 真实 Home／命令行覆盖保护、修订冲突保护及现有团队 Profile 保留；不改写用户配置文件来绕过检查。
+- 保留 rc.4 的七档思考强度、手动输入类型与模型页面布局。底层 Harness 仍为 `0.2.0-rc.2`，AgentTeams、Models、CPA 版本不变。
+
+## 历史：`v0.2.0-rc.4` 更新说明
+
+- 移除 OpenCode 模型能力卡片与第三方模型能力探测，不再通过测试请求推断能力。
+- 每条第三方模型可手动勾选 Minimal、Low、Medium、High、Xhigh、Max；Default 始终可用，使用服务端默认值。新模型默认提供全部档位。
+- 图像输入只有“图像输入 / 仅文本”两种选择；新添加的供应商和模型默认仅文本，保存后重启生效。
+- 模型目录的添加、获取列表、批量输入类型与单模型设置分组排列，保存和取消固定在编辑器底部。
+- 官方 Harness 仍固定为 `0.2.0-rc.2`；Models `0.2.0-rc.2-desktop.3`，CPA `0.1.11`。
+
+## 历史：`v0.2.0-rc.3` 更新说明
+
+- Models `0.2.0-rc.2-desktop.2` 修复能力 Remote 的旧 codec 格式，使用 Harness 0.2 的 `create()` 工厂并移除隐藏接口不兼容的强制类型转换。
+- 新增官方 Client Gateway/注册器回归，覆盖首次挂载、请求路由、取消、卸载和 strict codec 校验。官方 Harness 继续固定 `0.2.0-rc.2`。
+
+## 历史：`v0.2.0-rc.2` 更新说明
 
 - 固定 AgentTeams 稳定版 `v0.1.22`（`9cba4fe4171f27c019991cafd2a107f87ef3517b`）及推荐 Harness `dsh-v0.2.0-rc.2`（`639ed015397290b3745d163aafe02ffee4aa3f84`）。官方 9 个 vendor 与 318 个 DSH tarball 原样使用，不混用旧宿主。
 - 使用上游新 Web/Host 能力；保留本地子智能体角色策略、严格 V2、质量、统一网关、官方 Native/Team 设置分工、CPA 和 Models 中立扩展。新版 pi-ai 的工具 transcript 与客户端锚点已适配 OpenCode 专属 Kimi Schema/会话亲和补丁，普通 Provider 不受影响。
@@ -10,7 +50,7 @@
 - 发布前完整离线门禁再次通过：Models 50/50、CPA 27/27、AgentTeams 全套、包装器 149/149；EXE/ZIP 闭包及官方图标检查通过。发布用户确认的同一份测试包，不重新打包或修改已安装程序；不宣称新增真实模型、安装后 PATH 命令与长时间运行的独立验收。
 - 实际安装完成后，全部 25,783 个文件与 `win-unpacked` 的大小及 SHA-256 一致，已安装运行时闭包通过。安装中途退出在用户暂停卡巴斯基后用同一 EXE 重试成功，具体拦截规则未确认。EXE 未作 Authenticode 签名，可能出现 SmartScreen 或安全软件提醒；资产大小和 SHA-256 见发布说明。
 
-## `v0.1.7-rc.2` 更新说明
+## 历史：`v0.1.7-rc.2` 更新说明
 
 - 固定 AgentTeams 稳定版 `v0.1.21`（`f60d40d7dddbdd2283a2d79f823a9c9852e19d13`）及其推荐 Harness `dsh-v0.1.7-rc.2`（`477b4f420553e8a52c2fbccc464d7561b239c443`）。官方 9 个 vendor 与 314 个 DSH tarball 原样使用，不混用旧宿主。
 - 采用上游团队工作区/侧栏、历史卡和成员导航、报告/证据过期防护、去重、首次启动前设置；本地 durable gateway 继续独占 start、queue/steer、interrupt、retire 和 drain，并保留角色路由、严格 V2、质量门、Profile 和认证 Web/CAS。
@@ -19,19 +59,19 @@
 - 固定 Electron `44.0.0`，直接采用新宿主官方桌面运行时队列，避免 `node-addon-require-builtin` 拒绝旧 `43.4.1` 指纹。已补真实 Electron 离线回归，并通过隔离 HTML/插件资源及实际界面检查。
 - 完整 `npm run verify:upstream` 通过：Models 50/50、CPA 27/27、AgentTeams 全套、包装器 134/134。未读取用户配置或会话；未 commit、push、打 tag、生成安装包或 Release。
 
-## `v0.1.5-rc.5` 更新说明
+## 历史：`v0.1.5-rc.5` 更新说明
 
 - AgentTeams 本地 fork 更新为 `0.1.19-desktop.1`，固定上游 `v0.1.19` commit `6ef77bff4893fb22bd5ba39cb6b2c5693eba85be`。成员启动的 host tool-filter 恢复、repair scope 推断和 captain-only task amendment 采用上游实现。
 - 本地统一 durable gateway 仍串行管理成员 start、queue/steer、interrupt、retire 和 drain；严格 V2、角色策略、Team/Native、质量门、Profile 和认证 Web/CAS 均仍为本地边界。
 - 官方 Harness 继续固定 `dsh-v0.1.5-rc.1`；未改动官方 tarball 或 host peer range。
 
-## `v0.1.5-rc.4` 更新说明
+## 历史：`v0.1.5-rc.4` 更新说明
 
 - 启动认证前只清理 `127.0.0.1` 上由随机端口遗留的 `dsh-auth-*` Cookie，避免 Cookie 请求头持续累积并让聚合 `/plugins/` 请求触发 HTTP 431。
 - 当前服务的 `/plugins/` 若仍返回 431，会复用完整一次性认证 URL 自动清理并重载一次；恢复锁阻止重复重载，其他 Cookie、缓存、会话、设置和凭据保持不变。
 - 官方 Harness 继续固定 `dsh-v0.1.5-rc.1`，AgentTeams 继续固定 `0.1.18-desktop.1`；本次仅升级 Windows wrapper，不修改官方 tarball 或 AgentTeams 行为。
 
-## `v0.1.5-rc.3` 更新说明
+## 历史：`v0.1.5-rc.3` 更新说明
 
 - AgentTeams 本地版本更新为 `0.1.18-desktop.1`。队长调用 `agent_teams_claim_task` 时，空字符串或纯空白 `assignee` 会按省略处理，非空成员名会先去除首尾空白。
 - `assignee="captain"`、未知成员、越权领取及缺失质量证据仍严格拒绝且不写状态；创建/重分配与领取的参数语义已在原有紧凑提示中明确区分。
@@ -39,54 +79,54 @@
 - 不新增工具或第二层调度器。任务状态、调度和活动面板仍由 AgentTeams 管理，子会话启动、投递、中断和回收仍统一通过 durable subagent gateway。
 - 上游 AgentTeams 仍固定 `v0.1.18`，推荐 Harness 仍固定 `dsh-v0.1.5-rc.1`，不改官方 tarball。
 
-## `v0.1.5-rc.2` 更新说明
+## 历史：`v0.1.5-rc.2` 更新说明
 
 - Team 路由不再把 Harness 的 scope-local `subagent` 当作 global tool 传入 `tools.restrict()`。全局原生委派工具仍会隐藏；Team 中 scope-local `subagent` 在 scoped execution guard 处拒绝，Native 路由不受影响。
 - `agent_teams_claim_task` 的 `assignee="captain"` 不是合法输入。已有 captain-owned 任务认领时省略 `assignee`；captain 接管 member 任务时使用 `agent_teams_reassign_task(assignee="captain")`，工具错误会给出这两条恢复路径。
 - implementation/repair 的每条 `verify` 继续都需要一条 `commandsRun.status="passed"` 证据；缺少任一验证记录仍会被质量门拒绝。
 - 官方推荐宿主仍为 `dsh-v0.1.5-rc.1`，AgentTeams 仍为 `v0.1.18`；本次仅升级 wrapper 版本，不修改任何官方 tarball 引用。
 
-## `v0.1.5-rc.1` 更新说明
+## 历史：`v0.1.5-rc.1` 更新说明
 
 - 固定官方 Harness `dsh-v0.1.5-rc.1`（`183f08e9c6dde7e36cd2318eaee70b0da08fb35e`）及其完整本地 tarball 闭包，采用上游 Session format v3、通用文件上传、资源/侧栏和代理环境支持。
 - 固定 AgentTeams 稳定版 `v0.1.18`（`68fe529d602b1eea1f1ecaee99857d20a4f94be0`）及其推荐宿主 `0.1.5-rc.1`；采用上游原子 roster/DAG、lazy-start、下一步消息投递、过期消息去重、后代/排队输入清理、退役冷恢复拒绝、缺失 attempt 恢复和 `memberMaxDepth: 0` 默认值，同时不绕过统一 durable-session 边界。
 - 0.1.5 已原生覆盖普通 Node subprocess 的 Windows 隐藏窗口逻辑；本地只让 Windows Job runner 的原生 `CreateProcessW` 继承同一 preload，消除 `pwsh` 黑窗。grep 参数归一化、周期额度 QUOTA 分类、角色策略、严格 V2、质量门和模型能力探测仍由本地最小补丁及回归负责。
 - 补齐官方 UI primitives 在平铺 Windows 安装所需的精确运行时依赖闭包，避免设置页面加载时因缺失模块失败。
 
-## `v0.1.2-rc.8` 更新说明
+## 历史：`v0.1.2-rc.8` 更新说明
 
 - 修复官方 `weekly/monthly/... usage limit` 已达到或超出时被当作普通 `RATE_LIMIT` 并重复重试的问题；loader 在 `dsh-llm` 边界把明确的周期用量耗尽文本归类为终止性 `QUOTA`。
 - 普通瞬时 429 和单独的 reset 提示保持原有处理，不会被误判为终止额度；真实安装模块回归和完整 wrapper 门禁已覆盖该边界。
 - AgentTeams 升级到上游 `v0.1.16-rc.3`（commit `bf17f93d35ef75964e96333ff644ab2c9c57b3cb`）：推荐宿主仍为 `dsh-v0.1.2-rc.1`，采用上游现有 Team 续接、Web 审批唤醒和锁队列清理，并保留本地角色策略、严格 V2、质量门禁、共享目录、紧凑提示词、Team/Native 与持久会话网关。
 - 移除本地 Session Markdown 续接导出插件；已导出的用户 Markdown 文件保留在磁盘上。
 
-## `v0.1.2-rc.7` 更新说明
+## 历史：`v0.1.2-rc.7` 更新说明
 
 - 连续子 Agent 的启动、续接消息、打断、退休和冷恢复统一经过 durable Session 子智能体网关。
 - 只接受当前真实在线 Agent 的句柄；同 ID 旧句柄、伪句柄和退休竞态会在调用前拒绝，每个子 Agent 的操作按锁串行化。
 - RC.1 `agent/created` 生命周期下，首次、后续、并发和冷恢复请求都保留角色级 Provider、模型和 reasoning effort。
 - AgentTeams fork 更新到 `0.1.15-desktop.7`，新增删除/重分配/停止/异常清理的锁化退休回归。
 
-## `v0.1.2-rc.4` 更新说明
+## 历史：`v0.1.2-rc.4` 更新说明
 
 - 动态新增的编号规则角色从当前 Team 的基础角色快照继承 Provider、模型和思考策略，覆盖 `reviewer2/3/4/5/6`、`analyst2`、`implementer2`、`tester2` 及更高编号。
 - 显式模型策略优先；未匹配或角色描述歧义时 fail-closed，不随机继承其他成员模型。
 - AgentTeams fork 更新到 `0.1.15-desktop.4`，新增纯策略与真实工具生命周期回归。
 
-## `v0.1.2-rc.3` 更新说明
+## 历史：`v0.1.2-rc.3` 更新说明
 
 - 普通 `captain-planning` 委派现在自动创建并启动 Team，由主模型生成 Team 名称和任务图，不再要求 Web 输入任务名称或确认；只有明确要求先审计划时才保留 staged 审核。
 - staged Team 仍在 `building` 或等待反馈时，Web 成员/任务编辑、新增任务和批准按钮全部禁用，避免提前提交导致 `team ... is not ready for Web plan editing`。
 - AgentTeams fork 更新到 `0.1.15-desktop.3`，补充自动委派和 staged 编辑状态回归；其余角色模型、思考强度、严格 V2、质量门禁、Revision/CAS 和 Alpha.2 适配保持不变。
 
-## `v0.1.2-rc.2` 更新说明
+## 历史：`v0.1.2-rc.2` 更新说明
 
 - 普通 AgentTeams 委派默认使用 `approval="automatic"`，省略 Team 名称并由主模型自行建立任务；只有用户明确要求先审计划时才显示 staged Web 确认。
 - 修复 Web 任务新增/编辑/删除和确认遗漏 `planRevision` 的问题，Host 使用 CAS 与一次性 Web 审批凭据提交，避免 `staged plan update requires revision-aware options`。
 - 恢复上游 `v0.1.15` 的 Alpha.2 Web authentication、Host 与 Origin 门禁；未认证和跨站请求不会进入 Team 状态或计划处理器。
 - AgentTeams fork 更新到 `0.1.15-desktop.2`，角色模型、思考强度、严格 V2、质量门禁、紧凑状态和成员失败结算保持不变。
 
-## `v0.1.2-rc.1` 更新说明
+## 历史：`v0.1.2-rc.1` 更新说明
 
 - 固定官方 tag `dsh-v0.1.2-rc.1` / commit `a66e4702047846cdaa10c66c9d3df3951f5ea70d`，以 pnpm 11.7.0 构建并验证 9 个 vendor 与 242 个 dsh tarball；Wrapper 只使用这套已记录 SHA-256 的本地包，不保留旧版双运行时。
 - Models、CPA、OpenCode、Desktop Settings 与 AgentTeams 均适配 Alpha.2 的 Remote、Slot、会话和启动边界；模型图片三态、协议、容量、reasoning 探测和角色级模型策略继续保留。
@@ -96,20 +136,20 @@
 - Alpha.2 `dsh web:` 就绪行中的一次性认证 URL 会被完整交给 Electron，首次加载先换取签名 cookie，再进入干净根页面。
 - `scripts/verify-alpha2-runtime-closure.mjs` 从 `src/dsh-service.js` 用 `createRequire` 验证源码依赖树和打包后的 `resources/app`，不是只检查文件存在。
 
-## `v0.1.1-rc.32` 更新说明
+## 历史：`v0.1.1-rc.32` 更新说明
 
 - AgentTeams 监视默认使用只读紧凑摘要；查看状态不会自动唤醒成员或确认邮箱，处理完显示的消息后显式使用 `acknowledge=true`，只有队长的 `wake="recover"` 才执行恢复唤醒。
 - 任务依赖、attempt/attempt_id、verdict/findings、Coverage、Delivery 阻塞和新消息仍保留在摘要；完整报告、Provider/模型和 Profile 协议用 `detail="full"` 按需查看。
 - 状态没有变化时使用心跳摘要降低总控上下文重复；正常创建/批准/任务更新/成员 idle 调度及质量门禁保持不变。
 
-## `v0.1.1-rc.28` 更新说明
+## 历史：`v0.1.1-rc.28` 更新说明
 
 - 移除整个 AUTO 权限插件和启动 Patch；桌面版只显示上游官方权限模式。旧 AUTO 会话不做兼容迁移，必要时请选择官方模式或新建会话；用户 Profile 缓存不会被递归清理。
 - 新增 `@deepseek-ai/dsh-tool-call-guidance@0.1.0`，以不超过 500 字符的系统段统一约束空白可选参数和失败后的重试行为，不注册工具、设置或 Provider 逻辑。
 - AgentTeams 升级到 `0.1.14-desktop.10`：提示收敛为五态生命周期协议，真实 `software-delivery` 输出 3,353 字符；空白 `profile` 视为省略，未知非空名称仍在零状态写入、零成员启动前拒绝。
 - 角色级 Provider/模型/思考强度、Team/Native 路由、严格 V2 状态、质量门禁、CPA/OpenCode、图片三态和 `grep` 兼容均保持不变；394 个工具未做裁剪。本次未生成新的安装包。
 
-## `v0.1.1-rc.27` 更新说明
+## 历史：`v0.1.1-rc.27` 更新说明
 
 - “设置 → 模型”中的每个 pi-ai 模型现在可独立选择 `自动`、`文本和图像` 或 `仅文本`；批量按钮只作用于当前提供方的草稿，不会覆盖其他模型字段。
 - `自动` 依赖提供方目录，无法确认时按文本处理；非法输入模态会阻止应用并保留原始值。保存后重启，模型级覆盖才会进入运行时目录。
@@ -117,13 +157,13 @@
 - `grep` 兼容层改为提供方/模型无关的精确规则，只修复缺少 `pattern` 且描述完整为 `pattern: <非空内容>` 的调用，其他错误仍由上游严格 Schema 报告。
 - 包含 AgentTeams `0.1.14-desktop.9` 的队长/共享任务池和交付物提示修复；既有 CPA、OpenCode、角色级模型与思考强度设置保持不变。
 
-## `v0.1.1-rc.26` 更新说明
+## 历史：`v0.1.1-rc.26` 更新说明
 
 - `agent_teams_create_task` 接受 `captain` 作为队长任务别名，并把空或纯空白 `assignee` 归一化到共享任务池；活动成员名称校验仍然严格。
 - 交付物门禁为抽象描述提供真实工作区相对 POSIX 路径的修正说明，并明确 `.env`、密钥和 `.git` 不能作为 `inScope` 或交付物。
 - 新增对应的 TDD、生命周期与包装器能力登记回归，编译产物与源码保持同步；角色级模型/思考策略、CPA/OpenCode、严格 V2 状态和其他本地能力保持不变。
 
-## `v0.1.1-rc.25` 更新说明
+## 历史：`v0.1.1-rc.25` 更新说明
 
 - Team 运行后误调用 `agent_teams_edit_plan` 改为结构化提示，不再产生红色异常；已批准计划仍不可编辑。
 - staged 成员编辑完整保留目标默认、路由感知、明确指定三种策略；从明确指定切换到继承或路由时会清除旧的显式思考强度。
@@ -131,7 +171,7 @@
 - implementation/repair 的交付物必须在 `inScope` 内；空 `changedPaths` 必须说明无变更，且不能掩盖声明交付物。
 - 新增策略切换、Host 边界、完整字段持久化/清空等 TDD、生命周期和包装器回归；角色级 Provider、模型、思考强度、CPA/OpenCode 支持保持不变。
 
-## `v0.1.1-rc.24` 更新说明
+## 历史：`v0.1.1-rc.24` 更新说明
 
 - 创建 Team 前调用只读的 `agent_teams_status` 现在返回 `active: false`，不再产生 `you do not lead or belong to any active team yet` 红错；有写入能力的参与者工具仍保留严格身份检查。
 - `implementation` 可以在 running Team 中作为 pending 节点排到活跃 requirements 之后；必须声明依赖，且调度仍等待 requirements 以 `verdict=pass` 完成，避免把安全的 DAG 预创建误报为门禁失败。
@@ -140,65 +180,65 @@
 - 没有 staged Team 时，模型把“继续/确认”误判为审批也会得到 inactive 引导，不再产生同类红色工具错误；不会隐式创建或写入 Team。
 - 仍然不迁移旧 Profile、旧 Team 或旧对话状态；新版本继续强制 V2 数据和角色级路由策略。
 
-## `v0.1.1-rc.22` 更新说明
+## 历史：`v0.1.1-rc.22` 更新说明
 
 - AgentTeams 成员 Provider、模型与 reasoning policy 现在通过 Profile 角色卡分别配置；全局成员模型与推理设置已移除。
 - Profile 文档和 Team 状态严格要求 `schemaVersion: 2`。旧数据留在磁盘但拒绝加载、不迁移；请新建 Profile 和 Team。
 - CPA 与 OpenCode 模型继续使用共享 Harness catalog；Profile 保存后需重启，才会用于新团队。
 
-## `v0.1.1-rc.19` 更新说明
+## 历史：`v0.1.1-rc.19` 更新说明
 
 - `设置 → 子智能体` 增加可编辑的 Profile 配置区，贴近上游 profile 字段，支持四角色内置 `software-delivery`、自定义/复制/重命名/删除、成员路由、fallback、captain/seed 任务依赖和 review policy。
 - Profile 写入本机 `desktop-settings.json`，主进程在启动前安全注入 AgentTeams；保存后需重启，内置 profile 可恢复。
 - 保留 AgentTeams v0.1.14 的 staged plan、质量门、fallback、生命周期与压力回归，以及本项目的 CPA 共用模型目录、Team/Native、OpenCode 和 Windows 兼容能力。
 
-## `v0.1.1-rc.18` 更新说明
+## 历史：`v0.1.1-rc.18` 更新说明
 
 - AgentTeams 本地 fork 刷新至上游 `v0.1.14`：加入 staged plan、原子审批、profile、可选质量门禁、fallback 和更安全的停止/恢复控制。
 - 普通 AgentTeams 请求继续使用本项目原有即时执行默认；显式 `approval=required` 与队长规划 profile 才进入执行前审查。现有 `子智能体` 设置、角色级模型策略、CPA 共用模型目录、Team/Native 路由、成员认领兼容及其他本地插件功能均保留。
 - staged plan 编辑器使用 Harness 原生 Provider/模型目录，和本地设置/连接注入共同挂载；CPA 专属行为仍由 CPA 插件负责。
 
-## `v0.1.1-rc.17` 更新说明
+## 历史：`v0.1.1-rc.17` 更新说明
 
 - OpenCode Go 所有模型请求现在携带当前 Harness 会话的 `x-opencode-session`，即使提示缓存设置为 `none` 也保持会话路由；修复 Kimi K3、Kimi K2.7 Code 等模型被网关误路由后显示“API key is invalid”的问题。
 - Muse Spark 继续使用上一版已验证的 `openai-responses` 协议；本次 Responses 兼容层只补会话头，不改变既有路由、地址、Token 或模型能力配置。
 - 普通 OpenAI-compatible Provider 保持原有请求头不变；新增真实 Pi 请求链回归覆盖 OpenCode Go 与通用 Provider 的边界。
 
-## `v0.1.1-rc.16` 更新说明
+## 历史：`v0.1.1-rc.16` 更新说明
 
 - 修复 OpenCode Go `Kimi K3 (2x usage)` 在全新 Harness 会话的工具调用兼容：启动前为该模型保留 Kimi 原生目录所需的无 `strict` 工具格式、推理内容回放和延迟工具处理；工具 Schema 同步应用 OpenCode 官方客户端的 Kimi 归一化；不改变 API 地址、Token 或套餐路由。
 
-## `v0.1.1-rc.15` 更新说明
+## 历史：`v0.1.1-rc.15` 更新说明
 
 - 修复 OpenCode 模型能力卡片的浏览器插件加载格式：不再引用加载器环境中不存在的 CommonJS `exports`，避免启动时报 `Failed to load plugins`。
 - 增加加载器工厂真实执行回归，验证客户端正确返回 `inject` 与 `apply` 定义。
 
-## `v0.1.1-rc.14` 更新说明
+## 历史：`v0.1.1-rc.14` 更新说明
 
 - 将 OpenCode Go 的图片能力校正扩展到完整的已验证目录：`ox-alpha-free`、DeepSeek V4 Flash Vision、Qwen 3.8 Max、Kimi K2.5、Qwen 3.5 Plus、MiMo V2 Omni，以及此前已修复的 Muse Spark 1.2 Contributor、GPT-5.6 Luna。
 - “设置 → 模型”新增 **OpenCode 模型能力** 卡片，可手动校验并修复本机模型目录；只使用离线验证规则，不读取或修改 API 地址、凭据或 Token，重启 Harness 后生效。
 - 已确认的纯文本模型和未知模型继续保持纯文本，HTTP 500 不触发猜测性协议切换或重试。
 
-## `v0.1.1-rc.13` 更新说明
+## 历史：`v0.1.1-rc.13` 更新说明
 
 - 增加 OpenCode Go 模型协议档案覆盖层：启动前统一修复静态目录、已保存目录和实时发现目录中的已验证协议错配。
 - Muse Spark 1.2 Contributor、GPT-5.6 Luna 通过 `openai-responses` 调用；Qwen3.7 Max、Qwen3.7 Plus 通过 `openai-completions` 调用，并同步已验证的图片、思考和容量能力。
 - 未知模型继续使用原有 Completions 默认值；不会在 HTTP 500 后猜测另一协议重试，避免重复请求并保留上游服务故障。
 
-## `v0.1.1-rc.12` 更新说明
+## 历史：`v0.1.1-rc.12` 更新说明
 
 - 修复旧 CPA 配置升级后的图片能力迁移：启动时自动补齐缺失的 `text + image` 元数据，解决图片已粘贴到输入框、发送阶段却被误判为不支持的问题。
 - 迁移仅写入 `llm-pi-ai.providers.cpa`，保留其他 Provider、凭据引用、原始容量和模型显式纯文本覆盖；已是新格式时不重复写入。
 
-## `v0.1.1-rc.11` 更新说明
+## 历史：`v0.1.1-rc.11` 更新说明
 
 - Electron 更新至 `43.4.1`，electron-builder 更新至 `26.15.7`；全部本地插件和回归门禁保持不变。
 
-## `v0.1.1-rc.10` 更新说明
+## 历史：`v0.1.1-rc.10` 更新说明
 
 - 修复 CPA 图片输入能力声明；CPA 路由和模型默认接受 `text + image`，单模型显式 `input: ['text']` 仍可覆盖。
 
-## `v0.1.1-rc.9` 更新说明
+## 历史：`v0.1.1-rc.9` 更新说明
 
 - CPA 只保留原生 `CPA / CLIProxyAPI` 提供方行；点击“编辑”即可展开/收起，原生模型目录继续承载 API 地址、Token、模型发现、模型选择、文本/图片输入和容量设置。
 - 桌面关闭行为改为即时保存，不再提供单独的“保存设置”按钮；保存失败会恢复此前已提交的选择。
@@ -248,12 +288,12 @@ CPA 完整 R 协议线级别为 `none / minimal / low / medium / high / xhigh / 
 
 ## 生成安装包
 
-需要 Node.js 22.19 或 24+（本轮以 Node 26 构建；桌面宿主使用固定 Electron 44.0.0）。安装依赖和下载 Electron 必须在离线门禁之外完成，先准备维护登记中的固定官方 tarball。
+固定构建工具链为 Node.js 26.7.0 / pnpm 11.7.0，桌面宿主使用固定 Electron 44.0.0。首次克隆必须先按 [干净机器构建指南](../docs/CLEAN_WINDOWS_BUILD.md) 准备固定输入和本地插件依赖；依赖安装、下载均在离线门禁之外完成。
 
 ```powershell
 cd win-desktop
-npm ci --install-links=true
-node node_modules/electron/install.js
+npm install --global pnpm@11.7.0 --ignore-scripts
+./scripts/prepare-clean-build.ps1
 npm run dist:win
 ```
 
@@ -269,13 +309,13 @@ AgentTeams、Models 和 CPA 的 `lib/` 为可重建输出，不进入 Git；完�
 
 上游同步的能力清单、所有权边界与强制回归流程见 [上游维护文档](../docs/UPSTREAM_MAINTENANCE.md)。
 
-本次发布产物保留在本地 `win-desktop/dist/`，并作为 GitHub Release 资产提供：
+rc.3 本地构建产物保留在 `win-desktop/dist/`，尚未发布到 GitHub：
 
 | 文件 | 说明 |
 | --- | --- |
-| `DeepSeek-Harness-0.2.0-rc.2-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
-| `DeepSeek-Harness-0.2.0-rc.2-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
-| `DeepSeek-Harness-0.2.0-rc.2-windows-x64.exe.blockmap` | 安装包更新差分元数据 |
+| `DeepSeek-Harness-0.2.0-rc.4-windows-x64.exe` | NSIS 安装程序，会创建桌面快捷方式 |
+| `DeepSeek-Harness-0.2.0-rc.4-windows-x64.zip` | 绿色免安装包，解压后运行 `DeepSeek Harness.exe` |
+| `DeepSeek-Harness-0.2.0-rc.4-windows-x64.exe.blockmap` | 安装包更新差分元数据 |
 
 ## 使用注意
 

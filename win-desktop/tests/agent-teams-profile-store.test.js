@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import yaml from 'js-yaml'
 import {
   AGENT_TEAMS_PROFILE_SCHEMA_VERSION,
   BUILTIN_AGENT_TEAMS_PROFILES,
@@ -45,7 +46,7 @@ test('profile snapshots are deep clones and cannot mutate built-in defaults', ()
   first.profiles['software-delivery'].members[0].role = 'changed'
 
   const second = getAgentTeamsProfileSnapshot({ settings: {} })
-  assert.equal(second.profiles['software-delivery'].members[0].role, 'Requirements analyst')
+  assert.equal(second.profiles['software-delivery'].members[0].role, '需求分析师')
   assert.notEqual(first.profiles, BUILTIN_AGENT_TEAMS_PROFILES)
 })
 
@@ -177,6 +178,48 @@ for (const reasoning_mode of ['target-default', 'route-aware']) {
 test('the static software-delivery patch is V2-complete', () => {
   const patch = readFileSync(new URL('../config/agent-teams.patch.yml', import.meta.url), 'utf8')
   assert.equal((patch.match(/reasoning_mode: target-default/g) ?? []).length, 4)
+  const entry = yaml.load(patch).flatMap((item) => item.insert ?? []).find((item) => item.id === 'agent-teams')
+  assert.deepEqual(entry.config.profiles, BUILTIN_AGENT_TEAMS_PROFILES)
+})
+
+test('built-in Chinese guidance covers each role and survives V2 save and reload', () => {
+  const profile = BUILTIN_AGENT_TEAMS_PROFILES['software-delivery']
+  for (const field of ['description', 'protocol', 'executionPrompt']) {
+    assert.match(profile[field], /[\u4e00-\u9fff]/u)
+  }
+  const responsibilities = {
+    analyst: /验收标准.*依赖/su,
+    implementer: /inScope.*changedPaths/su,
+    tester: /实际.*未执行/su,
+    reviewer: /独立.*严重程度/su,
+  }
+  for (const member of profile.members) {
+    assert.match(member.role, /[\u4e00-\u9fff]/u)
+    assert.match(member.executionPrompt, responsibilities[member.name])
+    assert.match(member.executionPrompt, /队长/u)
+    assert.match(member.executionPrompt, /中文/u)
+  }
+  assert.equal(new Set(profile.members.map((member) => member.executionPrompt)).size, 4)
+  let stored = {}
+  writeAgentTeamsProfiles({ schemaVersion: 2, profiles: BUILTIN_AGENT_TEAMS_PROFILES }, {
+    load: () => stored,
+    flush: (next) => { stored = next },
+  })
+  assert.deepEqual(readAgentTeamsProfiles(stored), BUILTIN_AGENT_TEAMS_PROFILES)
+})
+
+test('reading saved V2 guidance preserves user prompts and exposes current built-ins for explicit restore', () => {
+  const edited = cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES)['software-delivery']
+  edited.description = 'My saved description'
+  edited.protocol = 'My saved protocol'
+  edited.executionPrompt = 'My saved team instructions'
+  edited.members[0].executionPrompt = 'My saved analyst instructions'
+  const settings = { agentTeamsProfiles: { schemaVersion: 2, profiles: { 'software-delivery': edited } } }
+  const before = JSON.stringify(settings)
+  const snapshot = getAgentTeamsProfileSnapshot({ settings })
+  assert.deepEqual(snapshot.profiles['software-delivery'], edited)
+  assert.deepEqual(snapshot.builtInProfiles, BUILTIN_AGENT_TEAMS_PROFILES)
+  assert.equal(JSON.stringify(settings), before, 'reading must not migrate or overwrite stored prompts')
 })
 
 test('cloneAgentTeamsProfiles rejects arrays and returns independent JSON data', () => {

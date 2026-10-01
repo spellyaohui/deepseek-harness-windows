@@ -1,0 +1,73 @@
+name: Windows clean build and installed first run
+on:
+  push:
+    branches: [main, fix/model-capability-remote-rc3]
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 26.7.0
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.7.0 --ignore-scripts
+      - name: Download fixed upstream build inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download v0.2.0-rc.10 --repo $env:GITHUB_REPOSITORY --pattern Build-Inputs-0.2.0-rc.10.tar.gz --dir upstream/release-cache
+      - name: Prepare clean dependencies outside the offline gate
+        run: ./win-desktop/scripts/prepare-clean-build.ps1 -InputArchive "$env:GITHUB_WORKSPACE/upstream/release-cache/Build-Inputs-0.2.0-rc.10.tar.gz"
+      - name: Full offline acceptance gate and Windows package
+        working-directory: win-desktop
+        run: npm run dist:win
+      - name: Verify packaged dependency closures
+        working-directory: win-desktop
+        run: |
+          node scripts/verify-alpha2-runtime-closure.mjs --from dist/win-unpacked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/verify-alpha2-zip-closure.mjs --zip dist/DeepSeek-Harness-0.2.0-rc.10-windows-x64.zip --against dist/win-unpacked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist -File | Where-Object Name -Match '^DeepSeek-Harness-.*\.(exe|zip|blockmap)$' | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content dist/SHA256SUMS-0.2.0-rc.10.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-windows-installers
+          path: |
+            win-desktop/dist/DeepSeek-Harness-*.exe
+            win-desktop/dist/DeepSeek-Harness-*.zip
+            win-desktop/dist/DeepSeek-Harness-*.blockmap
+            win-desktop/dist/SHA256SUMS-*.txt
+          retention-days: 14
+  installed-first-run:
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 26.7.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-windows-installers
+          path: installers
+      - name: Install the actual NSIS EXE on a second clean runner
+        run: |
+          $installDirectory = "$env:RUNNER_TEMP/DSH-installed"
+          $installer = (Get-ChildItem installers -Filter *.exe).FullName
+          $process = Start-Process -FilePath $installer -ArgumentList @('/S', '/currentuser', "/D=$installDirectory") -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+          if (!(Test-Path -LiteralPath "$installDirectory/DeepSeek Harness.exe")) { throw 'Installed app missing' }
+      - name: Launch installed desktop, test settings and old disabled Web profile
+        run: node win-desktop/scripts/verify-installed-first-run.mjs "$env:RUNNER_TEMP/DSH-installed/DeepSeek Harness.exe" "$env:RUNNER_TEMP/DSH-clean-home" acceptance/installed-first-run.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: installed-first-run-evidence
+          path: acceptance/
+          retention-days: 14

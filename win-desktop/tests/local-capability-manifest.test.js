@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,18 +19,16 @@ const localDependencies = {
   '@deepseek-ai/dsh-client-ui-settings-models': 'models-settings-plugin',
   '@deepseek-ai/dsh-cpa-provider': 'cpa-provider-plugin',
   '@deepseek-ai/dsh-desktop-settings': 'desktop-settings-plugin',
-  '@deepseek-ai/dsh-opencode-capabilities': 'opencode-capabilities-plugin',
   '@deepseek-ai/dsh-tool-call-guidance': 'tool-call-guidance-plugin',
   '@nanmicoder/dsh-agent-teams': 'agent-teams-plugin',
 }
 
 const localVersions = {
-  '@deepseek-ai/dsh-client-ui-settings-models': '0.2.0-rc.2-desktop.1',
-  '@deepseek-ai/dsh-cpa-provider': '0.1.10',
-  '@deepseek-ai/dsh-desktop-settings': '0.1.2',
-  '@deepseek-ai/dsh-opencode-capabilities': '0.1.2',
+  '@deepseek-ai/dsh-client-ui-settings-models': '0.2.0-rc.2-desktop.3',
+  '@deepseek-ai/dsh-cpa-provider': '0.1.11',
+  '@deepseek-ai/dsh-desktop-settings': '0.1.4',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.1',
+  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.4',
 }
 
 const sourcePluginDirectories = [
@@ -51,20 +50,20 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.2.0-rc.2')
-  assert.equal(packageLock.version, '0.2.0-rc.2')
-  assert.equal(packageLock.packages[''].version, '0.2.0-rc.2')
+  assert.equal(packageJson.version, '0.2.0-rc.10')
+  assert.equal(packageLock.version, '0.2.0-rc.10')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.10')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
-  assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.1')
+  assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.3')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.2.0-rc.2-desktop.1',
+    '0.2.0-rc.2-desktop.3',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.1')
+  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.4')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.22-desktop.1',
+    '0.1.22-desktop.4',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -101,7 +100,6 @@ test('desktop composition retains every independently owned local plugin', () =>
 
   assertFile('desktop-settings-plugin/lib/client.js')
   assertFile('tests/desktop-settings-plugin.test.js')
-  assertFile('opencode-capabilities-plugin/lib/client.js')
   assertFile('tests/opencode-capabilities-integration.test.js')
   assertFile('tool-call-guidance-plugin/lib/index.js')
   assertFile('tests/tool-call-guidance.test.js')
@@ -124,6 +122,16 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'release-notes/v0.1.5-rc.5.md',
     'release-notes/v0.1.7-rc.2.md',
     'release-notes/v0.2.0-rc.2.md',
+    'release-notes/v0.2.0-rc.4.md',
+    'release-notes/v0.2.0-rc.5.md',
+    'release-notes/v0.2.0-rc.6.md',
+    'release-notes/v0.2.0-rc.7.md',
+    'release-notes/v0.2.0-rc.8.md',
+    'release-notes/v0.2.0-rc.9.md',
+    'src/desktop-web-tools.js',
+    'tests/desktop-web-tools.test.js',
+    'src/desktop-profile-layer.js',
+    'tests/agent-teams-settings-save.test.js',
     'release-notes/v0.1.2-rc.7.md',
     'scripts/verify-alpha2-source.mjs',
     'scripts/verify-rc1-source.mjs',
@@ -135,9 +143,10 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'models-settings-plugin/UPSTREAM.md',
     'models-settings-plugin/src/client/model-input.ts',
     'models-settings-plugin/tests/model-input.test.js',
+    'models-settings-plugin/tests/model-reasoning.test.js',
     'models-settings-plugin/tests/model-input-ui.test.js',
     'models-settings-plugin/tests/models-card-slot.test.js',
-    'models-settings-plugin/tests/capability-ui.test.js',
+    'models-settings-plugin/src/client/ModelReasoningLevels.tsx',
     'models-settings-plugin/tests/models-section-availability.test.js',
     'models-settings-plugin/tests/output-link-safety.test.js',
     'models-settings-plugin/tests/upstream-v017-models.test.js',
@@ -158,6 +167,9 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/release-notes/v0.1.19-desktop.1.md',
     'agent-teams-plugin/release-notes/v0.1.21-desktop.1.md',
     'agent-teams-plugin/release-notes/v0.1.22-desktop.1.md',
+    'agent-teams-plugin/release-notes/v0.1.22-desktop.2.md',
+    'agent-teams-plugin/release-notes/v0.1.22-desktop.3.md',
+    'agent-teams-plugin/release-notes/v0.1.22-desktop.4.md',
     'assets/cli/dsh.cmd',
     'assets/cli/command-path.ps1',
     'src/command-management.js',
@@ -172,6 +184,8 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/scripts/doctor.mjs',
     'agent-teams-plugin/scripts/release-metadata.mjs',
     'agent-teams-plugin/scripts/release-metadata.test.mjs',
+    'agent-teams-plugin/src/subagent-compat.ts',
+    'agent-teams-plugin/scripts/team-subagent-compat.test.mjs',
     'agent-teams-plugin/src/harness-compat.ts',
     'agent-teams-plugin/src/tool-names.ts',
     'agent-teams-plugin/scripts/harness-compat-tdd.mjs',
@@ -236,6 +250,16 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
   assert.deepEqual(actualFiles.sort(), [...files].sort())
 })
 
+test('original release archive identity records remain immutable after a same-commit rebuild', () => {
+  for (const [name, digest] of [
+    ['017', '7e72479a0742b8837cb04a705ef0aea15a59c2a2675badba90a5befba4ed4033'],
+    ['020', '7a7d4779a678feea5c4445b7b01e3f46d1d59fa3181d1fc40f3ec7126fa9015a'],
+  ]) {
+    const original = read(`../docs/UPSTREAM_${name}_SOURCE_MANIFEST.original.md`).replaceAll('\r\n', '\n')
+    assert.equal(createHash('sha256').update(original).digest('hex'), digest)
+  }
+})
+
 test('the recommended 0.2.0 source manifest matches every packed official tarball', () => {
   const manifest = read('../docs/UPSTREAM_020_SOURCE_MANIFEST.md')
   assert.match(manifest, /639ed015397290b3745d163aafe02ffee4aa3f84/u)
@@ -249,7 +273,7 @@ test('the recommended 0.2.0 source manifest matches every packed official tarbal
 test('critical integration markers retain local capability ownership', () => {
   assert.match(agentTeamsPackage.scripts.verify, /hmr-member-runtime-verify\.mjs/)
   assertContains('../AGENTS.md', /AgentTeams `v0\.1\.16-rc\.1` interaction invariants/)
-  assertContains('../AGENTS.md', /Models settings fork `v0\.1\.1-rc\.2-desktop\.6` interaction invariants/)
+  assertContains('../AGENTS.md', /Models settings fork `0\.2\.0-rc\.2-desktop\.3` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /AgentTeams incidents that must not recur/)
@@ -271,23 +295,19 @@ test('critical integration markers retain local capability ownership', () => {
 
   assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.provider-card/)
   assertContains('models-settings-plugin/src/client/ModelsSection.tsx', /settings\.models\.footer/)
-  assertContains('models-settings-plugin/src/client/model-input.ts', /ImageInputChoice = 'auto' \| 'image' \| 'text-only'/)
+  assertContains('models-settings-plugin/src/client/model-input.ts', /ImageInputChoice = 'image' \| 'text-only'/)
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'image'\)/)
-  assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'auto'\)/)
-  assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /modelCapabilities\.probe/)
-  assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyCapabilityProbeResult/)
-  assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /capabilityOverwrite/)
-  assertContains('models-settings-plugin/src/client/models-section-availability.ts', /createLateBoundCapabilityRemote/)
-  assertContains('models-settings-plugin/src/client/models-section-availability.ts', /ctx\.get\('remote\.model-capabilities'\)/)
-  assertContains('../AGENTS.md', /Missing or delayed Remote state must leave the Models page/)
+  assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'text-only'\)/)
+  assertContains('models-settings-plugin/src/client/ModelReasoningLevels.tsx', /toggleReasoningLevel/)
+  assertContains('models-settings-plugin/src/client/model-reasoning.ts', /DEFAULT_REASONING_EFFORTS/)
   assertContains('models-settings-plugin/scripts/detach-output-links.mjs', /ERROR_USER_MAPPED_FILE|os error 1224/)
 
   assertContains('cpa-provider-plugin/src/client/index.tsx', /normalize-provider-profile/)
   assertContains('cpa-provider-plugin/src/client/index.tsx', /provider !== 'cpa'/)
   assertContains('cpa-provider-plugin/src/client/capacity.ts', /contextWindow/)
   assertContains('cpa-provider-plugin/src/client/capacity.ts', /maxTokens/)
-  assertContains('cpa-provider-plugin/src/migration.ts', /hasCurrentCpaDefaultInput/)
-  assertContains('cpa-provider-plugin/tests/migration.test.js', /does not reinterpret current automatic CPA models/)
+  assertContains('cpa-provider-plugin/src/migration.ts', /normalizeCpaProviderProfile/)
+  assertContains('cpa-provider-plugin/tests/migration.test.js', /without changing an explicit reasoning subset/)
   assertContains('tests/cpa-provider-integration.test.js', /round-trip automatic and invalid model input states/)
 
   assertContains('agent-teams-plugin/src/host-model-catalog.ts', /buildHostModelCatalog/)
@@ -348,9 +368,7 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/model-fetcher.js', /OPENCODE_GO_PROTOCOL_PROFILES/)
   assertContains('src/model-fetcher.js', /OPENCODE_GO_COMPATIBILITY_INPUTS/)
   assertContains('src/model-fetcher.js', /reconcileOpencodeCatalog/)
-  assertContains('opencode-capabilities-plugin/lib/client.js', /settings\.models\.footer/)
-  assertContains('src/preload.cjs', /opencode-capabilities:validate/)
-  assertContains('src/settings-window.js', /validateOpencodeCatalog/)
+  assert.doesNotMatch(read('src/settings-window.js'), /validateOpencodeCatalog|opencode-capabilities:validate/)
   assertContains('scripts/sync-local-plugin-artifacts.mjs', /LOCAL_PLUGIN_ARTIFACTS/)
   assertContains('tool-call-guidance-plugin/lib/index.js', /desktop:tool-call-guidance/)
 })

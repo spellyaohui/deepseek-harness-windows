@@ -23,7 +23,7 @@ export function resolveWindowsPickerPatch() {
 }
 
 /**
- * Dynamically generate the AgentTeams patch YAML from the current desktop
+ * Dynamically generate the desktop default-layer YAML from the current desktop
  * settings. Profiles are persisted by the desktop host so the live service
  * receives the same user-edited map on every launch.
  * @returns {string} absolute path to the generated patch file.
@@ -49,8 +49,6 @@ export function generateAgentTeamsPatch({
     "      name: '@deepseek-ai/dsh-desktop-settings'",
     '    - id: cpa-provider',
     "      name: '@deepseek-ai/dsh-cpa-provider'",
-    '    - id: opencode-capabilities',
-    "      name: '@deepseek-ai/dsh-opencode-capabilities'",
     '    - id: tool-call-guidance',
     "      name: '@deepseek-ai/dsh-tool-call-guidance'",
     '    - id: agent-teams',
@@ -72,8 +70,8 @@ export function generateAgentTeamsPatch({
   return outPath
 }
 
-// Static overlay path retained for callers that build arguments without
-// desktop settings. The live service uses generateAgentTeamsPatch() below.
+// Static defaults retained for offline checks. The live service generates the
+// same independently owned plugin insertions as a layer beneath user edits.
 export function resolveAgentTeamsPatch() {
   return fileURLToPath(new URL('../config/agent-teams.patch.yml', import.meta.url))
 }
@@ -90,7 +88,6 @@ export function extractReadyUrl(output) {
 export function buildDshArgs(entry, {
   platform = process.platform,
   windowsPickerPatch = resolveWindowsPickerPatch(),
-  agentTeamsPatch = resolveAgentTeamsPatch(),
   winHideConsoleImport = resolveWinHideConsoleImport(),
 } = {}) {
   return [
@@ -99,8 +96,6 @@ export function buildDshArgs(entry, {
     entry,
     'web',
     ...(platform === 'win32' ? ['--patch', windowsPickerPatch] : []),
-    '--patch',
-    agentTeamsPatch,
     '--host',
     '127.0.0.1',
     '--port',
@@ -109,6 +104,16 @@ export function buildDshArgs(entry, {
     // loads the same loopback URL.
     '--no-open',
   ]
+}
+
+/** Pass desktop defaults to the Host preload, below the normal user layers. */
+export function buildDshEnvironment(environment, desktopPatch, settings = {}) {
+  return {
+    ...environment,
+    ELECTRON_RUN_AS_NODE: '1',
+    DSH_DESKTOP_STARTUP_PATCH: desktopPatch,
+    DSH_DESKTOP_BUILTIN_WEB_TOOLS: settings.builtinWebToolsEnabled === false ? '0' : '1',
+  }
 }
 
 /**
@@ -129,11 +134,8 @@ export async function startDshService({
   // Generate the AgentTeams patch from desktop settings before launching.
   const agentTeamsPatch = generateAgentTeamsPatch()
 
-  const child = spawn(electronExecutable, buildDshArgs(entry, { platform, agentTeamsPatch }), {
-    env: {
-      ...environment,
-      ELECTRON_RUN_AS_NODE: '1',
-    },
+  const child = spawn(electronExecutable, buildDshArgs(entry, { platform }), {
+    env: buildDshEnvironment(environment, agentTeamsPatch, getDesktopSettings()),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })

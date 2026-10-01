@@ -21,6 +21,8 @@ const { app } = electron
 const DEFAULT_SETTINGS = {
   /** "tray" hides to tray on close; "quit" exits the app. */
   closeBehavior: 'quit',
+  /** Opt-out removes only the official web_search/web_fetch tool registrations. */
+  builtinWebToolsEnabled: true,
 }
 
 /** @type {Record<string, unknown> | null} */
@@ -47,6 +49,7 @@ export function loadDesktopSettings() {
     const raw = readFileSync(path, 'utf8')
     const parsed = JSON.parse(raw)
     cache = { ...DEFAULT_SETTINGS, ...parsed }
+    cache.builtinWebToolsEnabled = parsed.builtinWebToolsEnabled !== false
   } catch {
     cache = { ...DEFAULT_SETTINGS }
   }
@@ -83,6 +86,9 @@ export function getDesktopSettings() {
  * @returns {Record<string, unknown>} the merged settings after the update.
  */
 export function setDesktopSettings(patch) {
+  if (Object.hasOwn(patch, 'builtinWebToolsEnabled') && typeof patch.builtinWebToolsEnabled !== 'boolean') {
+    throw new TypeError('builtinWebToolsEnabled must be a boolean')
+  }
   const current = loadDesktopSettings()
   const next = { ...current, ...patch }
   flushSettings(next)

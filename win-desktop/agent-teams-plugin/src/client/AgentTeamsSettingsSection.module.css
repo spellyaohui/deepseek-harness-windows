@@ -5,6 +5,9 @@
   max-width: 720px;
   padding: 4px 0 24px;
   color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 .header,
@@ -27,16 +30,16 @@
 }
 
 .pageTitle {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 500;
-  line-height: 28px;
+  line-height: 24px;
 }
 
 .intro,
 .help {
   color: var(--dsw-alias-label-secondary);
-  font-size: 14px;
-  line-height: 22px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .settingsStatus,
@@ -55,9 +58,9 @@
 }
 
 .sectionTitle {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  line-height: 24px;
+  line-height: 22px;
 }
 
 .choices {
@@ -103,11 +106,16 @@
   gap: 2px;
 }
 
-.choice strong,
-.field > span {
+.choice strong {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 22px;
+}
+
+.field > span {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .choice small {
@@ -141,13 +149,15 @@
 .field select {
   box-sizing: border-box;
   width: 100%;
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1);
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-3);
   color: var(--dsw-alias-label-primary);
   font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .field select:focus-visible {
@@ -159,6 +169,7 @@
 .catalogError,
 .writeError {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   justify-content: space-between;
@@ -167,8 +178,24 @@
   line-height: 18px;
 }
 
+.writeError > span {
+  flex: 1 1 240px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.root button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.retryButton {
+  flex: none;
+  min-width: max-content;
+}
+
 .profileSection {
-  gap: 14px;
+  gap: 12px;
 }
 
 .profileSectionHeader,
@@ -203,6 +230,10 @@
   border-color: var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-secondary);
   letter-spacing: normal;
+}
+
+.profileMarker {
+  align-self: flex-start;
 }
 
 .profileToolbar {
@@ -244,6 +275,8 @@
   background: transparent;
   color: var(--dsw-alias-label-primary);
   font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
   text-align: left;
   cursor: pointer;
 }
@@ -301,18 +334,24 @@
 .profileTextarea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1);
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-3);
   color: var(--dsw-alias-label-primary);
   font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .profileTextarea {
   min-height: 72px;
   resize: vertical;
+}
+
+.profilePrompt {
+  min-height: 144px;
 }
 
 .profileInput:focus-visible,

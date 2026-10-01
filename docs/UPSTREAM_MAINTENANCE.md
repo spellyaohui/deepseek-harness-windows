@@ -8,19 +8,191 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.2`
+- Windows desktop wrapper: `0.2.0-rc.10`
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
-- OpenCode capability validation plugin: `0.1.2`
-- AgentTeams fork: `0.1.22-desktop.1`, based on upstream `v0.1.22` at fixed commit
+- OpenCode manual validation plugin: retired at desktop `0.2.0-rc.4` by user request
+- AgentTeams fork: `0.1.22-desktop.4`, based on upstream `v0.1.22` at fixed commit
   `9cba4fe4171f27c019991cafd2a107f87ef3517b`
-- CPA provider plugin: `0.1.10`
-- Models settings fork: `0.2.0-rc.2-desktop.1`
-- Desktop Settings plugin: `0.1.2`
+- CPA provider plugin: `0.1.11`
+- Models settings fork: `0.2.0-rc.2-desktop.3`
+- Desktop Settings plugin: `0.1.4`
+
+## Desktop 0.2.0-rc.10 preset dependency repair and portable build inputs — 2026-10-01
+
+Classification: REAPPLY. The wrapper's exact dsh-tool-web rewrite removes the
+required web dependency only when the startup snapshot disables both official
+web tools. A legacy home patch disabling the Web service no longer leaves
+standard/PTC/Cordis presets pending. The enabled suite retains its required
+service diagnostic; user YAML and independent tools remain untouched.
+
+The red regression reported tool-web: waiting for web. The real Loader/
+AgentPresetRegistry test in tests/desktop-web-preset.test.js exercises both
+startup flags, both service states, the three affected presets and minimal.
+The real Host roster is also healthy with the legacy disabled-Web home patch.
+The full offline source gate passed before this entry.
+
+Clean wrapper builds restore the exact 650 already-registered upstream archives
+from the hash-pinned Release input asset. Neither upstream revision nor existing
+archive hashes change. scripts/prepare-build-inputs.mjs checks bundle identity,
+complete path membership, all per-package hashes and refuses differing existing
+files. Dependency installation is an explicit separate preparation phase.
+The Windows workflow builds without developer caches and installs its own EXE
+on a second disposable runner; completion evidence belongs to the Release notes.
+
+## Desktop 0.2.0-rc.9 built-in web tools preference — 2026-10-01
+
+Classification: REAPPLY. Desktop Settings owns the native 扩展设置 section,
+the stable desktop slot, official Switch and autosave/rollback presentation.
+The wrapper owns boolean IPC persistence, the startup environment snapshot and
+the exact installed dsh-tool-web activation rewrite in src/desktop-web-tools.js.
+Upstream provides search/fetch registration flags; it does not provide this
+desktop preference or its application to all current and future preset mounts.
+Only the official tool suite is changed. ctx.web, provider services, user YAML,
+explicit preset disables and independent tools are preserved. No provider,
+credential, SSRF or AgentTeams routing policy is changed.
+
+Evidence: full offline source verify:upstream passed before this record, and
+tests/desktop-web-tools.test.js has seven real-store/loader/Cordis regressions.
+Real Electron 44 renderer plus production preload/IPC/store verifies automatic
+save, process restart persistence, write-failure rollback, keyboard Space and
+320/560/800px layouts without overflow or console errors. No live model or
+external web request is part of these tests.
+
+Release audit: the official [Harness releases](https://github.com/deepseek-ai/deepseek-harness/releases)
+still list dsh-v0.2.0-rc.2 (639ed01), and [AgentTeams releases](https://github.com/NanmiCoder/dsh-agent-teams/releases)
+still list v0.1.22 (9cba4fe). Existing fixed source revisions remain unchanged.
+
+## Desktop 0.2.0-rc.8 captain subagent compatibility — 2026-10-01
+
+AgentTeams owns this REAPPLY capability in src/subagent-compat.ts and the
+scoped routing-policy adapter. Captain subagent calls use real Team members,
+assigned tasks, the durable scheduler and the existing subagent gateway. Native
+mode, member-only restrictions, Session allowlists, role reasoning, user review,
+halts, member caps and cold state are preserved. Background success means
+durable admission; foreground success means an actual completed task.
+
+Regression: agent-teams-plugin/scripts/team-subagent-compat.test.mjs contains
+14 real-runtime offline tests and runs in pnpm verify / verify:upstream. The full
+source gate passes before provenance update. The upstream pinned index.ts and
+capabilities.ts own agent_teams_* collaboration; the former local unconditional
+captain native guard caused this rejection before the gateway was called.
+No upstream revision or provider-specific Models behavior changes.
+
+## Desktop 0.2.0-rc.7 settings typography — 2026-10-01
+
+Ownership remains REAPPLY: Desktop Settings owns its native section, and
+AgentTeams owns its Profile editor. Both inherit the pinned official global
+font; regular text uses 14px, helper text 12px and form controls/labels 13px.
+The textarea line height is 19.5px. Official form height, surface and radius
+tokens replace independent control sizing. Desktop removes its extra card
+inset so the text aligns with the native settings content column.
+
+Source changes passed the full install-free offline verify:upstream gate
+before these records were updated. The actual official and local components
+were compared under the same theme; computed typography matches, four viewport
+widths have no control overflow and keyboard focus remains visible. All saved
+prompts, explicit built-in restore, retry behavior and routing remain unchanged.
+Harness remains 0.2.0-rc.2; Models and CPA are unchanged.
+
+After version synchronization, dist:win's full offline gate passes again.
+Packaged Electron authentication/save/restart and compiled client byte identity
+checks pass. Unpacked/ZIP closures resolve 868/867 production packages with no
+RC.1 packages, and 1,041 manifests match. Sizes and SHA-256 values are recorded
+in win-desktop/release-notes/v0.2.0-rc.7.md. No install or publication was performed.
+
+## Desktop 0.2.0-rc.6 Chinese role guidance and settings controls — 2026-10-01
+
+Ownership remains `REAPPLY`: AgentTeams owns single-line buttons, wrapping
+save errors and explicit draft-only built-in restoration; the wrapper owns the
+Chinese software-delivery description, protocol and role-specific instructions.
+All four member identifiers, role reasoning modes and V2 contracts remain.
+Stored user instructions are never overwritten on read. Users can explicitly
+restore the current built-in and Save before restarting for new Teams.
+
+The profile-store regressions cover V2 save/reload, preserved custom prompts,
+current built-in snapshots and exact static/generated default parity. The
+integration regression resolves the actual Profile and verifies each role's
+Chinese prompt reaches its member persona. The full captain prompt is 3,424
+characters. Serialized write/recovery regressions are retained; real isolated
+browser checks verify failure/retry/success, busy state, 400px layout and
+old-saved-default restoration without an unrelated draft edit. The complete
+install-free verify:upstream gate passes with wrapper 155/155, Models 25/25,
+CPA 27/27 and the full AgentTeams suites. The pinned Harness remains 0.2.0-rc.2.
+
+The packaged Electron Host passes authenticated save/restart/save and provider
+listing in a fresh isolated Home. All four Chinese role prompts are injected
+through the packaged persona code, and wrapper default/config/compiled client
+bytes match source. Unpacked/ZIP closures resolve 868/867 production packages
+with no RC.1 packages; 1,041 package/app manifests match. Artifact hashes are
+recorded in `win-desktop/release-notes/v0.2.0-rc.6.md`.
+
+## Desktop 0.2.0-rc.5 editable default-layer repair — 2026-10-01
+
+Wrapper startup integration remains `REAPPLY`. The desktop previously inserted
+AgentTeams after the profile user patch as a CLI overlay. A SettingsForms save
+therefore targeted an entry not yet inserted; the official ConfigEditor correctly
+refused the composed result. The wrapper now contributes exactly its four owned
+plugin insertions as the final default layer, before profile, Home and CLI edits.
+The guard targets the pinned app-boot `loadProfileDirectory` output and rejects
+source drift or a non-owned insertion list. It is idempotent, scoped to Web and
+does not modify the installed upstream bytes, user patches or profile manifests.
+The normal overlay refusal, stale-revision checks and each plugin owner remain.
+
+The original error was reproduced before the repair with the real Loader,
+ConfigEditor, SettingsForms and AgentTeams Config schema. The same offline
+regression now proves Save/restart, unrelated fields/profiles, revision conflicts,
+Home/CLI refusal, narrow default-layer admission and source-drift rejection.
+The complete install-free `verify:upstream` passes: Models 25/25, CPA 27/27,
+full AgentTeams suites, wrapper 152/152, and 890 production packages with no RC.1
+cohort. Outside the gate, a fresh isolated Electron Host saves through the
+authenticated settings Remote, retains Native after restart, saves Team again,
+and reads the provider list without a live model request. The exact packaged
+Electron program passed those same isolated checks; unpacked/ZIP closures pass
+(868/867 packages, no RC.1 cohort, 1,041 matching manifests) and changed wrapper
+modules match source bytes. Artifact hashes and sizes are recorded in
+`win-desktop/release-notes/v0.2.0-rc.5.md`.
+
+## Desktop 0.2.0-rc.4 manual model settings — 2026-10-01
+
+The user explicitly replaces capability probing and automatic image input with manual declarations (SUPERSEDED_BY_DESIGN). Models owns seven choices, per-model reasoning subsets, image/text-only input, text defaults and draft-only edits. CPA owns its adapter seam and must preserve manual reasoningEfforts, false, explicit images, invalid data, credentials and raw capacities. OpenCode's manual card, plugin, dependency and IPC are removed; startup protocol/schema/session compatibility remains wrapper-owned. Discovery still lists models without running capability test requests. The Models page layout groups list operations, bulk input actions and expandable per-model fields.
+
+Replacement regressions: Models model-reasoning, model-input, model-input-ui and native page/source suites; CPA profile/reasoning/migration; wrapper manual-model integration through the official PiAiAdapter, retired-module absence checks, installed artifact identity, and unchanged OpenCode transport regressions. The complete offline, install-free `verify:upstream` gate passes: Models 25/25, CPA 27/27, full AgentTeams suites, wrapper 149/149, and 890 production packages with no RC.1 cohort.
+
+The rc.4 artifacts also pass unpacked/ZIP runtime closure checks (868/867 packages, no RC.1 cohort, 1,041 matching package/app manifests), compiled Models/CPA artifact identity, retired-module absence, and authenticated fresh-Home Host startup with the normal provider-list RPC. Real browser checks cover seven choices without an extra Off entry, per-model subsets, image/text defaults, Save/Cancel, light/dark themes and a 400px viewport. No live model request is needed for these checks. Local artifact hashes and sizes are recorded in `win-desktop/release-notes/v0.2.0-rc.4.md`.
+
+Historical sections below describe earlier releases and do not restore removed controls.
+
+## Desktop 0.2.0-rc.3 capability Remote repair — 2026-09-30
+
+Harness and AgentTeams keep the fixed revisions above. Models retains ownership
+of the provider-neutral capability probe (`REAPPLY`): its hand-written Remote
+contribution now uses the official strict-codec `create()` contract, with no
+descriptor or mount cast hiding incompatibility. The real Client Gateway and
+TypertRegistry regression covers mount, late lookup, routing, cancellation,
+disposal, and strict request/result validation. No provider-specific rule or
+settings-write behavior is added to Models.
+
+The complete offline, install-free acceptance gate passes: Models 52/52,
+CPA 27/27, full AgentTeams suites, wrapper 150/150, and a runtime closure of
+891 production packages with no RC.1 cohort. The extra wrapper regression
+pins the immutable original archive identity documents. Current archive
+identities and lock integrities were restored from the same fixed source with
+the user-authorized recovery procedure in
+[`SOURCE_ARCHIVE_REBUILD_20260930.md`](SOURCE_ARCHIVE_REBUILD_20260930.md).
+The local rc.3 EXE, ZIP and blockmap were built after that gate passed. The
+unpacked closure resolves 869 production packages; the ZIP resolves 868 and
+matches all 1,042 package/app manifests with the unpacked build. A fresh isolated
+Host successfully started and served an authenticated capability-probe RPC
+using a non-applicable protocol, without a live provider request. The wrapper,
+Harness, Models, AgentTeams, compiled codec factories and icon assets were
+checked in the packed output. Artifact hashes and unsigned status are recorded
+in the rc.3 release notes. No installation or publication is implied.
 
 ## Harness 0.2.0-rc.2 / AgentTeams 0.1.22 refresh classification — 2026-09-30
 
-This is the active classification. The 0.1.7 and earlier sections below are
+This remains the upstream migration classification; the rc.3 repair and its
+current acceptance evidence are recorded above. The 0.1.7 and earlier sections below are
 historical evidence. AgentTeams stable `v0.1.22` recommends Harness
 `0.2.0-rc.2`; its previous seven supported hosts remain peer-compatible, but
 this wrapper installs only the recommended cohort. The fixed official source
@@ -278,13 +450,13 @@ authoritative for current versions, source identities and ownership decisions.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Official 0.1.7 custom API onboarding, account-first ordering, shared ModelRow/inputTypes and `settings.models.provider-card`/footer slot integration, provider-neutral profile normalization seam, native expandable provider rows, per-model `auto`/`text+image`/`text-only` input controls, invalid-input save gate, provider-scoped draft bulk actions, field-preserving model normalization, one sequential cancellable capability probe with explicit overwrite, and page-level degradation when that Remote is absent or late | `win-desktop/models-settings-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: use the complete 0.1.7 native Models architecture and reapply only provider-neutral image/reasoning capability contracts, profile normalization and the late Remote seam. CPA, OpenCode, WOYAOPRO, CommandCode, and custom route details stay outside this fork. | `src/client/ModelsSection.tsx`, `src/client/models-section-availability.ts`, `src/client/ProviderEditor.tsx`, `src/client/ModelListEditor.tsx`, `src/client/model-input.ts`, `src/client/model-capabilities.ts`, `src/capability-contract.ts`, `src/capability-probe-service.ts`, `src/remote.ts`, `scripts/detach-output-links.mjs`, `tests/upstream-v017-models.test.js`, `tests/model-list-upstream-runtime.test.js`, `tests/alpha2-base.test.js`, `tests/models-section-availability.test.js`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/capability-contract.test.js`, `tests/capability-probe.test.js`, `tests/capability-ui.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm typecheck`; `pnpm test`; wrapper `tests/alpha2-client-contract.test.js`, `tests/cpa-provider-integration.test.js`, `tests/model-fetcher.test.js`, `tests/model-capability-probe-integration.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest |
+| Native Models onboarding, account ordering, provider-card/footer slots, manual image/text-only choices, seven default reasoning choices and per-model subsets, invalid-value Save gates, draft-only bulk input and field preservation | `win-desktop/models-settings-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`; probes and automatic input are `SUPERSEDED_BY_DESIGN` by the 2026-10-01 user request. Provider-specific behavior stays outside Models. | `src/client/ModelRow.tsx`, `src/client/ModelReasoningLevels.tsx`, `src/client/model-reasoning.ts`, `src/client/model-input.ts`, `tests/model-reasoning.test.js`, `tests/model-input.test.js`, `tests/model-input-ui.test.js`, `tests/provider-profile.test.js`, `tests/output-link-safety.test.js`, `UPSTREAM.md` | `pnpm test`; wrapper manual model integration, installed artifacts, CPA integration and capability manifest |
 
 ## Desktop Settings owner
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `桌面` settings section, theme-consistent window behavior UI, IPC bridge without a separate settings window, and immediate close-behavior autosave with rollback | `win-desktop/desktop-settings-plugin` plus wrapper bridge | Independent local desktop integration | `desktop-settings-plugin/lib/client.js`, `src/settings-window.js`, `src/desktop-settings.js`, `src/preload.cjs`, `config/agent-teams.patch.yml` | wrapper `tests/desktop-settings-plugin.test.js` and `tests/desktop-settings.test.js` |
+| Harness-native `扩展设置` section with stable desktop slot, theme-consistent window behavior and built-in web-tools Switch, immediate autosave/rollback and restart-required tool preference | `win-desktop/desktop-settings-plugin` plus wrapper bridge | Independent local desktop integration; wrapper activation seam is REAPPLY | `desktop-settings-plugin/lib/client.js`, `src/settings-window.js`, `src/desktop-settings.js`, `src/desktop-web-tools.js`, `src/win-hide-console-loader.mjs`, `src/dsh-service.js`, `src/preload.cjs` | wrapper `tests/desktop-settings-plugin.test.js`, `tests/desktop-settings.test.js`, `tests/desktop-web-tools.test.js` |
 
 ## Windows wrapper owner
 
@@ -297,7 +469,7 @@ authoritative for current versions, source identities and ownership decisions.
 | Provider-neutral `grep` argument alias normalization at the `dsh-llm-pi-ai` durable tool-call boundary, limited to a missing `pattern` plus an exact single-line `description: "pattern: <non-empty value>"` shape | `win-desktop` | `REAPPLY` until upstream performs an equivalent deterministic normalization. No provider/model routing or optional settings toggle owns this behavior; existing `pattern` values and every ambiguous malformed call remain under the strict upstream Schema. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/grep-tool-argument-compatibility.test.js` and the local capability manifest test |
 | Explicit bounded-period usage-limit exhaustion is classified as terminal `QUOTA` at the official `dsh-llm` boundary, while transient `RATE_LIMIT` and standalone reset notices remain non-terminal | `win-desktop` | `REAPPLY`: RC.1 recognizes unqualified `usage limit` wording but misses provider messages such as `weekly usage limit`; the wrapper adds only this narrow loader rewrite and retains the upstream classifier for every other phrase. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/win-hide-console.test.js` and the local capability manifest test |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |
-| Local plugin installation, patch graph, official in-memory profile resolution with a scoped wrapper installation anchor, compiled-local-plugin artifact synchronization, OpenCode model-catalog preparation, verified OpenCode protocol/image-capability reconciliation (static, persisted and live catalogs), including Kimi K3's tool-compatible first-request profile, official-client Schema lowering, provider-wide OpenCode Go session affinity, and the narrow manual validation bridge | `win-desktop` plus `opencode-capabilities-plugin` | `SUPERSEDED_BY_DESIGN + REAPPLY` for startup (official runtime resolver replaces physical profile links); `REAPPLY` for OpenCode until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; known legacy modality mappings may correct only input capability, while unknown models retain text-only fallback. Every OpenCode Go model must receive `x-opencode-session` from the active Harness session, including with `cacheRetention: "none"`; generic providers remain unchanged. Kimi K3 must keep `supportsStrictMode: false`, reasoning-content replay, deferred-tool handling, and Kimi Schema normalization for ref siblings and tuple-style `items`. Do not infer an unknown model's protocol or retry a 500 over another endpoint. | `package.json`, `package-lock.json`, `scripts/sync-local-plugin-artifacts.mjs`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js`, `src/win-hide-console-rewrite.js`, `src/preload.cjs`, `src/settings-window.js`, `opencode-capabilities-plugin/lib/client.js` | `tests/heal-desktop-plugins.test.js`, `tests/local-plugin-artifacts.test.js`, `tests/model-fetcher.test.js`, `tests/opencode-stream-rewrite.test.js`, `tests/opencode-capabilities-integration.test.js`, and the local capability manifest test |
+| Local plugin installation, patch graph, official in-memory profile resolution with a scoped wrapper installation anchor, compiled-local-plugin artifact synchronization, OpenCode model-catalog preparation, verified OpenCode protocol/image-capability reconciliation (static, persisted and live catalogs), including Kimi K3's tool-compatible first-request profile, official-client Schema lowering, provider-wide OpenCode Go session affinity, with manual validation removed by user request | `win-desktop` | `SUPERSEDED_BY_DESIGN + REAPPLY` for startup (official runtime resolver replaces physical profile links); `REAPPLY` for OpenCode until the pinned DSH/Pi catalog demonstrates equivalent per-model transport/capability coverage; known legacy modality mappings may correct only input capability, while unknown models retain text-only fallback. Every OpenCode Go model must receive `x-opencode-session` from the active Harness session, including with `cacheRetention: "none"`; generic providers remain unchanged. Kimi K3 must keep `supportsStrictMode: false`, reasoning-content replay, deferred-tool handling, and Kimi Schema normalization for ref siblings and tuple-style `items`. Do not infer an unknown model's protocol or retry a 500 over another endpoint. | `package.json`, `package-lock.json`, `scripts/sync-local-plugin-artifacts.mjs`, `config/agent-teams.patch.yml`, `src/dsh-service.js`, `src/model-fetcher.js`, `src/win-hide-console-rewrite.js`, `src/preload.cjs`, `src/settings-window.js` | `tests/heal-desktop-plugins.test.js`, `tests/local-plugin-artifacts.test.js`, `tests/model-fetcher.test.js`, `tests/opencode-stream-rewrite.test.js`, `tests/opencode-capabilities-integration.test.js`, and the local capability manifest test |
 
 OpenCode 官方客户端在其请求准备代码中会为 `providerID` 以 `opencode` 开头的请求设置
 `x-opencode-session`；OpenCode Go 网关也以该头作为会话粘性标识。Windows 包装器

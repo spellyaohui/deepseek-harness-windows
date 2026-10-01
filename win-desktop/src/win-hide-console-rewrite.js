@@ -9,6 +9,7 @@
  */
 
 import { fileURLToPath } from 'node:url'
+import { rewriteDesktopProfileLayer } from './desktop-profile-layer.js'
 
 const DESKTOP_INSTALL_ANCHOR = fileURLToPath(new URL('../package.json', import.meta.url))
 const PROFILE_INSTALL_ANCHOR_NEEDLE = 'const INSTALL_ANCHOR = fileURLToPath(new URL("../package.json", import.meta.url));'
@@ -254,7 +255,7 @@ function rewriteFsEscalationSource(source) {
 
 export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUrl = '') {
   const url = decodeURIComponent(String(moduleUrl))
-  let next = source
+  let next = rewriteDesktopProfileLayer(source, moduleUrl)
 
   const normalizedUrl = url.replaceAll('\\', '/')
   if (/\/@deepseek-ai\/dsh\/lib\/profile-boot-[^/]+\.js$/.test(normalizedUrl)

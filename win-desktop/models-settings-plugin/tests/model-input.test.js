@@ -7,9 +7,9 @@ import {
   readImageInputChoice,
 } from '../lib/client/model-input.js'
 
-test('missing and empty input use automatic resolution', () => {
-  assert.equal(readImageInputChoice({ id: 'unset' }), 'auto')
-  assert.equal(readImageInputChoice({ id: 'empty', input: [] }), 'auto')
+test('missing and empty input default to text', () => {
+  assert.equal(readImageInputChoice({ id: 'unset' }), 'text-only')
+  assert.equal(readImageInputChoice({ id: 'empty', input: [] }), 'text-only')
 })
 
 test('valid explicit input lists map to image or text-only', () => {
@@ -32,11 +32,8 @@ test('one-model edits preserve unknown fields and do not mutate the source', () 
   assert.notEqual(changed, original)
 })
 
-test('automatic mode deletes only the model-level override', () => {
-  assert.deepEqual(
-    applyImageInputChoice({ id: 'known', input: ['text'], maxTokens: 8192 }, 'auto'),
-    { id: 'known', maxTokens: 8192 },
-  )
+test('text-only explicitly overrides an inherited image capability', () => {
+  assert.deepEqual(applyImageInputChoice({ id: 'known', input: ['image'], maxTokens: 8192 }, 'text-only'), { id: 'known', input: ['text'], maxTokens: 8192 })
 })
 
 test('bulk operations affect every supplied row and preserve other fields', () => {
@@ -45,8 +42,8 @@ test('bulk operations affect every supplied row and preserve other fields', () =
     { id: 'a', marker: 1, input: ['text', 'image'] },
     { id: 'b', marker: 2, input: ['text', 'image'] },
   ])
-  assert.deepEqual(applyImageInputChoiceToAll(models, 'auto'), [
-    { id: 'a', marker: 1 },
-    { id: 'b', marker: 2 },
+  assert.deepEqual(applyImageInputChoiceToAll(models, 'text-only'), [
+    { id: 'a', marker: 1, input: ['text'] },
+    { id: 'b', marker: 2, input: ['text'] },
   ])
 })

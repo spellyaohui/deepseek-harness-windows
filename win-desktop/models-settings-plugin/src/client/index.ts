@@ -30,8 +30,6 @@ import { createSettingsSchemaOperations } from './schema-operations.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
 import { WELCOME_NOTICE_SETTINGS_NAMESPACE } from '../onboarding-copy.ts'
 import { Config, ONBOARDING_CONFIG_GLOBAL } from '../onboarding-config.ts'
-import { TYPERT_REMOTE } from '../remote.ts'
-import { createLateBoundCapabilityRemote, resolveCapabilityRemote } from './models-section-availability.ts'
 import type {
   ProviderProfileNormalizer, ProviderProfileNormalizationPayload,
 } from './provider-profile.ts'
@@ -92,10 +90,6 @@ export const inject = [
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(async () => {
-    const dispose = await ctx.remote.$mount(TYPERT_REMOTE as never)
-    return () => dispose()
-  }, 'ui-settings-models: capability probe Remote')
   const page = globalThis as Partial<Record<typeof ONBOARDING_CONFIG_GLOBAL, unknown>>
   const payload = page[ONBOARDING_CONFIG_GLOBAL]
   const configured = Config(payload === undefined ? {} : payload)
@@ -121,15 +115,10 @@ export function apply(ctx: ClientContext): void {
   // Registration-time text (the nav label thunk) and the inject faces share
   // one bound translate; copy freshness rides the locale revision.
   const t = ctx.locale.bind(NS) as ModelsSectionInjected['t']
-  const modelCapabilities = createLateBoundCapabilityRemote(
-    () => resolveCapabilityRemote(ctx),
-    () => t('capabilityUnavailable'),
-  )
   const injected = (): ModelsSectionInjected => ({
     controller,
     hooks: { snapshot: controller.store },
     operations,
-    modelCapabilities,
     normalizeProviderProfile,
     schema,
     t,
@@ -139,7 +128,6 @@ export function apply(ctx: ClientContext): void {
     controller,
     hooks: { models: controller.store },
     operations,
-    modelCapabilities,
     normalizeProviderProfile,
     schema,
     t,
