@@ -1,0 +1,44 @@
+name: Revalidate the verified rc.10 installer
+on:
+  push:
+    branches: [fix/rc10-installed-validation]
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  installed-first-run:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 26.7.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-windows-installers
+          path: installers
+          run-id: 36823482174
+          github-token: ${{ github.token }}
+      - name: Install the previously built and closure-verified NSIS EXE
+        run: |
+          $installDirectory = Join-Path $env:RUNNER_TEMP 'DSH-installed\DeepSeek Harness'
+          $installer = (Get-ChildItem installers -Filter *.exe).FullName
+          $process = Start-Process -FilePath $installer -ArgumentList @('/S', '/currentuser', "/D=$installDirectory") -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+          if (!(Test-Path -LiteralPath "$installDirectory/DeepSeek Harness.exe")) { throw 'Installed app missing' }
+      - name: Launch the real installed desktop
+        run: node win-desktop/scripts/verify-installed-first-run.mjs "$env:RUNNER_TEMP/DSH-installed/DeepSeek Harness/DeepSeek Harness.exe" "$env:RUNNER_TEMP/DSH-clean-home" acceptance/installed-first-run.json
+      - name: Stage exactly these tested files in the existing draft Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v0.2.0-rc.10 installers/* --repo $env:GITHUB_REPOSITORY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: installed-first-run-evidence
+          path: acceptance/
+          retention-days: 14

@@ -66,13 +66,15 @@ jobs:
           path: installers
       - name: Install the actual NSIS EXE on a second clean runner
         run: |
-          $installDirectory = "$env:RUNNER_TEMP/DSH-installed"
+          # Assisted NSIS adds APP_FILENAME when the chosen directory does not
+          # already contain it. Supply the complete application directory.
+          $installDirectory = Join-Path $env:RUNNER_TEMP 'DSH-installed\DeepSeek Harness'
           $installer = (Get-ChildItem installers -Filter *.exe).FullName
           $process = Start-Process -FilePath $installer -ArgumentList @('/S', '/currentuser', "/D=$installDirectory") -Wait -PassThru -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
           if (!(Test-Path -LiteralPath "$installDirectory/DeepSeek Harness.exe")) { throw 'Installed app missing' }
       - name: Launch installed desktop, test settings and old disabled Web profile
-        run: node win-desktop/scripts/verify-installed-first-run.mjs "$env:RUNNER_TEMP/DSH-installed/DeepSeek Harness.exe" "$env:RUNNER_TEMP/DSH-clean-home" acceptance/installed-first-run.json
+        run: node win-desktop/scripts/verify-installed-first-run.mjs "$env:RUNNER_TEMP/DSH-installed/DeepSeek Harness/DeepSeek Harness.exe" "$env:RUNNER_TEMP/DSH-clean-home" acceptance/installed-first-run.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
