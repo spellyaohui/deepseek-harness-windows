@@ -8,10 +8,16 @@ permissions:
   contents: read
 jobs:
   build:
+    # GitHub hides draft Releases from read-only installation tokens. This
+    # token is used only by the input download step; no publishing is automated.
+    permissions:
+      contents: write
     runs-on: windows-2022
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 26.7.0
@@ -49,6 +55,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 26.7.0
