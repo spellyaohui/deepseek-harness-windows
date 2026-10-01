@@ -44,14 +44,18 @@ async function eventually(read, message, timeoutMs = 5_000) {
 
 /** A controllable external-model boundary around the unmodified child loop. */
 class OfflineAdapter extends LlmAdapter {
+  // Harness may wake the captain with official child-settlement notices.
+  // Keep those real requests separate from the child gates/assertions below.
   requests = []
+  captainRequests = []
   gates = []
+  captainGates = []
   released = new Set()
   releasingAll = false
   release(index = 0) { this.released.add(index); this.gates[index]?.resolve() }
   releaseAll() {
     this.releasingAll = true
-    for (const gate of this.gates) gate.resolve()
+    for (const gate of [...this.gates, ...this.captainGates]) gate.resolve()
   }
   async resolveModel(provider, model) {
     return { provider, id: model, name: model }
@@ -60,11 +64,15 @@ class OfflineAdapter extends LlmAdapter {
     return ['offline-model', 'alternate-model', 'blocked-model'].map(id => ({ provider, id, name: id }))
   }
   async *stream(options) {
-    const index = this.requests.length
-    this.requests.push(options)
+    assert.ok(options.sessionId, 'the production AgentLoop must stamp request ownership')
+    const captain = options.sessionId === 'compat-captain'
+    const requests = captain ? this.captainRequests : this.requests
+    const gates = captain ? this.captainGates : this.gates
+    const index = requests.length
+    requests.push(options)
     const gate = Promise.withResolvers()
-    this.gates.push(gate)
-    if (this.releasingAll || this.released.has(index)) gate.resolve()
+    gates.push(gate)
+    if (this.releasingAll || (!captain && this.released.has(index))) gate.resolve()
     if (options.signal?.aborted) throw new Error('offline child aborted')
     await Promise.race([
       gate.promise,
