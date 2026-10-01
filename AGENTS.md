@@ -4,6 +4,18 @@ These rules apply to the entire repository. This is a public Windows wrapper
 around upstream DeepSeek Harness packages plus independently owned local
 plugins and compatibility rewrites.
 
+## Canonical workspace and branch
+
+- The development workspace is `D:\Trae\其他\deepseek-harness`, on `main`.
+  Do not create nested branch checkouts or worktrees unless the user explicitly
+  requests one. GitHub retains only the `main` branch; release tags remain.
+- Synchronization software excludes `.git`. Before starting work on another
+  machine, fetch `origin/main` and compare its revision and source files with
+  the synchronized workspace. Preserve and review differences before changing
+  Git metadata; never reset or clean the workspace to make it match a stale ref.
+- `upstream/` holds ignored build inputs, toolchains and verification material.
+  Keep backups of previous source directories outside this workspace.
+
 ## Repository safety
 
 - Never commit credentials, Tokens, API keys, `.env` files, runtime sessions,

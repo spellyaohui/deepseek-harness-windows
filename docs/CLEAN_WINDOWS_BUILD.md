@@ -4,6 +4,16 @@
 `44.0.0`。不需要开发机目录、全局 DSH、用户配置或已有 `node_modules`。
 运行安装包不需要安装 Node.js 或 pnpm；下面的工具链只用于编译源码。
 
+## 本机统一工作目录
+
+日常开发目录为 `D:\Trae\其他\deepseek-harness`，直接使用 `main`，不再使用
+目录内的分支 checkout 或 worktree。`upstream/` 只存放本地构建输入、工具链
+和验证资料；旧源码副本保存在项目目录之外的备份中。
+
+同步软件不复制 `.git`。换机器继续工作时，先在这个目录执行
+`git fetch origin main`，核对同步过来的源码与 `origin/main`。如果代码和 Git
+元数据不一致，先备份并检查差异，不使用 `reset --hard` 或 `clean` 覆盖现有文件。
+
 ## 工具链与命令
 
 使用 Windows x64，安装 Git、Node.js **26.7.0**，并确保系统 `tar.exe` 可用。
