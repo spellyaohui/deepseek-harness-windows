@@ -42,8 +42,18 @@ Node 26.7 and Electron 44. Native process options/flags are observed while real
 children execute; invalid-type cases compare against each runtime's unpatched
 baseline and prove rejection before spawning. The full offline, install-free
 verify:upstream gate passed before this record (167 wrapper tests, zero skips).
-Independent review passed. This is source-only pending work; the published
-rc.10 installer and upstream provenance remain unchanged.
+Independent review passed. The published rc.10 installer and upstream
+provenance remain unchanged.
+
+Local rc.11 packaging completed on 2026-10-02 after the full offline gate.
+win-unpacked resolves 868 production packages; the ZIP resolves 867 and
+matches 1,041 package/app manifests. The actual packaged Electron passes the
+three new native child-process regression groups, and 121 wrapper/local-plugin
+runtime files match source bytes. Sizes/hashes belong to the rc.11 Release
+notes and ignored SHA256SUMS output. The build workflow reads the source
+version for ZIP/hash names; installed acceptance strictly compares the same
+version, with explicit rc.10 retained for its historical workflow. No current
+rc.11 clean-machine installation or published Release is claimed here.
 
 ## Pending AgentTeams desktop.5 temporary subagent defaults — 2026-10-02
 

@@ -11,8 +11,9 @@ assert.equal(process.platform, 'win32')
 const executable = resolve(process.argv[2])
 const home = resolve(process.argv[3])
 const report = resolve(process.argv[4] ?? join(home, 'acceptance.json'))
+const wrapperVersion = process.argv[5] ?? JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
 const app = join(dirname(executable), 'resources/app')
-assert.equal(JSON.parse(readFileSync(join(app, 'package.json'), 'utf8')).version, '0.2.0-rc.10')
+assert.equal(JSON.parse(readFileSync(join(app, 'package.json'), 'utf8')).version, wrapperVersion)
 assert.equal(JSON.parse(readFileSync(join(app, 'node_modules/@deepseek-ai/dsh/package.json'), 'utf8')).version, '0.2.0-rc.2')
 mkdirSync(home, { recursive: true })
 const delay = ms => new Promise(resolveWait => setTimeout(resolveWait, ms))
@@ -113,7 +114,7 @@ try {
   ;({ evaluate, rpc } = await launch())
   await healthyPresets(rpc)
   assert.equal(readFileSync(patch, 'utf8'), legacy, 'Startup must preserve the user patch')
-  const summary = { wrapper: '0.2.0-rc.10', harness: '0.2.0-rc.2', installedDesktopFirstRun: true, productionPreload: true, authenticatedModelsCatalogue: true, agentTeamsSaveAndRestart: true, webOptOutRestart: true, legacyDisabledWebPresets: true, userPatchPreserved: true, liveModelRequest: false, rendererExceptions: errors }
+  const summary = { wrapper: wrapperVersion, harness: '0.2.0-rc.2', installedDesktopFirstRun: true, productionPreload: true, authenticatedModelsCatalogue: true, agentTeamsSaveAndRestart: true, webOptOutRestart: true, legacyDisabledWebPresets: true, userPatchPreserved: true, liveModelRequest: false, rendererExceptions: errors }
   assert.deepEqual(errors, [])
   mkdirSync(dirname(report), { recursive: true })
   writeFileSync(report, JSON.stringify(summary, null, 2) + '\n')

@@ -1,7 +1,7 @@
 name: Windows clean build and installed first run
 on:
   push:
-    branches: [main, fix/model-capability-remote-rc3]
+    branches: [main]
     paths-ignore: ['docs/**', '**/*.md']
   workflow_dispatch:
 permissions:
@@ -35,11 +35,12 @@ jobs:
       - name: Verify packaged dependency closures
         working-directory: win-desktop
         run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           node scripts/verify-alpha2-runtime-closure.mjs --from dist/win-unpacked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node scripts/verify-alpha2-zip-closure.mjs --zip dist/DeepSeek-Harness-0.2.0-rc.10-windows-x64.zip --against dist/win-unpacked
+          node scripts/verify-alpha2-zip-closure.mjs --zip "dist/DeepSeek-Harness-$version-windows-x64.zip" --against dist/win-unpacked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Get-ChildItem dist -File | Where-Object Name -Match '^DeepSeek-Harness-.*\.(exe|zip|blockmap)$' | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content dist/SHA256SUMS-0.2.0-rc.10.txt
+          Get-ChildItem dist -File | Where-Object Name -Match '^DeepSeek-Harness-.*\.(exe|zip|blockmap)$' | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Set-Content "dist/SHA256SUMS-$version.txt"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: verified-windows-installers

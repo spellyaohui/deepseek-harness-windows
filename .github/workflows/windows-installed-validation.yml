@@ -36,7 +36,7 @@ jobs:
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
           if (!(Test-Path -LiteralPath "$installDirectory/DeepSeek Harness.exe")) { throw 'Installed app missing' }
       - name: Launch the real installed desktop
-        run: node win-desktop/scripts/verify-installed-first-run.mjs "$env:RUNNER_TEMP/DSH-installed/DeepSeek Harness/DeepSeek Harness.exe" "$env:RUNNER_TEMP/DSH-clean-home" acceptance/installed-first-run.json
+        run: node win-desktop/scripts/verify-installed-first-run.mjs "$env:RUNNER_TEMP/DSH-installed/DeepSeek Harness/DeepSeek Harness.exe" "$env:RUNNER_TEMP/DSH-clean-home" acceptance/installed-first-run.json 0.2.0-rc.10
       - name: Stage exactly these tested files in the existing draft Release
         env:
           GH_TOKEN: ${{ github.token }}
