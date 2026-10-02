@@ -26,6 +26,13 @@ Ask in natural language. The plugin provides the team protocol, thirteen coordin
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
+### v0.1.22-desktop.5 (pending desktop release)
+
+- Adds an independent temporary subagent Provider/model/reasoning default in AgentTeams settings for Team-mode captain calls. Profile roles and Native mode keep their own policies.
+- Supports concurrent and repeated calls through the existing durable gateway. Unavailable defaults fail before writes, and already-created members retain their route.
+- Persists the complete policy through one CAS operation; editing or cancelling a failed draft clears its stale retry payload.
+- Retains twenty offline real-runtime compatibility tests, settings validation/client regressions and ConfigEditor save/restart/refusal checks.
+
 ### v0.1.22-desktop.4
 
 - Routes captain-only official continuable subagent calls through the existing Team tool policy pipeline and durable scheduler.

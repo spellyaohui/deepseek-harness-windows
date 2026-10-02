@@ -5,7 +5,9 @@ import { performance } from 'node:perf_hooks'
 import { loadModelCatalog } from '../lib/client/model-catalog.js'
 import {
   createAgentTeamsSettingsWriter,
+  discardTemporaryMemberWrite,
   planDelegationModeChange,
+  planTemporaryMemberChange,
   runAgentTeamsSettingsAction,
 } from '../lib/client/settings-write.js'
 
@@ -66,6 +68,26 @@ assert.doesNotMatch(clientBundle, /agent-teams-member-effort/)
 assert.doesNotMatch(clientBundle, /node:(?:crypto|fs|path|child_process)/)
 
 const orderedOps = planDelegationModeChange('native').ops
+
+// The whole temporary route is one CAS mutation; partial provider/model/effort
+// writes must never become observable to a concurrent delegation.
+const temporaryPolicy = { provider: 'provider-a', model: 'model-a', reasoningMode: 'explicit', reasoningEffort: 'high' }
+assert.deepEqual(planTemporaryMemberChange(temporaryPolicy).ops, [
+  { op: 'set', path: ['temporaryMember'], value: temporaryPolicy },
+])
+assert.deepEqual(planTemporaryMemberChange({ reasoningMode: 'target-default' }).ops, [
+  { op: 'set', path: ['temporaryMember'], value: { reasoningMode: 'target-default' } },
+])
+assert.throws(() => planTemporaryMemberChange({ reasoningMode: 'explicit', provider: 'provider-a', model: 'model-a' }), /explicit/)
+assert.throws(() => planTemporaryMemberChange({ reasoningMode: 'target-default', provider: 'provider-a' }), /provider|model/)
+assert.throws(() => planTemporaryMemberChange({ reasoningMode: 'route-aware', reasoningEffort: 'max' }), /effort/)
+
+const failedTemporaryWrite = { status: 'error', ops: planTemporaryMemberChange(temporaryPolicy).ops, error: 'save refused' }
+assert.deepEqual(discardTemporaryMemberWrite(failedTemporaryWrite), { status: 'idle', ops: null, error: null })
+const failedDelegationWrite = { status: 'error', ops: orderedOps, error: 'save refused' }
+assert.equal(discardTemporaryMemberWrite(failedDelegationWrite), failedDelegationWrite)
+const busyTemporaryWrite = { ...failedTemporaryWrite, status: 'busy', error: null }
+assert.equal(discardTemporaryMemberWrite(busyTemporaryWrite), busyTemporaryWrite)
 
 function view(revision, value = {}) {
   return {

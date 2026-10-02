@@ -6,8 +6,11 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
 import { loadModelCatalog, type ModelCatalogEntry, type ModelCatalogState } from './model-catalog.ts'
 import { TeamProfilesEditor } from './TeamProfilesEditor.tsx'
+import { TemporaryMemberSettings } from './TemporaryMemberSettings.tsx'
 import {
+  discardTemporaryMemberWrite,
   planDelegationModeChange,
+  planTemporaryMemberChange,
   runAgentTeamsSettingsAction,
   type AgentTeamsSettingsWriter,
   type SettingsWritePlan,
@@ -32,7 +35,7 @@ export type AgentTeamsSettingsSectionProps =
   & PropsLocale<typeof AGENT_TEAMS_LOCALE_NAMESPACE>
   & AgentTeamsSettingsSectionInjected
 
-const DEFAULT_SETTINGS: Pick<AgentTeamsSettings, 'delegationMode'> = { delegationMode: 'teams' }
+const DEFAULT_SETTINGS: AgentTeamsSettings = { delegationMode: 'teams' }
 
 export function AgentTeamsSettingsSection({
   settings, writer, t,
@@ -145,6 +148,22 @@ export function AgentTeamsSettingsSection({
           ))}
         </fieldset>
       </section>
+
+      <TemporaryMemberSettings
+        value={value.temporaryMember}
+        catalog={catalog.models}
+        catalogReady={catalog.status === 'ready'}
+        disabled={controlsDisabled}
+        native={value.delegationMode === 'native'}
+        onDiscardPendingWrite={() => {
+          setWriteView(discardTemporaryMemberWrite)
+        }}
+        onSave={async policy => {
+          const result = await runAgentTeamsSettingsAction(writer, planTemporaryMemberChange(policy).ops, setWriteView)
+          return result.status === 'ready'
+        }}
+        t={t}
+      />
 
       <TeamProfilesEditor
         catalog={catalog}

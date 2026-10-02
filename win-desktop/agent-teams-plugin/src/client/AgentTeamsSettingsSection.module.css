@@ -433,6 +433,12 @@
   gap: 6px;
 }
 
+.temporaryReasoningChoices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+}
+
 .profileRowHeader {
   align-items: flex-start;
 }

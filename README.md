@@ -4,6 +4,13 @@
 
 > 当前源码版本：`v0.2.0-rc.10` · [最新安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)
 
+## 待发布：临时子智能体默认模型
+
+- 设置 → AgentTeams 团队新增“临时子智能体”，单独选择 Provider、模型及思考策略，适用于 Team 模式下主智能体的临时 `subagent` 调用。
+- 支持连续和同时调用多个子智能体；无需创建四角色团队。Profile 中各角色的指定模型保持独立，Native 模式仍使用原生设置。
+- 未设置临时默认时沿用现有路由；指定模型不可用会明确报错。保存影响后续调用，已创建成员保留原路由。
+- 本地 AgentTeams 为 `0.1.22-desktop.5`，Harness 继续固定 `0.2.0-rc.2`。上述更新尚未包含在 rc.10 安装包中。
+
 ## `v0.2.0-rc.10` 更新说明
 
 - 修复关闭内置联网工具后，旧 `web: disabled: true` 配置导致 Agent 预设加载失败的问题；不改写用户配置。
@@ -373,7 +380,7 @@ npm run dist:win
 
 AgentTeams、Models 和 CPA 的 `lib/` 是可重建输出，不进入 Git；`verify:upstream` 会先编译插件并同步已安装依赖，再执行完整测试。不要在首次编译前直接启动应用。
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.22`（固定提交 `9cba4fe4171f27c019991cafd2a107f87ef3517b`），本地版本为 `0.1.22-desktop.4`，推荐宿主固定为 Harness `0.2.0-rc.2`。上游负责团队工作区、成员导航、任务生命周期和证据治理；仅重应用上游未覆盖的严格 V2、角色模型/思考策略、统一 durable gateway、质量扩展、Revision/CAS 和认证边界。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.22`（固定提交 `9cba4fe4171f27c019991cafd2a107f87ef3517b`），本地版本为 `0.1.22-desktop.5`，推荐宿主固定为 Harness `0.2.0-rc.2`。上游负责团队工作区、成员导航、任务生命周期和证据治理；仅重应用上游未覆盖的严格 V2、角色模型/思考策略、统一 durable gateway、质量扩展、Revision/CAS 和认证边界。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

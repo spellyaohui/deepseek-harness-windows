@@ -4,6 +4,7 @@ import type {
 import type { ConfigForm, SettingsDescribeFace } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
+import { validateMemberRolePolicy, type MemberRolePolicy } from '../selection-policy.ts'
 
 const SETTINGS_NAMESPACE = 'agent-teams'
 
@@ -15,6 +16,13 @@ export type SettingsWriteView =
   | { status: 'idle'; ops: null; error: null }
   | { status: 'busy'; ops: readonly SettingsPathOpView[]; error: null }
   | { status: 'error'; ops: readonly SettingsPathOpView[] | null; error: string }
+
+/** Editing or cancelling a failed temporary draft must retire its retry payload. */
+export function discardTemporaryMemberWrite(view: SettingsWriteView): SettingsWriteView {
+  return view.status === 'error' && view.ops?.some(op => op.path[0] === 'temporaryMember')
+    ? { status: 'idle', ops: null, error: null }
+    : view
+}
 
 export type SettingsWritePlan =
   | { ok: true; ops: readonly SettingsPathOpView[] }
@@ -204,6 +212,16 @@ function set(field: keyof Pick<AgentTeamsSettings, 'delegationMode'>, value: Jso
 
 export function planDelegationModeChange(mode: DelegationMode): SettingsWritePlan {
   return { ok: true, ops: [set('delegationMode', mode)] }
+}
+
+export function planTemporaryMemberChange(policy: MemberRolePolicy): SettingsWritePlan {
+  validateMemberRolePolicy(policy)
+  const value = {
+    reasoningMode: policy.reasoningMode,
+    ...(policy.provider?.trim() ? { provider: policy.provider.trim(), model: policy.model!.trim() } : {}),
+    ...(policy.reasoningMode === 'explicit' ? { reasoningEffort: policy.reasoningEffort!.trim() } : {}),
+  }
+  return { ok: true, ops: [{ op: 'set', path: ['temporaryMember'], value }] }
 }
 
 export async function runAgentTeamsSettingsAction(

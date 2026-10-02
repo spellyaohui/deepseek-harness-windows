@@ -41,6 +41,7 @@ import { formatProfilesForPrompt, type TeamProfileConfig } from './profiles.ts'
 import { buildHostModelCatalog } from './host-model-catalog.ts'
 import {
   createAgentTeamsSettingsRuntime,
+  TemporaryMemberSchema,
   type DelegationMode,
 } from './settings.ts'
 import {
@@ -65,6 +66,7 @@ export const inject = ['tools', 'llm', 'subagents', 'systemPrompt', 'agents']
 /** Plugin configuration. */
 export interface Config {
   delegationMode?: Volatile<DelegationMode>
+  temporaryMember?: Volatile<import('./selection-policy.ts').MemberRolePolicy | undefined>
   /**
    * State directory name under the captain's workspace; team state lives at
    * `<workspace>/<stateDir>/<teamId>/` (default `.agent-teams`).
@@ -93,8 +95,9 @@ export interface Config {
 }
 
 /** Serialized config accepts a value; the live runtime receives its stable ref. */
-export interface ConfigInput extends Omit<Config, 'delegationMode'> {
+export interface ConfigInput extends Omit<Config, 'delegationMode' | 'temporaryMember'> {
   delegationMode?: DelegationMode
+  temporaryMember?: import('./selection-policy.ts').MemberRolePolicy
 }
 
 // `z.object()` has an implicit `{}` default in Schemastery.  Fallback routes
@@ -107,6 +110,7 @@ const fallbackRouteConfig = z.union([
 
 export const Config: z<ConfigInput, Config> = z.object({
   delegationMode: z.union(['teams', 'native']).default('teams').volatile(),
+  temporaryMember: TemporaryMemberSchema.volatile(),
   stateDir: z.string().default('.agent-teams'),
   memberProvider: z.string().default('spawn'),
   executionPrompt: z.string(),
@@ -199,7 +203,7 @@ The task assignment and its dependency results are authoritative. Claim by task 
 }
 
 export function apply(ctx: Context, config: Config): void {
-  const settings = createAgentTeamsSettingsRuntime(ctx, config.delegationMode)
+  const settings = createAgentTeamsSettingsRuntime(ctx, config.delegationMode, config.temporaryMember)
 
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',

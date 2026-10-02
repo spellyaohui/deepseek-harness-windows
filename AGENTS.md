@@ -46,7 +46,7 @@ evidence that the local capability is preserved.
 
 ## Capability ownership boundaries
 
-- AgentTeams owns subagent member defaults, explicit/route-aware reasoning,
+- AgentTeams owns subagent member defaults, isolated temporary-call defaults, explicit/route-aware reasoning,
   shared model-catalog consumption, Team/Native routing, and task lifecycle.
 - CPA owns CLIProxyAPI address/credential handling, model discovery, reasoning
   vocabulary, per-model context/output capacities, and the native-provider
@@ -166,11 +166,25 @@ evidence that the local capability is preserved.
   Preserve profile-store/default-YAML parity, member-persona injection and the
   3,500-character captain prompt budget regressions.
 
-- Global AgentTeams settings own only Team/Native delegation. Each Profile
+- Global AgentTeams settings own Team/Native delegation and the separate default
+  Provider/model/reasoning policy for temporary captain `subagent` calls in Team
+  mode. This default never overrides Profile roles or native-mode settings.
+  Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
   use its configured Provider/model/effort; only `target-default` and
   `route-aware` may resolve from the captain or target route. Do not restore a
   global member-model override or add a legacy Profile/Team migration layer.
+- Temporary calls use the saved policy only when no explicit tool route/effort
+  is supplied. With no saved temporary policy, retain existing captain/role
+  selection. The native tool Schema and tool-supplied route allowlists stay
+  strict; the trusted saved default is not a new advertised model override.
+  Unavailable configured models fail before Team/member/task writes, without
+  falling back to the captain. Concurrent and repeated calls remain supported
+  within native and Team limits; never assign new work to a busy child or reuse
+  a child with a different pinned route/reasoning policy. Changing the default
+  affects subsequent selections, not existing members. Save the complete policy
+  through one SettingsForms CAS operation; cancelling/editing a failed draft
+  retires its stale retry payload. Preserve real-runtime and save/restart tests.
 - The staged member editor and its activity snapshot must preserve all three
   role reasoning modes. `reasoningMode` is required in every V2 member record;
   only `explicit` Web mutations may carry `reasoningEffort`. Materialized

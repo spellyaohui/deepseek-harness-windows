@@ -47,9 +47,11 @@ test('Chinese built-in guidance reaches each member persona without changing rou
   assert.ok(prompt.length <= 3500, `captain prompt length = ${prompt.length}`)
 })
 
-test('AgentTeams global settings expose delegation mode only', () => {
+test('AgentTeams settings separate temporary call defaults from Profile role routing', () => {
   const settingsSource = readText(agentTeamsSourceRoot, 'settings.ts')
   const indexSource = readText(agentTeamsSourceRoot, 'index.ts')
+  assert.match(settingsSource, /temporaryMember\?: MemberRolePolicy/)
+  assert.match(indexSource, /TemporaryMemberSchema\.volatile\(\)/)
   assert.doesNotMatch(settingsSource, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|migrationVersion|LegacyDesktopAgentTeamsSettings|normalizeLegacyDesktop|createLegacyDesktop|AGENT_TEAMS_MIGRATION_VERSION/)
   assert.doesNotMatch(indexSource, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|legacyDesktopSettings|migration-status|confirmAgentTeamsMigration|applyConfirmedAgentTeamsMigration|removeLegacyAgentTeamsSettings|AGENT_TEAMS_MIGRATION_VERSION|normalizeLegacyDesktop/)
 })
@@ -80,7 +82,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
 
     const metadata = JSON.parse(readText(pluginRoot, 'package.json'))
     assert.equal(metadata.name, '@nanmicoder/dsh-agent-teams')
-    assert.equal(metadata.version, '0.1.22-desktop.4')
+    assert.equal(metadata.version, '0.1.22-desktop.5')
     assert.equal(metadata.exports['./client'].default, './lib/client.js')
 
     const imported = spawnSync(process.execPath, [

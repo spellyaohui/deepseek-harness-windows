@@ -58,7 +58,10 @@ class OfflineAdapter extends LlmAdapter {
     for (const gate of [...this.gates, ...this.captainGates]) gate.resolve()
   }
   async resolveModel(provider, model) {
-    return { provider, id: model, name: model }
+    return {
+      provider, id: model, name: model,
+      reasoning: { efforts: ['low', 'high'].map(id => ({ id, name: id })) },
+    }
   }
   async listModels(provider) {
     return ['offline-model', 'alternate-model', 'blocked-model'].map(id => ({ provider, id, name: id }))
@@ -87,7 +90,7 @@ class OfflineAdapter extends LlmAdapter {
   }
 }
 
-async function fixture(t, mode, { modelSelection = false, profiles = {}, maxMembers = 4 } = {}) {
+async function fixture(t, mode, { modelSelection = false, profiles = {}, maxMembers = 4, temporaryMember } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-team-subagent-compat-'))
   const ctx = new Context()
   const adapter = new OfflineAdapter()
@@ -114,10 +117,11 @@ async function fixture(t, mode, { modelSelection = false, profiles = {}, maxMemb
     memberMaxDepth: 0,
     maxMembers,
     profiles,
+    ...(temporaryMember === undefined ? {} : { temporaryMember }),
     slashCommand: false,
   })
   await teamFiber
-  ctx.llm.registerAdapter(['offline'], adapter)
+  ctx.llm.registerAdapter(['offline', 'temporary-offline'], adapter)
   const handle = await ctx.agents.create({
     sessionId: SessionId('compat-captain'),
     meta: { cwd: workspace },
@@ -500,4 +504,167 @@ test('Disposing AgentTeams restores the captain official native execution withou
   const session = await readStoredSession(ctx, native.value.subagentId)
   assert.equal(session.events.find(event => event.type === 'subagent/descriptor')?.data.label, '卸载后官方原生')
   assert.deepEqual(await readTeam(stateRoot, before.id), before)
+})
+
+const TEMPORARY_MEMBER_POLICY = {
+  provider: 'temporary-offline', model: 'alternate-model', reasoningMode: 'explicit', reasoningEffort: 'high',
+}
+
+function assertTemporaryRequest(request, childId) {
+  assert.equal(request.sessionId, childId, 'the selected request must belong to the actual delegated child')
+  assert.equal(request.provider, TEMPORARY_MEMBER_POLICY.provider)
+  assert.equal(request.model, TEMPORARY_MEMBER_POLICY.model)
+  assert.equal(request.reasoningEffort, TEMPORARY_MEMBER_POLICY.reasoningEffort)
+}
+
+test('Team trusted temporary default selects the configured provider, model and effort without enabling native model selection', { timeout: 15_000 }, async t => {
+  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams', { temporaryMember: TEMPORARY_MEMBER_POLICY })
+  const schema = ctx.tools.schemas(captain).find(item => item.name === 'subagent')
+  assert.equal(schema.parameters.properties.provider, undefined, 'the official tool schema remains closed to model-supplied overrides')
+  const result = await execute(captain, 'subagent', { description: '按临时默认模型处理', prompt: DELEGATED_PROMPT })
+  assert.equal(result.isError, false, text(result))
+  const team = await findTeamByCaptain(stateRoot, captain.id)
+  const member = team.members.find(item => item.id === result.value.subagentId)
+  assert.ok(member)
+  assert.equal(team.members.length, 1, 'temporary delegation must not instantiate the four Profile roles')
+  assert.equal(member.provider, TEMPORARY_MEMBER_POLICY.provider)
+  assert.equal(member.model, TEMPORARY_MEMBER_POLICY.model)
+  assert.equal(member.reasoningMode, 'explicit')
+  assert.equal(member.reasoningEffort, 'high')
+  await eventually(() => adapter.requests.length === 1, 'temporary child greeting never reached the actual LLM adapter')
+  assertTemporaryRequest(adapter.requests[0], member.id)
+  adapter.release(0)
+  const task = await assignedTask(stateRoot, team.id, member.name)
+  await eventually(() => adapter.requests.length === 2, 'temporary child assigned task never reached the actual LLM adapter')
+  assertTemporaryRequest(adapter.requests[1], member.id)
+  const child = ctx.agents.get(SessionId(member.id))
+  await completeTaskThroughMemberTools(execute, child, task)
+  adapter.release(1)
+})
+
+test('Team temporary default supports two same-role concurrent calls, later delegation and idle member reuse', { timeout: 20_000 }, async t => {
+  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams', { temporaryMember: TEMPORARY_MEMBER_POLICY })
+  const role = '相同临时职责'
+  const concurrent = await Promise.all([1, 2].map(index => execute(captain, 'subagent', {
+    description: role, prompt: `${DELEGATED_PROMPT} 并发 ${index}`,
+  })))
+  for (const result of concurrent) assert.equal(result.isError, false, text(result))
+  const childIds = concurrent.map(result => result.value.subagentId)
+  assert.equal(new Set(childIds).size, 2, 'concurrent calls cannot accidentally share a busy member')
+  await eventually(() => adapter.requests.length === 2, 'both independently routed child greetings must execute')
+  for (const request of adapter.requests) {
+    assert.ok(childIds.includes(request.sessionId))
+    assertTemporaryRequest(request, request.sessionId)
+  }
+  adapter.release(0)
+  adapter.release(1)
+  const team = await eventually(async () => {
+    const current = await findTeamByCaptain(stateRoot, captain.id)
+    return current?.tasks.length === 2 && current.tasks.every(task => task.attemptId) ? current : undefined
+  }, 'both same-role tasks must receive separate scheduler attempts')
+  await eventually(() => adapter.requests.length === 4, 'both independently routed child tasks must execute')
+  assert.equal(team.members.length, 2)
+  for (const request of adapter.requests.slice(2)) assertTemporaryRequest(request, request.sessionId)
+  for (const task of team.tasks) {
+    const member = team.members.find(item => item.name === task.assignee)
+    await completeTaskThroughMemberTools(execute, ctx.agents.get(SessionId(member.id)), task)
+  }
+  adapter.release(2)
+  adapter.release(3)
+  await eventually(() => childIds.every(id => ctx.agents.get(SessionId(id))?.status !== 'running'), 'completed children never settled to idle')
+
+  const third = await execute(captain, 'subagent', { description: '另一个临时职责', prompt: `${DELEGATED_PROMPT} 后续第三次` })
+  assert.equal(third.isError, false, text(third))
+  assert.equal(childIds.includes(third.value.subagentId), false)
+  await eventually(() => adapter.requests.length === 5, 'later temporary delegation never executed')
+  assertTemporaryRequest(adapter.requests[4], third.value.subagentId)
+
+  const reused = await execute(captain, 'subagent', { description: role, prompt: `${DELEGATED_PROMPT} 同职责再次调用` })
+  assert.equal(reused.isError, false, text(reused))
+  assert.ok(childIds.includes(reused.value.subagentId), 'an idle compatible member should remain reusable across repeated calls')
+  const after = await findTeamByCaptain(stateRoot, captain.id)
+  assert.equal(after.id, team.id)
+  assert.equal(after.members.length, 3)
+  assert.equal(after.tasks.length, 4)
+  await eventually(() => adapter.requests.length === 6, 'reused temporary member never executed the new assigned task')
+  assertTemporaryRequest(adapter.requests[5], reused.value.subagentId)
+})
+
+test('Unavailable temporary default fails before Team state or child creation instead of falling back to the captain route', { timeout: 15_000 }, async t => {
+  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams', {
+    temporaryMember: { ...TEMPORARY_MEMBER_POLICY, provider: 'unavailable-offline' },
+  })
+  const childrenBefore = await ctx.subagents.listChildren(captain.id)
+  const result = await execute(captain, 'subagent', { description: '不可用临时模型', prompt: DELEGATED_PROMPT })
+  assert.equal(result.isError, true, 'a missing configured provider cannot silently execute the captain model')
+  assert.match(text(result), /unavailable-offline|provider|unavailable/i)
+  assert.equal(await findTeamByCaptain(stateRoot, captain.id), undefined)
+  assert.deepEqual(await ctx.subagents.listChildren(captain.id), childrenBefore)
+  assert.equal(adapter.requests.length, 0)
+})
+
+test('Native delegation ignores the Team temporary default and retains the official parent route', { timeout: 15_000 }, async t => {
+  const { stateRoot, adapter, captain, execute } = await fixture(t, 'native', { temporaryMember: TEMPORARY_MEMBER_POLICY })
+  const result = await execute(captain, 'subagent', { description: '原生模型边界', prompt: DELEGATED_PROMPT })
+  assert.equal(result.isError, false, text(result))
+  assert.equal(await findTeamByCaptain(stateRoot, captain.id), undefined)
+  await eventually(() => adapter.requests.length === 1, 'official Native child never executed')
+  assert.equal(adapter.requests[0].sessionId, result.value.subagentId)
+  assert.equal(adapter.requests[0].provider, 'offline')
+  assert.equal(adapter.requests[0].model, 'offline-model')
+  assert.equal(adapter.requests[0].reasoningEffort, undefined)
+})
+
+test('Team temporary default does not become a global override for ordinary added members or frozen Profile routes', { timeout: 15_000 }, async t => {
+  const profiles = {
+    'explicit-profile': {
+      taskPlanning: 'captain', tasks: [], members: [{
+        name: 'reviewer', role: '固定代码审查', provider: 'offline', model: 'alternate-model',
+        reasoning_mode: 'explicit', reasoning_effort: 'low', executionPrompt: '保留审查职责与角色模型。',
+      }],
+    },
+  }
+  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams', { profiles, temporaryMember: TEMPORARY_MEMBER_POLICY })
+  const created = await execute(captain, 'agent_teams_create', { description: '角色与临时模型独立', profile: 'explicit-profile' })
+  assert.equal(created.isError, false, text(created))
+  const before = await readTeam(stateRoot, created.value.team_id)
+  const queued = await execute(captain, 'agent_teams_create_task', { subject: '固定角色审查', description: DELEGATED_PROMPT, assignee: 'reviewer' })
+  assert.equal(queued.isError, false, text(queued))
+  await eventually(() => adapter.requests.length === 1, 'the configured Profile reviewer never executed')
+  assert.equal(adapter.requests[0].provider, 'offline')
+  assert.equal(adapter.requests[0].model, 'alternate-model')
+  assert.equal(adapter.requests[0].reasoningEffort, 'low')
+  const ordinary = await execute(captain, 'agent_teams_add_member', { name: 'ordinary', role: '普通新增成员' })
+  assert.equal(ordinary.isError, false, text(ordinary))
+  await eventually(() => adapter.requests.length === 2, 'ordinary add-member never executed')
+  const ordinaryRequest = adapter.requests.find(request => request.sessionId === ordinary.value.member_id)
+  assert.equal(ordinaryRequest.provider, 'offline')
+  assert.equal(ordinaryRequest.model, 'offline-model')
+  const delegated = await execute(captain, 'subagent', { description: '临时专项工作', prompt: DELEGATED_PROMPT })
+  assert.equal(delegated.isError, false, text(delegated))
+  await eventually(() => adapter.requests.length === 3, 'temporary delegation alongside Profile members never executed')
+  assertTemporaryRequest(adapter.requests.find(request => request.sessionId === delegated.value.subagentId), delegated.value.subagentId)
+  const after = await readTeam(stateRoot, before.id)
+  for (const key of ['provider', 'model', 'reasoningMode', 'reasoningEffort', 'executionPrompt']) {
+    assert.equal(after.members.find(item => item.name === 'reviewer')[key], before.members.find(item => item.name === 'reviewer')[key], `temporary default rewrote Profile reviewer ${key}`)
+  }
+  assert.ok(ctx.agents.get(SessionId(delegated.value.subagentId)))
+})
+
+test('Advertised native call overrides win over the temporary default but remain subject to the official allowed-model list', { timeout: 15_000 }, async t => {
+  const { stateRoot, adapter, captain, execute } = await fixture(t, 'teams', { modelSelection: true, temporaryMember: TEMPORARY_MEMBER_POLICY })
+  const blocked = await execute(captain, 'subagent', {
+    description: '未授权显式模型', prompt: DELEGATED_PROMPT, provider: 'offline', model: 'blocked-model',
+  })
+  assert.equal(blocked.isError, true)
+  assert.equal(await findTeamByCaptain(stateRoot, captain.id), undefined)
+  const allowed = await execute(captain, 'subagent', {
+    description: '授权显式模型', prompt: DELEGATED_PROMPT, provider: 'offline', model: 'alternate-model', reasoning_effort: 'low',
+  })
+  assert.equal(allowed.isError, false, text(allowed))
+  await eventually(() => adapter.requests.length === 1, 'explicit allowed route never executed')
+  assert.equal(adapter.requests[0].sessionId, allowed.value.subagentId)
+  assert.equal(adapter.requests[0].provider, 'offline')
+  assert.equal(adapter.requests[0].model, 'alternate-model')
+  assert.equal(adapter.requests[0].reasoningEffort, 'low')
 })

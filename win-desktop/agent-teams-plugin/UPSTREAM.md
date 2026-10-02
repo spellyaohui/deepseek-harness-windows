@@ -9,8 +9,33 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.22-desktop.4`.
+- Desktop fork version is `0.1.22-desktop.5`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-10-02 desktop.5 temporary subagent route defaults
+
+Classification: REAPPLY. The AgentTeams settings page adds a separate optional
+temporaryMember policy for captain subagent calls in Team mode. Provider/model
+and the three existing reasoning modes use the shared role-selection contract,
+without overriding Profile members. Unconfigured installations retain existing
+selection; Native mode and explicit tool schema/allowlists remain unchanged.
+The host-owned default applies to description/prompt-only calls and fails before
+durable writes when unavailable. Concurrent/repeated calls still use real Team
+tasks and the durable child gateway; idle reuse requires the same pinned policy.
+Changing defaults does not rewrite existing members.
+
+The entire policy is one SettingsForms CAS operation. Editing or cancelling a
+failed draft retires that retry payload; unrelated failed writes remain intact.
+Evidence: twenty real-runtime offline compatibility tests, settings normalization
+and serialized-client regressions, and real Loader/ConfigEditor save/restart,
+stale-revision and Home/CLI overlay refusal tests pass. The full install-free
+verify:upstream gate passes before this record. Harness stays 0.2.0-rc.2; no user
+state migration or live provider request is part of this change.
+
+Real Electron 44 interaction checks cover failed Save/retry, failed Save/cancel,
+editing after failure, clearing explicit effort on a mode switch, and Native
+isolation. Computed layouts at 320/560/800px have no horizontal overflow or
+renderer errors; an actual browser preview verifies the same component visually.
 
 ## 2026-10-01 desktop.4 captain subagent compatibility
 

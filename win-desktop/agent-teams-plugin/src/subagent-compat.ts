@@ -12,6 +12,7 @@ import { agentTeamsSubagentGateway } from './subagent-gateway.ts'
 import { resolveMemberLlmSelection, validateMemberLlmSelections } from './members.ts'
 import { findTeamByParticipant, readTeam, withTeamLock } from './state.ts'
 import { TERMINAL_TASK_STATUSES, type TeamState } from './types.ts'
+import type { AgentTeamsSettingsRuntime } from './settings.ts'
 
 interface NativeRequest {
   description: string
@@ -62,7 +63,9 @@ async function waitForTask(ctx: Context, captain: Agent, root: string, teamId: s
 }
 
 /** Only the official desktop continuable contract is adapted; Native is untouched. */
-export function createSubagentCompatibility(ctx: Context, config: { stateDir: string; maxMembers: number }): SubagentCompatibility {
+export function createSubagentCompatibility(ctx: Context, config: {
+  stateDir: string; maxMembers: number; settings?: AgentTeamsSettingsRuntime
+}): SubagentCompatibility {
   return async exec => {
     if (exec.agent === undefined) throw new Error('subagent requires a calling captain')
     const captain = agentTeamsSubagentGateway(ctx).resolveParent(exec.agent)
@@ -86,7 +89,11 @@ export function createSubagentCompatibility(ctx: Context, config: { stateDir: st
     const effort = args.reasoning_effort?.trim() || undefined
     if ((provider === undefined) !== (model === undefined)) throw new Error('subagent provider and model must be supplied together')
     const route = captain.session.requestHeader()?.config ?? captain.options
-    const selection = await resolveMemberLlmSelection(ctx, captain, {
+    const explicitRoute = provider !== undefined || effort !== undefined
+    const temporaryPolicy = config.settings?.get().temporaryMember
+    // Host-owned defaults apply even when native model-selection arguments are
+    // disabled. Tool-supplied overrides still use the official schema/allowlist.
+    const selection = await resolveMemberLlmSelection(ctx, captain, !explicitRoute && temporaryPolicy !== undefined ? temporaryPolicy : {
       provider: effort === undefined ? provider : provider ?? route.provider,
       model: effort === undefined ? model : model ?? route.model,
       reasoningMode: effort === undefined ? 'target-default' : 'explicit',
@@ -111,23 +118,23 @@ export function createSubagentCompatibility(ctx: Context, config: { stateDir: st
       }
       if (team === undefined) throw new Error('created Team could not be read')
       assertRunning(team)
-      const explicitRoute = provider !== undefined || effort !== undefined
+      const pinSelection = explicitRoute || temporaryPolicy !== undefined
       // Reuse only our own idle compatibility members of the same role. Existing
       // Profile members retain their individual route, prompt and task ownership.
       let member = team.members.find(candidate => candidate.name.startsWith('subagent-')
         && candidate.role === args.description && candidate.status !== 'removed'
         && !team!.tasks.some(task => task.assignee === candidate.name && !TERMINAL_TASK_STATUSES.includes(task.status))
         && ctx.agents.get(candidate.id as import('@deepseek-ai/dsh-session').SessionId)?.status !== 'running'
-        && (!explicitRoute || (candidate.provider === selection.provider && candidate.model === selection.model
+        && (!pinSelection || (candidate.provider === selection.provider && candidate.model === selection.model
           && candidate.reasoningMode === selection.reasoningMode && candidate.reasoningEffort === selection.reasoningEffort)))
       if (member === undefined) {
         if (team.members.filter(candidate => candidate.status !== 'removed').length >= config.maxMembers) throw new Error('Team member limit reached; finish or remove an existing member before delegating another subagent')
         const added = await invoke(ctx, exec, 'agent_teams_add_member', {
           name: `subagent-${randomBytes(6).toString('hex')}`,
           role: args.description,
-          ...(explicitRoute ? {
+          ...(pinSelection ? {
             provider: selection.provider, model: selection.model, reasoning_mode: selection.reasoningMode,
-            ...(effort === undefined ? {} : { reasoning_effort: effort }),
+            ...(selection.reasoningMode !== 'explicit' ? {} : { reasoning_effort: selection.reasoningEffort }),
           } : {}),
         })
         team = await readTeam(root, team.id)

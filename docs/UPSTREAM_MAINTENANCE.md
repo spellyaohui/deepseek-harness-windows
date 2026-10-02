@@ -12,11 +12,42 @@ prove it still exists.
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode manual validation plugin: retired at desktop `0.2.0-rc.4` by user request
-- AgentTeams fork: `0.1.22-desktop.4`, based on upstream `v0.1.22` at fixed commit
+- AgentTeams fork: `0.1.22-desktop.5`, based on upstream `v0.1.22` at fixed commit
   `9cba4fe4171f27c019991cafd2a107f87ef3517b`
 - CPA provider plugin: `0.1.11`
 - Models settings fork: `0.2.0-rc.2-desktop.3`
 - Desktop Settings plugin: `0.1.4`
+
+## Pending AgentTeams desktop.5 temporary subagent defaults — 2026-10-02
+
+AgentTeams owns this REAPPLY capability through settings.ts, the settings client
+and subagent-compat.ts. A separate optional temporaryMember policy applies only
+to Team-mode captain subagent calls without explicit tool route/effort. It does
+not select a Profile or override its roles, and keeps Native settings separate.
+The shared model catalog and role-selection contract own provider/model and
+target-default, route-aware or explicit reasoning. The existing tool schema and
+Session allowlists still govern model-supplied overrides; trusted saved defaults
+are not advertised as tool parameters. Invalid/unavailable defaults fail before
+durable admission, never silently falling back to the captain.
+
+Repeated and concurrent calls retain member limits, running-child exclusion and
+the single durable gateway. Existing members stay frozen; only compatible idle
+temporary members can be reused for a selected default. One CAS write persists
+the complete policy, with cancellation/editing clearing stale failed retries.
+The twenty real-runtime offline team-subagent-compat tests cover concurrent
+description/prompt-only calls, explicit defaults, unavailable routes, original
+role inheritance and Native restrictions. Settings normalization tests check
+all reasoning modes and live default changes. Settings/client tests and
+tests/agent-teams-settings-save.test.js retain save/
+restart, atomic validation, stale revision and Home/CLI refusal evidence. The
+full offline source gate passed before provenance update. This local capability
+does not change the pinned Harness or AgentTeams upstream revision and is not
+included in the already-published rc.10 installer.
+
+Actual Electron 44 checks exercise Save/retry, cancel/edit after a failed Save,
+explicit-effort clearing and Native isolation, with no renderer errors. At
+320/560/800px, the page and controls have no horizontal overflow; browser
+screenshots verify the actual component layout. External LLM calls are not used.
 
 ## Desktop 0.2.0-rc.10 preset dependency repair and portable build inputs — 2026-10-01
 

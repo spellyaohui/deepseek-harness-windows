@@ -2,6 +2,12 @@
 
 本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.10`；[最新安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)。
 
+## 待发布：临时子智能体默认模型
+
+- 设置 → AgentTeams 团队新增独立的“临时子智能体”配置，选择 Provider、模型及目标默认/路由感知/明确指定思考策略。
+- Team 模式的临时 `subagent` 调用支持连续及并发使用该默认；不覆盖 Profile 角色路由，Native 模式保持独立。保存对后续调用生效，已有成员路由保留。
+- AgentTeams 本地包为 `0.1.22-desktop.5`，Harness 固定 `0.2.0-rc.2`；rc.10 已发布安装包尚未包含此功能。
+
 ## `v0.2.0-rc.10` 更新说明
 
 - 修复关闭内置联网工具后，旧 `web: disabled: true` 配置导致 Agent 预设加载失败的问题；不改写用户配置。

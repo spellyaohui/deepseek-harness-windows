@@ -42,8 +42,10 @@ if (process.argv.includes('--fixture')) {
     const original = descriptor()
     assert.ok(original, 'AgentTeams settings must mount')
     assert.equal(original.value.delegationMode, 'teams')
-    await ctx.settings.replace('agent-teams', { delegationMode: 'native' }, original.revision)
+    const temporaryMember = { provider: 'fixture-provider', model: 'fixture-model', reasoningMode: 'explicit', reasoningEffort: 'high' }
+    await ctx.settings.replace('agent-teams', { delegationMode: 'native', temporaryMember }, original.revision)
     assert.equal(descriptor().value.delegationMode, 'native')
+    assert.deepEqual(descriptor().value.temporaryMember, temporaryMember)
     const stored = readFileSync(patchPath, 'utf8')
     assert.match(stored, /delegationMode: native/)
     assert.deepEqual(yaml.load(stored).find(row => row.id === 'unrelated-user-row').config, { retain: 'fixture-only-value' })
@@ -55,7 +57,12 @@ if (process.argv.includes('--fixture')) {
     await ctx.fiber.dispose()
     ctx = await open()
     assert.equal(descriptor().value.delegationMode, 'native', 'saved mode must survive restart')
-    await ctx.settings.replace('agent-teams', { delegationMode: 'teams' }, descriptor().revision)
+    assert.deepEqual(descriptor().value.temporaryMember, temporaryMember, 'the complete temporary route and effort survive restart')
+    await assert.rejects(ctx.settings.replace('agent-teams', {
+      delegationMode: 'native', temporaryMember: { provider: 'fixture-provider', reasoningMode: 'explicit' },
+    }, descriptor().revision))
+    assert.equal(readFileSync(patchPath, 'utf8'), stored, 'invalid temporary defaults do not partially overwrite saved settings')
+    await ctx.settings.replace('agent-teams', { delegationMode: 'teams', temporaryMember }, descriptor().revision)
     assert.equal(descriptor().value.delegationMode, 'teams')
     const finalEntry = ctx.configEditor.entries().find(row => row.options.id === 'agent-teams')
     const explicitOverride = { id: 'agent-teams', name: finalEntry.options.name, config: { ...finalEntry.options.config, delegationMode: 'native' } }
