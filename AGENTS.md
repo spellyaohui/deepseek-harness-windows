@@ -139,6 +139,22 @@ evidence that the local capability is preserved.
   prove an `UPSTREAM_EQUIVALENT` authenticated handoff before changing this
   boundary.
 
+## Windows console-hide interaction invariants
+
+- The child-process preload covers `spawn`, `spawnSync`, `execSync`,
+  `execFile`, `execFileSync` and `fork`; asynchronous `exec` remains covered
+  through Node's exported `execFile`. Legal omitted, undefined and null options
+  overloads retain callbacks, stdio, output and non-zero exit errors. Native
+  invalid overloads, including a null third options slot for spawn/spawnSync,
+  must retain their original rejection.
+- `windowsHide: false` is an explicit visibility opt-out. Preserve invalid
+  explicit values for each runtime's native validation/coercion, and never
+  mutate caller options, including Electron fork options. Keep the real native
+  boundary regressions in `tests/win-hide-console.test.js` through refreshes.
+- An npm `.cmd` shim or a multi-process MCP chain alone does not establish a
+  visible-console cause. Keep compatibility provider/tool neutral; do not
+  replace user MCP commands with machine-specific CodeGraph paths.
+
 ## Wrapper tool-call guidance and AUTO removal invariants
 
 - `@deepseek-ai/dsh-tool-call-guidance` registers one system-prompt section at

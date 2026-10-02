@@ -8,7 +8,7 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.10`
+- Windows desktop wrapper: `0.2.0-rc.11` (pending release)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode manual validation plugin: retired at desktop `0.2.0-rc.4` by user request
@@ -17,6 +17,33 @@ prove it still exists.
 - CPA provider plugin: `0.1.11`
 - Models settings fork: `0.2.0-rc.2-desktop.3`
 - Desktop Settings plugin: `0.1.4`
+
+## Pending desktop 0.2.0-rc.11 console guard coverage — 2026-10-02
+
+Classification: REAPPLY. The Windows wrapper owns this provider/tool-neutral
+preload change; Harness stays pinned to 0.2.0-rc.2. The installed rc.10 process
+already loads the preload, and a real isolated Electron 44 / modular MCP client
+handshake with CodeGraph through its npm .cmd shim reaches cmd.exe with
+windowsHide=true. This evidence does not establish the source of an observed
+visible-window flash; process count and a shim title command are not causal
+proof.
+
+Red regressions found two actual gaps: execSync calls Node's internal lexical
+spawnSync and bypasses the exported-method patch; explicit undefined/null
+options slots were incorrectly handled by the generic argument appender.
+The guard now covers execSync and locates each method's legal options slot.
+Asynchronous exec remains covered through the exported execFile. Explicit
+windowsHide=false, illegal values/overloads, callbacks, stdio, output and
+non-zero exit errors retain their native semantics. Options are copied even
+for explicit visibility, preventing Electron fork from mutating caller input.
+
+tests/win-hide-console.test.js has 19 passing tests under Windows Node 24.19,
+Node 26.7 and Electron 44. Native process options/flags are observed while real
+children execute; invalid-type cases compare against each runtime's unpatched
+baseline and prove rejection before spawning. The full offline, install-free
+verify:upstream gate passed before this record (167 wrapper tests, zero skips).
+Independent review passed. This is source-only pending work; the published
+rc.10 installer and upstream provenance remain unchanged.
 
 ## Pending AgentTeams desktop.5 temporary subagent defaults — 2026-10-02
 
@@ -503,7 +530,7 @@ authoritative for current versions, source identities and ownership decisions.
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
 | Wrapper-wide tool-call guidance: derive arguments from current schemas/context, omit unknown or blank optional properties unless empty is explicitly meaningful, and never repeat failed invalid arguments unchanged | `win-desktop/tool-call-guidance-plugin` | Independent local system-prompt plugin. It registers no tools, settings, Provider behavior, or lifecycle state and stays at or below 500 characters. | `tool-call-guidance-plugin/lib/index.js`, `package.json`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `scripts/sync-local-plugin-artifacts.mjs` | `tests/tool-call-guidance.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest test |
-| Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: official Node hiding and hidden Win32 STARTUPINFO replace duplicate flags; retain only runner preload inheritance and validator-first argument normalization | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
+| Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: official Node hiding and hidden Win32 STARTUPINFO replace duplicate flags; retain runner preload inheritance, validator-first argument normalization and the ordinary child-process guard, including execSync and legal options overloads. Preserve explicit visibility, native validation/coercion and caller options. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Node/Electron child-process boundaries, Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
 | Keep the official native Subagent plugin settings card and the local AgentTeams section separately visible, while retaining Host namespaces, saved settings, official runtime closure and AgentTeams spawn | Official Native client plus `win-desktop/agent-teams-plugin` | `SUPERSEDED_BY_DESIGN`: the user chose separate Native/Team responsibilities for 0.1.7. The old hiding transformer is removed; official initial and HMR bundle snapshots are unmodified. | `agent-teams-plugin/src/client/index.tsx`, `agent-teams-plugin/src/client/locales.ts`, `src/win-hide-console-rewrite.js` | `tests/subagent-settings-card-visibility.test.js`, `tests/agent-teams-integration.test.js`, and the local capability manifest test |
 | Alpha.2 authenticated startup URL handoff and bounded loopback Cookie recovery: retain the complete canonical `http://127.0.0.1:<port>/?token=...` readiness URL, reject a bare loopback origin, never persist or document the process token, clear only stale `127.0.0.1` `dsh-auth-*` Cookies before the initial authenticated load, and recover once from a current-origin `/plugins/` HTTP 431 without a reload loop | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: Alpha.2 owns token issuance, cookie exchange, and clean-root redirect; the wrapper owns lossless capture of the official `dsh web:` URL plus the narrow cleanup required because Cookie scope does not isolate random ports. | `src/dsh-service.js`, `src/main.js`, `src/loopback-auth-cookies.js` | `tests/dsh-web-auth-url.test.js`, `tests/loopback-auth-cookies.test.js`, and the local capability manifest test |
 | Provider-neutral `grep` argument alias normalization at the `dsh-llm-pi-ai` durable tool-call boundary, limited to a missing `pattern` plus an exact single-line `description: "pattern: <non-empty value>"` shape | `win-desktop` | `REAPPLY` until upstream performs an equivalent deterministic normalization. No provider/model routing or optional settings toggle owns this behavior; existing `pattern` values and every ambiguous malformed call remain under the strict upstream Schema. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/grep-tool-argument-compatibility.test.js` and the local capability manifest test |

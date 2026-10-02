@@ -342,6 +342,243 @@ test('console-hide --import still lets Node spawn cmd with piped output', () => 
   assert.match(result.stdout, /hide-console-ok/)
 })
 
+test('console-hide preload reaches execSync native spawn options', () => {
+  if (process.platform !== 'win32') return
+  const hook = resolveWinHideConsoleImport()
+  const source = `
+    import childProcess from 'node:child_process'
+    const nativeSpawn = process.binding('spawn_sync')
+    const original = nativeSpawn.spawn
+    const calls = []
+    nativeSpawn.spawn = function (...args) {
+      calls.push({ windowsHide: args[0].windowsHide, shell: /cmd\\.exe$/i.test(args[0].file) })
+      return original.apply(this, args)
+    }
+    const scenarios = [
+      { name: 'omitted', args: [] },
+      { name: 'undefined', args: [undefined] },
+      { name: 'null', args: [null] },
+      { name: 'encoding', args: [{ encoding: 'utf8' }] },
+      { name: 'explicit-visible', args: [{ encoding: 'utf8', windowsHide: false }] },
+      { name: 'nonzero', args: [{ encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }] },
+    ]
+    const rows = scenarios.map(scenario => {
+      const previous = JSON.stringify(scenario.args)
+      let result
+      try {
+        const output = childProcess.execSync(scenario.name === 'nonzero'
+          ? 'echo exec-sync-out & echo exec-sync-err 1>&2 & exit /b 7'
+          : 'echo exec-sync-hide-ok', ...scenario.args)
+        result = { output: output.toString().trim(), buffer: Buffer.isBuffer(output) }
+      } catch (error) {
+        result = { status: error.status, output: error.stdout?.toString().trim(), stderr: error.stderr?.toString().trim() }
+      }
+      return { name: scenario.name, ...result, native: calls.at(-1), unchanged: previous === JSON.stringify(scenario.args) }
+    })
+    console.log(JSON.stringify({ calls, rows }))
+  `
+  const result = spawnSync(process.execPath, ['--import', hook, '--input-type=module', '-e', source], {
+    encoding: 'utf8', windowsHide: true,
+  })
+  assert.equal(result.status, 0, result.stderr)
+  const probe = JSON.parse(result.stdout.trim())
+  assert.equal(probe.calls.length, 6)
+  for (const row of probe.rows) {
+    assert.equal(row.unchanged, true, `${row.name}: guard must not mutate caller options`)
+    assert.equal(row.native.shell, true)
+    if (row.name === 'nonzero') {
+      assert.equal(row.status, 7, 'nonzero exit must still throw its original status')
+      assert.equal(row.output, 'exec-sync-out')
+      assert.equal(row.stderr, 'exec-sync-err')
+    } else {
+      assert.equal(row.output, 'exec-sync-hide-ok')
+      assert.equal(row.buffer, ['omitted', 'undefined', 'null'].includes(row.name))
+    }
+  }
+  assert.deepEqual(probe.rows.map(row => [row.name, row.native.windowsHide]), [
+    ['omitted', true], ['undefined', true], ['null', true], ['encoding', true], ['explicit-visible', false], ['nonzero', true],
+  ], 'execSync must hide all legal default overloads and retain an explicit opt-out')
+})
+
+test('console-hide preserves legal child-process options overloads at real native boundaries', () => {
+  if (process.platform !== 'win32') return
+  const hook = resolveWinHideConsoleImport()
+  const fixture = fileURLToPath(new URL('./fixtures/echo-hide-console.mjs', import.meta.url))
+  const source = `
+    const childProcess = require('node:child_process')
+    const asyncNative = process.binding('process_wrap').Process.prototype
+    const originalAsync = asyncNative.spawn
+    const syncNative = process.binding('spawn_sync')
+    const originalSync = syncNative.spawn
+    const calls = []
+    asyncNative.spawn = function (...args) {
+      // Node 24 accepts an options object; Node 26 lowered this boundary to flags.
+      calls.push(typeof args[0] === 'object' ? { hidden: args[0].windowsHide } : { flags: args[5] })
+      return originalAsync.apply(this, args)
+    }
+    syncNative.spawn = function (...args) {
+      calls.push({ hidden: args[0].windowsHide })
+      return originalSync.apply(this, args)
+    }
+    async function wait(child) {
+      let output = ''
+      child.stdout?.on('data', data => { output += data.toString() })
+      const status = await new Promise((resolve, reject) => {
+        child.once('error', reject)
+        child.once('close', resolve)
+      })
+      return { status, output: output.trim() }
+    }
+    async function run() {
+      const command = process.env.ComSpec ?? 'cmd.exe'
+      const commandArgs = ['/d', '/s', '/c', 'echo overload-hide-ok']
+      await wait(childProcess.spawn(command, commandArgs, { windowsHide: false }))
+      const visibleFlags = calls.at(-1).flags
+      await wait(childProcess.spawn(command, commandArgs, { windowsHide: true }))
+      const hiddenFlags = calls.at(-1).flags
+      const hiddenMask = visibleFlags === undefined ? undefined : hiddenFlags ^ visibleFlags
+      const rows = []
+      for (const method of ['spawn', 'spawnSync', 'exec', 'execFile', 'execFileSync', 'fork']) {
+        for (const [shape, optionArgs] of [
+          ['omitted', []], ['undefined', [undefined]], ['null', [null]], ['explicit-visible', [{ windowsHide: false }]],
+        ]) {
+          const before = calls.length
+          const previous = JSON.stringify(optionArgs)
+          const args = method === 'exec' ? ['echo overload-hide-ok', ...optionArgs]
+            : [method === 'fork' ? ${JSON.stringify(fixture)} : command, method === 'fork' ? [] : commandArgs, ...optionArgs]
+          let result
+          try {
+            if (method === 'exec' || method === 'execFile') {
+              result = await new Promise((resolve, reject) => {
+                childProcess[method](...args, (error, output) => error ? reject(error) : resolve({ status: 0, output: output.toString().trim() }))
+              })
+            } else if (method === 'spawn' || method === 'fork') {
+              result = await wait(childProcess[method](...args))
+            } else if (method === 'spawnSync') {
+              const child = childProcess.spawnSync(...args)
+              if (child.error) throw child.error
+              result = { status: child.status, output: child.stdout.toString().trim() }
+            } else {
+              result = { status: 0, output: childProcess.execFileSync(...args).toString().trim() }
+            }
+          } catch (error) { result = { code: error.code } }
+          const native = calls.length === before ? undefined : calls.at(-1)
+          rows.push({ method, shape, ...result,
+            windowsHide: native && ('hidden' in native ? native.hidden : !!(native.flags & hiddenMask)),
+            nativeCalls: calls.length - before, unchanged: previous === JSON.stringify(optionArgs),
+          })
+        }
+      }
+      console.log('console-guard-probe:' + JSON.stringify({ hiddenMask, rows }))
+    }
+    run().catch(error => { console.error(error.code ?? error.message); process.exitCode = 1 })
+  `
+  const result = spawnSync(process.execPath, ['--import', hook, '-e', source], {
+    encoding: 'utf8', windowsHide: true,
+  })
+  assert.equal(result.status, 0, result.stderr)
+  const probe = JSON.parse(result.stdout.split(/\r?\n/).find(line => line.startsWith('console-guard-probe:')).slice('console-guard-probe:'.length))
+  if (probe.hiddenMask !== undefined) assert.notEqual(probe.hiddenMask, 0, 'native hide flag calibration must distinguish explicit true and false')
+  const expected = []
+  for (const method of ['spawn', 'spawnSync', 'exec', 'execFile', 'execFileSync', 'fork']) {
+    for (const shape of ['omitted', 'undefined', 'null', 'explicit-visible']) {
+      const row = probe.rows.find(row => row.method === method && row.shape === shape)
+      assert.equal(row.unchanged, true, `${method}/${shape}: caller options must stay unchanged`)
+      const invalidNull = ['spawn', 'spawnSync'].includes(method) && shape === 'null'
+      if (invalidNull) {
+        expected.push({ method, shape, code: 'ERR_INVALID_ARG_TYPE', nativeCalls: 0 })
+      } else {
+        expected.push({ method, shape, status: 0, windowsHide: shape !== 'explicit-visible', nativeCalls: 1 })
+        if (method !== 'fork') assert.equal(row.output, 'overload-hide-ok', `${method}/${shape}: legal overload must retain output`)
+      }
+    }
+  }
+  assert.deepEqual(probe.rows.map(({ method, shape, status, code, windowsHide, nativeCalls }) => ({
+    method, shape, ...(code === undefined ? { status, windowsHide } : { code }), nativeCalls,
+  })), expected, 'legal overloads must reach the hidden native path; invalid null spawn options stay rejected')
+})
+
+test('console-hide retains native windowsHide validation without starting rejected children', () => {
+  if (process.platform !== 'win32') return
+  const hook = resolveWinHideConsoleImport()
+  const fixture = fileURLToPath(new URL('./fixtures/echo-hide-console.mjs', import.meta.url))
+  const source = `
+    const childProcess = require('node:child_process')
+    const asyncNative = process.binding('process_wrap').Process.prototype
+    const originalAsync = asyncNative.spawn
+    const syncNative = process.binding('spawn_sync')
+    const originalSync = syncNative.spawn
+    let nativeCalls = 0
+    asyncNative.spawn = function (...args) { nativeCalls++; return originalAsync.apply(this, args) }
+    syncNative.spawn = function (...args) { nativeCalls++; return originalSync.apply(this, args) }
+    async function wait(child) {
+      let output = ''
+      child.stdout?.on('data', data => { output += data.toString() })
+      const status = await new Promise((resolve, reject) => {
+        child.once('error', reject)
+        child.once('close', resolve)
+      })
+      return { status, output: output.trim() }
+    }
+    async function run() {
+      const command = process.env.ComSpec ?? 'cmd.exe'
+      const commandArgs = ['/d', '/s', '/c', 'echo invalid-option-ok']
+      const rows = []
+      for (const method of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork']) {
+        for (const [shape, windowsHide] of [['string', 'invalid'], ['number', 1], ['null', null]]) {
+          const options = { windowsHide, encoding: 'utf8', silent: true }
+          const before = nativeCalls
+          const previous = JSON.stringify(options)
+          const args = method === 'exec' || method === 'execSync' ? ['echo invalid-option-ok', options]
+            : [method === 'fork' ? ${JSON.stringify(fixture)} : command, method === 'fork' ? [] : commandArgs, options]
+          let result
+          try {
+            if (method === 'exec' || method === 'execFile') {
+              result = await new Promise((resolve, reject) => {
+                childProcess[method](...args, (error, output) => error ? reject(error) : resolve({ status: 0, output: output.toString().trim() }))
+              })
+            } else if (method === 'spawn' || method === 'fork') {
+              result = await wait(childProcess[method](...args))
+            } else if (method === 'spawnSync') {
+              const child = childProcess.spawnSync(...args)
+              if (child.error) throw child.error
+              result = { status: child.status, output: child.stdout.toString().trim() }
+            } else {
+              result = { status: 0, output: childProcess[method](...args).toString().trim() }
+            }
+          } catch (error) { result = { code: error.code } }
+          rows.push({ method, shape, ...result, nativeCalls: nativeCalls - before, unchanged: previous === JSON.stringify(options) })
+        }
+      }
+      console.log('console-validation-probe:' + JSON.stringify(rows))
+    }
+    run().catch(error => { console.error(error.code ?? error.message); process.exitCode = 1 })
+  `
+  const probe = imports => {
+    const result = spawnSync(process.execPath, [...imports, '-e', source], { encoding: 'utf8', windowsHide: true })
+    assert.equal(result.status, 0, result.stderr)
+    return JSON.parse(result.stdout.split(/\r?\n/).find(line => line.startsWith('console-validation-probe:')).slice('console-validation-probe:'.length))
+  }
+  const baseline = probe([])
+  const expected = []
+  for (const method of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork']) {
+    for (const shape of ['string', 'number', 'null']) {
+      // Async exec/execFile coerce this option natively; null is legal everywhere.
+      const rejects = !['exec', 'execFile'].includes(method) && shape !== 'null'
+      expected.push({ method, shape, ...(rejects
+        ? { code: 'ERR_INVALID_ARG_TYPE', nativeCalls: 0 }
+        : { status: 0, output: method === 'fork' ? 'hide-console-ok' : 'invalid-option-ok', nativeCalls: 1 }) })
+    }
+  }
+  // Electron's native fork shim mutates options. Its validation/output remain
+  // the baseline; the guard independently promises to protect caller options.
+  const semantics = rows => rows.map(({ unchanged, ...row }) => row)
+  assert.deepEqual(semantics(baseline), expected, 'verify native legality before classifying options as invalid')
+  const guarded = probe(['--import', hook])
+  assert.deepEqual(semantics(guarded), semantics(baseline), 'guard must preserve native rejection before any child process starts')
+  for (const row of guarded) assert.equal(row.unchanged, true, `${row.method}/${row.shape}: guard must protect caller options`)
+})
+
 test('desktop AgentTeams overlay leaves member selection to the local plugin', () => {
   const overlay = readFileSync(resolveAgentTeamsPatch(), 'utf8')
   assert.match(overlay, /@nanmicoder\/dsh-agent-teams/)

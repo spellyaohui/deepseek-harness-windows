@@ -50,9 +50,9 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.2.0-rc.10')
-  assert.equal(packageLock.version, '0.2.0-rc.10')
-  assert.equal(packageLock.packages[''].version, '0.2.0-rc.10')
+  assert.equal(packageJson.version, '0.2.0-rc.11')
+  assert.equal(packageLock.version, '0.2.0-rc.11')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.11')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
   assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.3')

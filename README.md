@@ -2,14 +2,15 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.10` · [最新安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)
+> 当前源码版本：`v0.2.0-rc.11`（待发布） · [最新安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)
 
-## 待发布：临时子智能体默认模型
+## 待发布：`v0.2.0-rc.11`
 
 - 设置 → AgentTeams 团队新增“临时子智能体”，单独选择 Provider、模型及思考策略，适用于 Team 模式下主智能体的临时 `subagent` 调用。
 - 支持连续和同时调用多个子智能体；无需创建四角色团队。Profile 中各角色的指定模型保持独立，Native 模式仍使用原生设置。
 - 未设置临时默认时沿用现有路由；指定模型不可用会明确报错。保存影响后续调用，已创建成员保留原路由。
-- 本地 AgentTeams 为 `0.1.22-desktop.5`，Harness 继续固定 `0.2.0-rc.2`。上述更新尚未包含在 rc.10 安装包中。
+- Windows 控制台补丁补齐同步 `execSync` 和合法空 options 参数的覆盖，保留显式显示选项、原生参数校验、输出及退出错误。
+- 本地 AgentTeams 为 `0.1.22-desktop.5`，Harness 继续固定 `0.2.0-rc.2`。这些源码更新尚未包含在 rc.10 安装包中。
 
 ## `v0.2.0-rc.10` 更新说明
 

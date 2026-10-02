@@ -2,7 +2,7 @@
  * Rewrite official dsh ESM sources so a GUI Electron host does not flash
  * console windows when tools or the Windows ACL runner spawn children.
  *
- * CREATE_NO_WINDOW (Node `windowsHide`) is safe for ordinary Node spawn.
+ * Node `windowsHide` hides ordinary child-process console windows.
  * Restricted-token sandbox children die with STATUS_DLL_INIT_FAILED if that
  * flag is set, so those CreateProcessAsUserW calls get STARTF_USESHOWWINDOW
  * + SW_HIDE instead — a console still exists, but the window stays hidden.
@@ -521,20 +521,26 @@ export function rewriteKnownToolArgumentAliases(source) {
 function injectWindowsHide(options) {
   if (options == null) return { windowsHide: true }
   if (typeof options !== 'object' || Array.isArray(options)) return options
-  if (options.windowsHide === false) return options
+  // Preserve explicit visibility and leave invalid values to Node's validator.
+  if (options.windowsHide != null && options.windowsHide !== true) return { ...options }
   return { ...options, windowsHide: true }
 }
 
-export function injectWindowsHideArgs(args) {
+export function injectWindowsHideArgs(args, method) {
   const copy = [...args]
-  const callback = typeof copy.at(-1) === 'function' ? copy.pop() : undefined
-  const last = copy.at(-1)
-  if (last && typeof last === 'object' && !Array.isArray(last)) {
-    copy[copy.length - 1] = injectWindowsHide(last)
+  // Node overloads place options before an optional callback; an explicit
+  // undefined/null placeholder still occupies that slot. execSync has no args.
+  const optionsAt = method === 'execSync' ? 1
+    : Array.isArray(copy[1]) || (copy[1] == null && copy.length > 2) ? 2 : 1
+  const options = copy[optionsAt]
+  // Native spawn rejects a null options object. Preserve that validation.
+  if (optionsAt === 2 && options === null && (method === 'spawn' || method === 'spawnSync')) return copy
+  if (typeof options === 'function') {
+    if (method !== undefined && method !== 'execFile') return copy
+    copy.splice(optionsAt, 0, injectWindowsHide(undefined))
   } else {
-    copy.push({ windowsHide: true })
+    copy[optionsAt] = injectWindowsHide(options)
   }
-  if (callback) copy.push(callback)
   return copy
 }
 
@@ -542,11 +548,11 @@ const INSTALLED = Symbol.for('dsh-desktop.win-hide-console')
 
 export function patchNodeChildProcess(childProcess) {
   if (!childProcess || childProcess[INSTALLED]) return childProcess
-  for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'fork']) {
+  for (const name of ['spawn', 'spawnSync', 'execSync', 'execFile', 'execFileSync', 'fork']) {
     const original = childProcess[name]
     if (typeof original !== 'function') continue
     childProcess[name] = function patchedChildProcessFn(...args) {
-      return original.apply(this, injectWindowsHideArgs(args))
+      return original.apply(this, injectWindowsHideArgs(args, name))
     }
   }
   childProcess[INSTALLED] = true
