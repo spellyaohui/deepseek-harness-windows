@@ -28,7 +28,7 @@ const localVersions = {
   '@deepseek-ai/dsh-client-ui-settings-models': '0.2.0-rc.2-desktop.4',
   '@deepseek-ai/dsh-cpa-provider': '0.1.11',
   '@deepseek-ai/dsh-desktop-settings': '0.1.5',
-  '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
+  '@deepseek-ai/dsh-tool-call-guidance': '0.1.1',
   'dsh-output-limit-finish': '0.1.0',
   '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.9',
 }

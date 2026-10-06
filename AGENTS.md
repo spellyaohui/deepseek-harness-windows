@@ -155,7 +155,8 @@ evidence that the local capability is preserved.
   and explicit context; omit unknown or blank optional properties; preserve an
   empty value only when the tool explicitly documents its meaning; after a
   failure, read the error/next step and never repeat the same invalid arguments
-  unchanged.
+  unchanged; an invalid-arguments rejection is the caller's mistake, so fix the
+  named field and retry instead of reporting a tool fault.
 - The AUTO permission plugin is intentionally absent from dependencies,
   lockfile, desktop Patch composition, healing expectations, prompt, UI, and
   documentation. Do not restore it during conflict resolution. Do not migrate

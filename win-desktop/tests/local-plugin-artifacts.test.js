@@ -38,7 +38,7 @@ test('tool guidance is synchronized as a wrapper-owned local artifact', () => {
     new URL('../tool-call-guidance-plugin/package.json', import.meta.url),
     'utf8',
   ))
-  assert.equal(sourcePackage.version, '0.1.0')
+  assert.equal(sourcePackage.version, '0.1.1')
 })
 
 test('Models release identity and image editor artifact stay synchronized', () => {

@@ -32,6 +32,10 @@ test('tool guidance registers one compact wrapper-owned system section', () => {
   assert.match(TOOL_CALL_GUIDANCE, /unknown or blank/i)
   assert.match(TOOL_CALL_GUIDANCE, /empty value.*meaningful/i)
   assert.match(TOOL_CALL_GUIDANCE, /do not repeat.*unchanged/i)
+  // Session incident: a schema rejection (missing questions[0].id) was told to
+  // the user as an internal tool error and the call was never corrected.
+  assert.match(TOOL_CALL_GUIDANCE, /invalid-arguments error means the call was wrong, not the tool/i)
+  assert.match(TOOL_CALL_GUIDANCE, /fix the named field and retry/i)
   assert.deepEqual(registered, {
     name: 'desktop:tool-call-guidance',
     order: 110,

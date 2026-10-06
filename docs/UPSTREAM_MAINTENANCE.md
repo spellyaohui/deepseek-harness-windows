@@ -10,7 +10,7 @@ prove it still exists.
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
 - Windows desktop wrapper: `0.2.0-rc.16` (locally packaged and verified; not published)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
-- Tool-call guidance plugin: `0.1.0`
+- Tool-call guidance plugin: `0.1.1`
 - Output-limit finish plugin: `dsh-output-limit-finish@0.1.0`
 - OpenCode compatibility: manual validation retired at desktop `0.2.0-rc.4`; all remaining OpenCode rewrites and `model-fetcher` retired at `0.2.0-rc.16` by user request
 - AgentTeams fork: `0.1.22-desktop.9`, based on upstream `v0.1.22` at fixed commit
@@ -55,6 +55,13 @@ fix is one provider-neutral official `llm/stream` listener instead of a
 per-gateway rewrite. `tests/output-limit-finish.test.js` runs the real
 AgentLoop/LlmRuntime and proves `completed` without and `max-tokens` with the
 plugin. The low declared output limit itself is user configuration.
+
+Tool-call guidance `0.1.1` (REAPPLY, still provider/model neutral and under
+500 characters): the captain sent `ask_user_question` without the required
+`questions[0].id`, received an exact schema rejection, then told the user the
+tool had an internal error and never retried. The failure rule now states that
+an invalid-arguments error is the caller's mistake: fix the named field and
+retry. `tests/tool-call-guidance.test.js` asserts the clause.
 
 OpenCode compatibility is removed by user request (no longer used): the pi-ai
 finish/session-affinity/Kimi Schema rewrites, `src/model-fetcher.js`, their
@@ -778,7 +785,7 @@ authoritative for current versions, source identities and ownership decisions.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Wrapper-wide tool-call guidance: derive arguments from current schemas/context, omit unknown or blank optional properties unless empty is explicitly meaningful, and never repeat failed invalid arguments unchanged | `win-desktop/tool-call-guidance-plugin` | Independent local system-prompt plugin. It registers no tools, settings, Provider behavior, or lifecycle state and stays at or below 500 characters. | `tool-call-guidance-plugin/lib/index.js`, `package.json`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `scripts/sync-local-plugin-artifacts.mjs` | `tests/tool-call-guidance.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest test |
+| Wrapper-wide tool-call guidance: derive arguments from current schemas/context, omit unknown or blank optional properties unless empty is explicitly meaningful, never repeat failed invalid arguments unchanged, and treat an invalid-arguments rejection as the caller's mistake to fix and retry | `win-desktop/tool-call-guidance-plugin` | Independent local system-prompt plugin. It registers no tools, settings, Provider behavior, or lifecycle state and stays at or below 500 characters. | `tool-call-guidance-plugin/lib/index.js`, `package.json`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `scripts/sync-local-plugin-artifacts.mjs` | `tests/tool-call-guidance.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest test |
 | Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: official Node hiding and hidden Win32 STARTUPINFO replace duplicate flags; retain runner preload inheritance, validator-first normalization, execSync/overload handling and process-local descendant inheritance through MCP-filtered environments. Preserve explicit visibility, native validation/coercion, caller options and unrelated environment flags; the lean preload must not register the Harness loader in Workers. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/win-hide-console-child-process.cjs`, `src/win-hide-console-preload.cjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, `tests/win-hide-console-descendants.test.js`, real Node/Electron/Pwsh/Bash/filesystem boundaries and `tests/dsh-service-syntax.test.js` |
 | Official effective Profile editing, guarded single-write persistence, explicit retained desktop draft import, prompt byte preservation and new/old Team snapshots | `win-desktop/agent-teams-plugin` | `SUPERSEDED_BY_DESIGN`: official SettingsForms/ConfigEditor CAS replaces the separate desktop JSON write destination; the existing V2 cache is retained as an explicit draft source only. New Teams freeze the live Profile at creation; existing Teams and numbered roles keep their saved policy. Home/CLI refusal and malformed V2 rejection remain. | `src/index.ts`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/settings-write.ts`; wrapper `src/agent-teams-profile-store.js` legacy snapshot | wrapper `tests/agent-teams-profile-layering.test.js`, `tests/agent-teams-settings-save.test.js`, `tests/agent-teams-profile-store.test.js`; plugin `scripts/team-subagent-compat.test.mjs`, `scripts/settings-client-verify.mjs`, `scripts/profile-editor-verify.mjs` |
 | Keep the official native Subagent plugin settings card and the local AgentTeams section separately visible, while retaining Host namespaces, saved settings, official runtime closure and AgentTeams spawn | Official Native client plus `win-desktop/agent-teams-plugin` | `SUPERSEDED_BY_DESIGN`: the user chose separate Native/Team responsibilities for 0.1.7. The old hiding transformer is removed; official initial and HMR bundle snapshots are unmodified. | `agent-teams-plugin/src/client/index.tsx`, `agent-teams-plugin/src/client/locales.ts`, `src/win-hide-console-rewrite.js` | `tests/subagent-settings-card-visibility.test.js`, `tests/agent-teams-integration.test.js`, and the local capability manifest test |
