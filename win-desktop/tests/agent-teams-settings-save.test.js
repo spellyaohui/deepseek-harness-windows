@@ -37,13 +37,97 @@ if (process.argv.includes('--fixture')) {
     })
   }
   let ctx = await open()
+  let clientCtx
   try {
     const descriptor = () => ctx.settings.describe().find(row => row.ns === 'agent-teams')
     const original = descriptor()
     assert.ok(original, 'AgentTeams settings must mount')
     assert.equal(original.value.delegationMode, 'teams')
     const temporaryMember = { provider: 'fixture-provider', model: 'fixture-model', reasoningMode: 'explicit', reasoningEffort: 'high' }
-    await ctx.settings.replace('agent-teams', { delegationMode: 'native', temporaryMember }, original.revision)
+    // Exercise the same serialized schema mirror as the Web settings page,
+    // rather than a mock acceptView that unconditionally accepts Host values.
+    const cordis = await import('@deepseek-ai/cordis')
+    // The official controller and schema decoder remain real; this fixture
+    // supplies only the React-free observable transport (the production store
+    // engine's Zustand/Immer development dependencies are not installed here).
+    const store = { createSnapshotStore(initial) {
+      let snapshot = initial
+      const listeners = new Set()
+      const publish = next => { snapshot = next; for (const listener of listeners) listener() }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
+        set: publish,
+        update: change => { const next = structuredClone(snapshot); change(next); publish(next) },
+      }
+    } }
+    const clientDependencies = { '@deepseek-ai/cordis': cordis, '@deepseek-ai/dsh-client-store': store }
+    let clientModule
+    globalThis.window = { __ModuleLoader__: { load: ({ factory }) => {
+      clientModule = factory(name => {
+        assert.ok(Object.hasOwn(clientDependencies, name), `unexpected client dependency: ${name}`)
+        return clientDependencies[name]
+      })
+    } } }
+    try { await import('@deepseek-ai/dsh-client-ui-settings/client') } finally { delete globalThis.window }
+    const wire = value => JSON.parse(JSON.stringify(value))
+    const describeWire = () => wire({ writable: true, hasDocument: true, namespaces: ctx.settings.describe() })
+    const openClient = () => {
+      const current = new cordis.Context()
+      current.provide('remote', {
+        $host: { isLoopback: true }, $on: () => () => {},
+        settings: {
+          describe: async () => ({ ok: true, value: describeWire() }),
+          mutate: async (ns, ops, revision) => {
+            await ctx.settings.mutate(ns, wire(ops), revision)
+            return { ok: true, value: wire(descriptor()) }
+          },
+        },
+      })
+      clientModule.apply(current)
+      return current
+    }
+    clientCtx = openClient()
+    const form = clientCtx.configForms.get('agent-teams')
+    await clientCtx.configForms.describe().load()
+    assert.equal(form.getSnapshot().status, 'ready')
+    assert.equal(form.getSnapshot().value.temporaryMember, undefined)
+    const { createAgentTeamsSettingsWriter, planTemporaryMemberChange } = await import('../agent-teams-plugin/lib/client/settings-write.js')
+    const writer = createAgentTeamsSettingsWriter({ api: clientCtx.remote, scope: form, describe: clientCtx.configForms.describe() })
+    const result = await writer.write(planTemporaryMemberChange(temporaryMember).ops)
+    assert.equal(result.status, 'ready')
+    assert.deepEqual(descriptor().value.temporaryMember, temporaryMember, 'Host accepts the whole temporary policy')
+    assert.deepEqual(yaml.load(readFileSync(patchPath, 'utf8')).find(row => row.id === 'agent-teams').config.temporaryMember, temporaryMember,
+      'successful save persists the whole route and explicit effort')
+    assert.equal(clientCtx.settingsSchema.validate(clientCtx.settingsSchema.rehydrate(wire(descriptor().schema)), wire(descriptor().value)), undefined,
+      'the JSON-transferred Host schema must validate its own saved temporary policy in the official browser decoder')
+    assert.deepEqual(form.getSnapshot().value.temporaryMember, temporaryMember,
+      'the real Web ConfigForm must retain the chosen temporary route after a successful save')
+    await clientCtx.configForms.describe().load()
+    assert.deepEqual(form.getSnapshot().value.temporaryMember, temporaryMember,
+      'reloading the Host description cannot revert a saved route to follow captain')
+    for (const policy of [
+      { provider: 'fixture-provider', model: 'fixture-model', reasoningMode: 'route-aware' },
+      { provider: 'fixture-provider', model: 'fixture-model', reasoningMode: 'target-default' },
+      { reasoningMode: 'target-default' },
+      temporaryMember,
+    ]) {
+      assert.equal((await writer.write(planTemporaryMemberChange(policy).ops)).status, 'ready')
+      assert.deepEqual(form.getSnapshot().value.temporaryMember, policy,
+        `${policy.reasoningMode} keeps its complete saved route without a stale explicit effort`)
+      await clientCtx.configForms.describe().load()
+      assert.deepEqual(form.getSnapshot().value.temporaryMember, policy,
+        `${policy.reasoningMode} survives a fresh Host description`)
+    }
+    await clientCtx.fiber.dispose()
+    clientCtx = undefined
+    // The independent Host replace/restart checks retain their original fence.
+    const savedRevision = descriptor().revision
+    const beforeStaleMutation = readFileSync(patchPath, 'utf8')
+    await assert.rejects(ctx.settings.mutate('agent-teams', planTemporaryMemberChange({ reasoningMode: 'target-default' }).ops, original.revision),
+      /changed since it was read/)
+    assert.equal(readFileSync(patchPath, 'utf8'), beforeStaleMutation, 'a stale temporary mutation cannot overwrite the saved route')
+    await ctx.settings.replace('agent-teams', { delegationMode: 'native', temporaryMember }, savedRevision)
     assert.equal(descriptor().value.delegationMode, 'native')
     assert.deepEqual(descriptor().value.temporaryMember, temporaryMember)
     const stored = readFileSync(patchPath, 'utf8')
@@ -58,10 +142,36 @@ if (process.argv.includes('--fixture')) {
     ctx = await open()
     assert.equal(descriptor().value.delegationMode, 'native', 'saved mode must survive restart')
     assert.deepEqual(descriptor().value.temporaryMember, temporaryMember, 'the complete temporary route and effort survive restart')
+    clientCtx = openClient()
+    const restartedForm = clientCtx.configForms.get('agent-teams')
+    await clientCtx.configForms.describe().load()
+    assert.equal(restartedForm.getSnapshot().status, 'ready', 'a fresh browser must decode the saved temporary policy after restart')
+    assert.deepEqual(restartedForm.getSnapshot().value.temporaryMember, temporaryMember)
+    await clientCtx.fiber.dispose()
+    clientCtx = undefined
     await assert.rejects(ctx.settings.replace('agent-teams', {
       delegationMode: 'native', temporaryMember: { provider: 'fixture-provider', reasoningMode: 'explicit' },
     }, descriptor().revision))
     assert.equal(readFileSync(patchPath, 'utf8'), stored, 'invalid temporary defaults do not partially overwrite saved settings')
+    for (const policy of [
+      { reasoningMode: 'unknown' },
+      { reasoningMode: 'explicit', provider: 'fixture-provider' },
+      { reasoningMode: 'explicit', model: 'fixture-model', reasoningEffort: 'high' },
+      { reasoningMode: 'explicit', provider: 'fixture-provider', model: 'fixture-model' },
+      { reasoningMode: 'target-default', provider: 'fixture-provider' },
+      { reasoningMode: 'route-aware', model: 'fixture-model' },
+      { reasoningMode: 'target-default', provider: 'fixture-provider', model: 'fixture-model', reasoningEffort: 'high' },
+      { reasoningMode: 'route-aware', provider: 'fixture-provider', model: 'fixture-model', reasoningEffort: 'high' },
+      { ...temporaryMember, provider: ' \t ' },
+      { ...temporaryMember, model: ' \n ' },
+      { ...temporaryMember, reasoningEffort: ' ' },
+      { ...temporaryMember, reasoningEffort: '' },
+    ]) {
+      await assert.rejects(ctx.settings.mutate('agent-teams', [{ op: 'set', path: ['temporaryMember'], value: policy }], descriptor().revision),
+        `the Host must reject an invalid complete temporary policy: ${JSON.stringify(policy)}`)
+      assert.equal(readFileSync(patchPath, 'utf8'), stored, 'a refused policy leaves the profile file unchanged')
+      assert.deepEqual(descriptor().value.temporaryMember, temporaryMember, 'a refused policy leaves the live route unchanged')
+    }
     await ctx.settings.replace('agent-teams', { delegationMode: 'teams', temporaryMember }, descriptor().revision)
     assert.equal(descriptor().value.delegationMode, 'teams')
     const finalEntry = ctx.configEditor.entries().find(row => row.options.id === 'agent-teams')
@@ -72,6 +182,8 @@ if (process.argv.includes('--fixture')) {
     assert.equal(descriptor().value.delegationMode, 'native')
     const beforeRefusal = readFileSync(patchPath, 'utf8')
     await assert.rejects(ctx.settings.replace('agent-teams', { delegationMode: 'teams' }, descriptor().revision), /overridden by a home patch or command-line overlay/)
+    await assert.rejects(ctx.settings.mutate('agent-teams', planTemporaryMemberChange({ reasoningMode: 'target-default' }).ops, descriptor().revision),
+      /overridden by a home patch or command-line overlay/)
     assert.equal(readFileSync(patchPath, 'utf8'), beforeRefusal)
     await ctx.fiber.dispose()
     unlinkSync(join(home, 'cordis.patch.yml'))
@@ -79,9 +191,12 @@ if (process.argv.includes('--fixture')) {
     ctx = await open()
     assert.equal(descriptor().value.delegationMode, 'native')
     await assert.rejects(ctx.settings.replace('agent-teams', { delegationMode: 'teams' }, descriptor().revision), /overridden by a home patch or command-line overlay/)
+    await assert.rejects(ctx.settings.mutate('agent-teams', planTemporaryMemberChange({ reasoningMode: 'target-default' }).ops, descriptor().revision),
+      /overridden by a home patch or command-line overlay/)
     assert.equal(readFileSync(patchPath, 'utf8'), beforeRefusal)
     console.log(JSON.stringify({ save: true, restart: true, revisionGuard: true, retainedProfiles: true, homeAndCliGuard: true }))
   } finally {
+    await clientCtx?.fiber.dispose()
     await ctx.fiber.dispose()
   }
 } else {

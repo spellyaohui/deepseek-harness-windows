@@ -241,6 +241,41 @@ rejectCreate('tdd.create.implementation-requires-inscope-and-verify', team(), {
   acceptance: ['done'],
 })
 
+{
+  const missing = api.validateCreateTask(team(), {
+    subject: 'impl', ...implContract({ inScope: undefined }),
+    description: 'Only change server/src/db/sqlite.ts',
+    deliverables: ['server/src/db/sqlite.ts'],
+  })
+  check('tdd.create.missing-scope-requires-explicit-field-not-prose-inference',
+    missing.ok === false && /top-level inScope array/.test(missing.error)
+      && /description.*deliverables/.test(missing.error))
+  const input = {
+    subject: 'summary', ...implContract({
+      inScope: ['server/src/modules/summary-report'],
+      deliverables: ['server/src/modules/summary-report/summary-report.service.ts'],
+    }),
+  }
+  const rejected = api.validateCreateTask(team(), input)
+  check('tdd.create.bare-directory-error-gives-exact-slash-retry',
+    rejected.ok === false && rejected.error.includes('server/src/modules/summary-report/')
+      && /trailing slash/.test(rejected.error))
+  const corrected = api.validateCreateTask(team(), {
+    ...input, inScope: ['server/src/modules/summary-report/'],
+  })
+  check('tdd.create.slash-directory-covers-reported-deliverable', corrected.ok === true)
+  const excluded = api.validateCreateTask(team(), {
+    ...input, inScope: ['server/src/'], outOfScope: ['server/src/modules/summary-report/'],
+  })
+  check('tdd.create.excluded-deliverable-must-not-suggest-bypassing-exclusion',
+    excluded.ok === false && /outOfScope takes precedence/.test(excluded.error)
+      && !/add.*to inScope/.test(excluded.error))
+  check('tdd.scope.exact-path-and-segment-boundary-stay-strict',
+    api.pathMatchesScope('server/src/modules/summary-report/child.ts', 'server/src/modules/summary-report') === false
+      && api.pathMatchesScope('server/src/modules/summary-report-old/child.ts', 'server/src/modules/summary-report/') === false
+      && api.classifyChangedPath('server/src/modules/summary-report/.env', ['server/src/'], []) === 'out_of_scope')
+}
+
 rejectCreate('tdd.create.implementation-deliverable-must-be-in-scope', team(), {
   subject: 'impl',
   ...implContract({ deliverables: ['artifacts/report.md'] }),
@@ -378,6 +413,15 @@ rejectCreate('tdd.create.implementation-blocked-until-requirements-pass', team({
     dependencies: ['t1'],
   })
   check('tdd.create.running-implementation-can-queue-behind-requirements', result?.ok === true)
+  const rejected = api.validateCreateTask?.(team({
+    phase: 'running', tasks: [requirements], taskSeq: 1,
+  }), { subject: 'implementation without dependency', ...implContract() })
+  check('tdd.create.requirements-error-provides-exact-retry-and-wait-guidance',
+    rejected?.ok === false
+      && /t1.*in_progress/.test(rejected.error ?? '')
+      && /dependencies.*\["t1"\]/.test(rejected.error ?? '')
+      && /verdict=pass/.test(rejected.error ?? '')
+      && /agent_teams_status/.test(rejected.error ?? ''))
 }
 
 {
@@ -1231,6 +1275,12 @@ console.log('quality-gates TDD — tool-level closed loop')
     profiles: {},
   })
   const exec = { agent: captain, signal: new AbortController().signal }
+  const taskSchema = JSON.parse(JSON.stringify(definitions.get('agent_teams_create_task').parameters)).properties
+  check('tdd.create.scope-guidance-survives-tool-schema-json-wire',
+    /Required non-empty array for implementation\/repair/.test(taskSchema.inScope.description)
+      && /directories ending in \//.test(taskSchema.inScope.description)
+      && /override inScope/.test(taskSchema.outOfScope.description)
+      && /concrete workspace-relative POSIX/.test(taskSchema.deliverables.description))
   const call = (name, args, subject = captain) => {
     const definition = definitions.get(name)
     if (!definition) throw new Error(`missing tool ${name}`)
@@ -1289,6 +1339,22 @@ console.log('quality-gates TDD — tool-level closed loop')
     )
 
     await call('agent_teams_create', { name: 'Gates', description: 'tool loop' })
+    const scopeBaseline = await readTeam(join(workspace, '.agent-teams'), 'gates')
+    for (const [inScope, expected] of [
+      [undefined, /top-level inScope array/],
+      [['server/src/modules/summary-report'], /trailing slash/],
+    ]) {
+      let scopeError = ''
+      try {
+        await call('agent_teams_create_task', JSON.parse(JSON.stringify({
+          subject: 'summary scope retry', ...implContract({ inScope }),
+          deliverables: ['server/src/modules/summary-report/summary-report.service.ts'],
+        })))
+      } catch (error) { scopeError = String(error.message) }
+      check(`tdd.create.scope-retry-rejection-has-zero-team-writes.${inScope === undefined ? 'missing' : 'directory'}`,
+        expected.test(scopeError)
+          && JSON.stringify(await readTeam(join(workspace, '.agent-teams'), 'gates')) === JSON.stringify(scopeBaseline))
+    }
     await call('agent_teams_add_member', { name: 'implementer', role: 'implementer' })
     await call('agent_teams_add_member', { name: 'reviewer', role: 'correctness-reviewer' })
 

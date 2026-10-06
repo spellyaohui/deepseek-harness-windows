@@ -8,6 +8,8 @@ import {
   hasUnvalidatedFallbackDraft,
   hasUnvalidatedExplicitRoleDraft,
   normalizeProfileSnapshot,
+  normalizeEffectiveProfileMap,
+  importDesktopProfileDraft,
   prepareProfileMapForSave,
   renameCommittedProfileName,
 } from '../lib/client/profile-editor.js'
@@ -15,8 +17,11 @@ import {
 const editorSource = await readFile(new URL('../src/client/TeamProfilesEditor.tsx', import.meta.url), 'utf8')
 assert.match(
   editorSource,
-  /setAgentTeamsProfiles\(\{\s*schemaVersion: 2,\s*profiles: prepared\.profiles,\s*\}\)/,
+  /writer\.write\(\[\s*\{ op: 'set', path: \['profiles'\], value: prepared\.profiles as unknown as JsonValue \},\s*\], baselineSignature\)/,
+  'Profile Save must use the official serialized CAS writer with its draft baseline',
 )
+assert.doesNotMatch(editorSource, /setAgentTeamsProfiles/, 'legacy desktop choices remain read-only')
+assert.match(editorSource, /importDesktopProfileDraft\(profiles, snapshot\)/, 'legacy choices require explicit draft import')
 assert.match(
   editorSource,
   /members: \[\.\.\.members, \{ name, reasoning_mode: 'target-default' \}\]/,
@@ -70,12 +75,48 @@ const snapshot = normalizeProfileSnapshot({
     },
   },
   unsupportedPersistedVersion: false,
+  hasPersistedProfiles: true,
 })
 assert.equal(snapshot.schemaVersion, 2)
 assert.equal(snapshot.unsupportedPersistedVersion, false)
 assert.deepEqual(snapshot.builtInNames, ['software-delivery'])
 assert.equal(snapshot.profiles['software-delivery']?.members[0]?.name, 'analyst')
 assert.equal(snapshot.profiles['software-delivery']?.members[0]?.reasoning_mode, 'target-default')
+
+const effectiveOnly = { 'official-only': { members: [{ name: 'analyst', reasoning_mode: 'target-default', executionPrompt: '保留已保存的角色提示词。' }] } }
+const effectiveOriginal = structuredClone(effectiveOnly)
+const effectiveDraft = normalizeEffectiveProfileMap(effectiveOnly)
+assert.deepEqual(effectiveDraft, effectiveOnly)
+effectiveDraft['official-only'].members[0].executionPrompt = '独立草稿。'
+assert.deepEqual(effectiveOnly, effectiveOriginal, 'native reads isolate the editable draft without rewriting saved prompts')
+const importedDraft = importDesktopProfileDraft(effectiveOnly, snapshot)
+assert.deepEqual(importedDraft['official-only'], effectiveOriginal['official-only'], 'explicit cache import preserves official-only Profiles')
+assert.deepEqual(importedDraft['software-delivery'], snapshot.profiles['software-delivery'])
+importedDraft['software-delivery'].members[0].name = 'draft-only'
+assert.equal(snapshot.profiles['software-delivery'].members[0].name, 'analyst', 'the historical cache is read-only')
+assert.deepEqual(effectiveOnly, effectiveOriginal, 'import has no durable write side effect')
+assert.throws(() => importDesktopProfileDraft(effectiveOnly, { ...snapshot, unsupportedPersistedVersion: true }), /Unsupported/)
+assert.throws(() => importDesktopProfileDraft(effectiveOnly, { ...snapshot, hasPersistedProfiles: false }), /No saved/,
+  'built-in defaults returned without a saved desktop record cannot masquerade as saved choices')
+assert.equal(normalizeProfileSnapshot({ ...snapshot, hasPersistedProfiles: undefined }).hasPersistedProfiles, false, 'old IPC without provenance never advertises a saved desktop import')
+assert.throws(() => normalizeEffectiveProfileMap({ broken: { members: [{ name: 'lost-route', provider: 'provider-a', reasoning_mode: 'explicit' }] } }), /provider|model|reasoning_effort/,
+  'an invalid effective route fails visibly instead of disappearing from the editor')
+assert.deepEqual(normalizeEffectiveProfileMap({}), {}, 'an empty official map never silently restores desktop defaults')
+
+const promptBytes = {
+  protocol: '\n  协作协议：保留原有缩进。\n',
+  executionPrompt: '\n    团队提示词：逐字保留。\n\n',
+  members: [{ name: 'analyst', reasoning_mode: 'target-default', executionPrompt: '\n  成员提示词：保留结尾空行。\n\n' }],
+}
+const promptDraft = normalizeEffectiveProfileMap({ delivery: promptBytes })
+promptDraft.delivery.description = '仅调整描述。'
+const promptSaved = prepareProfileMapForSave(promptDraft)
+assert.equal(promptSaved.ok, true)
+for (const field of ['protocol', 'executionPrompt']) assert.equal(promptSaved.profiles.delivery[field], promptBytes[field], 'unrelated edits preserve saved prompt bytes')
+assert.equal(promptSaved.profiles.delivery.members[0].executionPrompt, promptBytes.members[0].executionPrompt)
+const promptLegacy = normalizeProfileSnapshot({ ...snapshot, profiles: { delivery: promptBytes } })
+const promptImport = importDesktopProfileDraft({}, promptLegacy)
+assert.deepEqual(promptImport.delivery, promptBytes, 'legacy import preserves prompt whitespace instead of silently rewriting it')
 
 assert.throws(
   () => normalizeProfileSnapshot({ profiles: snapshot.profiles }),

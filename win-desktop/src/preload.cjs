@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('dshDesktop', {
   getSettings: () => ipcRenderer.invoke('desktop-settings:get'),
   /** Apply a partial settings update and persist. */
   setSettings: (patch) => ipcRenderer.invoke('desktop-settings:set', patch),
+  saveConfigurationBackup: (encrypted) => ipcRenderer.invoke('configuration-backup:save', encrypted),
+  openConfigurationBackup: () => ipcRenderer.invoke('configuration-backup:open'),
   /** Read the persisted AgentTeams V2 profile snapshot and built-in names. */
   getAgentTeamsProfiles: () => ipcRenderer.invoke('agent-teams-profiles:get'),
   /** Validate, persist, and return the AgentTeams V2 profile snapshot. */

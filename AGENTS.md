@@ -301,7 +301,7 @@ evidence that the local capability is preserved.
   serializes each child operation; no direct `ctx.subagents.*` call may bypass
   this admission boundary.
 
-## Models settings fork `0.2.0-rc.2-desktop.3` interaction invariants
+## Models settings fork `0.2.0-rc.2-desktop.4` interaction invariants
 
 - User-requested replacement: capability probing and its Remote/Host service are removed. Keep model discovery, native provider editors, onboarding, credential boundaries, Save/CAS and draft cancellation.
 - Every pi-ai model uses image or text-only; persist ['text', 'image'] or ['text']. Missing/empty input displays and saves as text. New providers/models default to text. Malformed input remains invalid and blocks Save.
@@ -313,6 +313,33 @@ evidence that the local capability is preserved.
 
 Do not collapse these owners into one plugin during conflict resolution. Do not
 move provider-specific behavior into the Models fork.
+
+## Desktop rc.12 settings and console invariants
+
+- Desktop startup selects a free loopback port that Chromium permits and passes
+  it explicitly to Harness. Never bypass browser port protections. Retain
+  src/loopback-port.js and tests/loopback-port.test.js through refreshes. Keep
+  the readiness token intact for navigation, but redact it from diagnostics.
+- AgentTeams temporary-member Schema must survive official JSON serialization
+  and browser hydration; do not reintroduce transforms with module-local closures.
+- Profile editing reads official effective settings and uses one Settings/CAS
+  write with a guarded draft baseline. It does not write the desktop JSON cache.
+  A saved V2 desktop record may be explicitly imported into a draft; absence of
+  that record must not advertise a saved import. Keep official Home/CLI refusal.
+- A live Profile snapshot applies to new Teams; each created Team freezes its
+  routes and prompts, including later numbered-role inheritance. This supersedes
+  the historical separate desktop Profile writer/restart-only editor behavior.
+- Empty Profile maps retain Save/Reload. Protocol and execution prompt text
+  retains original whitespace on read, unrelated saves and explicit imports.
+- The dependency-free child console preload is inherited through process-local
+  NODE_OPTIONS, even for MCP-filtered environments. Keep unrelated parent flags
+  out of explicit child environments, preserve explicit visibility/native
+  validation, synchronize ESM builtin exports, and never register the Harness
+  loader from this descendant/Worker preload. Do not alter global environments
+  or vendor packages as part of the wrapper implementation.
+- Retain tests/agent-teams-profile-layering.test.js, the official JSON-wire
+  settings save regression, the live new/old-Team AgentLoop regression and
+  tests/win-hide-console-descendants.test.js in every upstream refresh.
 
 ## Version and provenance synchronization
 

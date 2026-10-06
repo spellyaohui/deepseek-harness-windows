@@ -21,14 +21,13 @@ declare global {
   }
 }
 
-/** Return the narrow host bridge used only by the embedded profile editor. */
+/** Read historical desktop choices; Profile writes belong to official Settings/CAS. */
 export function getAgentTeamsDesktopBridge(): AgentTeamsDesktopBridge | undefined {
   if (typeof window === 'undefined') return undefined
   const bridge = window.dshDesktop
   if (
     bridge === undefined
     || typeof bridge.getAgentTeamsProfiles !== 'function'
-    || typeof bridge.setAgentTeamsProfiles !== 'function'
   ) {
     return undefined
   }

@@ -83,7 +83,7 @@ export interface Config {
   /** Team size cap in members (default `8`). */
   maxMembers?: number
   /** Named multi-role team profiles. */
-  profiles?: Record<string, TeamProfileConfig>
+  profiles?: Volatile<Record<string, TeamProfileConfig>>
   /** Prompt-section order for the usage policy (default `117`, after delegation policy). */
   promptSectionOrder?: number
   /**
@@ -95,9 +95,10 @@ export interface Config {
 }
 
 /** Serialized config accepts a value; the live runtime receives its stable ref. */
-export interface ConfigInput extends Omit<Config, 'delegationMode' | 'temporaryMember'> {
+export interface ConfigInput extends Omit<Config, 'delegationMode' | 'temporaryMember' | 'profiles'> {
   delegationMode?: DelegationMode
   temporaryMember?: import('./selection-policy.ts').MemberRolePolicy
+  profiles?: Record<string, TeamProfileConfig>
 }
 
 // `z.object()` has an implicit `{}` default in Schemastery.  Fallback routes
@@ -145,7 +146,7 @@ export const Config: z<ConfigInput, Config> = z.object({
       assignee: z.string(),
       dependencies: z.array(z.string()),
     })),
-  })).default({}),
+  })).default({}).volatile(),
   memberMaxDepth: z.natural().default(0),
   maxMembers: z.natural().min(1).default(8),
   promptSectionOrder: z.natural().default(117),
@@ -182,11 +183,11 @@ Approval/Profile: Default delegation uses approval="automatic": omit name so Age
 
 Reasoning/routes: roles own target-default, route-aware, or explicit. target-default uses role/captain route without effort; route-aware inherits captain effort only on the same provider/model; explicit requires role provider/model + effort. Omit provider/model for captain route or provide both for another route.
 
-Tasks/execution: plan dependencies; scheduler gives ready shared work to idle members. Create/reassign may name an active member or captain; create may omit assignee for shared pool. Claim assigned work with task_id only; captain supplies assignee only for a real member. A pause parks its attempt; message the member. Updates use current attempt_id; stale means ownership changed—reassign. agent_teams_status is read-only; do not busy-poll. detail="full" gets full reports/routes, acknowledge=true consumes shown mail, and captain-only wake="recover" handles restart/stuck recovery. Never inspect or edit .agent-teams state files or plugin source code.
+Tasks/execution: plan dependencies; scheduler assigns ready work to idle members. Create/reassign names an active member or captain; omit assignee for shared pool. Claim assigned work with task_id only; captain supplies assignee only for a real member. Pause parks the attempt; message to continue. Updates use current attempt_id; stale means reassign. agent_teams_status is read-only; never busy-poll. detail="full" gets reports/routes, acknowledge=true consumes shown mail, captain-only wake="recover" handles restart/stuck recovery. Never inspect or edit .agent-teams state files or plugin source code.
 
-Quality mode: requirements, implementation, verification, review, repair, and integration are opt-in. Build the staged DAG; implementation depends on requirements and waits for verdict=pass. Quality tasks need objective/acceptance and verification evidence; review/requirements pass only with verdict=pass; needs_revision/reject fail with findings. Review failure triggers repair/next-review and rewires pending integration; do not recreate the loop. Derive workspace-relative POSIX inScope, deliverable paths, and verification commands; exclude .env, secrets, .git. Implementation/repair deliverables must be covered by inScope; changedPaths=[] needs noChangesReason and cannot hide deliverables. Delivery waits for all gates.
+Quality mode is opt-in: requirements → implementation → verification → review → integration. Build the staged DAG; implementation waits for its requirements dependency with verdict=pass. Quality tasks need objective/acceptance and verification evidence. Review/requirements pass requires verdict=pass plus current acceptanceResults/commandsRun; needs_revision/reject fail with findings. User scope changes require agent_teams_amend_task before completion; messages alone do not change contracts. Review failure creates repair/next-review and rewires integration; do not duplicate it. Implementation/repair need inScope/verify arrays. POSIX files exact; directories end in /; exclude .env, secrets, .git. Implementation/repair deliverables must fit inScope; changedPaths=[] needs noChangesReason and cannot hide deliverables. Delivery waits for all gates.
 
-Present the Team result, then call agent_teams_delete unless work continues. Never perform a real deployment without explicit user confirmation.
+Present results; agent_teams_delete unless work continues. Deployment requires explicit user confirmation.
 
   Use registered agent_teams_* schemas; staged-plan controls include ${stagedPlanToolNames}.${resolvedProfilesText === '' ? '' : `\n\n${resolvedProfilesText}`}`
 }
@@ -197,13 +198,16 @@ export function memberUsageSectionText(policy: DelegationPolicyId): string {
 
 You are an AgentTeams member. Follow your assigned persona and task contract.
 Use only agent_teams_claim_task, agent_teams_update_task, agent_teams_send_message, and agent_teams_status for team work.
-Include the current attempt_id in every task update; report completion or failure to the captain.
+Include the current attempt_id in every task update; report completion or failure to the captain. Quality completion must cover the current acceptance/verify contract; ask the captain to amend any authorized scope change before completing.
 Do not create, approve, edit, reassign, resume, or delete a team. If durable membership is unavailable, report that to the parent instead of creating a replacement.
 The task assignment and its dependency results are authoritative. Claim by task id, complete the requested work, update the task immediately, message the captain, and yield.`
 }
 
 export function apply(ctx: Context, config: Config): void {
   const settings = createAgentTeamsSettingsRuntime(ctx, config.delegationMode, config.temporaryMember)
+  // Read one immutable official settings snapshot for each operation. A Team
+  // captures this once at creation; later saves never rewrite existing members.
+  const getProfiles = (): Record<string, TeamProfileConfig> => structuredClone(config.profiles?.get() ?? {}) as Record<string, TeamProfileConfig>
 
   const resolved: ToolsConfig = {
     stateDir: config.stateDir ?? '.agent-teams',
@@ -214,7 +218,7 @@ export function apply(ctx: Context, config: Config): void {
     maxMembers: config.maxMembers ?? 8,
     settings,
     delegationPolicy: undefined,
-    profiles: config.profiles ?? {},
+    get profiles() { return getProfiles() },
   }
 
   // Provider registration is a sibling plugin's effect (`subagent-spawn` /
@@ -227,7 +231,7 @@ export function apply(ctx: Context, config: Config): void {
   const delegationPolicy: DelegationPolicyRuntime = {
     defaultMode: () => settings.get().delegationMode,
     order: config.promptSectionOrder ?? 117,
-    text: (policy) => usageSectionText(policy, toolNames, formatProfilesForPrompt(config.profiles ?? {})),
+    text: (policy) => usageSectionText(policy, toolNames, formatProfilesForPrompt(getProfiles())),
     memberText: (policy) => memberUsageSectionText(policy),
   }
   resolved.delegationPolicy = delegationPolicy
@@ -253,9 +257,9 @@ export function apply(ctx: Context, config: Config): void {
   // never pends on it and simply never gains the slash command.
   if (config.slashCommand ?? true) {
     ctx.inject(['commands'], (commandCtx) => {
-      registerAgentTeamsCommand(commandCtx, () => config.profiles ?? {})
+      registerAgentTeamsCommand(commandCtx, getProfiles)
     })
-    installAgentTeamsGestureBoundary(ctx, () => config.profiles ?? {})
+    installAgentTeamsGestureBoundary(ctx, getProfiles)
   }
 
   let modelCatalogRegistered = false

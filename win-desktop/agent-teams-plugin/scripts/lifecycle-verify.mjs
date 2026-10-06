@@ -1727,6 +1727,33 @@ try {
       && blankCaptainClaim?.attempt_id !== undefined
       && whitespaceCaptainClaim?.attempt_id === blankCaptainClaim.attempt_id
       && omittedCaptainClaim?.attempt_id === blankCaptainClaim.attempt_id)
+  await call('agent_teams_update_task', { task_id: captainOwnedTask.task_id, status: 'in_progress' })
+  await call('agent_teams_update_task', { task_id: captainOwnedTask.task_id, status: 'completed', output: 'done' })
+  const pendingCaptain = await call('agent_teams_create_task', { subject: 'planned captain work', assignee: 'captain' })
+  const dependentCaptain = await call('agent_teams_create_task', {
+    subject: 'captain integration after dependency', assignee: 'captain', dependencies: [pendingCaptain.task_id],
+  })
+  publishStatus(captain, 'idle')
+  await new Promise(resolve => setTimeout(resolve, 50))
+  const afterPlanningIdle = await readTeam(stateRoot, 'assignee-boundary')
+  check('captain idle preserves both ready and dependency-blocked planned captain ownership',
+    [pendingCaptain, dependentCaptain].every(created => afterPlanningIdle.tasks.some(item => (
+      item.id === created.task_id && item.assignee === 'captain' && item.status === 'pending' && item.attempt === 0
+    ))))
+  await call('agent_teams_add_member', { name: 'waiting-worker' })
+  const waitingMember = await call('agent_teams_create_task', {
+    subject: 'blocked work cancelled by captain', assignee: 'waiting-worker', dependencies: [pendingCaptain.task_id],
+  })
+  let cancellationError
+  try {
+    await call('agent_teams_update_task', {
+      task_id: waitingMember.task_id, status: 'cancelled', output: 'User reduced the scope before execution.',
+    })
+  } catch (error) { cancellationError = error }
+  const cancelledBeforeExecution = (await readTeam(stateRoot, 'assignee-boundary')).tasks.find(item => item.id === waitingMember.task_id)
+  check('captain can cancel a pending assigned task without completing its dependencies or taking it over',
+    cancellationError === undefined && cancelledBeforeExecution?.status === 'cancelled'
+      && cancelledBeforeExecution.attempt === 0, String(cancellationError ?? ''))
   await call('agent_teams_delete', {})
 
   await call('agent_teams_create', { name: 'Quality Loop', description: 'review loop' })
@@ -1917,6 +1944,15 @@ try {
   // must be idempotent until the captain performs an explicit reassignment.
   publishStatus(alpha, 'idle')
   await new Promise(resolve => setTimeout(resolve, 20))
+  const idleNoticeId = `${alphaClaim.attempt_id}:idle-open`
+  const idleNotice = (await readMailbox(stateRoot, teamId, 'captain')).find(item => item.id === idleNoticeId)
+  check('idle member with an unfinished task reports the parked attempt to the captain',
+    idleNotice?.sourceTaskId === t1.task_id && idleNotice.sourceAttemptId === alphaClaim.attempt_id
+      && idleNotice.content.includes('agent_teams_send_message') && idleNotice.deliveredAt !== undefined)
+  publishStatus(alpha, 'idle')
+  await new Promise(resolve => setTimeout(resolve, 20))
+  check('repeated idle observations do not duplicate reports or revoke the open attempt',
+    (await readMailbox(stateRoot, teamId, 'captain')).filter(item => item.id === idleNoticeId).length === 1)
   // Normal continuable settlement disposes its live AgentHandle between
   // turns. The process-local idle observation must still distinguish this
   // parked attempt from a cold process restart.
@@ -2123,6 +2159,15 @@ try {
     terminalRejected = /immutable/.test(String(error))
   }
   check('terminal output is immutable against late overwrite', terminalRejected)
+  let captainEvidenceError
+  try {
+    await call('agent_teams_update_task', { task_id: t6.task_id, evidence_note: 'Captain independently checked the delivered result.' })
+  } catch (error) { captainEvidenceError = error }
+  const supplemented = await task(t6.task_id)
+  check('captain may append terminal member evidence without taking over or replacing its result',
+    captainEvidenceError === undefined && supplemented.output === 'winner'
+      && supplemented.status === 'completed' && supplemented.assignee === won.assignee
+      && supplemented.supplementalEvidence?.at(-1)?.by === 'captain', String(captainEvidenceError ?? ''))
 
   beta.status = 'idle'
   const t7 = await call('agent_teams_create_task', { subject: 'captain takeover', assignee: 'beta' })

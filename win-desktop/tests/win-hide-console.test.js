@@ -352,6 +352,9 @@ test('console-hide preload reaches execSync native spawn options', () => {
     const calls = []
     nativeSpawn.spawn = function (...args) {
       calls.push({ windowsHide: args[0].windowsHide, shell: /cmd\\.exe$/i.test(args[0].file) })
+      // Record the exact boundary, then hide the diagnostic OS process even
+      // when testing an explicit opt-out. Tests must not flash user windows.
+      args[0] = { ...args[0], windowsHide: true }
       return original.apply(this, args)
     }
     const scenarios = [
@@ -414,10 +417,13 @@ test('console-hide preserves legal child-process options overloads at real nativ
     asyncNative.spawn = function (...args) {
       // Node 24 accepts an options object; Node 26 lowered this boundary to flags.
       calls.push(typeof args[0] === 'object' ? { hidden: args[0].windowsHide } : { flags: args[5] })
+      if (typeof args[0] === 'object') args[0] = { ...args[0], windowsHide: true }
+      else args[5] |= process.binding('process_wrap').constants.kProcessFlagWindowsHide
       return originalAsync.apply(this, args)
     }
     syncNative.spawn = function (...args) {
       calls.push({ hidden: args[0].windowsHide })
+      args[0] = { ...args[0], windowsHide: true }
       return originalSync.apply(this, args)
     }
     async function wait(child) {
@@ -509,8 +515,19 @@ test('console-hide retains native windowsHide validation without starting reject
     const syncNative = process.binding('spawn_sync')
     const originalSync = syncNative.spawn
     let nativeCalls = 0
-    asyncNative.spawn = function (...args) { nativeCalls++; return originalAsync.apply(this, args) }
-    syncNative.spawn = function (...args) { nativeCalls++; return originalSync.apply(this, args) }
+    // Native validation happens before this boundary. Hide successful baseline
+    // probes too, so parity checks never intentionally create visible consoles.
+    asyncNative.spawn = function (...args) {
+      nativeCalls++
+      if (typeof args[0] === 'object') args[0] = { ...args[0], windowsHide: true }
+      else args[5] |= process.binding('process_wrap').constants.kProcessFlagWindowsHide
+      return originalAsync.apply(this, args)
+    }
+    syncNative.spawn = function (...args) {
+      nativeCalls++
+      args[0] = { ...args[0], windowsHide: true }
+      return originalSync.apply(this, args)
+    }
     async function wait(child) {
       let output = ''
       child.stdout?.on('data', data => { output += data.toString() })

@@ -2,9 +2,42 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.11`（待发布） · [最新安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)
+> 当前源码版本：`v0.2.0-rc.15`（本地安装包已构建，待发布） · [最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)
 
-## 待发布：`v0.2.0-rc.11`
+## 本地已构建，待发布：`v0.2.0-rc.15`
+
+- AgentTeams `0.1.22-desktop.8` 明确 implementation/repair 必须提供独立的 `inScope` 和 `verify` 数组；写在 description 或 deliverables 中不能替代范围声明。
+- 范围中的文件为精确路径，目录必须以 `/` 结尾，例如 `server/src/modules/summary-report/`。创建、修改计划和修改合同的 Schema 统一说明，缺少字段或目录斜杠时返回具体重试步骤。
+- `outOfScope` 优先于 `inScope`，目录型排除项同样必须带 `/`；不推断或自动放宽用户范围。完整离线门禁通过，Harness 保持 `0.2.0-rc.2`；本版 EXE、ZIP 和 blockmap 已构建并通过隔离启动/重启验收，尚未上传；校验值见 rc.15 发布记录。
+
+## 本地已构建，待发布：`v0.2.0-rc.14`
+
+- 队长待执行任务保持归属；队长可追加成员终态证据、取消尚未开始的阻塞任务，保留并发接管和旧任务凭证检查。
+- Team 成员只获得可用的团队消息工具与指引；保留队长临时 `subagent` 入口、角色独立模型和 Native 模式。
+- 取消后的替代任务、多轮修复和需求复审统一覆盖与交付判断。审查和需求完成必须提供匹配当前合同的验收/命令证据；缩范围先正式修改合同。
+- 成员空闲但任务未完成时，每次任务尝试向队长报告一次；不自动重派或把回合结束当作完成。
+- 隐藏开发回归脚本的 Node/PowerShell 子进程；真实 Electron → PowerShell/npm shim → Node → CMD 链通过隐藏验证。运行中的间歇闪窗仍需实际进程证据。
+- AgentTeams 为 `0.1.22-desktop.7`，Harness 保持 `0.2.0-rc.2`。完整离线门禁、打包运行时闭包和隔离启动/重启验证通过；EXE、ZIP 和 blockmap 已生成。大小、SHA-256 与验证限制见 [rc.14 记录](win-desktop/release-notes/v0.2.0-rc.14.md)。尚未上传 GitHub。
+
+## 本地已构建，待发布：`v0.2.0-rc.13`
+
+- “设置 → 扩展设置 → 配置备份”支持密码加密导出/导入，包含模型供应商声明、API Key / Token、模型的图像输入和思考档位、临时子智能体、团队 Profile 路由及中文提示词、原生子智能体配置。
+- 使用同一密码在另一台机器导入；导入替换备份中的设置，成功后提示退出并重新启动程序。建议先导出当前配置。密码至少 8 个字符，无法找回；账户登录状态、对话和运行中的团队不迁移。
+- 沿用官方紧凑按钮和密码输入框。密钥只在 Host 内解密，通过官方 Settings/CAS 和凭据服务保存；错误密码不写入，普通失败回滚已写入内容，冲突导致无法完整恢复时明确提示检查配置。
+- Desktop Settings 更新为 `0.1.5`；Harness 保持 `0.2.0-rc.2`。完整离线门禁、打包运行时闭包、隔离配置目录启动和导入后重启恢复均通过；EXE、ZIP 和 blockmap 已生成，大小及 SHA-256 见 [rc.13 构建记录](win-desktop/release-notes/v0.2.0-rc.13.md)。尚未上传或在第二台机器实际安装。
+
+## 待发布：`v0.2.0-rc.12`
+
+- 模型“仅文本 / 图像输入”选项与官方控件统一为 14px 字号、20px 行高，沿用官方字体；Models 本地包更新为 `0.2.0-rc.2-desktop.4`。
+- 修复临时子智能体保存后回读成“跟随队长”：设置校验改为可经过浏览器 JSON 传输的声明式 Schema，保留三种思考策略。
+- Profile 角色配置改用官方设置文件和修订校验保存，页面与后续新团队使用同一配置。已有团队保留创建时的路由。
+- 原桌面 JSON 记录保留；如曾遇到旧原生配置覆盖角色模型，在“设置 → AgentTeams 团队 → Profile 配置”点击“导入桌面保存配置”，检查草稿后保存，再创建新团队。
+- Windows 隐藏保护传入 MCP、npm shim、捆绑 Node 和后代进程；过滤环境也会保留该保护。修复不修改全局 Node 环境变量。
+- 本地启动跳过 Chromium 禁用端口，避免随机选中 `6697` 等端口后打不开页面；错误提示隐藏临时认证 Token。
+- 需求依赖错误会列出任务 ID、状态及重试方法；实现任务仍须等待需求通过。
+- AgentTeams 本地包为 `0.1.22-desktop.6`，Harness 继续固定 `0.2.0-rc.2`。
+
+## 本机构建：`v0.2.0-rc.11`（未发布）
 
 - 设置 → AgentTeams 团队新增“临时子智能体”，单独选择 Provider、模型及思考策略，适用于 Team 模式下主智能体的临时 `subagent` 调用。
 - 支持连续和同时调用多个子智能体；无需创建四角色团队。Profile 中各角色的指定模型保持独立，Native 模式仍使用原生设置。
@@ -381,7 +414,7 @@ npm run dist:win
 
 AgentTeams、Models 和 CPA 的 `lib/` 是可重建输出，不进入 Git；`verify:upstream` 会先编译插件并同步已安装依赖，再执行完整测试。不要在首次编译前直接启动应用。
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.22`（固定提交 `9cba4fe4171f27c019991cafd2a107f87ef3517b`），本地版本为 `0.1.22-desktop.5`，推荐宿主固定为 Harness `0.2.0-rc.2`。上游负责团队工作区、成员导航、任务生命周期和证据治理；仅重应用上游未覆盖的严格 V2、角色模型/思考策略、统一 durable gateway、质量扩展、Revision/CAS 和认证边界。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.22`（固定提交 `9cba4fe4171f27c019991cafd2a107f87ef3517b`），本地版本为 `0.1.22-desktop.8`，推荐宿主固定为 Harness `0.2.0-rc.2`。上游负责团队工作区、成员导航、任务生命周期和证据治理；仅重应用上游未覆盖的严格 V2、角色模型/思考策略、统一 durable gateway、质量扩展、Revision/CAS 和认证边界。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

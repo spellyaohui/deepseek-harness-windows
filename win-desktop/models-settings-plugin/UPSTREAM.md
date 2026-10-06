@@ -5,7 +5,16 @@
 - Commit: `639ed015397290b3745d163aafe02ffee4aa3f84`
 - Source directory: `packages/client/ui-settings-models`
 - Imported: 2026-09-30
-- Local desktop fork: `0.2.0-rc.2-desktop.3`
+- Local desktop fork: `0.2.0-rc.2-desktop.4`
+
+## 2026-10-03 input-choice typography
+
+The manual image/text-only labels now use the official Checkbox's 14px font size
+and 20px line height, inheriting the Web shell's font family. Previously they
+inherited the browser's 16px default. An isolated Electron comparison against
+the official Checkbox and Web CSS confirms equal computed typography, correct
+text/image selection, disabled controls, no horizontal overflow at 320/600px,
+and no renderer errors. Model declarations and Save ownership are unchanged.
 
 ## 2026-10-01 manual declaration replacement
 

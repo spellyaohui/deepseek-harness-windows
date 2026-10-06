@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Tray, Menu, dialog, nativeImage, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
-import { startDshService } from './dsh-service.js'
+import { startDshService, redactDshDiagnostic } from './dsh-service.js'
 import { createWindowOptions, resolveAppIcon } from './window-options.js'
 import { loadDesktopSettings, getDesktopSettings } from './desktop-settings.js'
 import { installSettingsIpc } from './settings-window.js'
@@ -33,7 +33,7 @@ if (process.platform === 'win32') {
 // Load settings early so close-to-tray behavior is available from the first
 // window close event.
 loadDesktopSettings()
-installSettingsIpc()
+installSettingsIpc(() => serviceUrl)
 
 function pinInstallerIcon(win) {
   const iconPath = resolveAppIcon()
@@ -260,7 +260,7 @@ async function launch() {
       await loopbackAuthCookieRecovery.loadFreshServiceUrl(serviceUrl)
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = redactDshDiagnostic(error instanceof Error ? error.message : String(error))
     await dialog.showMessageBox({
       type: 'error',
       title: `${APP_NAME} 启动失败`,

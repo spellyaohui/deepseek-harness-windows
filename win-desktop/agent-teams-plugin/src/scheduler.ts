@@ -16,9 +16,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, AgentStatus } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { join } from 'node:path'
-import { deliverToMember } from './members.ts'
+import { deliverToMember, steerCaptainReport } from './members.ts'
 import { isCurrentMail, mailboxPrompt } from './mailbox.ts'
 import {
+  appendMailbox,
+  createMessage,
+  readMailbox,
   markMailboxDelivered,
   discardMailboxMessages,
   beginTaskAttempt,
@@ -33,7 +36,7 @@ import {
   withTeamLock,
   writeTeam,
 } from './state.ts'
-import type { TeamMember, TeamState, TeamTask } from './types.ts'
+import type { TeamMember, TeamMessage, TeamState, TeamTask } from './types.ts'
 import { durableSessionId } from './agent-identity.ts'
 
 /** Per-dependency output cap in the assignment prompt. */
@@ -464,7 +467,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
       return
     }
     if (located.captainSessionId === agentSessionId) {
-      // Captain takeover is scoped to the captain's current turn. Unlike a
+      // An active captain takeover is scoped to the captain's current turn. Unlike a
       // durable member, the captain has no scheduler lane that can resume an
       // abandoned attempt later. Returning unfinished captain-owned work to
       // the shared pool on the idle edge prevents it from becoming a
@@ -476,10 +479,10 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
         const fresh = await readTeam(stateRoot, located.id)
         if (fresh === undefined || fresh.captainSessionId !== agentSessionId) return
         for (const task of fresh.tasks) {
+          // A pending captain assignment is durable planning, not an abandoned
+          // attempt. Retain it even while its dependencies are still running.
           if (task.assignee !== CAPTAIN_KEY
-            || task.status === 'completed'
-            || task.status === 'failed'
-            || task.status === 'cancelled') continue
+            || (task.status !== 'claimed' && task.status !== 'in_progress')) continue
           invalidateTaskAttempt(task)
           task.reassigning = false
           requeued = true
@@ -494,22 +497,51 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
       parkedAttempts.delete(agentSessionId)
       return
     }
-    await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
+    const notice = await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
       const fresh = await readTeam(stateRoot, located.id)
       const current = fresh?.members.find(candidate => candidate.id === agentSessionId && candidate.status !== 'removed')
       if (fresh === undefined || current === undefined) return
       const next = status === 'running' ? 'working' : 'idle'
+      let report: TeamMessage | undefined
       if (next === 'idle') {
         const owned = ownedOpenTask(fresh.tasks, current.name)
         if (owned?.attemptId === undefined) parkedAttempts.delete(agentSessionId)
-        else parkedAttempts.set(agentSessionId, owned.attemptId)
+        else {
+          parkedAttempts.set(agentSessionId, owned.attemptId)
+          const id = `${owned.attemptId}:idle-open`
+          if (fresh.halted !== true && current.stopping !== true && owned.reassigning !== true
+            && !(await readMailbox(stateRoot, fresh.id, CAPTAIN_KEY)).some(message => message.id === id)) {
+            report = {
+              ...createMessage(current.name, CAPTAIN_KEY,
+                `成员 ${current.name} 已空闲，但任务 ${owned.id} 仍为 ${owned.status}，尚未提交完成或失败结果。当前 attempt_id=${owned.attemptId}。如用户已暂停，请保持暂停；否则检查产出，用 agent_teams_send_message 让成员继续同一任务，或明确接管。不要重复创建任务，也不要把回合结束当成任务完成。`),
+              id,
+              sourceTaskId: owned.id,
+              sourceAttemptId: owned.attemptId,
+              sourceTaskStatus: owned.status,
+              deliveryClaimedAt: Date.now(),
+            }
+            await appendMailbox(stateRoot, fresh.id, CAPTAIN_KEY, report)
+          }
+        }
       } else {
         parkedAttempts.delete(agentSessionId)
       }
-      if (current.status === next) return
-      current.status = next
-      await writeTeam(stateRoot, fresh)
+      if (current.status !== next) {
+        current.status = next
+        await writeTeam(stateRoot, fresh)
+      }
+      return report === undefined ? undefined : { captainSessionId: fresh.captainSessionId, report }
     })
+    if (notice !== undefined) {
+      const captain = liveCaptain(ctx, notice.captainSessionId)
+      const delivered = captain !== undefined && steerCaptainReport(captain, member.name, notice.report.content,
+        mailboxPrompt(located.id, CAPTAIN_KEY, [notice.report]))
+      await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
+        if (await readTeam(stateRoot, located.id) === undefined) return
+        if (delivered) await markMailboxDelivered(stateRoot, located.id, CAPTAIN_KEY, [notice.report.id])
+        else await releaseMailboxDelivery(stateRoot, located.id, CAPTAIN_KEY, [notice.report.id])
+      })
+    }
     if (status === 'idle') await runtime.kickMember(workspace, located.id, member.name)
   }
 

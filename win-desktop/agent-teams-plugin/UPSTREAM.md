@@ -9,8 +9,70 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.22-desktop.5`.
+- Desktop fork version is `0.1.22-desktop.8`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-10-06 desktop.8 scope contract guidance
+
+Classification: REAPPLY. The upstream and Harness pins remain unchanged.
+Create-task, staged-plan and amendment schemas describe mandatory implementation/
+repair inScope/verify arrays and exact files versus slash-terminated directories.
+The shared scope validator supplies concrete retries for missing scope and bare
+directory declarations; prose is never converted into write authorization.
+outOfScope remains authoritative, including protected-path exclusion. Captain
+guidance retains the 3,500-character budget. quality-gates-tdd.mjs reproduces the
+reported path, verifies corrected input, JSON serialization and zero-write failures.
+The full offline verify:upstream gate passes, including 205 wrapper tests; desktop
+rc.15 assets have been built; production-file parity, packaged closures and isolated startup/settings/import/restart pass. Publication and clean-runner installation are pending.
+
+## 2026-10-06 desktop.7 session-audit lifecycle and quality fixes
+
+Classification: REAPPLY; upstream v0.1.22 and Harness 0.2.0-rc.2 pins are unchanged.
+Keep pending captain ownership on idle, terminal supplemental evidence and safe
+pending cancellation, without changing active takeover or stale-attempt fences.
+Filter Team own-scope native tool lookup and model assembly together so official
+continuation guidance advertises usable Team messaging only. Native authorization
+and compatible captain subagent remain intact; normal or failed hydration releases
+all policy effects.
+
+Review/requirements pass requires structured evidence matching the current formal
+contract. An authorized scope reduction first uses agent_teams_amend_task. Coverage
+and delivery share recursive follow-up resolution; cancellation alone does not
+deliver a goal, completed replacements unblock it and failed cycles stay blocked.
+Idle members with unfinished attempts report once without an automatic retry.
+
+Evidence: real AgentLoop/Tools/ContinuationManager tests in
+scripts/team-return-guidance.test.mjs, strict scope-amendment and multi-round recovery
+tests in scripts/coverage-contract-consistency.test.mjs, and lifecycle-verify.mjs.
+These are in the offline verify:upstream gate, which passes with no installs,
+network, live providers or user-state migration. Native overload and permission
+regressions remain unchanged. Local desktop rc.14 assets were subsequently built;
+source/lib parity, packaged runtime closure and isolated settings save/restart pass.
+No GitHub publication or second-machine installation is claimed.
+
+## 2026-10-02 desktop.6 official settings persistence
+
+Classification: REAPPLY for temporary defaults, SUPERSEDED_BY_DESIGN for the
+separate desktop Profile writer. Harness and AgentTeams upstream pins remain
+unchanged. Temporary policy validation is declarative and survives official
+JSON Schema hydration without a module-local transform closure.
+
+Profiles use the official effective config and one SettingsForms/ConfigEditor
+CAS write. A live Volatile getter supplies new Teams, commands and guidance;
+Team creation freezes one snapshot, retaining existing roles and numbered-role
+inheritance. Saved desktop V2 records are preserved as an explicit draft import,
+not migrated, silently reapplied or written a second time. Dirty baselines
+reject external changes; official Home/CLI refusal remains intact. Last-profile
+deletion and empty maps retain Save/Reload. Protocol and execution prompt bytes,
+including indentation and surrounding newlines, survive unrelated edits/import.
+
+The requirements execution gate is preserved, with concrete IDs/status/retry
+guidance added to missing-dependency errors. Complete offline verify:upstream
+passes with 195 wrapper tests and no skips. Real Host persistence, JSON browser
+hydration, actual Electron 44 UI and 21 real AgentLoop compatibility tests cover
+the saved settings, route freezing and draft/conflict boundaries. No live
+provider request, user-state migration or upstream dependency installation is
+part of this evidence.
 
 ## 2026-10-02 desktop.5 temporary subagent route defaults
 

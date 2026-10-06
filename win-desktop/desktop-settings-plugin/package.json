@@ -1,12 +1,13 @@
 {
   "name": "@deepseek-ai/dsh-desktop-settings",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
+    "./backup": "./lib/backup.js",
     "./invariant": "./lib/invariant.js",
     "./package.json": "./package.json"
   },

@@ -3,7 +3,7 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
+import type { DelegationMode } from '../settings.ts'
 import { loadModelCatalog, type ModelCatalogEntry, type ModelCatalogState } from './model-catalog.ts'
 import { TeamProfilesEditor } from './TeamProfilesEditor.tsx'
 import { TemporaryMemberSettings } from './TemporaryMemberSettings.tsx'
@@ -13,6 +13,7 @@ import {
   planTemporaryMemberChange,
   runAgentTeamsSettingsAction,
   type AgentTeamsSettingsWriter,
+  type AgentTeamsEditorSettings,
   type SettingsWritePlan,
   type SettingsWriteView,
 } from './settings-write.ts'
@@ -26,7 +27,7 @@ type CatalogViewState = ModelCatalogState | {
 }
 
 export interface AgentTeamsSettingsSectionInjected {
-  settings: ConfigForm<AgentTeamsSettings>
+  settings: ConfigForm<AgentTeamsEditorSettings>
   writer: AgentTeamsSettingsWriter
 }
 
@@ -35,7 +36,7 @@ export type AgentTeamsSettingsSectionProps =
   & PropsLocale<typeof AGENT_TEAMS_LOCALE_NAMESPACE>
   & AgentTeamsSettingsSectionInjected
 
-const DEFAULT_SETTINGS: AgentTeamsSettings = { delegationMode: 'teams' }
+const DEFAULT_SETTINGS: AgentTeamsEditorSettings = { delegationMode: 'teams' }
 
 export function AgentTeamsSettingsSection({
   settings, writer, t,
@@ -166,6 +167,8 @@ export function AgentTeamsSettingsSection({
       />
 
       <TeamProfilesEditor
+        settings={settings}
+        writer={writer}
         catalog={catalog}
         onRetryCatalog={() => setCatalogAttempt((attempt) => attempt + 1)}
         t={t}

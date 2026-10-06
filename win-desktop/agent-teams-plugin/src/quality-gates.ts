@@ -360,13 +360,21 @@ function deliverablesScopeError(
     const classification = classifyChangedPath(deliverable, inScope ?? [], outOfScope ?? [])
     if (classification !== 'in_scope') {
       if (classification === 'undeclared') {
+        const parent = inScope?.find(scope => {
+          const normalized = normalizeWorkspacePath(scope)
+          return normalized !== undefined && normalized !== ''
+            && normalizeWorkspacePath(deliverable)?.startsWith(`${normalized}/`)
+        })
+        if (parent !== undefined) {
+          return `${kind} deliverable "${deliverable}" is undeclared; "${parent}" is an exact path. If the intended scope is the whole directory, retry with ${JSON.stringify(`${normalizeWorkspacePath(parent)}/`)} in inScope (trailing slash); otherwise list the authorized file explicitly. Do not widen the authorized task boundary`
+        }
         return `${kind} deliverable "${deliverable}" is undeclared; every deliverable path must be covered by inScope. Use an actual workspace-relative POSIX path, and put prose outcomes in subject, description, or acceptance`
       }
       if (classification === 'out_of_scope' && isDefaultExcluded(deliverable)) {
         return `${kind} deliverable "${deliverable}" is out_of_scope; every deliverable path must be covered by inScope. Protected paths such as .env files, secrets, and .git data cannot be deliverables or inScope`
       }
       if (classification === 'out_of_scope') {
-        return `${kind} deliverable "${deliverable}" is out_of_scope; every deliverable path must be covered by inScope. Remove it from deliverables or add the intended workspace-relative path to inScope after checking the task boundary`
+        return `${kind} deliverable "${deliverable}" is out_of_scope; outOfScope takes precedence over inScope. Remove the excluded deliverable, or obtain authorization to amend the task boundary; inScope cannot override the exclusion`
       }
       return `${kind} deliverable "${deliverable}" is illegal; every deliverable path must be covered by inScope. Deliverables must be workspace-relative POSIX paths without absolute paths or parent-directory escapes`
     }
@@ -419,7 +427,7 @@ export function validateCreateTask(team: TeamState, input: CreateTaskInput): Val
   }
   if (WRITE_KINDS.includes(kind)) {
     if (!nonemptyStringList(input.inScope)) {
-      return { ok: false, error: `${kind} tasks require a non-empty inScope` }
+      return { ok: false, error: `${kind} tasks require a non-empty inScope. Retry with a top-level inScope array of authorized workspace-relative POSIX paths; description and deliverables do not declare write scope. Exact files have no trailing slash; directories must end in /` }
     }
     if (!nonemptyStringList(input.verify)) {
       return { ok: false, error: `${kind} tasks require a non-empty verify list` }
@@ -483,9 +491,14 @@ export function validateCreateTask(team: TeamState, input: CreateTaskInput): Val
       dependencyClosureContains(team.tasks, dependencies, item.id)
     ))
     if (requirements.length > 0 && !passed && !behindRequirements) {
+      const open = requirements.filter(item => OPEN_STATUSES.includes(item.status))
+      const states = requirements.map(item => `${item.id} (${item.status}, verdict=${item.verdict ?? 'unset'})`).join('; ')
+      const next = open.length > 0
+        ? `在 dependencies 中加入对应需求任务 ID（例如 ${JSON.stringify([open[0]!.id])}）后重试；任务可排队，但必须等待需求完成且 verdict=pass 才能执行。`
+        : '当前没有可继续的需求任务；先处理失败的需求或创建新的 requirements 任务，再通过 dependencies 关联。'
       return {
         ok: false,
-        error: 'implementation must depend on a requirements task until requirements completes with verdict=pass',
+        error: `implementation must depend on a requirements task until requirements completes with verdict=pass. 当前需求任务：${states}。${next} 用 agent_teams_status 查看最新状态。`,
       }
     }
   }
@@ -534,10 +547,11 @@ function openHighFindings(findings: readonly ReviewFinding[] | undefined): Revie
   ))
 }
 
-function acceptanceCovered(required: readonly string[] | undefined, results: readonly AcceptanceResult[] | undefined): boolean {
+function acceptanceCovered(required: readonly string[] | undefined, results: readonly AcceptanceResult[] | undefined, exact = false): boolean {
   if (results === undefined) return false
   const byCriterion = new Map(results.map((item) => [item.criterion, item]))
   if ((required ?? []).every((criterion) => byCriterion.get(criterion)?.status === 'passed')) return true
+  if (exact) return false
   // Structured result arrays naturally preserve the contract order. Accept a
   // same-length all-pass report even when a model paraphrases punctuation or
   // whitespace in `criterion`; verification evidence remains independently
@@ -545,10 +559,11 @@ function acceptanceCovered(required: readonly string[] | undefined, results: rea
   return results.length === (required ?? []).length && results.every((item) => item.status === 'passed')
 }
 
-function verifyCovered(required: readonly string[] | undefined, results: readonly CommandResult[] | undefined): boolean {
+function verifyCovered(required: readonly string[] | undefined, results: readonly CommandResult[] | undefined, exact = false): boolean {
   if (results === undefined) return false
   const byCommand = new Map(results.map((item) => [item.command, item]))
   if ((required ?? []).every((command) => byCommand.get(command)?.status === 'passed')) return true
+  if (exact) return false
   return results.length === (required ?? []).length && results.every((item) => item.status === 'passed')
 }
 
@@ -574,6 +589,17 @@ export function evaluateQualityCompletion(
       if (verdict !== 'pass') return { ok: false, error: `${kind} with verdict=${verdict} cannot complete` }
       if (openHighFindings(findings).length > 0) {
         return { ok: false, error: `${kind} pass cannot leave unresolved high/blocker findings` }
+      }
+      const acceptanceResults = update.acceptanceResults ?? task.acceptanceResults
+      const commands = update.commandsRun ?? task.commandsRun
+      if ((task.acceptance?.length ?? 0) > 0 && !acceptanceCovered(task.acceptance, acceptanceResults, true)) {
+        return { ok: false, error: `${kind} completion requires passed acceptanceResults matching every current acceptance item; amend the contract before reducing scope` }
+      }
+      if (commands?.some(item => item.status === 'failed')) {
+        return { ok: false, error: 'verify failure must fail the task', requiredStatus: 'failed' }
+      }
+      if ((task.verify?.length ?? 0) > 0 && !verifyCovered(task.verify, commands, true)) {
+        return { ok: false, error: `${kind} completion requires a passed commandsRun entry matching every current verify command` }
       }
     }
     if (nextStatus === 'failed' && (verdict === 'needs_revision' || verdict === 'reject')) {
@@ -833,15 +859,36 @@ export function buildCoverageMatrix(goalItems: readonly string[], tasks: readonl
   return goalItems.map((goalItem) => {
     const covering = tasks.filter((item) => item.coverageOf?.includes(goalItem))
     const taskIds = covering.map((item) => item.id)
-    if (covering.length === 0) return { goal_item: goalItem, task_ids: taskIds, status: 'missing' }
-    if (covering.some((item) => item.status === 'failed' || item.status === 'cancelled')) {
+    const active = covering.filter(item => item.status !== 'cancelled').flatMap(item => qualityTerminals(tasks, item))
+    if (active.length === 0) return { goal_item: goalItem, task_ids: taskIds, status: 'missing' }
+    if (active.some((item) => item.status === 'failed')) {
       return { goal_item: goalItem, task_ids: taskIds, status: 'blocked' }
     }
-    if (covering.every((item) => item.status === 'completed')) {
+    if (active.every((item) => item.status === 'completed')) {
       return { goal_item: goalItem, task_ids: taskIds, status: 'passed' }
     }
     return { goal_item: goalItem, task_ids: taskIds, status: 'in_progress' }
   })
+}
+
+/** Follow-up ownership is shared by coverage and delivery; cancellation is not a repair. */
+function qualityFollowUps(tasks: readonly TeamTask[], item: TeamTask): TeamTask[] {
+  const kind = taskKindOf(item)
+  return tasks.filter(candidate => candidate.status !== 'cancelled' && (
+    kind === 'requirements'
+      ? taskKindOf(candidate) === 'requirements' && (candidate.round ?? 1) > (item.round ?? 1)
+      : taskKindOf(candidate) === 'repair'
+        && candidate.sourceTaskId === (kind === 'review' ? item.reviewedTaskId ?? item.sourceTaskId : item.id)
+  ))
+}
+
+/** Resolve every repair branch; a cycle retains its failed task and blocks delivery. */
+function qualityTerminals(tasks: readonly TeamTask[], item: TeamTask, path = new Set<string>()): TeamTask[] {
+  if (item.status !== 'failed' || path.has(item.id)) return [item]
+  const followUps = qualityFollowUps(tasks, item)
+  if (followUps.length === 0) return [item]
+  const nextPath = new Set(path).add(item.id)
+  return followUps.flatMap(next => qualityTerminals(tasks, next, nextPath))
 }
 
 export function canDeclareDelivery(team: TeamState): DeliveryResult {
@@ -850,6 +897,10 @@ export function canDeclareDelivery(team: TeamState): DeliveryResult {
   if (team.halted === true) blockers.push('team is halted')
   if (team.escalated === true) blockers.push('team requires escalation resolution')
   if (team.tasks.length === 0) blockers.push('team has no completed work')
+  const goals = [...new Set(team.tasks.flatMap(item => item.coverageOf ?? []))]
+  for (const row of buildCoverageMatrix(goals, team.tasks)) {
+    if (row.status !== 'passed') blockers.push(`coverage ${row.goal_item} is ${row.status}`)
+  }
   for (const item of team.tasks.filter(item => !isQualityKind(taskKindOf(item)))) {
     if (item.status !== 'completed' && item.status !== 'cancelled') blockers.push(`${item.id} (${taskKindOf(item)}) is not completed`)
   }
@@ -867,20 +918,7 @@ export function canDeclareDelivery(team: TeamState): DeliveryResult {
       continue
     }
     if (item.status === 'failed') {
-      const repaired = kind === 'review'
-        ? quality.some((candidate) => (
-          taskKindOf(candidate) === 'repair'
-          && candidate.sourceTaskId === (item.reviewedTaskId ?? item.sourceTaskId)
-          && (candidate.status === 'pending' || candidate.status === 'claimed' || candidate.status === 'in_progress' || candidate.status === 'completed')
-        ))
-        : kind === 'requirements'
-          ? quality.some((candidate) => (
-            taskKindOf(candidate) === 'requirements'
-            && (candidate.round ?? 1) > (item.round ?? 1)
-          ))
-          : quality.some((candidate) => (
-            taskKindOf(candidate) === 'repair' && candidate.sourceTaskId === item.id
-          ))
+      const repaired = qualityTerminals(quality, item).every(next => next.status === 'completed')
       if (!repaired) blockers.push(`${item.id} failed without a follow-up repair`)
       continue
     }
@@ -1097,10 +1135,11 @@ export function qualityPlanningPrompt(): string {
     'When the user explicitly requests full quality-mode planning, use this order unless a constraint forbids a stage: requirements → implementation → verification → review → integration.',
     'Build that entire DAG while the team is staged: an implementation may be created before requirements finishes when its dependency chain includes that requirements task. This is supported; do not wait for requirements to run and do not inspect plugin source to confirm it.',
     'A staged integration task may depend on review round 1. If that review later returns needs_revision, the system automatically rewires still-pending downstream dependencies to the generated repair + next-review gate, so keep integration in the original plan instead of omitting or manually recreating it.',
-    'Derive inScope and verification commands from the actual workspace or explicit profile; never assume src/ or pnpm test.',
+    'Implementation/repair require top-level non-empty inScope and verify arrays; description and deliverables do not declare write scope. Use exact workspace-relative files or directories ending in /, also for outOfScope; derive commands from the workspace, never assume src/ or pnpm test.',
     'Treat implementation/repair deliverables as concrete workspace-relative POSIX paths covered by inScope, not prose labels; put abstract outcomes in subject, description, or acceptance. Never include .env files, secrets, or .git data in inScope or deliverables.',
     'For task ownership, use an active member name, assignee="captain" for captain-owned work, or omit assignee for the shared pool; an empty assignee is normalized to the shared pool.',
     'Give every quality task a contract. Review acceptance must judge the latest implementation, not whether the gate rejects needs_revision.',
+    'Review and requirements completion needs verdict=pass and passed acceptanceResults/commandsRun matching the current contract. When the user changes scope, use agent_teams_amend_task first; a message does not amend acceptance or verify.',
     'Do not write smoke-test scripts into tasks. Do not ask reviewers to submit needs_revision on purpose.',
     'Do not claim implementation or review yourself unless the user asked the captain to take over.',
     'After a failed review, wait for the automatic repair + next review. Do not recreate that loop by hand.',

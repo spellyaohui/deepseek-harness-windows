@@ -72,6 +72,34 @@ export function resolveDelegationPolicy(input: {
 }
 
 const installedPolicies = new WeakMap<Agent, DelegationPolicyId>()
+const compatibleCaptains = new WeakSet<Agent>()
+
+function hiddenTeamTool(agent: Agent, name: string): boolean {
+  return installedPolicies.get(agent) === 'teams-v1' && nativeDelegationToolNames.has(name)
+    && !(name === 'subagent' && compatibleCaptains.has(agent))
+}
+
+/** Make the official continuation capability lookup agree with Team admission.
+ * Scope-local registrations survive restrict(); Native and global lookups stay unchanged.
+ */
+function installTeamToolLookup(ctx: Context): () => void {
+  const tools = ctx.tools
+  if (typeof tools?.get !== 'function') return () => undefined
+  const original = tools.get
+  const descriptor = Object.getOwnPropertyDescriptor(tools, 'get')
+  let active = true
+  const lookup: typeof original = function (this: typeof tools, name, scope) {
+    if (active && scope !== undefined && hiddenTeamTool(scope as Agent, name)) return undefined
+    return original.call(this, name, scope)
+  }
+  tools.get = lookup
+  return () => {
+    active = false
+    if (Object.getOwnPropertyDescriptor(tools, 'get')?.value !== lookup) return
+    if (descriptor === undefined) Reflect.deleteProperty(tools, 'get')
+    else Object.defineProperty(tools, 'get', descriptor)
+  }
+}
 
 function sessionEvents(agent: Agent): readonly SessionEvent[] {
   const session = agent.session as typeof agent.session & { readonly events?: readonly SessionEvent[] }
@@ -127,6 +155,7 @@ export function installDelegationPolicy(input: {
   const restrictions: Array<() => void> = []
   let disposeGuard = (): void => undefined
   let disposeCompatibility = (): void => undefined
+  let disposeAssembly = (): void => undefined
   try {
     if (input.member === true) {
       const deny = CAPTAIN_TOOL_NAMES.filter(name => agent.ctx.tools.get(name) !== undefined)
@@ -135,6 +164,7 @@ export function installDelegationPolicy(input: {
     if (policy === 'teams-v1') {
       const compatibility = input.member === true ? undefined : input.subagentCompatibility
       if (compatibility !== undefined) {
+        compatibleCaptains.add(agent)
         disposeCompatibility = agent.ctx.on('tools/execute', async (execution, next) => {
           if (execution.name !== 'subagent' || execution.agent !== agent) return next()
           const value = await compatibility(execution)
@@ -159,8 +189,17 @@ export function installDelegationPolicy(input: {
           ? `AgentTeams Team policy forbids native delegation tool "${execution.name}"; use agent_teams_* tools`
           : undefined
       ))
+      // The public assembly seam covers tools registered later in this own scope.
+      // Keep execution guards for direct calls; hiding schemas is not authorization.
+      disposeAssembly = agent.ctx.on?.('system-prompt/assemble', async (_assembly, context, next) => {
+        const assembly = await next()
+        if (context.scope !== agent) return assembly
+        return { ...assembly, tools: assembly.tools.filter(tool => !hiddenTeamTool(agent, tool.name)) }
+      }) ?? (() => undefined)
     }
   } catch (error) {
+    compatibleCaptains.delete(agent)
+    disposeAssembly()
     disposeGuard()
     disposeCompatibility()
     for (const disposeRestriction of [...restrictions].reverse()) disposeRestriction()
@@ -174,6 +213,8 @@ export function installDelegationPolicy(input: {
     if (!active) return
     active = false
     installedPolicies.delete(agent)
+    compatibleCaptains.delete(agent)
+    disposeAssembly()
     disposeGuard()
     disposeCompatibility()
     for (const disposeRestriction of [...restrictions].reverse()) disposeRestriction()
@@ -212,6 +253,7 @@ export function registerDelegationPolicyLifecycle(
   runtime: DelegationPolicyRuntime,
 ): () => void {
   const active = new Map<Agent, () => void>()
+  const stopLookup = installTeamToolLookup(ctx)
   let mounted = true
   const attach = (agent: Agent): void => {
     if (!mounted || active.has(agent)) return
@@ -242,16 +284,23 @@ export function registerDelegationPolicyLifecycle(
       throw error
     }
   }
-  const stopReady = onAgentReady(ctx, agent => { attach(agent) })
-  const agents = ctx.agents as typeof ctx.agents & { list?: () => Iterable<Agent> }
-  for (const agent of agents.list?.() ?? []) attach(agent)
+  let stopReady = (): void => {}
   const dispose = (): void => {
     if (!mounted) return
     mounted = false
     stopReady()
     for (const release of [...active.values()]) release()
+    stopLookup()
   }
-  const rootEffect = (ctx as unknown as { effect?: (setup: () => () => void, name: string) => unknown }).effect
-  rootEffect?.call(ctx, () => dispose, 'agent-teams: delegation policy lifecycle')
+  try {
+    const rootEffect = (ctx as unknown as { effect?: (setup: () => () => void, name: string) => unknown }).effect
+    rootEffect?.call(ctx, () => dispose, 'agent-teams: delegation policy lifecycle')
+    stopReady = onAgentReady(ctx, agent => { attach(agent) })
+    const agents = ctx.agents as typeof ctx.agents & { list?: () => Iterable<Agent> }
+    for (const agent of agents.list?.() ?? []) attach(agent)
+  } catch (error) {
+    dispose()
+    throw error
+  }
   return dispose
 }

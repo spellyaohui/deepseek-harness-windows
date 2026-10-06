@@ -19,6 +19,41 @@ const customProfile = {
   tasks: [{ id: 'work', subject: 'Work', assignee: 'custom', dependencies: [] }],
 }
 
+test('V2 cached profiles preserve reviewer arrays and reject malformed reviewers', () => {
+  for (const requiredReviewers of [[], ['reviewer']]) {
+    const profile = { ...customProfile, reviewPolicy: { codeMaxRounds: 2, requiredReviewers } }
+    const document = { schemaVersion: 2, profiles: { custom: profile } }
+    const snapshot = getAgentTeamsProfileSnapshot({ settings: { agentTeamsProfiles: document } })
+    assert.equal(snapshot.hasPersistedProfiles, true)
+    assert.deepEqual(snapshot.profiles.custom, profile, 'valid reviewer lists must not discard a saved profile')
+    let saved
+    writeAgentTeamsProfiles(document, { flush: value => { saved = value } })
+    assert.deepEqual(saved.agentTeamsProfiles.profiles.custom, profile)
+  }
+  for (const requiredReviewers of [1, [''], [null]]) {
+    assert.throws(() => writeAgentTeamsProfiles({
+      schemaVersion: 2, profiles: { custom: { ...customProfile, reviewPolicy: { requiredReviewers } } },
+    }), /requiredReviewers/)
+  }
+})
+
+test('desktop snapshot distinguishes saved V2 records from built-in defaults', () => {
+  assert.equal(getAgentTeamsProfileSnapshot().hasPersistedProfiles, false)
+  assert.equal(getAgentTeamsProfileSnapshot({ settings: { agentTeamsProfiles: { profiles: {} } } }).hasPersistedProfiles, false)
+  assert.equal(getAgentTeamsProfileSnapshot({ settings: { agentTeamsProfiles: { schemaVersion: 2, profiles: {} } } }).hasPersistedProfiles, true)
+})
+
+test('reading and saving cached V2 prompts preserves their exact whitespace', () => {
+  const prompt = '\n  使用中文交流。\n    保留代码块缩进。\n'
+  const profile = { ...customProfile, protocol: prompt, executionPrompt: prompt,
+    members: [{ ...customProfile.members[0], executionPrompt: prompt }] }
+  const document = { schemaVersion: 2, profiles: { custom: profile } }
+  assert.deepEqual(getAgentTeamsProfileSnapshot({ settings: { agentTeamsProfiles: document } }).profiles.custom, profile)
+  let saved
+  writeAgentTeamsProfiles(document, { flush: value => { saved = value } })
+  assert.deepEqual(saved.agentTeamsProfiles.profiles.custom, profile)
+})
+
 test('built-in profiles are complete V2 documents', () => {
   const snapshot = getAgentTeamsProfileSnapshot({ settings: {} })
 

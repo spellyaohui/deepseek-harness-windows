@@ -2410,7 +2410,7 @@ try {
          $s = [System.IO.File]::Open($f, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite);
          [Console]::Out.WriteLine('HELD'); [Console]::Out.Flush();
          Start-Sleep -Seconds 45; $s.Dispose()`],
-      { stdio: ['ignore', 'pipe', 'inherit'] },
+      { stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true },
     )
     const held = await new Promise((resolve, reject) => {
       let buffer = ''
@@ -2470,7 +2470,7 @@ try {
            $s = [System.IO.File]::Open($f, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite);
            [Console]::Out.WriteLine('HELD_T'); [Console]::Out.Flush();
            [Threading.Thread]::Sleep(140); $s.Dispose()`],
-        { stdio: ['ignore', 'pipe', 'inherit'] },
+        { stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true },
       )
       const flashed = await new Promise((resolve, reject) => {
         let buffer = ''

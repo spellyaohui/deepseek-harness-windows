@@ -10,6 +10,7 @@
 
 import { fileURLToPath } from 'node:url'
 import { rewriteDesktopProfileLayer } from './desktop-profile-layer.js'
+export { injectWindowsHideArgs, patchNodeChildProcess } from './win-hide-console-child-process.cjs'
 
 const DESKTOP_INSTALL_ANCHOR = fileURLToPath(new URL('../package.json', import.meta.url))
 const PROFILE_INSTALL_ANCHOR_NEEDLE = 'const INSTALL_ANCHOR = fileURLToPath(new URL("../package.json", import.meta.url));'
@@ -516,45 +517,4 @@ export function rewriteKnownToolArgumentAliases(source) {
       `${normalizeKnownToolArgumentAliases.toString()}\n${signatureNeedle}`,
     )
     .replace(blockNeedle, blockPatch)
-}
-
-function injectWindowsHide(options) {
-  if (options == null) return { windowsHide: true }
-  if (typeof options !== 'object' || Array.isArray(options)) return options
-  // Preserve explicit visibility and leave invalid values to Node's validator.
-  if (options.windowsHide != null && options.windowsHide !== true) return { ...options }
-  return { ...options, windowsHide: true }
-}
-
-export function injectWindowsHideArgs(args, method) {
-  const copy = [...args]
-  // Node overloads place options before an optional callback; an explicit
-  // undefined/null placeholder still occupies that slot. execSync has no args.
-  const optionsAt = method === 'execSync' ? 1
-    : Array.isArray(copy[1]) || (copy[1] == null && copy.length > 2) ? 2 : 1
-  const options = copy[optionsAt]
-  // Native spawn rejects a null options object. Preserve that validation.
-  if (optionsAt === 2 && options === null && (method === 'spawn' || method === 'spawnSync')) return copy
-  if (typeof options === 'function') {
-    if (method !== undefined && method !== 'execFile') return copy
-    copy.splice(optionsAt, 0, injectWindowsHide(undefined))
-  } else {
-    copy[optionsAt] = injectWindowsHide(options)
-  }
-  return copy
-}
-
-const INSTALLED = Symbol.for('dsh-desktop.win-hide-console')
-
-export function patchNodeChildProcess(childProcess) {
-  if (!childProcess || childProcess[INSTALLED]) return childProcess
-  for (const name of ['spawn', 'spawnSync', 'execSync', 'execFile', 'execFileSync', 'fork']) {
-    const original = childProcess[name]
-    if (typeof original !== 'function') continue
-    childProcess[name] = function patchedChildProcessFn(...args) {
-      return original.apply(this, injectWindowsHideArgs(args, name))
-    }
-  }
-  childProcess[INSTALLED] = true
-  return childProcess
 }

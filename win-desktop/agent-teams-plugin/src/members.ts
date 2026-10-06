@@ -763,7 +763,7 @@ Working rules:
    - include a concise output in either case;
    - a stale-attempt rejection means the captain reassigned or took over the task; stop touching that task and wait for new work.
    claimed cannot jump to completed. Mark in_progress first, then completed or failed.
-   Include attempt_id on every update. Then send_message to captain and become idle.
+   Include attempt_id on every update. Then agent_teams_send_message to captain and become idle.
 4. Send a short report to the captain with agent_teams_send_message (to=captain) when you complete a task or hit a blocker.
 5. To ask a teammate something, use agent_teams_send_message with to=<teammate name>; the message lands in their mailbox and wakes them directly — teammates talk to each other without the captain in the loop. The same applies to the captain (to=captain).
 6. After your turn becomes idle, the shared task scheduler may assign your next ready task automatically. Never claim a second task while you still own unfinished work.

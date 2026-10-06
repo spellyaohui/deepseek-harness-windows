@@ -147,6 +147,12 @@ function normalizedRequiredString(value, path) {
   return normalized
 }
 
+function preservedPrompt(value, path) {
+  // Validate emptiness without rewriting user-authored Markdown or indentation.
+  normalizedOptionalString(value, path)
+  return value
+}
+
 function normalizedFallback(value, path) {
   if (value === undefined) return undefined
   if (!isPlainRecord(value)) throw new Error(`${path} must be an object`)
@@ -169,6 +175,7 @@ function normalizedReviewPolicy(value, path) {
   }
   const result = {}
   for (const key of REVIEW_POLICY_KEYS) {
+    if (key === 'requiredReviewers') continue
     if (value[key] === undefined) continue
     if (!Number.isSafeInteger(value[key]) || value[key] < 1) {
       throw new Error(`${path}.${key} must be a positive integer`)
@@ -246,7 +253,7 @@ function normalizedMember(value, path) {
   }
   const member = { name, reasoning_mode }
   for (const key of ['role', 'executionPrompt']) {
-    const normalized = normalizedOptionalString(value[key], `${path}.${key}`)
+    const normalized = (key === 'executionPrompt' ? preservedPrompt : normalizedOptionalString)(value[key], `${path}.${key}`)
     if (normalized !== undefined) member[key] = normalized
   }
   if (provider !== undefined) member.provider = provider
@@ -273,7 +280,7 @@ function normalizedProfile(value, path) {
     memberKeys.add(key)
   }
   for (const key of ['description', 'protocol', 'executionPrompt']) {
-    const normalized = normalizedOptionalString(value[key], `${path}.${key}`)
+    const normalized = (key === 'description' ? normalizedOptionalString : preservedPrompt)(value[key], `${path}.${key}`)
     if (normalized !== undefined) profile[key] = normalized
   }
   const fallback = normalizedFallback(value.fallback, `${path}.fallback`)
@@ -378,6 +385,9 @@ export function getAgentTeamsProfileSnapshot({ settings = {} } = {}) {
     builtInNames: [...BUILTIN_AGENT_TEAMS_PROFILE_NAMES],
     builtInProfiles: cloneAgentTeamsProfiles(BUILTIN_AGENT_TEAMS_PROFILES),
     unsupportedPersistedVersion: document.unsupportedPersistedVersion,
+    hasPersistedProfiles: isPlainRecord(settings) && isPlainRecord(settings.agentTeamsProfiles)
+      && settings.agentTeamsProfiles.schemaVersion === AGENT_TEAMS_PROFILE_SCHEMA_VERSION
+      && isPlainRecord(settings.agentTeamsProfiles.profiles),
   }
 }
 

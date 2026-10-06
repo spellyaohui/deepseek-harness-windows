@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { Context } from '@deepseek-ai/cordis'
+import { createVolatile, updateVolatile } from '@deepseek-ai/cosmokit'
 import { LlmAdapter, ToolCallId } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -174,6 +175,61 @@ async function completeTaskThroughMemberTools(execute, child, task, output = CHI
     assert.equal(result.isError, false, text(result))
   }
 }
+
+test('Live official Profile changes route new Teams while numbered roles retain each Team frozen route', { timeout: 15_000 }, async t => {
+  const firstProfiles = {
+    delivery: { taskPlanning: 'captain', members: [{
+      name: 'reviewer', role: '代码审查员', provider: 'offline', model: 'alternate-model',
+      reasoning_mode: 'explicit', reasoning_effort: 'low', executionPrompt: '保留首次团队的审查职责。',
+    }] },
+  }
+  const { ctx, workspace, stateRoot, adapter, captain, execute, teamFiber } = await fixture(t, 'teams', { profiles: firstProfiles })
+  const first = await execute(captain, 'agent_teams_create', { description: '首次官方配置快照', profile: 'delivery' })
+  assert.equal(first.isError, false, text(first))
+  const frozen = await readTeam(stateRoot, first.value.team_id)
+  const secondProfiles = {
+    delivery: { taskPlanning: 'captain', members: [{
+      name: 'reviewer', role: '代码审查员', provider: 'temporary-offline', model: 'blocked-model',
+      reasoning_mode: 'explicit', reasoning_effort: 'high', executionPrompt: '新团队使用更新的审查职责。',
+    }] },
+    'newly-saved': { taskPlanning: 'captain', members: [{ name: 'analyst', reasoning_mode: 'target-default' }] },
+  }
+  // ConfigEditor uses this same official Volatile boundary without remounting
+  // the plugin. No desktop cache or already-created Team state is rewritten.
+  updateVolatile(teamFiber.config.profiles, createVolatile(secondProfiles))
+  assert.deepEqual((await readTeam(stateRoot, first.value.team_id)).members, frozen.members)
+  const firstAdded = await execute(captain, 'agent_teams_add_member', { name: 'reviewer-2' })
+  assert.equal(firstAdded.isError, false, text(firstAdded))
+  const firstRequest = await eventually(() => adapter.requests.find(request => request.sessionId === firstAdded.value.member_id), 'the first Team numbered reviewer never requested its model')
+  assert.equal(firstRequest.provider, 'offline')
+  assert.equal(firstRequest.model, 'alternate-model')
+  assert.equal(firstRequest.reasoningEffort, 'low')
+
+  const nextCaptain = await ctx.agents.create({
+    sessionId: SessionId('profile-second-captain'), meta: { cwd: workspace },
+    agentOptions: { provider: 'offline', model: 'offline-model' },
+  })
+  const second = await execute(nextCaptain.agent, 'agent_teams_create', { description: '更新后的官方配置快照', profile: 'delivery' })
+  assert.equal(second.isError, false, text(second))
+  const newer = await readTeam(stateRoot, second.value.team_id)
+  const reviewer = newer.members.find(member => member.name === 'reviewer')
+  assert.equal(reviewer.provider, 'temporary-offline')
+  assert.equal(reviewer.model, 'blocked-model')
+  assert.equal(reviewer.reasoningMode, 'explicit')
+  assert.equal(reviewer.reasoningEffort, 'high')
+  assert.equal(reviewer.executionPrompt, secondProfiles.delivery.members[0].executionPrompt)
+  const secondAdded = await execute(nextCaptain.agent, 'agent_teams_add_member', { name: 'reviewer-2' })
+  assert.equal(secondAdded.isError, false, text(secondAdded))
+  const secondRequest = await eventually(() => adapter.requests.find(request => request.sessionId === secondAdded.value.member_id), 'the new Team numbered reviewer never requested its updated model')
+  assert.equal(secondRequest.provider, 'temporary-offline')
+  assert.equal(secondRequest.model, 'blocked-model')
+  assert.equal(secondRequest.reasoningEffort, 'high')
+
+  const discoveredCaptain = await ctx.agents.create({ sessionId: SessionId('profile-discovery-captain'), meta: { cwd: workspace }, agentOptions: { provider: 'offline', model: 'offline-model' } })
+  const discovered = await execute(discoveredCaptain.agent, 'agent_teams_create', { description: '新保存的配置可被精确选择', profile: 'newly-saved' })
+  assert.equal(discovered.isError, false, text(discovered))
+  assert.equal((await readTeam(stateRoot, discovered.value.team_id)).profile.name, 'newly-saved')
+})
 
 test('Team captain native subagent creates an actual Team member, assigned task and durable child session', { timeout: 15_000 }, async t => {
   const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams')

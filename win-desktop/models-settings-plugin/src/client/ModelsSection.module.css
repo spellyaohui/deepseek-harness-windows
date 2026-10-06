@@ -535,6 +535,8 @@
   gap: 16px;
   min-height: 32px;
   align-items: center;
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .modelFieldLabel {

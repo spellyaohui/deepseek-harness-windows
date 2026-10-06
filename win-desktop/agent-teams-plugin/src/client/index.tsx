@@ -31,8 +31,7 @@ import {
   AGENT_TEAMS_LOCALE_NAMESPACE, en, zh, type AgentTeamsLocaleKey,
 } from './locales.ts'
 import { openAgentTeamMember, type AgentTeamsLayoutNavigator, type AgentTeamsWorkspaceNavigator } from './session-navigation.ts'
-import { createAgentTeamsSettingsWriter } from './settings-write.ts'
-import type { AgentTeamsSettings } from '../settings.ts'
+import { createAgentTeamsSettingsWriter, type AgentTeamsEditorSettings } from './settings-write.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -67,7 +66,7 @@ export function apply(ctx: ClientContext): void {
     () => ctx.locale.register(AGENT_TEAMS_LOCALE_NAMESPACE, { zh, en }),
     'agent-teams: dictionaries',
   )
-  const settings = ctx.configForms.get<AgentTeamsSettings>('agent-teams')
+  const settings = ctx.configForms.get<AgentTeamsEditorSettings>('agent-teams')
   const writer = createAgentTeamsSettingsWriter({
     api: { settings: (ctx.remote as unknown as { settings: Parameters<typeof createAgentTeamsSettingsWriter>[0]['api']['settings'] }).settings },
     scope: settings,

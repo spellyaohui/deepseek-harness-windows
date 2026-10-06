@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { AgentTeamsTranslate } from './locales.ts'
 import type { ModelCatalogEntry, ModelCatalogState } from './model-catalog.ts'
 import {
@@ -9,6 +11,8 @@ import {
   createEmptyTeamProfile,
   hasUnvalidatedFallbackDraft,
   hasUnvalidatedExplicitRoleDraft,
+  importDesktopProfileDraft,
+  normalizeEffectiveProfileMap,
   normalizeProfileSnapshot,
   prepareProfileMapForSave,
   renameCommittedProfileName,
@@ -20,9 +24,17 @@ import {
   type TeamProfileTaskConfig,
 } from './profile-editor.ts'
 import { getAgentTeamsDesktopBridge } from './desktop-bridge.ts'
+import {
+  profileSettingsSignature,
+  PROFILE_DRAFT_CONFLICT,
+  type AgentTeamsEditorSettings,
+  type AgentTeamsSettingsWriter,
+} from './settings-write.ts'
 import css from './AgentTeamsSettingsSection.module.css'
 
 interface TeamProfilesEditorProps {
+  settings: ConfigForm<AgentTeamsEditorSettings>
+  writer: AgentTeamsSettingsWriter
   catalog: ModelCatalogState | { status: 'loading'; models: readonly ModelCatalogEntry[]; error: null }
   onRetryCatalog: () => void
   t: AgentTeamsTranslate
@@ -639,7 +651,11 @@ function ProfileForm({
   )
 }
 
-export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: TeamProfilesEditorProps) {
+export function TeamProfilesEditor({ catalog, onRetryCatalog, settings, writer, t, writable }: TeamProfilesEditorProps) {
+  const subscribe = useCallback((listener: () => void) => settings.subscribe(listener), [settings])
+  const getSnapshot = useCallback(() => settings.getSnapshot(), [settings])
+  const effective = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const effectiveSignature = profileSettingsSignature(effective.value?.profiles)
   const bridge = useMemo(() => getAgentTeamsDesktopBridge(), [])
   const [snapshot, setSnapshot] = useState<AgentTeamsProfilesSnapshot | null>(null)
   const [profiles, setProfiles] = useState<Record<string, TeamProfileConfig>>({})
@@ -647,39 +663,51 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
   const [committedProfileNames, setCommittedProfileNames] = useState<CommittedProfileNameMap>({})
   const [selectedName, setSelectedName] = useState('')
   const [nameDraft, setNameDraft] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [baselineSignature, setBaselineSignature] = useState<string | null>(null)
+  const [legacyError, setLegacyError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const loadProfiles = useCallback(() => {
-    if (bridge?.getAgentTeamsProfiles === undefined) {
-      setLoading(false)
-      setError(t('settings.profiles.bridgeUnavailable'))
-      return
-    }
-    setLoading(true)
+  const acceptProfiles = useCallback((value: unknown, signature: string) => {
+    const next = normalizeEffectiveProfileMap(value)
+    setProfiles(next)
+    setCommittedProfiles(cloneProfileMap(next))
+    setCommittedProfileNames(createCommittedProfileNameMap(next))
+    setBaselineSignature(signature)
+    setSelectedName((current) => next[current] === undefined ? Object.keys(next)[0] ?? '' : current)
+    setNameDraft((current) => next[current] === undefined ? Object.keys(next)[0] ?? '' : current)
     setError(null)
+  }, [])
+  const dirty = profileSettingsSignature(profiles) !== profileSettingsSignature(committedProfiles)
+    || nameDraft !== selectedName
+  const loading = effective.status === 'loading'
+  const externallyChanged = baselineSignature !== null && effectiveSignature !== baselineSignature
+
+  // A clean editor follows official updates. A dirty editor keeps its original
+  // baseline so a later Profile save cannot silently overwrite another editor.
+  useEffect(() => {
+    if (effective.status !== 'ready' || saving || (dirty && baselineSignature !== null)) return
+    if (effectiveSignature === baselineSignature) return
+    try {
+      acceptProfiles(effective.value?.profiles, effectiveSignature)
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    }
+  }, [effective.status, effective.value?.profiles, effectiveSignature, baselineSignature, dirty, saving, acceptProfiles])
+
+  useEffect(() => {
+    if (bridge?.getAgentTeamsProfiles === undefined) return
     let active = true
     void bridge.getAgentTeamsProfiles().then((next) => {
       if (!active) return
-      const normalized = normalizeProfileSnapshot(next)
-      setSnapshot(normalized)
-      setProfiles(normalized.profiles)
-      setCommittedProfiles(cloneProfileMap(normalized.profiles))
-      setCommittedProfileNames(createCommittedProfileNameMap(normalized.profiles))
-      setSelectedName(Object.keys(normalized.profiles)[0] ?? '')
-      setMessage(null)
-      setLoading(false)
+      setSnapshot(normalizeProfileSnapshot(next))
     }).catch((reason: unknown) => {
-       if (!active) return
-       setLoading(false)
-       setError(reason instanceof Error ? reason.message : String(reason))
+      if (active) setLegacyError(reason instanceof Error ? reason.message : String(reason))
     })
     return () => { active = false }
-  }, [bridge, t])
+  }, [bridge])
 
-  useEffect(() => loadProfiles(), [loadProfiles])
   useEffect(() => { setNameDraft(selectedName) }, [selectedName])
   useEffect(() => {
     if (selectedName !== '' && profiles[selectedName] !== undefined) return
@@ -692,8 +720,9 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
   const selectedIsBuiltIn = selectedName !== '' && builtInNames.includes(selectedName)
   const differsFromBuiltIn = selectedIsBuiltIn && builtInProfiles[selectedName] !== undefined
     && JSON.stringify(selectedProfile) !== JSON.stringify(builtInProfiles[selectedName])
-  const dirty = JSON.stringify(profiles) !== JSON.stringify(committedProfiles)
-  const controlsDisabled = !writable || loading || saving
+  const controlsDisabled = !writable || baselineSignature === null || loading || saving
+  const desktopImportAvailable = snapshot !== null && snapshot.hasPersistedProfiles && !snapshot.unsupportedPersistedVersion
+    && profileSettingsSignature(importDesktopProfileDraft(committedProfiles, snapshot)) !== profileSettingsSignature(committedProfiles)
   const catalogReady = catalog.status === 'ready'
   const explicitRouteBlocked = hasUnvalidatedExplicitRoleDraft(
     profiles,
@@ -761,6 +790,22 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
     setError(null)
   }
 
+  const reloadProfiles = (): void => {
+    try {
+      acceptProfiles(settings.getSnapshot().value?.profiles, profileSettingsSignature(settings.getSnapshot().value?.profiles))
+      setMessage(null)
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    }
+  }
+
+  const importDesktopProfiles = (): void => {
+    if (snapshot === null) return
+    setProfiles(importDesktopProfileDraft(profiles, snapshot))
+    setMessage(t('settings.profiles.importedDesktop'))
+    setError(null)
+  }
+
   const renamedProfiles = (): RenamedProfilesResult | undefined => {
     if (selectedProfile === undefined || selectedIsBuiltIn) {
       return { profiles, committedProfileNames, selectedName }
@@ -801,13 +846,15 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
   }
 
   const saveProfiles = async (): Promise<void> => {
-    if (bridge?.setAgentTeamsProfiles === undefined || saving) return
+    if (saving || baselineSignature === null || !writable) return
     const renamed = renamedProfiles()
     if (renamed === undefined) return
     const nextProfiles = renamed.profiles
     if (nextProfiles !== profiles) {
       setProfiles(nextProfiles)
       setCommittedProfileNames(renamed.committedProfileNames)
+      setSelectedName(renamed.selectedName)
+      setNameDraft(renamed.selectedName)
     }
     setError(null)
     if (hasUnvalidatedExplicitRoleDraft(
@@ -833,16 +880,16 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
     setSaving(true)
     setMessage(null)
     try {
-      const next = normalizeProfileSnapshot(await bridge.setAgentTeamsProfiles({
-        schemaVersion: 2,
-        profiles: prepared.profiles,
-      }))
-      setSnapshot(next)
-      setProfiles(next.profiles)
-      setCommittedProfiles(cloneProfileMap(next.profiles))
-      setCommittedProfileNames(createCommittedProfileNameMap(next.profiles))
-      setSelectedName((current) => next.profiles[current] === undefined ? Object.keys(next.profiles)[0] ?? '' : current)
-      setMessage(t('settings.profiles.saved'))
+      const result = await writer.write([
+        { op: 'set', path: ['profiles'], value: prepared.profiles as unknown as JsonValue },
+      ], baselineSignature)
+      if (result.status === 'error') {
+        setError(result.error === PROFILE_DRAFT_CONFLICT ? t('settings.profiles.conflict') : result.error)
+        return
+      }
+      const next = settings.getSnapshot().value?.profiles
+      acceptProfiles(next, profileSettingsSignature(next))
+      setMessage(`${t('settings.profiles.saved')} ${t('settings.profiles.restart')}`)
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
@@ -872,8 +919,10 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
       {snapshot?.unsupportedPersistedVersion === true && (
         <p className={css.profileWarning} role="status">{t('settings.profiles.unsupportedPersistedVersion')}</p>
       )}
+      {legacyError !== null && <p className={css.profileWarning} role="status">{t('settings.profiles.legacyReadFailed', { message: legacyError })}</p>}
+      {externallyChanged && dirty && <p className={css.profileWarning} role="alert">{t('settings.profiles.conflict')}</p>}
       {error !== null && <p className={css.profileError} role="alert">{t('settings.profiles.error', { message: error })}</p>}
-      {message !== null && <p className={css.profileSaved} role="status">{message} {t('settings.profiles.restart')}</p>}
+      {message !== null && <p className={css.profileSaved} role="status">{message}</p>}
       {explicitRouteBlocked && <p className={css.profileWarning} role="status">{t('settings.profiles.explicitCatalogRequired')}</p>}
       {fallbackRouteBlocked && <p className={css.profileWarning} role="status">{t('settings.profiles.fallbackCatalogRequired')}</p>}
 
@@ -895,6 +944,11 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
           ))}
         </div>
         <div className={css.profileActions}>
+          {desktopImportAvailable && (
+            <Button type="button" variant="outline" size="sm" disabled={controlsDisabled} onClick={importDesktopProfiles}>
+              {t('settings.profiles.importDesktop')}
+            </Button>
+          )}
           <Button type="button" variant="outline" size="sm" disabled={controlsDisabled} onClick={addProfile}>
             {t('settings.profiles.new')}
           </Button>
@@ -934,21 +988,24 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, t, writable }: Tea
             </div>
           </div>
           <ProfileForm
-             catalog={catalog.models}
-             catalogReady={catalogReady}
+            catalog={catalog.models}
+            catalogReady={catalogReady}
             disabled={controlsDisabled}
             onChange={updateSelectedProfile}
             profile={selectedProfile}
             t={t}
           />
-          <div className={css.profileSaveBar}>
-            {dirty && <span className={css.profileDirty}>{t('settings.profiles.unsaved')}</span>}
-              <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !dirty || explicitRouteBlocked || fallbackRouteBlocked} onClick={() => { void saveProfiles() }}>
-              {saving ? t('settings.profiles.saving') : t('settings.profiles.save')}
-            </Button>
-          </div>
         </>
       )}
+      <div className={css.profileSaveBar}>
+        {dirty && <span className={css.profileDirty}>{t('settings.profiles.unsaved')}</span>}
+        <Button type="button" variant="outline" size="sm" disabled={saving || effective.status !== 'ready' || (!dirty && !externallyChanged)} onClick={reloadProfiles}>
+          {t('settings.profiles.reload')}
+        </Button>
+        <Button type="button" variant="outline" size="sm" disabled={controlsDisabled || !dirty || explicitRouteBlocked || fallbackRouteBlocked} onClick={() => { void saveProfiles() }}>
+          {saving ? t('settings.profiles.saving') : t('settings.profiles.save')}
+        </Button>
+      </div>
       {selectedProfile === undefined && !loading && <p className={css.profileHint}>{t('settings.profiles.empty')}</p>}
     </section>
   )

@@ -40,6 +40,7 @@ for (const [directory, command, args] of gates) {
     cwd: join(wrapperRoot, directory),
     env: command === 'pnpm' ? pnpmGateEnv : process.env,
     stdio: 'inherit',
+    windowsHide: true,
   })
 
   if (result.error) {

@@ -8,17 +8,203 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.11` (pending release)
+- Windows desktop wrapper: `0.2.0-rc.15` (locally packaged; pending release)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode manual validation plugin: retired at desktop `0.2.0-rc.4` by user request
-- AgentTeams fork: `0.1.22-desktop.5`, based on upstream `v0.1.22` at fixed commit
+- AgentTeams fork: `0.1.22-desktop.8`, based on upstream `v0.1.22` at fixed commit
   `9cba4fe4171f27c019991cafd2a107f87ef3517b`
 - CPA provider plugin: `0.1.11`
-- Models settings fork: `0.2.0-rc.2-desktop.3`
-- Desktop Settings plugin: `0.1.4`
+- Models settings fork: `0.2.0-rc.2-desktop.4`
+- Desktop Settings plugin: `0.1.5`
 
-## Pending desktop 0.2.0-rc.11 console guard coverage — 2026-10-02
+## Desktop 0.2.0-rc.15 explicit scope retry guidance — 2026-10-06
+
+REAPPLY under AgentTeams. Implementation/repair require top-level non-empty
+inScope/verify arrays; description and deliverables do not declare write scope.
+Exact files retain exact matching, directory entries must end in /, including
+outOfScope. The shared validator explains missing fields and an exact parent entry
+with a concrete slash-directory retry; it never silently widens the scope.
+Exclusions still win and protected paths remain excluded. Create-task, staged-plan
+and amendment schemas share this convention. No durable-state migration is added.
+
+Evidence: quality-gates-tdd.mjs covers the reported summary-report path, correction,
+exact-file and sibling boundaries, exclusion priority, JSON-wire schema guidance
+and zero durable writes on rejected tool calls. The complete offline verify:upstream
+gate passes, including 205 wrapper tests. Harness and upstream AgentTeams pins remain
+unchanged. rc.15 EXE/ZIP/blockmap have been built, source/lib parity and both runtime closures pass, and isolated fresh launch/settings/import/restart succeeds. No live provider call or local NSIS installation is claimed.
+
+## Desktop 0.2.0-rc.14 session-audit fixes — 2026-10-06
+
+Harness and upstream AgentTeams remain at the same fixed revisions. The following
+Windows AgentTeams behaviors are REAPPLY and must retain their regressions:
+
+- Pending captain assignments remain owned on idle; active abandoned attempts still
+  use the existing recovery policy. Captain takeover retains the in-flight fence.
+- A captain may append terminal evidence without replacing results, or cancel an
+  unstarted pending task without first resolving its dependencies. Running member
+  ownership and stale-attempt validation remain strict.
+- Team-owned native-tool suppression applies to own-scope lookup and actual model
+  request assembly, including official continuation return guidance. Captain
+  compatible subagent calls and Native adjacent-Agent authorization remain intact.
+  Normal HMR and failed existing-Agent hydration release all policy effects.
+- Review/requirements completion matches evidence to every current acceptance and
+  verify item. Scope changes use the audited contract-amendment boundary; mail alone
+  is not an amendment. Ordinary work-task compatibility remains unchanged.
+- Coverage and delivery use the same recursive failed-task recovery, retaining
+  historical IDs, ignoring cancelled replacements and failing closed on cycles.
+- An idle member with an unfinished attempt reports once per attempt to its captain,
+  retaining the task and capability without automatic retry or false completion.
+
+Evidence: `agent-teams-plugin/scripts/team-return-guidance.test.mjs`,
+`coverage-contract-consistency.test.mjs`, `lifecycle-verify.mjs` and the complete
+offline `npm run verify:upstream` gate. No user-state migration or live provider
+request is part of this verification. Package and integration versions are synchronized.
+
+Windows verification scripts also explicitly hide their Node and PowerShell child
+launches. `tests/console-chain-observation.test.js` checks real Electron GUI to
+PowerShell/npm shim/Node/CMD descendants with filtered environments. This is REAPPLY
+under the wrapper console owner; it does not identify the user's intermittent visible
+window, alter global environments or rewrite third-party MCP commands.
+Local EXE, ZIP and blockmap were built after the offline gate. Unpacked/ZIP closures,
+125 source/artifact file comparisons, packaged Electron console/port regressions,
+isolated fresh startup, configuration save/import and restart passed. See
+`win-desktop/release-notes/v0.2.0-rc.14.md` for sizes, SHA-256 and sandbox limitations.
+No NSIS installation, second-machine test or GitHub publication is claimed.
+
+## Locally packaged desktop 0.2.0-rc.13 encrypted configuration backup — 2026-10-03
+
+Desktop Settings owns the `扩展设置 → 配置备份` UI and authenticated Host
+operation. The wrapper owns trusted-main-frame file dialogs and atomic encrypted
+file writes. Both are REAPPLY; no official package, user YAML, global environment
+or vendor source is patched to introduce a second settings writer.
+
+The versioned `.dshbackup` envelope uses fixed-cost scrypt (N=32768, r=8, p=1),
+random 16-byte salt, random 12-byte IV and AES-256-GCM with authenticated format
+metadata. Plaintext API keys stay in the Host; the form holds only its password
+input temporarily. Passwords and API keys are never written to logs or backup
+metadata. The encrypted file has a 6 MB limit and plaintext a 4 MB limit. Unknown
+versions, malformed envelopes, executable YAML expression objects and prototype
+keys fail before any writes.
+
+The payload includes only the effective volatile forms of pi-ai/API-key DeepSeek
+providers, AgentTeams, native Subagent and its model-selection owner. It retains
+model input/effort mappings, capacities, temporary routes and all Profile role
+prompts. Credential references are resolved only for those provider declarations;
+pi-ai API-key records include catalog-native keys without manual declarations.
+OAuth/account grants, runtime Teams, sessions, unrelated plugins and desktop
+preferences are excluded. Provider configuration and credentials replace the
+backed-up entries; unrelated credential records are retained.
+
+Import uses one official SettingsForms root-set mutation with revision CAS per
+namespace; `replace()` is intentionally unsuitable because it recursively merges
+the inherited form and would resurrect removed providers or explicit effort.
+ConfigEditor schema, volatile-field and Home/CLI override checks are preserved.
+Writes are serialized on the Host backup route and use guarded compensation for
+already committed namespaces and credentials. This is not a cross-file crash
+transaction: interruption or concurrent external edits may prevent full recovery;
+the UI must explicitly report incomplete rollback rather than silently overwrite
+another writer or claim success. Successful import instructs the user to exit
+and restart the application; it does not restart or discard active work itself.
+
+Evidence: `tests/configuration-backup.test.js` exercises real ConfigEditor,
+SettingsForms and LocalCredentials across isolated source/target homes and
+restart, native/temporary/team routes, prompt whitespace, catalog-native keys,
+late credential failures, overlay refusal, invalid declarations, authenticated
+Connection Host/Origin restrictions, tamper detection and encrypted size limits.
+The full offline `npm run verify:upstream` passes (199 wrapper tests). A real
+Electron/DSH UI fixture exercised production preload file IPC, encrypted file
+export/import, wrong password, restart notice and 800/600/420 px viewports without
+renderer errors. Backup buttons match the official `打开配置文件` button's computed
+font family, 12px/18px typography and 28px height. The backup helper is exported
+through the installed Desktop Settings package; the main process never imports
+the source-only owner directory. The EXE, ZIP and blockmap are locally built,
+with sizes and SHA-256 recorded in `win-desktop/release-notes/v0.2.0-rc.13.md`.
+Packaged Electron passes 3 native console overload groups, 15 descendant console
+regressions and 7 loopback-port/diagnostic regressions. Fresh isolated packaged
+launches preserve temporary/Profile routes and encrypted-import credentials,
+manual image declarations and reasoning mappings after restart. The unpacked
+closure resolves 868 production packages; ZIP resolves 867 and matches all
+1,041 package/app manifests against unpacked. This does not claim an actual
+second-machine installation, live model request or published release.
+
+## Pending desktop 0.2.0-rc.12 settings and descendant console protection — 2026-10-02
+
+Harness 0.2.0-rc.2 and AgentTeams upstream v0.1.22 remain pinned to the same
+source revisions. Official release information was checked separately from
+the offline gate; neither floating dependencies nor upstream archives change.
+
+AgentTeams classification: REAPPLY for temporary member defaults; the browser
+Schema now uses declarative branches instead of a transform whose module-local
+closure cannot survive official JSON hydration. Real Host and browser tests
+cover Save, readback, cold restart, invalid writes, revision and Home/CLI refusal.
+
+Profile persistence classification: SUPERSEDED_BY_DESIGN. The independent
+desktop JSON writer and generated default map could diverge from the official
+profile patch, whose config replaces the complete inherited object. Profile
+editing now displays official effective settings and uses one SettingsForms /
+ConfigEditor CAS write. Profiles are live Volatile values; creation freezes one
+snapshot, so existing teams and numbered roles do not change after a save.
+The JSON cache remains intact as an explicit V2 draft-import source, never an
+automatic migration or a second write destination. Only an actual saved V2
+record enables import. Dirty editor baselines reject external Profile changes;
+Home/CLI and stale-revision guards remain official and unmodified. Empty maps
+can be saved or reloaded. Protocol and execution prompt whitespace survives
+read, unrelated saves and import; cached reviewer arrays retain strict validation.
+
+Windows classification: REAPPLY. Passive WinEvent/EnumWindows evidence caught
+Windows Terminal and Git pseudo-console events in the Codex-owned CodeGraph
+chain while DSH was stopped. Installed CodeGraph 1.6.1 has two execFileSync Git
+calls without windowsHide in extraction/index.js (core.excludesFile and
+ls-files ignore discovery). Its npm shim does not forward parent execArgv to
+the bundled Node. The wrapper's dependency-free CommonJS preload propagates
+through local NODE_OPTIONS, including MCP-filtered child environments, without
+copying unrelated parent flags into those environments. It updates ESM builtin
+exports and does not register the Harness loader in descendants or Workers.
+Explicit visibility, native argument validation and caller options are retained.
+No system environment variable, global CodeGraph package or Codex configuration
+is changed by this DSH implementation; unrelated hosts require their own setup.
+Diagnostic visibility tests record the original native options then hide the
+actual probe process; the regression runner itself also sets windowsHide.
+
+The requirements dependency guard remains unchanged: the exported conversation
+shows a missing dependency followed by a successful retry with the real task ID.
+Its error now lists requirement states and an actionable retry/status next step.
+
+Startup classification: REAPPLY. Real isolated GUI acceptance selected port
+6697 and Chromium rejected it with ERR_UNSAFE_PORT. TCP availability alone is
+insufficient; the wrapper now probes loopback sockets, closes every probe,
+skips Chromium's restricted ports and passes the selected port explicitly to
+Harness. It does not add unsafe browser flags. Diagnostics redact process
+tokens while authenticated readiness retains the original URL. Seven focused
+regressions cover restricted ports, bounded retries, bind failures, socket
+release, CLI forwarding and token redaction. Fresh source GUI launches pass
+temporary/Profile Save and restart, Web opt-out and legacy preset activation.
+
+Evidence: complete standard offline npm run verify:upstream passed, including
+195 wrapper tests with zero skips. tests/agent-teams-profile-layering.test.js
+and tests/agent-teams-settings-save.test.js cover real official saves/restarts;
+21 real AgentLoop compatibility tests include new/old Team route freezing.
+Actual Electron 44 UI with official JSON Schema hydration and real Host saves
+passes temporary defaults, four role routes, draft import, zero cache writes,
+conflict retention, last-profile deletion, retry/cancel and 320/560/800px layouts
+with zero renderer errors. Fifteen descendant regressions pass under Node 24.19,
+Node 26.7 and Electron 44; real CodeGraph buildScopeIgnore through its bundled
+Node receives windowsHide=true for both Git calls. No external model request or
+current clean-machine installation is claimed by these local fixtures.
+
+Local rc.12 packaging completed after the full offline gate. Unpacked and ZIP
+runtime closure checks resolve 868 and 867 production packages and compare
+1,041 matching manifests; 124 wrapper/local-plugin runtime files match source.
+Packaged Electron passes the three selected native console groups, all fifteen
+descendant tests and all seven browser-port/diagnostic tests. Three real GUI
+launches with isolated DSH_HOME and Electron user-data-dir prove temporary and
+Profile Save/readback/restart, Models availability, Web opt-out, healthy legacy
+disabled-Web presets and unchanged user Patch bytes, with zero renderer errors.
+The rc.12 Release notes contain artifact sizes and SHA-256 values; binary assets
+remain ignored, and no rc.12 Release or clean-machine installation is claimed.
+
+## Desktop 0.2.0-rc.11 console guard coverage — 2026-10-02
 
 Classification: REAPPLY. The Windows wrapper owns this provider/tool-neutral
 preload change; Harness stays pinned to 0.2.0-rc.2. The installed rc.10 process
@@ -533,16 +719,18 @@ authoritative for current versions, source identities and ownership decisions.
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
-| Harness-native `扩展设置` section with stable desktop slot, theme-consistent window behavior and built-in web-tools Switch, immediate autosave/rollback and restart-required tool preference | `win-desktop/desktop-settings-plugin` plus wrapper bridge | Independent local desktop integration; wrapper activation seam is REAPPLY | `desktop-settings-plugin/lib/client.js`, `src/settings-window.js`, `src/desktop-settings.js`, `src/desktop-web-tools.js`, `src/win-hide-console-loader.mjs`, `src/dsh-service.js`, `src/preload.cjs` | wrapper `tests/desktop-settings-plugin.test.js`, `tests/desktop-settings.test.js`, `tests/desktop-web-tools.test.js` |
+| Harness-native `扩展设置` section with stable desktop slot, theme-consistent window behavior and built-in web-tools Switch, immediate autosave/rollback and restart-required tool preference; password-encrypted portable provider/API-key and native/temporary/team configuration backup, authenticated Host operation, official Settings/CAS writes, guarded rollback and restart notice | `win-desktop/desktop-settings-plugin` plus wrapper bridge | Independent local desktop integration; wrapper activation and encrypted backup are REAPPLY | `desktop-settings-plugin/lib/client.js`, `desktop-settings-plugin/lib/backup.js`, `desktop-settings-plugin/lib/index.js`, `src/settings-window.js`, `src/desktop-settings.js`, `src/desktop-web-tools.js`, `src/win-hide-console-loader.mjs`, `src/dsh-service.js`, `src/preload.cjs` | wrapper `tests/desktop-settings-plugin.test.js`, `tests/desktop-settings.test.js`, `tests/desktop-web-tools.test.js`, `tests/configuration-backup.test.js` |
 
 ## Windows wrapper owner
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
 | Wrapper-wide tool-call guidance: derive arguments from current schemas/context, omit unknown or blank optional properties unless empty is explicitly meaningful, and never repeat failed invalid arguments unchanged | `win-desktop/tool-call-guidance-plugin` | Independent local system-prompt plugin. It registers no tools, settings, Provider behavior, or lifecycle state and stays at or below 500 characters. | `tool-call-guidance-plugin/lib/index.js`, `package.json`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `scripts/sync-local-plugin-artifacts.mjs` | `tests/tool-call-guidance.test.js`, `tests/local-plugin-artifacts.test.js`, and the local capability manifest test |
-| Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: official Node hiding and hidden Win32 STARTUPINFO replace duplicate flags; retain runner preload inheritance, validator-first argument normalization and the ordinary child-process guard, including execSync and legal options overloads. Preserve explicit visibility, native validation/coercion and caller options. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, including real Node/Electron child-process boundaries, Pwsh/Bash and `dsh-tool-fs` runtime fixtures, plus `tests/dsh-service-syntax.test.js` |
+| Shell and filesystem-mutation escalation normalization without weakening validation or real widening approval, hidden Node/sandbox console windows, loader injection and child-process guard | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: official Node hiding and hidden Win32 STARTUPINFO replace duplicate flags; retain runner preload inheritance, validator-first normalization, execSync/overload handling and process-local descendant inheritance through MCP-filtered environments. Preserve explicit visibility, native validation/coercion, caller options and unrelated environment flags; the lean preload must not register the Harness loader in Workers. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs`, `src/win-hide-console.mjs`, `src/win-hide-console-child-process.cjs`, `src/win-hide-console-preload.cjs`, `src/dsh-service.js` | `tests/win-hide-console.test.js`, `tests/win-hide-console-descendants.test.js`, real Node/Electron/Pwsh/Bash/filesystem boundaries and `tests/dsh-service-syntax.test.js` |
+| Official effective Profile editing, guarded single-write persistence, explicit retained desktop draft import, prompt byte preservation and new/old Team snapshots | `win-desktop/agent-teams-plugin` | `SUPERSEDED_BY_DESIGN`: official SettingsForms/ConfigEditor CAS replaces the separate desktop JSON write destination; the existing V2 cache is retained as an explicit draft source only. New Teams freeze the live Profile at creation; existing Teams and numbered roles keep their saved policy. Home/CLI refusal and malformed V2 rejection remain. | `src/index.ts`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/settings-write.ts`; wrapper `src/agent-teams-profile-store.js` legacy snapshot | wrapper `tests/agent-teams-profile-layering.test.js`, `tests/agent-teams-settings-save.test.js`, `tests/agent-teams-profile-store.test.js`; plugin `scripts/team-subagent-compat.test.mjs`, `scripts/settings-client-verify.mjs`, `scripts/profile-editor-verify.mjs` |
 | Keep the official native Subagent plugin settings card and the local AgentTeams section separately visible, while retaining Host namespaces, saved settings, official runtime closure and AgentTeams spawn | Official Native client plus `win-desktop/agent-teams-plugin` | `SUPERSEDED_BY_DESIGN`: the user chose separate Native/Team responsibilities for 0.1.7. The old hiding transformer is removed; official initial and HMR bundle snapshots are unmodified. | `agent-teams-plugin/src/client/index.tsx`, `agent-teams-plugin/src/client/locales.ts`, `src/win-hide-console-rewrite.js` | `tests/subagent-settings-card-visibility.test.js`, `tests/agent-teams-integration.test.js`, and the local capability manifest test |
 | Alpha.2 authenticated startup URL handoff and bounded loopback Cookie recovery: retain the complete canonical `http://127.0.0.1:<port>/?token=...` readiness URL, reject a bare loopback origin, never persist or document the process token, clear only stale `127.0.0.1` `dsh-auth-*` Cookies before the initial authenticated load, and recover once from a current-origin `/plugins/` HTTP 431 without a reload loop | `win-desktop` | `UPSTREAM_EQUIVALENT + REAPPLY`: Alpha.2 owns token issuance, cookie exchange, and clean-root redirect; the wrapper owns lossless capture of the official `dsh web:` URL plus the narrow cleanup required because Cookie scope does not isolate random ports. | `src/dsh-service.js`, `src/main.js`, `src/loopback-auth-cookies.js` | `tests/dsh-web-auth-url.test.js`, `tests/loopback-auth-cookies.test.js`, and the local capability manifest test |
+| Browser-safe free loopback port selection and startup diagnostic token redaction | `win-desktop` | `REAPPLY`: TCP availability does not imply Chromium HTTP compatibility; skip restricted ports without disabling browser protections, close all probes and pass the chosen port to Harness. Readiness navigation keeps the full token while diagnostics redact it. | `src/loopback-port.js`, `src/dsh-service.js`, `src/main.js` | `tests/loopback-port.test.js`, authenticated startup regression, and the local capability manifest test |
 | Provider-neutral `grep` argument alias normalization at the `dsh-llm-pi-ai` durable tool-call boundary, limited to a missing `pattern` plus an exact single-line `description: "pattern: <non-empty value>"` shape | `win-desktop` | `REAPPLY` until upstream performs an equivalent deterministic normalization. No provider/model routing or optional settings toggle owns this behavior; existing `pattern` values and every ambiguous malformed call remain under the strict upstream Schema. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/grep-tool-argument-compatibility.test.js` and the local capability manifest test |
 | Explicit bounded-period usage-limit exhaustion is classified as terminal `QUOTA` at the official `dsh-llm` boundary, while transient `RATE_LIMIT` and standalone reset notices remain non-terminal | `win-desktop` | `REAPPLY`: RC.1 recognizes unqualified `usage limit` wording but misses provider messages such as `weekly usage limit`; the wrapper adds only this narrow loader rewrite and retains the upstream classifier for every other phrase. | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/win-hide-console.test.js` and the local capability manifest test |
 | Recovery of non-empty OpenCode tool streams that end without `finish_reason`, while incomplete streams still fail | `win-desktop` | Narrow compatibility rewrite over the installed OpenCode stream module | `src/win-hide-console-rewrite.js`, `src/win-hide-console-loader.mjs` | `tests/opencode-stream-rewrite.test.js` |

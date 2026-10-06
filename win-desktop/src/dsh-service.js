@@ -4,6 +4,8 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import * as electron from 'electron'
 import { getDesktopSettings } from './desktop-settings.js'
+import { appendConsolePreload } from './win-hide-console-child-process.cjs'
+import { selectBrowserLoopbackPort } from './loopback-port.js'
 import {
   getAgentTeamsProfileSnapshot,
   readAgentTeamsProfiles,
@@ -81,12 +83,22 @@ export function resolveWinHideConsoleImport() {
   return new URL('./win-hide-console.mjs', import.meta.url).href
 }
 
+export function resolveWinHideConsolePreload() {
+  return fileURLToPath(new URL('./win-hide-console-preload.cjs', import.meta.url))
+}
+
 export function extractReadyUrl(output) {
   return READY_PATTERN.exec(output)?.[1]
 }
 
+/** Readiness keeps the token; errors displayed or logged must not expose it. */
+export function redactDshDiagnostic(message) {
+  return message.replace(/([?&]token=)[^&\s"'<>)]*/g, '$1<redacted>')
+}
+
 export function buildDshArgs(entry, {
   platform = process.platform,
+  port = 0,
   windowsPickerPatch = resolveWindowsPickerPatch(),
   winHideConsoleImport = resolveWinHideConsoleImport(),
 } = {}) {
@@ -99,7 +111,7 @@ export function buildDshArgs(entry, {
     '--host',
     '127.0.0.1',
     '--port',
-    '0',
+    String(port),
     // Official `dsh web` opens the default browser; the Electron window already
     // loads the same loopback URL.
     '--no-open',
@@ -107,13 +119,17 @@ export function buildDshArgs(entry, {
 }
 
 /** Pass desktop defaults to the Host preload, below the normal user layers. */
-export function buildDshEnvironment(environment, desktopPatch, settings = {}) {
-  return {
+export function buildDshEnvironment(environment, desktopPatch, settings = {}, {
+  platform = process.platform,
+  winHideConsolePreload = resolveWinHideConsolePreload(),
+} = {}) {
+  const result = {
     ...environment,
     ELECTRON_RUN_AS_NODE: '1',
     DSH_DESKTOP_STARTUP_PATCH: desktopPatch,
     DSH_DESKTOP_BUILTIN_WEB_TOOLS: settings.builtinWebToolsEnabled === false ? '0' : '1',
   }
+  return platform === 'win32' ? appendConsolePreload(result, winHideConsolePreload) : result
 }
 
 /**
@@ -131,11 +147,13 @@ export async function startDshService({
     throw new Error('缺少 Electron 可执行文件路径')
   }
 
-  // Generate the AgentTeams patch from desktop settings before launching.
+  const port = await selectBrowserLoopbackPort()
+
+  // Generate the AgentTeams default layer before launching.
   const agentTeamsPatch = generateAgentTeamsPatch()
 
-  const child = spawn(electronExecutable, buildDshArgs(entry, { platform }), {
-    env: buildDshEnvironment(environment, agentTeamsPatch, getDesktopSettings()),
+  const child = spawn(electronExecutable, buildDshArgs(entry, { platform, port }), {
+    env: buildDshEnvironment(environment, agentTeamsPatch, getDesktopSettings(), { platform }),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
@@ -164,14 +182,14 @@ export async function startDshService({
       finish(
         reject,
         new Error(
-          `DeepSeek Harness 在就绪前退出（code=${String(code)}, signal=${String(signal)}）。\n${output}`,
+          `DeepSeek Harness 在就绪前退出（code=${String(code)}, signal=${String(signal)}）。\n${redactDshDiagnostic(output)}`,
         ),
       )
     })
 
     const timeout = setTimeout(() => {
       child.kill('SIGTERM')
-      finish(reject, new Error(`DeepSeek Harness 在 ${timeoutMs}ms 内未能就绪。\n${output}`))
+      finish(reject, new Error(`DeepSeek Harness 在 ${timeoutMs}ms 内未能就绪。\n${redactDshDiagnostic(output)}`))
     }, timeoutMs)
   })
 

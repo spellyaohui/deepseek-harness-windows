@@ -73,6 +73,7 @@ export interface AgentTeamsProfilesSnapshot {
   builtInNames: string[]
   builtInProfiles: Record<string, TeamProfileConfig>
   unsupportedPersistedVersion: boolean
+  hasPersistedProfiles: boolean
 }
 
 export type ProfileSaveResult =
@@ -215,6 +216,16 @@ function optionalString(value: unknown, path: string, errors: string[]): string 
   return normalized === '' ? undefined : normalized
 }
 
+/** Prompt whitespace is authored content; trim only to recognize a blank field. */
+function promptString(value: unknown, path?: string, errors?: string[]): string | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string') {
+    if (path !== undefined) errors?.push(`${path} must be a string`)
+    return undefined
+  }
+  return value.trim() === '' ? undefined : value
+}
+
 function requiredString(value: unknown, path: string, errors: string[]): string | undefined {
   const normalized = trimString(value)
   if (normalized === undefined || normalized === '') {
@@ -263,7 +274,7 @@ function normalizeMemberForEditor(value: unknown): TeamProfileMemberConfig | und
   if (reasoning_mode !== 'explicit' && reasoning_effort !== undefined) return undefined
   const member: TeamProfileMemberConfig = { name, reasoning_mode }
   for (const key of ['role', 'executionPrompt'] as const) {
-    const normalized = trimString(value[key])
+    const normalized = key === 'executionPrompt' ? promptString(value[key]) : trimString(value[key])
     if (normalized !== undefined && normalized !== '') member[key] = normalized
   }
   if (provider !== undefined) member.provider = provider
@@ -309,7 +320,7 @@ function normalizeProfileForEditor(value: unknown): TeamProfileConfig | undefine
   if (members.length === 0) return undefined
   const profile: TeamProfileConfig = { members }
   for (const key of ['description', 'protocol', 'executionPrompt'] as const) {
-    const normalized = trimString(value[key])
+    const normalized = key === 'description' ? trimString(value[key]) : promptString(value[key])
     if (normalized !== undefined && normalized !== '') profile[key] = normalized
   }
   if (value.taskPlanning === 'captain' || value.taskPlanning === 'seed') {
@@ -354,6 +365,30 @@ function normalizeMapForEditor(value: unknown): Record<string, TeamProfileConfig
   return result
 }
 
+/** The official effective map is authoritative; reject invalid rows instead of hiding them. */
+export function normalizeEffectiveProfileMap(value: unknown): Record<string, TeamProfileConfig> {
+  if (value === undefined) return {}
+  if (!isRecord(value)) throw new Error('AgentTeams profiles must be an object map')
+  const errors: string[] = []
+  if (Object.keys(value).length > MAX_PROFILES) errors.push(`AgentTeams profiles exceed the limit of ${MAX_PROFILES}`)
+  for (const [name, profile] of Object.entries(value)) {
+    if (normalizeName(name) !== name) errors.push(`invalid AgentTeams profile name "${name}"`)
+    normalizeProfileForSave(profile, `profiles.${name}`, errors)
+  }
+  if (errors.length > 0) throw new Error(errors.join('; '))
+  return normalizeMapForEditor(value)
+}
+
+/** Explicit legacy import is an isolated draft; existing official-only Profiles survive. */
+export function importDesktopProfileDraft(
+  current: Record<string, TeamProfileConfig>,
+  legacy: AgentTeamsProfilesSnapshot,
+): Record<string, TeamProfileConfig> {
+  if (legacy.unsupportedPersistedVersion) throw new Error('Unsupported desktop Profile version cannot be imported')
+  if (!legacy.hasPersistedProfiles) throw new Error('No saved desktop Profiles are available to import')
+  return cloneProfileMap({ ...current, ...legacy.profiles })
+}
+
 /** Normalize the host response into an isolated browser-editable snapshot. */
 export function normalizeProfileSnapshot(value: unknown): AgentTeamsProfilesSnapshot {
   if (!isRecord(value) || value.schemaVersion !== 2) {
@@ -388,6 +423,7 @@ export function normalizeProfileSnapshot(value: unknown): AgentTeamsProfilesSnap
     builtInNames,
     builtInProfiles,
     unsupportedPersistedVersion,
+    hasPersistedProfiles: !unsupportedPersistedVersion && source.hasPersistedProfiles === true,
   }
 }
 
@@ -447,7 +483,9 @@ function normalizeMemberForSave(value: unknown, path: string, errors: string[]):
   }
   const member: TeamProfileMemberConfig = { name, reasoning_mode }
   for (const key of ['role', 'executionPrompt'] as const) {
-    const normalized = optionalString(value[key], `${path}.${key}`, errors)
+    const normalized = key === 'executionPrompt'
+      ? promptString(value[key], `${path}.${key}`, errors)
+      : optionalString(value[key], `${path}.${key}`, errors)
     if (normalized !== undefined) member[key] = normalized
   }
   if (provider !== undefined) member.provider = provider
@@ -553,7 +591,9 @@ function normalizeProfileForSave(value: unknown, path: string, errors: string[])
   }
   const profile: TeamProfileConfig = { members }
   for (const key of ['description', 'protocol', 'executionPrompt'] as const) {
-    const normalized = optionalString(value[key], `${path}.${key}`, errors)
+    const normalized = key === 'description'
+      ? optionalString(value[key], `${path}.${key}`, errors)
+      : promptString(value[key], `${path}.${key}`, errors)
     if (normalized !== undefined) profile[key] = normalized
   }
   if (value.taskPlanning !== undefined) {
@@ -601,7 +641,7 @@ function normalizeProfileForSave(value: unknown, path: string, errors: string[])
   return profile
 }
 
-/** Validate and normalize the map before handing it to the host IPC boundary. */
+/** Validate and normalize the map before handing it to the official Settings boundary. */
 export function prepareProfileMapForSave(
   value: unknown,
   fallbackValidation?: ProfileFallbackValidationContext,

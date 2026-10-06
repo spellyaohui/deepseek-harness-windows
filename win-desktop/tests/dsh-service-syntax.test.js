@@ -8,6 +8,7 @@ const serviceFile = fileURLToPath(new URL('../src/dsh-service.js', import.meta.u
 test('dsh service is valid JavaScript before Electron starts', () => {
   const result = spawnSync(process.execPath, ['--check', serviceFile], {
     encoding: 'utf8',
+    windowsHide: true,
   })
   assert.equal(result.status, 0, result.stderr)
 })

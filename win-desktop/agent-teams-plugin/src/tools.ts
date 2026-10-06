@@ -431,7 +431,7 @@ function memberOpenTask(team: TeamState, memberName: string, exceptTaskId?: stri
 function captainOpenTask(team: TeamState, exceptTaskId?: string): TeamTask | undefined {
   return team.tasks.find(task => task.id !== exceptTaskId
     && task.assignee === CAPTAIN_KEY
-    && !TERMINAL_TASK_STATUSES.includes(task.status))
+    && (task.status === 'claimed' || task.status === 'in_progress' || task.reassigning === true))
 }
 
 async function waitForMemberIdle(ctx: Context, member: TeamMember, signal: AbortSignal): Promise<void> {
@@ -1012,8 +1012,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   const configuredProfileNames = listConfiguredProfiles(config.profiles).map((entry) => entry.name)
   const profileDescription = configuredProfileNames.length === 0
-    ? 'No Profiles are configured; omit this optional property.'
-    : `Optional exact configured Profile name: ${configuredProfileNames.join(', ')}. Omit this property when no configured Profile is requested.`
+    ? 'No Profiles were configured at startup. A newly saved Profile may be selected by its exact name; otherwise omit this optional property.'
+    : `Optional exact configured Profile name. Profiles available at startup: ${configuredProfileNames.join(', ')}. Newly saved Profiles may also be selected by their exact name. Omit this property when no configured Profile is requested.`
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_create',
@@ -1223,8 +1223,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             kind: { type: 'string', enum: ['work', 'requirements', 'implementation', 'verification', 'review', 'repair', 'integration'], description: 'Optional task kind for add_task or update_task.' },
             round: { type: 'number', description: 'Optional quality-loop round.' },
             objective: { type: 'string', description: 'Optional quality-task objective.' },
-            inScope: { type: 'array', items: { type: 'string' }, description: 'Complete replacement workspace-relative write scope.' },
-            outOfScope: { type: 'array', items: { type: 'string' }, description: 'Complete replacement excluded scope.' },
+            inScope: { type: 'array', items: { type: 'string' }, description: 'Complete replacement write scope. Non-empty for implementation/repair. Workspace-relative POSIX exact files or directories ending in /.' },
+            outOfScope: { type: 'array', items: { type: 'string' }, description: 'Complete replacement excluded paths. Exact files or directories ending in /; exclusions override inScope.' },
             acceptance: { type: 'array', items: { type: 'string' }, description: 'Complete replacement acceptance contract.' },
             verify: { type: 'array', items: { type: 'string' }, description: 'Complete replacement verification commands.' },
             deliverables: { type: 'array', items: { type: 'string' }, description: 'Complete replacement deliverable paths. Implementation/repair deliverables must be covered by inScope.' },
@@ -1780,11 +1780,11 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       },
       round: { type: 'number', description: '1-based review / requirements / repair round.' },
       objective: { type: 'string', description: 'Required non-empty objective for quality kinds.' },
-      inScope: { type: 'array', items: { type: 'string' }, description: 'Workspace-relative POSIX paths this task may change.' },
-      outOfScope: { type: 'array', items: { type: 'string' }, description: 'Workspace-relative POSIX paths this task must not change.' },
+      inScope: { type: 'array', items: { type: 'string' }, description: 'Required non-empty array for implementation/repair. Authorized workspace-relative POSIX exact files or directories ending in /, e.g. server/src/modules/summary-report/. Description and deliverables do not replace this field.' },
+      outOfScope: { type: 'array', items: { type: 'string' }, description: 'Excluded workspace-relative POSIX exact files or directories ending in /, e.g. client/. These exclusions override inScope.' },
       acceptance: { type: 'array', items: { type: 'string' }, description: 'Acceptance criteria. Required for quality kinds.' },
       verify: { type: 'array', items: { type: 'string' }, description: 'Verification commands. Required for implementation/repair.' },
-      deliverables: { type: 'array', items: { type: 'string' }, description: 'Expected deliverable paths or names.' },
+      deliverables: { type: 'array', items: { type: 'string' }, description: 'For implementation/repair, concrete workspace-relative POSIX artifact paths covered by inScope and not outOfScope. Put prose outcomes in acceptance or description.' },
       nonGoals: { type: 'array', items: { type: 'string' }, description: 'Explicit non-goals.' },
       reviewedTaskId: { type: 'string', description: 'Task being reviewed. Required for kind=review.' },
       sourceTaskId: { type: 'string', description: 'Source implementation/artifact. Required for kind=repair.' },
@@ -2276,7 +2276,10 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         const { team: fresh, identity } = await requireFreshParticipant(stateRoot, team.id, durableSessionId(caller))
         requireRunningTeam(fresh)
         const task = requireTask(fresh, args.task_id)
-        if (identity.kind === 'captain'
+        const terminal = TERMINAL_TASK_STATUSES.includes(task.status)
+        const pendingCancellation = identity.kind === 'captain' && args.status === 'cancelled'
+          && task.status === 'pending' && task.reassigning !== true
+        if (identity.kind === 'captain' && !terminal && !pendingCancellation
           && task.assignee !== undefined
           && task.assignee !== CAPTAIN_KEY) {
           throw new Error(`task ${task.id} is owned by member "${task.assignee}"; call agent_teams_reassign_task with assignee="captain" before takeover`)
@@ -2289,7 +2292,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             throw new Error(`stale attempt for task ${task.id}: expected the current attempt_id; stop work and request fresh assignment`)
           }
         }
-        if (TERMINAL_TASK_STATUSES.includes(task.status)) {
+        if (terminal) {
           const appended = appendTaskEvidence(task, {
             ...args,
             findings: parseFindings(args.findings),
@@ -2389,8 +2392,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       objective: { type: 'string', description: 'Replacement objective.' },
       acceptance: { type: 'array', items: { type: 'string' }, description: 'Replacement acceptance criteria.' },
       verify: { type: 'array', items: { type: 'string' }, description: 'Replacement verification commands.' },
-      inScope: { type: 'array', items: { type: 'string' }, description: 'Replacement workspace-relative inScope paths.' },
-      outOfScope: { type: 'array', items: { type: 'string' }, description: 'Replacement workspace-relative outOfScope paths.' },
+      inScope: { type: 'array', items: { type: 'string' }, description: 'Replacement authorized scope. Non-empty for implementation/repair. Workspace-relative POSIX exact files or directories ending in /.' },
+      outOfScope: { type: 'array', items: { type: 'string' }, description: 'Replacement excluded workspace-relative POSIX exact files or directories ending in /; exclusions override inScope.' },
     },
     output: {
       schema: {

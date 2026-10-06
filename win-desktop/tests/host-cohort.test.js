@@ -26,7 +26,7 @@ test('every official 0.2 release tarball is the wrapper dependency and installed
     assert.match(sha256, /^[a-f0-9]{64}$/u)
     if (name === '@deepseek-ai/dsh-client-ui-settings-models') {
       assert.equal(wrapper.dependencies[name], 'file:models-settings-plugin')
-      assert.equal(read(`../node_modules/${name}/package.json`).version, '0.2.0-rc.2-desktop.3')
+      assert.equal(read(`../node_modules/${name}/package.json`).version, '0.2.0-rc.2-desktop.4')
       continue
     }
     assert.equal(wrapper.dependencies[name], `file:../${file}`, name)

@@ -30,14 +30,28 @@ export function normalizeTemporaryMember(input: MemberRolePolicy): MemberRolePol
 
 // Optional objects have an implicit {} default in Schemastery. Absence must
 // stay absent so existing Profile role-inheritance behavior is unchanged.
-export const TemporaryMemberSchema: z<MemberRolePolicy | undefined> = z.union([
-  z.transform(z.object({
-    provider: z.string(), model: z.string(),
-    reasoningMode: z.union(['target-default', 'route-aware', 'explicit']).required(),
-    reasoningEffort: z.string(),
-  }), value => normalizeTemporaryMember(value as MemberRolePolicy)),
+// The form schema crosses JSON into the browser. Declarative branches preserve
+// policy validation there without a transform callback's module-local closure.
+export const TemporaryMemberSchema = z.union([
+  z.object({
+    provider: z.const(undefined), model: z.const(undefined),
+    reasoningMode: z.union(['target-default', 'route-aware']).required(),
+    reasoningEffort: z.const(undefined),
+  }),
+  z.object({
+    provider: z.string().pattern(/\S/u).required(),
+    model: z.string().pattern(/\S/u).required(),
+    reasoningMode: z.union(['target-default', 'route-aware']).required(),
+    reasoningEffort: z.const(undefined),
+  }),
+  z.object({
+    provider: z.string().pattern(/\S/u).required(),
+    model: z.string().pattern(/\S/u).required(),
+    reasoningMode: z.const('explicit').required(),
+    reasoningEffort: z.string().pattern(/\S/u).required(),
+  }),
   z.const(undefined),
-])
+]) as z<MemberRolePolicy | undefined>
 
 export const AgentTeamsSettingsSchema: z<AgentTeamsSettings> = z.object({
   delegationMode: z.union(['teams', 'native']).default('teams'),

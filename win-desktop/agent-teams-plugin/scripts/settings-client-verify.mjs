@@ -8,6 +8,7 @@ import {
   discardTemporaryMemberWrite,
   planDelegationModeChange,
   planTemporaryMemberChange,
+  profileSettingsSignature,
   runAgentTeamsSettingsAction,
 } from '../lib/client/settings-write.js'
 
@@ -56,7 +57,7 @@ assert.ok(performance.now() - startedAt < 250, 'timeout case must settle within 
 
 const clientBundle = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
 assert.match(clientBundle, /getAgentTeamsProfiles/)
-assert.match(clientBundle, /setAgentTeamsProfiles/)
+assert.doesNotMatch(clientBundle, /setAgentTeamsProfiles/, 'Profile Save has exactly one durable owner: official Settings/CAS')
 assert.match(clientBundle, /Profile configuration|Profile 配置/)
 assert.match(clientBundle, /taskPlanning/)
 assert.match(clientBundle, /reviewPolicy/)
@@ -131,6 +132,56 @@ function success(value) {
 function failure(message) {
   return { ok: false, error: { code: 'settings/conflict', message } }
 }
+
+// Profile drafts keep their read baseline even when unrelated preferences
+// advance the shared namespace revision. A changed Profile must never be
+// overwritten by merely borrowing the latest CAS revision.
+const firstProfiles = { delivery: { members: [{ name: 'reviewer', reasoning_mode: 'target-default' }] } }
+const nextProfiles = { delivery: { members: [{ name: 'reviewer', provider: 'provider-a', model: 'model-a', reasoning_mode: 'explicit', reasoning_effort: 'high' }] } }
+assert.equal(profileSettingsSignature(firstProfiles), profileSettingsSignature({ delivery: { members: [{ reasoning_mode: 'target-default', name: 'reviewer' }] } }), 'key order is not a concurrent edit')
+let profileScope = { revision: 11, value: { delegationMode: 'native', profiles: firstProfiles } }
+const profileRequests = []
+const profileWriter = createAgentTeamsSettingsWriter({
+  api: { settings: {
+    mutate: async (ns, ops, expectedRevision) => {
+      profileRequests.push({ ns, ops, expectedRevision })
+      return success(view(expectedRevision + 1, { ...profileScope.value, profiles: ops[0].value }))
+    },
+    describe: async () => success({ writable: true, hasDocument: true, namespaces: [view(profileScope.revision, profileScope.value)] }),
+  } },
+  scope: { getSnapshot: () => profileScope },
+  describe: { acceptView: next => { profileScope = next } },
+})
+const profileOps = [{ op: 'set', path: ['profiles'], value: nextProfiles }]
+assert.deepEqual(await profileWriter.write(profileOps, profileSettingsSignature(firstProfiles)), { status: 'ready', error: null })
+assert.equal(profileRequests[0].expectedRevision, 11, 'an unrelated mode save advances CAS without invalidating the Profile baseline')
+assert.equal(profileScope.value.delegationMode, 'native', 'Profile Save preserves the unrelated preference')
+assert.deepEqual(profileScope.value.profiles, nextProfiles)
+profileScope = { revision: 13, value: { delegationMode: 'teams', profiles: firstProfiles } }
+const conflictDraft = structuredClone(profileOps)
+const conflict = await profileWriter.write(conflictDraft, profileSettingsSignature(nextProfiles))
+assert.equal(conflict.status, 'error')
+assert.match(conflict.error, /Profile configuration changed/)
+assert.equal(profileRequests.length, 1, 'a changed Profile baseline rejects before any durable write')
+assert.deepEqual(conflictDraft, profileOps, 'the rejected draft remains reviewable and is never auto-retried')
+
+let failedProfileScope = { revision: 20, value: { profiles: firstProfiles } }
+let failedProfileCalls = 0
+const failedProfileWriter = createAgentTeamsSettingsWriter({
+  api: { settings: {
+    mutate: async () => { failedProfileCalls += 1; return failure('Home overlay refuses Profile save') },
+    describe: async () => success({ writable: true, hasDocument: true, namespaces: [view(21, { profiles: nextProfiles })] }),
+  } },
+  scope: { getSnapshot: () => failedProfileScope },
+  describe: { acceptView: next => { failedProfileScope = next } },
+})
+const refused = await failedProfileWriter.write(profileOps, profileSettingsSignature(firstProfiles))
+assert.equal(refused.status, 'error')
+assert.match(refused.error, /Home overlay/)
+assert.deepEqual(failedProfileScope.value.profiles, nextProfiles, 'a failed write refreshes authoritative settings without overwriting them')
+const noRetry = await failedProfileWriter.write(profileOps, profileSettingsSignature(firstProfiles))
+assert.equal(noRetry.status, 'error')
+assert.equal(failedProfileCalls, 1, 'the stale failed draft cannot auto-borrow the recovery revision')
 
 const serialRequests = []
 const acceptedSerialViews = []

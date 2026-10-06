@@ -5,8 +5,12 @@ import type { ConfigForm, SettingsDescribeFace } from '@deepseek-ai/dsh-client-u
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { AgentTeamsSettings, DelegationMode } from '../settings.ts'
 import { validateMemberRolePolicy, type MemberRolePolicy } from '../selection-policy.ts'
+import type { TeamProfileConfig } from './profile-editor.ts'
+
+export type AgentTeamsEditorSettings = AgentTeamsSettings & { profiles?: Record<string, TeamProfileConfig> }
 
 const SETTINGS_NAMESPACE = 'agent-teams'
+export const PROFILE_DRAFT_CONFLICT = 'Profile configuration changed while this draft was being edited; reload the current configuration before saving.'
 
 export type SettingsWriteState =
   | { status: 'ready'; error: null }
@@ -40,10 +44,20 @@ export interface SettingsApi {
     describe(): Promise<RemoteResult<SettingsDescribeValue>>
   }
 }
-type SettingsReadScope = Pick<ConfigForm<AgentTeamsSettings>, 'getSnapshot'>
+type SettingsReadScope = Pick<ConfigForm<AgentTeamsEditorSettings>, 'getSnapshot'>
+
+/** A stable signature of a draft's effective Profile baseline, independent of key order. */
+export function profileSettingsSignature(value: unknown): string {
+  const ordered = (entry: unknown): unknown => Array.isArray(entry)
+    ? entry.map(ordered)
+    : typeof entry === 'object' && entry !== null
+      ? Object.fromEntries(Object.entries(entry).sort(([left], [right]) => left.localeCompare(right)).map(([key, child]) => [key, ordered(child)]))
+      : entry
+  return JSON.stringify(ordered(value ?? {}))
+}
 
 export interface AgentTeamsSettingsWriter {
-  write(ops: readonly SettingsPathOpView[]): Promise<SettingsWriteState>
+  write(ops: readonly SettingsPathOpView[], expectedProfilesSignature?: string): Promise<SettingsWriteState>
 }
 
 interface WriterOptions {
@@ -104,13 +118,13 @@ class SerializedAgentTeamsSettingsWriter implements AgentTeamsSettingsWriter {
     this.timeoutMs = options.timeoutMs ?? 10_000
   }
 
-  write(ops: readonly SettingsPathOpView[]): Promise<SettingsWriteState> {
-    const run = this.tail.then(() => this.perform([...ops]))
+  write(ops: readonly SettingsPathOpView[], expectedProfilesSignature?: string): Promise<SettingsWriteState> {
+    const run = this.tail.then(() => this.perform([...ops], expectedProfilesSignature))
     this.tail = run.then(() => undefined, () => undefined)
     return run
   }
 
-  private async perform(ops: readonly SettingsPathOpView[]): Promise<SettingsWriteState> {
+  private async perform(ops: readonly SettingsPathOpView[], expectedProfilesSignature?: string): Promise<SettingsWriteState> {
     if (this.uncertain) {
       const recoveryError = await this.recover()
       if (recoveryError !== null) {
@@ -118,7 +132,12 @@ class SerializedAgentTeamsSettingsWriter implements AgentTeamsSettingsWriter {
       }
     }
 
-    this.revision = laterRevision(this.revision, this.options.scope.getSnapshot().revision)
+    const snapshot = this.options.scope.getSnapshot()
+    this.revision = laterRevision(this.revision, snapshot.revision)
+    if (expectedProfilesSignature !== undefined
+      && profileSettingsSignature(snapshot.value?.profiles) !== expectedProfilesSignature) {
+      return { status: 'error', error: PROFILE_DRAFT_CONFLICT }
+    }
     if (this.revision === undefined) {
       this.uncertain = true
       return { status: 'error', error: 'settings revision is not ready' }

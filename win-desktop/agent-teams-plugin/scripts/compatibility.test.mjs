@@ -28,7 +28,7 @@ test('doctor runs through an installed bin symlink and reports success or failur
   const windows = process.platform === 'win32'
   const executable = windows ? process.execPath : bin
   const args = [...(windows ? [bin] : []), '--host-root', host, '--json']
-  const run = () => spawnSync(executable, args, { encoding: 'utf8', timeout: 5_000 })
+  const run = () => spawnSync(executable, args, { encoding: 'utf8', timeout: 5_000, windowsHide: true })
   const supported = run()
   assert.equal(supported.error, undefined)
   assert.equal(supported.status, 0, supported.stderr)
