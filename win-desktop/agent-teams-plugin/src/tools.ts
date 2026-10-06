@@ -16,6 +16,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { randomBytes } from 'node:crypto'
+import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
@@ -57,7 +58,8 @@ import {
   taskKindOf,
 } from './state.ts'
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, type AcceptanceResult, type CommandResult, type ReviewFinding, type ReviewVerdict, type TaskKind } from './types.ts'
-import { appendTaskEvidence } from './quality-gates.ts'
+import { appendTaskEvidence, auditChangedPaths, integrationReviewBlockers, normalizeWorkspacePath, unsupportedAmendmentArguments } from './quality-gates.ts'
+import { changedSince, snapshotWorkspace, type WorkspaceSnapshot } from './workspace-audit.ts'
 import {
   deliverToMember,
   installMemberDelegationGuard,
@@ -320,6 +322,10 @@ function requireRunningTeam(team: TeamState): void {
   if (team.phase !== 'running') {
     throw new Error(`team "${team.name}" is staged; approve the plan before executing tasks`)
   }
+}
+
+function integrationGateError(taskId: string, reviews: readonly string[]): string {
+  return `integration task ${taskId} is blocked until every review passes: ${reviews.join(', ')} — finish or cancel those reviews first; deployment and release never start before the final review gate`
 }
 
 function trimmedOptional(value: string | null | undefined): string | undefined {
@@ -608,6 +614,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
   installMemberDelegationGuard(ctx, config.stateDir, config.memberMaxDepth ?? 0)
   installMailboxAdmission(ctx, config.stateDir)
   const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt, dispatch: dispatchMember })
+  // Process-local by design: after a restart the attempt has no baseline and
+  // the change audit is skipped instead of attributing older edits to it.
+  const attemptBaselines = new Map<string, WorkspaceSnapshot>()
   let memberSelections!: ReturnType<typeof installMemberSelectionRuntime>
   const statusFingerprints = new Map<string, string>()
   const maxStatusFingerprints = 256
@@ -1513,7 +1522,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       model: { type: 'string', description: 'Optional model override. Omit to use the captain route.' },
       reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matching numbered base role; otherwise use the captain route.' },
       reasoning_effort: { type: 'string', description: 'Required with explicit reasoning_mode; otherwise omit.' },
-      executionPrompt: { type: 'string', description: 'Optional member-specific execution prompt. It remains editable while staged.' },
+      executionPrompt: { type: 'string', description: 'Optional member-specific execution prompt. Omit to inherit the matching base role prompt. It remains editable while staged.' },
     },
     output: {
       schema: {
@@ -1577,12 +1586,15 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           reasoningEffort: args.reasoning_effort,
           fallback: config.fallback,
         }
+        const templateMatch = findMemberRoleTemplate({
+          memberName,
+          role: args.role,
+          members: fresh.members.filter((candidate) => candidate.status !== 'removed'),
+        })
+        // Role responsibilities are independent of the model route, so a
+        // matched base role also seeds the prompt when the route is explicit.
+        const inheritedExecutionPrompt = templateMatch.kind === 'matched' ? templateMatch.template.executionPrompt : undefined
         if (!explicitSelection) {
-          const templateMatch = findMemberRoleTemplate({
-            memberName,
-            role: args.role,
-            members: fresh.members.filter((candidate) => candidate.status !== 'removed'),
-          })
           if (templateMatch.kind === 'ambiguous') {
             const names = templateMatch.templates.map((template) => template.name).join(', ')
             throw new Error(`member name "${memberName}" matches multiple role templates (${names}); provide an explicit provider, model, and reasoning policy`)
@@ -1609,7 +1621,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           model: selection.model,
           reasoningMode: selection.reasoningMode,
           reasoningEffort: selection.reasoningEffort,
-          executionPrompt: trimmedOptional(args.executionPrompt),
+          executionPrompt: trimmedOptional(args.executionPrompt) ?? inheritedExecutionPrompt,
           ...selection.fallback === undefined ? {} : { fallback: selection.fallback },
           joinedAt: Date.now(),
           status: 'idle',
@@ -1968,6 +1980,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           if (pending.length > 0) {
             throw new Error(`task ${task.id} is blocked by unfinished dependencies: ${pending.join(', ')} — complete them before captain takeover`)
           }
+          const reviewGate = integrationReviewBlockers(fresh.tasks, task)
+          if (reviewGate.length > 0) throw new Error(integrationGateError(task.id, reviewGate))
         } else if (targetMember !== undefined) {
           const busy = memberOpenTask(fresh, targetMember.name, task.id)
           if (busy !== undefined) {
@@ -2149,6 +2163,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (pending.length > 0) {
           throw new Error(`task ${task.id} is blocked by unfinished dependencies: ${pending.join(', ')} — complete them first`)
         }
+        const reviewGate = integrationReviewBlockers(fresh.tasks, task)
+        if (reviewGate.length > 0) throw new Error(integrationGateError(task.id, reviewGate))
         const transition = transitionError(task.status, 'claimed')
         if (transition !== undefined) throw new Error(transition)
         if (assignee === undefined) {
@@ -2232,7 +2248,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             evidence: { type: 'string' },
           },
         },
-        description: 'Acceptance evidence in contract order: {criterion, status:"passed"|"failed", evidence?}. Supply one item per acceptance criterion.',
+        description: 'Acceptance evidence: {criterion, status:"passed"|"failed", evidence?}. Supply one item per acceptance criterion and copy its criterion text exactly; paraphrased items do not count.',
       },
       commandsRun: {
         type: 'array',
@@ -2246,7 +2262,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             evidence: { type: 'string' },
           },
         },
-        description: 'Verification evidence in contract order: {command, status:"passed"|"failed", exitCode?, evidence?}. Supply one item per verify command.',
+        description: 'Verification evidence: {command, status:"passed"|"failed", exitCode?, evidence?}. Supply one item per verify command and copy its command text exactly; paraphrased items do not count.',
       },
     },
     output: {
@@ -2326,10 +2342,37 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           commandsRun,
         })
         if (!gate.ok) throw new Error(gate.error ?? 'update_task rejected by quality gates')
+        const auditKey = `${fresh.id}\u0000${task.id}\u0000${task.attemptId ?? task.attempt ?? 0}`
+        if (args.status === 'completed' && input.changedPaths !== undefined) {
+          const baseline = attemptBaselines.get(auditKey)
+          const stateDirPrefix = `${normalizeWorkspacePath(config.stateDir) ?? config.stateDir}/`
+          const actual = baseline === undefined ? undefined : (await changedSince(workspace, baseline))
+            ?.filter(path => !path.startsWith(stateDirPrefix))
+          const audit = auditChangedPaths({
+            task,
+            reported: input.changedPaths,
+            actual,
+            otherWriteScopes: fresh.tasks
+              .filter(other => other.id !== task.id && ['implementation', 'repair'].includes(taskKindOf(other))
+                && ['pending', 'claimed', 'in_progress'].includes(other.status))
+              .flatMap(other => other.inScope ?? []),
+            isDirectory: (path) => {
+              const normalized = normalizeWorkspacePath(path)
+              try { return normalized !== undefined && statSync(join(workspace, normalized)).isDirectory() } catch { return false }
+            },
+          })
+          if (audit !== undefined) throw new Error(audit)
+        }
         if (args.status !== undefined) {
           const transition = transitionError(task.status, args.status)
           if (transition !== undefined) throw new Error(transition)
+          if (args.status === 'in_progress' && task.status !== 'in_progress'
+            && ['implementation', 'repair'].includes(taskKindOf(task))) {
+            const baseline = await snapshotWorkspace(workspace)
+            if (baseline !== undefined) attemptBaselines.set(auditKey, baseline)
+          }
           task.status = args.status
+          if (TERMINAL_TASK_STATUSES.includes(task.status)) attemptBaselines.delete(auditKey)
         }
         if (args.output !== undefined) task.output = args.output
         if (args.verdict !== undefined) task.verdict = args.verdict as ReviewVerdict
@@ -2410,6 +2453,8 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
       render: (_args, value) => [{ type: 'text', text: `Task ${value.task_id} contract amended (${value.revised_fields}); ${value.revision_count} revision(s) on record.` }],
     },
     async execute(args, exec) {
+      const unsupported = unsupportedAmendmentArguments(args as Record<string, unknown>)
+      if (unsupported !== undefined) throw new Error(unsupported)
       const captain = requireCaptain(exec)
       const captainId = durableSessionId(captain)
       const workspace = workspaceOf(captain)

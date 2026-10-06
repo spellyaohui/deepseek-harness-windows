@@ -28,7 +28,6 @@ import {
   CAPTAIN_KEY,
   claimMailboxDelivery,
   findTeamByParticipant,
-  invalidateTaskAttempt,
   readTeam,
   readPendingMailbox,
   releaseMailboxDelivery,
@@ -38,6 +37,7 @@ import {
 } from './state.ts'
 import type { TeamMember, TeamMessage, TeamState, TeamTask } from './types.ts'
 import { durableSessionId } from './agent-identity.ts'
+import { integrationReviewBlockers } from './quality-gates.ts'
 
 /** Per-dependency output cap in the assignment prompt. */
 export const DEPENDENCY_OUTPUT_MAX_CHARS = 2_000
@@ -202,7 +202,8 @@ function ownedOpenTask(tasks: readonly TeamTask[], memberName: string): TeamTask
 function nextReadyTask(tasks: readonly TeamTask[], memberName: string): TeamTask | undefined {
   const ready = tasks.filter(task => task.status === 'pending'
     && task.reassigning !== true
-    && unsatisfiedDependencies([...tasks], task.dependencies).length === 0)
+    && unsatisfiedDependencies([...tasks], task.dependencies).length === 0
+    && integrationReviewBlockers(tasks, task).length === 0)
   return ready.find(task => task.assignee === memberName)
     ?? ready.find(task => task.assignee === undefined)
 }
@@ -268,6 +269,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
   // graph kicks must keep it parked. A cold process starts with an empty map,
   // so durable open attempts are still recovered after restart.
   const parkedAttempts = new Map<string, string>()
+  const lastTurnEnd = new Map<string, string>()
 
   const memberQueueKey = (stateRoot: string, teamId: string, memberName: string): string => (
     `${stateRoot}\u0000${teamId}\u0000${memberName}`
@@ -467,29 +469,10 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
       return
     }
     if (located.captainSessionId === agentSessionId) {
-      // An active captain takeover is scoped to the captain's current turn. Unlike a
-      // durable member, the captain has no scheduler lane that can resume an
-      // abandoned attempt later. Returning unfinished captain-owned work to
-      // the shared pool on the idle edge prevents it from becoming a
-      // permanently parked `claimed` task after the captain answers, is
-      // interrupted, or the user switches conversations.
-      if (status === 'running') return
-      let requeued = false
-      await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
-        const fresh = await readTeam(stateRoot, located.id)
-        if (fresh === undefined || fresh.captainSessionId !== agentSessionId) return
-        for (const task of fresh.tasks) {
-          // A pending captain assignment is durable planning, not an abandoned
-          // attempt. Retain it even while its dependencies are still running.
-          if (task.assignee !== CAPTAIN_KEY
-            || (task.status !== 'claimed' && task.status !== 'in_progress')) continue
-          invalidateTaskAttempt(task)
-          task.reassigning = false
-          requeued = true
-        }
-        if (requeued) await writeTeam(stateRoot, fresh)
-      })
-      if (requeued) await runtime.kickTeam(workspace, located.id, agent)
+      // A captain takeover spans turns: the captain routinely answers the user
+      // between edits and resumes the same attempt later. Its idle edge is not
+      // an abandonment signal, so captain-owned work keeps its owner and
+      // attempt until the captain completes, fails, or explicitly reassigns it.
       return
     }
     const member = located.members.find(candidate => candidate.id === agentSessionId && candidate.status !== 'removed')
@@ -508,12 +491,14 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
         if (owned?.attemptId === undefined) parkedAttempts.delete(agentSessionId)
         else {
           parkedAttempts.set(agentSessionId, owned.attemptId)
-          const id = `${owned.attemptId}:idle-open`
+          const truncated = lastTurnEnd.get(agentSessionId) === 'max-tokens'
+          const id = `${owned.attemptId}:${truncated ? 'max-tokens' : 'idle-open'}`
           if (fresh.halted !== true && current.stopping !== true && owned.reassigning !== true
             && !(await readMailbox(stateRoot, fresh.id, CAPTAIN_KEY)).some(message => message.id === id)) {
             report = {
-              ...createMessage(current.name, CAPTAIN_KEY,
-                `成员 ${current.name} 已空闲，但任务 ${owned.id} 仍为 ${owned.status}，尚未提交完成或失败结果。当前 attempt_id=${owned.attemptId}。如用户已暂停，请保持暂停；否则检查产出，用 agent_teams_send_message 让成员继续同一任务，或明确接管。不要重复创建任务，也不要把回合结束当成任务完成。`),
+              ...createMessage(current.name, CAPTAIN_KEY, truncated
+                ? `成员 ${current.name} 的上一回合因模型输出达到上限（max-tokens）被截断，任务 ${owned.id} 仍为 ${owned.status}，尚未提交结果。当前 attempt_id=${owned.attemptId}。这通常是推理强度过高耗尽了输出额度，而不是成员拒绝执行；原样重试大概率再次截断。请先调大该模型的输出上限或降低该角色的推理强度，再用 agent_teams_send_message 让成员继续同一任务，或明确接管。不要把回合结束当成任务完成。`
+                : `成员 ${current.name} 已空闲，但任务 ${owned.id} 仍为 ${owned.status}，尚未提交完成或失败结果。当前 attempt_id=${owned.attemptId}。如用户已暂停，请保持暂停；否则检查产出，用 agent_teams_send_message 让成员继续同一任务，或明确接管。不要重复创建任务，也不要把回合结束当成任务完成。`),
               id,
               sourceTaskId: owned.id,
               sourceAttemptId: owned.attemptId,
@@ -544,6 +529,15 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
     }
     if (status === 'idle') await runtime.kickMember(workspace, located.id, member.name)
   }
+
+  // The idle edge alone cannot tell an output-limit truncation from a turn the
+  // member simply ended; remember each session's latest turn-end reason.
+  ctx.on('session/event', (session, event) => {
+    if (event.type !== 'turn/end') return
+    const kind = (event.data as { reason?: { kind?: unknown } }).reason?.kind
+    const id = session.id ?? session.header?.id
+    if (typeof kind === 'string' && typeof id === 'string') lastTurnEnd.set(id, kind)
+  })
 
   ctx.on('agent/status', ({ agent, status }) => {
     void syncMemberStatus(agent, status).catch((error: unknown) => {

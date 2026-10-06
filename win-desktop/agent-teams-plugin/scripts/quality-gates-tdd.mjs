@@ -9,6 +9,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
+import { execFileSync } from 'node:child_process'
 import { assignmentPrompt } from '../lib/scheduler.js'
 import { applyQualityFollowUp, haltTeamWork, registerAgentTeamsTools } from '../lib/tools.js'
 import { createTeamDir, readTeam } from '../lib/state.js'
@@ -573,7 +574,36 @@ rejectComplete('tdd.complete.claimed-still-cannot-jump-to-completed', task({ kin
     acceptanceResults: [{ criterion: '文档确实不含回滚或 rollback 说明', status: 'passed' }],
     commandsRun: [{ command: 'grep reverse check', status: 'passed' }],
   })
-  check('tdd.complete.ordered-evidence-tolerates-model-paraphrase', result?.ok === true)
+  check('tdd.complete.same-count-paraphrase-does-not-cover-contract',
+    result?.ok === false && /文档确实不含“回滚\/rollback”相关章节/.test(result?.error ?? ''))
+}
+
+{
+  const contract = implContract({
+    acceptance: ['导出 CSV 包含表头', '空列表返回 200'],
+    verify: ['pnpm test --filter export'],
+  })
+  const unrelated = api.evaluateQualityCompletion?.(task(contract), {
+    status: 'completed',
+    changedPaths: ['src/parser.ts'],
+    acceptanceResults: [
+      { criterion: '代码风格检查通过', status: 'passed' },
+      { criterion: '无运行时报错', status: 'passed' },
+    ],
+    commandsRun: [{ command: 'pnpm test --filter export', status: 'passed' }],
+  })
+  check('tdd.complete.unrelated-items-of-equal-count-are-rejected',
+    unrelated?.ok === false && /Missing: "导出 CSV 包含表头"; "空列表返回 200"/.test(unrelated?.error ?? ''))
+  const formatted = api.evaluateQualityCompletion?.(task(contract), {
+    status: 'completed',
+    changedPaths: ['src/parser.ts'],
+    acceptanceResults: [
+      { criterion: '导出  CSV 包含表头。', status: 'passed' },
+      { criterion: '空列表返回 ２００', status: 'passed' },
+    ],
+    commandsRun: [{ command: ' pnpm  test --filter export ', status: 'passed' }],
+  })
+  check('tdd.complete.formatting-only-differences-still-match', formatted?.ok === true, formatted?.error)
 }
 
 console.log('quality-gates TDD — C. path rules')
@@ -1507,9 +1537,74 @@ console.log('quality-gates TDD — tool-level closed loop')
         && persistedCompletionTask?.findings?.length === 1
         && !Object.hasOwn(persistedCompletionTask.findings[0], 'file'),
     )
+
+    // Session incident (t6): out-of-scope package.json edits were rejected,
+    // then dropped from changedPaths on retry and files were re-reported as a
+    // directory. The working-tree audit must see the real attempt changes.
+    const gitIn = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: workspace, windowsHide: true, stdio: 'pipe' })
+    await mkdir(join(workspace, 'src', 'gen'), { recursive: true })
+    await writeFile(join(workspace, 'src', 'feature.ts'), 'export const a = 1\n')
+    await writeFile(join(workspace, 'package.json'), '{"name":"fixture"}\n')
+    await writeFile(join(workspace, 'notes.md'), 'dirty before the attempt\n')
+    gitIn('init', '-q')
+    gitIn('add', 'src/feature.ts', 'package.json')
+    gitIn('commit', '-q', '-m', 'base')
+    const auditTask = await call('agent_teams_create_task', {
+      subject: 'audited implementation', assignee: 'captain', kind: 'implementation',
+      objective: 'change the feature', inScope: ['src/feature.ts', 'src/gen/'],
+      acceptance: ['feature changed'], verify: ['node -e 0'],
+    })
+    const auditClaim = await call('agent_teams_claim_task', { task_id: auditTask.task_id })
+    await call('agent_teams_update_task', { task_id: auditTask.task_id, status: 'in_progress', attempt_id: auditClaim.attempt_id })
+    await writeFile(join(workspace, 'src', 'feature.ts'), 'export const a = 2\n')
+    await writeFile(join(workspace, 'src', 'gen', 'one.ts'), 'export {}\n')
+    await writeFile(join(workspace, 'package.json'), '{"name":"fixture","dependencies":{"x":"1"}}\n')
+    const completeAudit = (changedPaths) => call('agent_teams_update_task', {
+      task_id: auditTask.task_id, status: 'completed', output: 'done', attempt_id: auditClaim.attempt_id, changedPaths,
+      acceptanceResults: [{ criterion: 'feature changed', status: 'passed' }],
+      commandsRun: [{ command: 'node -e 0', status: 'passed' }],
+    }).then(() => '', (error) => String(error?.message ?? error))
+    const hiddenOutside = await completeAudit(['src/feature.ts', 'src/gen/one.ts'])
+    check('tdd.audit.out-of-scope-change-cannot-be-dropped-from-changed-paths.tool',
+      /outside inScope changed during this attempt: "package\.json"/.test(hiddenOutside), hiddenOutside)
+    gitIn('checkout', '--', 'package.json')
+    const directoryReport = await completeAudit(['src/feature.ts', 'src/gen'])
+    check('tdd.audit.directory-does-not-stand-in-for-files.tool',
+      /must list changed files, not directories: "src\/gen"/.test(directoryReport), directoryReport)
+    const unreported = await completeAudit(['src/feature.ts'])
+    check('tdd.audit.unreported-in-scope-change-is-rejected.tool',
+      /missing from changedPaths: "src\/gen\/one\.ts"/.test(unreported), unreported)
+    const honest = await completeAudit(['src/feature.ts', 'src/gen/one.ts'])
+    check('tdd.audit.complete-report-passes-and-ignores-pre-existing-dirt.tool',
+      honest === '' && (await readTeam(join(workspace, '.agent-teams'), 'gates'))
+        ?.tasks.find(item => item.id === auditTask.task_id)?.status === 'completed', honest)
   } finally {
     await rm(workspace, { recursive: true, force: true })
   }
+}
+
+console.log('quality-gates TDD — integration waits for every review')
+{
+  const { integrationReviewBlockers } = await import('../lib/quality-gates.js')
+  const t = (id, extra) => task({ id, ...extra })
+  // Session incident: deployment t10 depended on t8/t9/t1, while the final
+  // review t11 was created later and never listed; t10 could start first.
+  const tasks = [
+    t('t8', { kind: 'implementation', status: 'completed' }),
+    t('t10', { kind: 'integration', status: 'pending', dependencies: ['t8'] }),
+    t('t11', { kind: 'review', status: 'pending', dependencies: ['t8'], reviewedTaskId: 't8' }),
+  ]
+  check('tdd.integration.unlisted-final-review-blocks-deployment',
+    JSON.stringify(integrationReviewBlockers(tasks, tasks[1])) === JSON.stringify(['t11']))
+  const passed = tasks.map(item => item.id === 't11' ? { ...item, status: 'completed', verdict: 'pass' } : item)
+  check('tdd.integration.passed-review-releases-deployment', integrationReviewBlockers(passed, passed[1]).length === 0)
+  const rejected = tasks.map(item => item.id === 't11' ? { ...item, status: 'completed', verdict: 'needs_revision' } : item)
+  check('tdd.integration.non-pass-review-keeps-blocking', integrationReviewBlockers(rejected, rejected[1]).length === 1)
+  const cancelled = tasks.map(item => item.id === 't11' ? { ...item, status: 'cancelled' } : item)
+  check('tdd.integration.cancelled-review-does-not-block', integrationReviewBlockers(cancelled, cancelled[1]).length === 0)
+  const downstream = [...tasks.slice(0, 2), t('t12', { kind: 'review', status: 'pending', dependencies: ['t10'], reviewedTaskId: 't10' })]
+  check('tdd.integration.post-integration-review-cannot-deadlock', integrationReviewBlockers(downstream, downstream[1]).length === 0)
+  check('tdd.integration.other-kinds-are-unaffected', integrationReviewBlockers(tasks, tasks[0]).length === 0)
 }
 
 if (failures > 0) {

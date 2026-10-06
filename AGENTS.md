@@ -64,9 +64,13 @@ evidence that the local capability is preserved.
 - The Windows wrapper owns shell normalization, hidden-console behavior,
   provider-neutral exact `grep` argument alias normalization at the pi-ai
   durable boundary, bounded-period usage-quota classification at the dsh-llm
-  loader boundary, OpenCode stream recovery, verified OpenCode model-protocol
-  and image-capability reconciliation, manual model declaration integration,
-  plugin mounting, and startup integration.
+  loader boundary, manual model declaration integration, plugin mounting, and
+  startup integration.
+- The `dsh-output-limit-finish` plugin owns one provider-neutral `llm/stream`
+  listener: a `stop` finish whose output reached the request's (or the
+  adapter default) `maxTokens` is reported as the official `max-tokens`
+  reason. It must never match on gateway, provider or model names and leaves
+  every other finish untouched; keep `tests/output-limit-finish.test.js`.
 - Native Subagent and AgentTeams settings remain separately visible. The
   official Native page owns native depth, capacity, and allowed model routes;
   AgentTeams owns role-specific Provider/model/reasoning and Team lifecycle.
@@ -88,24 +92,11 @@ evidence that the local capability is preserved.
   persists through the existing IPC bridge, disables the selector while the
   write is pending, announces success, and restores the prior committed value
   on failure.
-- Before Harness imports the Pi OpenCode Go catalog, the wrapper reconciles
-  only its documented model profiles across static, persisted and live
-  catalogs. Muse Spark 1.2 Contributor and GPT-5.6 Luna use
-  `openai-responses`; Qwen3.7 Max and Qwen3.7 Plus use
-  `openai-completions`. Unknown models retain the generic Completions fallback;
-  a server 500 never triggers an alternative-protocol retry.
-- Before that same catalog is used, the wrapper corrects the documented
-  text/image input capability for verified current and legacy OpenCode models.
-  Unknown models stay text-only. The manual OpenCode capability card, plugin and IPC are intentionally removed at rc.4; do not restore them.
-- `opencode-go/kimi-k3` retains its verified Chat Completions transport and
-  Kimi-specific tool compatibility: no OpenAI `strict` field, required
-  reasoning-content replay, deferred-tool handling, and the official-client
-  Kimi Schema normalization (ref siblings and tuple-style `items`). This must
-  apply before the first Harness request, including a brand-new session.
-- Every `opencode-go` model request carries the current Harness session as
-  `x-opencode-session`, including when prompt-cache retention is `none`, so the
-  OpenCode Go gateway keeps model routing stable. Generic OpenAI-compatible
-  providers must not receive this OpenCode-specific header.
+- OpenCode compatibility is permanently removed at desktop `0.2.0-rc.16` by
+  user request: no catalog reconciliation, `model-fetcher`, stream recovery,
+  Kimi Schema lowering or `x-opencode-session` rewrite. Do not restore it
+  during refreshes or conflict resolution; the local capability manifest
+  asserts its absence.
 - Before the Agent Loop receives a pi-ai tool call, the wrapper may normalize
   the exact `grep` argument alias only when the call has no own `pattern` and
   its `description` wholly matches one single-line `pattern: <non-empty value>`
@@ -301,15 +292,49 @@ evidence that the local capability is preserved.
   serializes each child operation; no direct `ctx.subagents.*` call may bypass
   this admission boundary.
 
+## AgentTeams `0.1.22-desktop.9` session-audit invariants
+
+- A captain takeover spans turns: the captain's idle edge never revokes,
+  requeues or reassigns captain-owned `claimed`/`in_progress` work. Only the
+  captain's completion, failure or explicit reassignment releases it.
+- Quality completion matches every current acceptance criterion and verify
+  command by text identity after formatting-only normalization (NFKC,
+  whitespace, trailing punctuation). A same-count all-pass report of other
+  items never covers a contract; rejections list the missing items.
+- Implementation/repair completion is audited against Git working-tree
+  snapshots taken at `in_progress` and at completion: directories cannot stand
+  in for files, every changed in-scope file must be reported, and an
+  out-of-scope change not owned by another open write task blocks completion
+  even when dropped from `changedPaths`. Non-Git or snapshot-less attempts skip
+  only the observed-change part; Git runs with `windowsHide`.
+- Numbered members inherit the matched base role's `executionPrompt` unless
+  the call supplies its own; model-route precedence is unchanged.
+- `agent_teams_amend_task` rejects the whole call, with zero writes, when it
+  carries any field outside the amendable contract (for example
+  `dependencies`).
+- An `integration` task cannot be dispatched, claimed or taken over while any
+  review in the Team is open, failed without completed follow-up, or completed
+  without `verdict=pass`, including reviews created after it and never listed
+  as dependencies. Reviews downstream of the integration are excluded.
+- A member whose latest turn ended with `max-tokens` reports that cause to the
+  captain once per attempt instead of the generic idle notice; there is no
+  automatic retry with the same budget.
+- The captain idle requeue, same-count evidence fallback and silent amend
+  field drop originate in upstream v0.1.22; no upstream PR is planned. Every
+  AgentTeams refresh must check those three spots first and reapply or
+  reclassify them per `docs/UPSTREAM_MAINTENANCE.md`.
+- Keep `lifecycle-verify.mjs`, `quality-gates-tdd.mjs` (`tdd.audit.*`,
+  `tdd.integration.*`, `tdd.complete.*` count/paraphrase checks) and
+  `quality-gates-amend.test.mjs` regressions through every refresh.
+
 ## Models settings fork `0.2.0-rc.2-desktop.4` interaction invariants
 
 - User-requested replacement: capability probing and its Remote/Host service are removed. Keep model discovery, native provider editors, onboarding, credential boundaries, Save/CAS and draft cancellation.
 - Every pi-ai model uses image or text-only; persist ['text', 'image'] or ['text']. Missing/empty input displays and saves as text. New providers/models default to text. Malformed input remains invalid and blocks Save.
 - Offer Default, Minimal, Low, Medium, High, Xhigh and Max. Default always uses the server default; each model can select the six explicit levels. Save selected levels as reasoningEfforts without off (Default is supplied by Harness), or false when none are selected. Preserve existing selected wire mappings and every unrelated model field; malformed efforts block Save.
 - List operations, bulk input actions, expandable model settings and footer Save/Cancel have separate layout groups and remain usable at narrow widths.
-- Models stays provider-neutral. CPA, OpenCode and model-name rules stay with their owners. Manual declarations override catalogs and defaults, and saved changes require restart.
+- Models stays provider-neutral. CPA and model-name rules stay with their owners. Manual declarations override catalogs and defaults, and saved changes require restart.
 - Before generated lib writes, detach each existing output entry with identical bytes to prevent Windows os error 1224. Keep detachment and manual declaration regressions through future refreshes.
-- OpenCode startup transport, schema and session routing compatibility remains wrapper-owned; no hydration writes provider settings.
 
 Do not collapse these owners into one plugin during conflict resolution. Do not
 move provider-specific behavior into the Models fork.

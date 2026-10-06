@@ -1544,7 +1544,7 @@ const rolePolicyContext = {
 }
 const rolePolicyMembers = [
   { provider: undefined, model: undefined, reasoningMode: 'target-default' },
-  { provider: 'opencode-go', model: 'review-model', reasoningMode: 'explicit', reasoningEffort: 'max' },
+  { provider: 'alt-gateway', model: 'review-model', reasoningMode: 'explicit', reasoningEffort: 'max' },
 ]
 const rolePolicySelections = await Promise.all(rolePolicyMembers.map((role) => (
   resolveMemberLlmSelection(rolePolicyContext, rolePolicyCaptain, role)
@@ -1555,14 +1555,14 @@ check(
   rolePolicySelections[0]?.provider === 'cpa'
     && rolePolicySelections[0]?.model === 'cheap-captain'
     && rolePolicySelections[0]?.reasoningEffort === undefined
-    && rolePolicySelections[1]?.provider === 'opencode-go'
+    && rolePolicySelections[1]?.provider === 'alt-gateway'
     && rolePolicySelections[1]?.model === 'review-model'
     && rolePolicySelections[1]?.reasoningEffort === 'max'
     && rolePolicyCalls.length === 2
     && rolePolicyCalls[0]?.provider === 'cpa'
     && rolePolicyCalls[0]?.model === 'cheap-captain'
     && rolePolicyCalls[0]?.reasoningEffort === undefined
-    && rolePolicyCalls[1]?.provider === 'opencode-go'
+    && rolePolicyCalls[1]?.provider === 'alt-gateway'
     && rolePolicyCalls[1]?.model === 'review-model'
     && rolePolicyCalls[1]?.reasoningEffort === 'max',
 )
@@ -2231,7 +2231,7 @@ try {
   }
 
   const firstSelection = roleSelection('cpa', 'gpt-5.6-luna', 'low')
-  const secondSelection = roleSelection('opencode-go', 'qwen3.7-max', 'high')
+  const secondSelection = roleSelection('alt-gateway', 'qwen3.7-max', 'high')
   const firstChild = await spawnRc1Member('analyst', firstSelection)
   const firstRequest = await rc1Request(firstChild)
   const secondChild = await spawnRc1Member('implementer', secondSelection)

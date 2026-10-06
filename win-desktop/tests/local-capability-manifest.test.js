@@ -20,6 +20,7 @@ const localDependencies = {
   '@deepseek-ai/dsh-cpa-provider': 'cpa-provider-plugin',
   '@deepseek-ai/dsh-desktop-settings': 'desktop-settings-plugin',
   '@deepseek-ai/dsh-tool-call-guidance': 'tool-call-guidance-plugin',
+  'dsh-output-limit-finish': 'output-limit-finish-plugin',
   '@nanmicoder/dsh-agent-teams': 'agent-teams-plugin',
 }
 
@@ -28,7 +29,8 @@ const localVersions = {
   '@deepseek-ai/dsh-cpa-provider': '0.1.11',
   '@deepseek-ai/dsh-desktop-settings': '0.1.5',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.8',
+  'dsh-output-limit-finish': '0.1.0',
+  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.9',
 }
 
 const sourcePluginDirectories = [
@@ -50,9 +52,9 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.2.0-rc.15')
-  assert.equal(packageLock.version, '0.2.0-rc.15')
-  assert.equal(packageLock.packages[''].version, '0.2.0-rc.15')
+  assert.equal(packageJson.version, '0.2.0-rc.16')
+  assert.equal(packageLock.version, '0.2.0-rc.16')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.16')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
   assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.4')
@@ -60,10 +62,10 @@ test('desktop composition retains every independently owned local plugin', () =>
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.2.0-rc.2-desktop.4',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.8')
+  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.9')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.22-desktop.8',
+    '0.1.22-desktop.9',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -102,9 +104,10 @@ test('desktop composition retains every independently owned local plugin', () =>
   assertFile('desktop-settings-plugin/lib/backup.js')
   assertFile('tests/configuration-backup.test.js')
   assertFile('tests/desktop-settings-plugin.test.js')
-  assertFile('tests/opencode-capabilities-integration.test.js')
   assertFile('tool-call-guidance-plugin/lib/index.js')
   assertFile('tests/tool-call-guidance.test.js')
+  assertFile('output-limit-finish-plugin/lib/index.js')
+  assertFile('tests/output-limit-finish.test.js')
   assertFile('agent-teams-plugin/lib/status-render.js')
 })
 
@@ -176,8 +179,11 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/release-notes/v0.1.22-desktop.6.md',
     'agent-teams-plugin/release-notes/v0.1.22-desktop.7.md',
     'agent-teams-plugin/release-notes/v0.1.22-desktop.8.md',
+    'agent-teams-plugin/release-notes/v0.1.22-desktop.9.md',
     'release-notes/v0.2.0-rc.14.md',
     'release-notes/v0.2.0-rc.15.md',
+    'release-notes/v0.2.0-rc.16.md',
+    'agent-teams-plugin/src/workspace-audit.ts',
     'agent-teams-plugin/scripts/coverage-contract-consistency.test.mjs',
     'agent-teams-plugin/scripts/team-return-guidance.test.mjs',
     'tests/console-chain-observation.test.js',
@@ -230,10 +236,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'src/loopback-port.js',
     'tests/grep-tool-argument-compatibility.test.js',
     'tests/heal-desktop-plugins.test.js',
-    'tests/model-fetcher.test.js',
     'tests/model-capability-probe-integration.test.js',
-    'tests/opencode-capabilities-integration.test.js',
-    'tests/opencode-stream-rewrite.test.js',
     'tests/subagent-settings-card-visibility.test.js',
     'tests/fixtures/fs-escalation-runtime.mjs',
     'tests/win-hide-console.test.js',
@@ -361,14 +364,11 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('src/win-hide-console-rewrite.js', /normalizeRedundantEscalationArgs/)
   assertContains('src/win-hide-console-rewrite.js', /@deepseek-ai\/dsh-tool-fs/)
   assertContains('src/win-hide-console-rewrite.js', /windowsHide/)
-  assertContains('src/win-hide-console-rewrite.js', /Stream ended without finish_reason/)
-  assertContains('src/win-hide-console-rewrite.js', /normalizeOpenCodeKimiToolSchema/)
   assertContains('src/win-hide-console-rewrite.js', /normalizeKnownToolArgumentAliases/)
   assertContains('src/win-hide-console-rewrite.js', /rewriteKnownToolArgumentAliases/)
   assertContains('src/win-hide-console-rewrite.js', /rewriteQuotaErrorClassification/)
   assertContains('src/win-hide-console-rewrite.js', /isExplicitPeriodUsageLimitExceeded/)
   assert.doesNotMatch(read('src/win-hide-console-rewrite.js'), /rewriteDesktopClientBundle|__windows_hidden_subagent/)
-  assertContains('src/win-hide-console-rewrite.js', /x-opencode-session/)
   assertContains('../AGENTS.md', /Native Subagent and AgentTeams settings remain separately visible/i)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /native Subagent plugin settings card/i)
   for (const dependency of [
@@ -382,12 +382,15 @@ test('critical integration markers retain local capability ownership', () => {
     assert.equal(typeof packageLock.packages['']?.dependencies?.[dependency], 'string')
     assert.equal(typeof packageLock.packages[`node_modules/${dependency}`]?.version, 'string')
   }
-  assertContains('src/model-fetcher.js', /OPENCODE_GO_PROTOCOL_PROFILES/)
-  assertContains('src/model-fetcher.js', /OPENCODE_GO_COMPATIBILITY_INPUTS/)
-  assertContains('src/model-fetcher.js', /reconcileOpencodeCatalog/)
-  assert.doesNotMatch(read('src/settings-window.js'), /validateOpencodeCatalog|opencode-capabilities:validate/)
   assertContains('scripts/sync-local-plugin-artifacts.mjs', /LOCAL_PLUGIN_ARTIFACTS/)
   assertContains('tool-call-guidance-plugin/lib/index.js', /desktop:tool-call-guidance/)
+})
+
+test('OpenCode compatibility stays retired by user request', () => {
+  assert.equal(existsSync(join(wrapperRoot, 'src/model-fetcher.js')), false)
+  for (const relativePath of ['src/win-hide-console-rewrite.js', 'src/main.js', 'src/preload.cjs', 'src/settings-window.js', 'src/dsh-service.js']) {
+    assert.doesNotMatch(read(relativePath), /opencode|x-opencode-session|normalizeOpenCodeKimiToolSchema|model-fetcher/i, `${relativePath} must not restore OpenCode compatibility`)
+  }
 })
 
 test('the complete upstream regression gate remains registered', () => {

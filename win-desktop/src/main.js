@@ -4,7 +4,6 @@ import { startDshService, redactDshDiagnostic } from './dsh-service.js'
 import { createWindowOptions, resolveAppIcon } from './window-options.js'
 import { loadDesktopSettings, getDesktopSettings } from './desktop-settings.js'
 import { installSettingsIpc } from './settings-window.js'
-import { prepareOpencodeCatalog } from './model-fetcher.js'
 import { installLoopbackAuthCookieRecovery } from './loopback-auth-cookies.js'
 import { installedCommandActions, manageDshCommand } from './command-management.js'
 
@@ -233,16 +232,6 @@ function createWindow() {
 
 async function launch() {
   createWindow()
-
-  const catalog = await prepareOpencodeCatalog()
-  if (catalog.hydrationError !== undefined) {
-    console.warn(`[main] persisted OpenCode catalog hydration skipped: ${catalog.hydrationError}`)
-  }
-  if (catalog.error !== undefined) {
-    console.warn(`[main] OpenCode model sync skipped: ${catalog.error}`)
-  } else if (catalog.added > 0) {
-    console.log(`[main] OpenCode catalog prepared: +${catalog.added} model(s)`)
-  }
   if (quitting) return
 
   service = await startDshService({

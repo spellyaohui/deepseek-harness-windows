@@ -1,0 +1,12 @@
+{
+  "name": "dsh-output-limit-finish",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Report gateway responses that consumed the whole output budget as the official max-tokens finish reason",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  }
+}

@@ -1,6 +1,11 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.15`（已发布）；[最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)。
+本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.16`（仅源码，未打包）；[最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)。
+
+## 源码待打包：`v0.2.0-rc.16`
+
+- AgentTeams `0.1.22-desktop.9` 修复会话复核出的问题：队长接管跨回合保留、验收证据逐条匹配、Git 快照核对 changedPaths、编号成员继承角色提示词、`amend_task` 拒绝合同外字段、integration 等待全部审查、截断原因报告给队长。
+- 新增插件 `dsh-output-limit-finish`（官方 `llm/stream` 扩展点）统一识别网关误报为 `stop` 的输出截断；移除全部 OpenCode 兼容。完整离线门禁通过。
 
 ## 已发布：`v0.2.0-rc.15`
 

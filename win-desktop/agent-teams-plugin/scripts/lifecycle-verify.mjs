@@ -36,7 +36,7 @@ const children = []
 const roleInheritanceMemberNames = [
   'analyst', 'implementer', 'tester', 'reviewer',
   'reviewer2', 'reviewer3', 'analyst2', 'implementer2', 'tester2',
-  'reviewer5', 'reviewer6', 'reviewer4', 'custom-role2',
+  'reviewer5', 'reviewer6', 'reviewer4', 'custom-role2', 'implementer9',
 ]
 const deliveries = []
 const listeners = new Map()
@@ -576,23 +576,23 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
       taskPlanning: 'captain',
       members: [
         { name: 'implementer', role: 'builder', reasoning_mode: 'target-default' },
-        { name: 'reviewer', role: 'reviewer', provider: 'opencode-go', model: 'review-model', reasoning_mode: 'explicit', reasoning_effort: 'max' },
+        { name: 'reviewer', role: 'reviewer', provider: 'alt-gateway', model: 'review-model', reasoning_mode: 'explicit', reasoning_effort: 'max' },
       ],
     },
     'role-policy-invalid': {
       taskPlanning: 'captain',
       members: [
         { name: 'implementer', role: 'builder', reasoning_mode: 'target-default' },
-        { name: 'reviewer', role: 'reviewer', provider: 'opencode-go', model: 'unavailable-review-model', reasoning_mode: 'explicit', reasoning_effort: 'max' },
+        { name: 'reviewer', role: 'reviewer', provider: 'alt-gateway', model: 'unavailable-review-model', reasoning_mode: 'explicit', reasoning_effort: 'max' },
       ],
     },
     'rule-role-inheritance': {
       taskPlanning: 'captain',
       members: [
         { name: 'analyst', role: 'requirements analyst', provider: 'fake', model: 'fake-analyst', reasoning_mode: 'explicit', reasoning_effort: 'low' },
-        { name: 'implementer', role: 'implementation engineer', provider: 'fake', model: 'fake-implementer', reasoning_mode: 'explicit', reasoning_effort: 'high' },
+        { name: 'implementer', role: 'implementation engineer', provider: 'fake', model: 'fake-implementer', reasoning_mode: 'explicit', reasoning_effort: 'high', executionPrompt: 'implementer duty prompt' },
         { name: 'tester', role: 'verification engineer', provider: 'fake', model: 'fake-tester', reasoning_mode: 'explicit', reasoning_effort: 'max' },
-        { name: 'reviewer', role: 'code and risk reviewer', provider: 'fake', model: 'fake-reviewer', reasoning_mode: 'explicit', reasoning_effort: 'xhigh' },
+        { name: 'reviewer', role: 'code and risk reviewer', provider: 'fake', model: 'fake-reviewer', reasoning_mode: 'explicit', reasoning_effort: 'xhigh', executionPrompt: 'reviewer duty prompt' },
       ],
     },
   },})
@@ -867,10 +867,10 @@ check('profile members resolve from their own role policies',
     && rolePolicyCalls[0]?.provider === 'fake'
     && rolePolicyCalls[0]?.model === 'fake-model'
     && rolePolicyCalls[0]?.reasoningEffort === undefined
-    && rolePolicyCalls[1]?.provider === 'opencode-go'
+    && rolePolicyCalls[1]?.provider === 'alt-gateway'
     && rolePolicyCalls[1]?.model === 'review-model'
     && rolePolicyCalls[1]?.reasoningEffort === 'max'
-    && rolePolicyTeam?.members.find(member => member.name === 'reviewer')?.provider === 'opencode-go'
+    && rolePolicyTeam?.members.find(member => member.name === 'reviewer')?.provider === 'alt-gateway'
     && profilePersistenceCalls.createTeamDir === persistenceBeforeRolePolicy.createTeamDir + 1
     && profilePersistenceCalls.writeTeam === persistenceBeforeRolePolicy.writeTeam)
 await call('agent_teams_delete', {})
@@ -887,6 +887,7 @@ const inheritedRoleNames = roleInheritanceMemberNames.filter(name => (
     && name !== 'reviewer'
     && name !== 'reviewer4'
     && name !== 'custom-role2'
+    && name !== 'implementer9'
 ))
 const addMemberReasoningModeDefault = definitions.get('agent_teams_add_member')
   ?.parameters?.properties?.reasoning_mode?.default
@@ -908,6 +909,7 @@ const explicitRoleOverride = await call('agent_teams_add_member', {
   reasoning_effort: 'low',
 })
 const customNumberedRole = await call('agent_teams_add_member', { name: 'custom-role2', role: 'unmatched custom role' })
+const ownPromptMember = await call('agent_teams_add_member', { name: 'implementer9', executionPrompt: 'own prompt wins' })
 const inheritedRoleTeam = await readTeam(stateRoot, 'rule-role-inheritance')
 const inheritedRoleByName = new Map(inheritedRoleTeam?.members.map(member => [member.name, member]) ?? [])
 const inheritedRoutes = new Map(inheritedRoleAdditions.map(member => [member.member_name, member]))
@@ -936,6 +938,13 @@ check('unmatched numbered custom roles retain the captain route',
   customNumberedRole.provider === 'fake'
     && customNumberedRole.model === 'fake-model'
     && customNumberedRole.reasoning_effort === undefined)
+check('numbered members inherit the base role execution prompt unless they supply their own',
+  inheritedRoleByName.get('reviewer2')?.executionPrompt === 'reviewer duty prompt'
+    && inheritedRoleByName.get('implementer2')?.executionPrompt === 'implementer duty prompt'
+    && inheritedRoleByName.get('reviewer4')?.executionPrompt === 'reviewer duty prompt'
+    && inheritedRoleByName.get('custom-role2')?.executionPrompt === undefined
+    && ownPromptMember.member_name === 'implementer9'
+    && inheritedRoleByName.get('implementer9')?.executionPrompt === 'own prompt wins')
 await call('agent_teams_delete', {})
 const stateEntriesBeforeInvalidProfile = (await readdir(stateRoot)).sort()
 const childrenBeforeInvalidProfile = children.length
@@ -1953,6 +1962,21 @@ try {
   await new Promise(resolve => setTimeout(resolve, 20))
   check('repeated idle observations do not duplicate reports or revoke the open attempt',
     (await readMailbox(stateRoot, teamId, 'captain')).filter(item => item.id === idleNoticeId).length === 1)
+  // Session incident: a member spent its whole 16000-token output budget on
+  // reasoning; the captain only saw "idle without a result" and blamed the model.
+  for (const listener of listeners.get('session/event') ?? []) {
+    listener({ id: beta.id }, { type: 'turn/end', data: { turn: 1, reason: { kind: 'max-tokens' } } })
+  }
+  publishStatus(beta, 'idle')
+  await new Promise(resolve => setTimeout(resolve, 20))
+  const truncatedNotice = (await readMailbox(stateRoot, teamId, 'captain'))
+    .find(item => item.id === `${betaClaim.attempt_id}:max-tokens`)
+  check('member turn truncated by the output limit reports the cause to the captain',
+    truncatedNotice?.sourceTaskId === t2.task_id
+      && truncatedNotice.content.includes('max-tokens')
+      && truncatedNotice.content.includes('输出上限')
+      && (await task(t2.task_id))?.attemptId === betaClaim.attempt_id)
+  publishStatus(beta, 'running')
   // Normal continuable settlement disposes its live AgentHandle between
   // turns. The process-local idle observation must still distinguish this
   // parked attempt from a cold process restart.
@@ -2225,43 +2249,37 @@ try {
       && raceState?.tasks.filter(candidate => candidate.assignee === 'captain'
         && (candidate.status === 'claimed' || candidate.status === 'in_progress')).length === 1)
 
-  // If the captain ends the turn without completing that one takeover, it
-  // must return to the ordinary member scheduler instead of staying white and
-  // ownerless forever in the activity panel.
+  // A captain takeover spans turns. Ending the captain turn must neither
+  // revoke the captain attempt nor hand the work to another member, which
+  // previously let a member claim and redo captain-finished work.
+  const heldBeforeIdle = raceState.tasks.find(candidate => candidate.assignee === 'captain'
+    && (candidate.id === t8.task_id || candidate.id === t9.task_id))
   publishStatus(captain, 'idle')
-  const recoveredParallel = await waitFor('captain takeover tasks to return to assigned members', async () => {
-    const afterCaptainIdle = await state()
-    const recovered = afterCaptainIdle?.tasks.filter(candidate => (
-      candidate.id === t8.task_id || candidate.id === t9.task_id
-    )) ?? []
-    return recovered.length === 2
-      && recovered.every(candidate => (
-        (candidate.assignee === 'beta' || candidate.assignee === 'gamma')
-          && (candidate.status === 'claimed' || candidate.status === 'in_progress')
-      ))
-      ? recovered
-      : undefined
+  await new Promise(resolve => setTimeout(resolve, 50))
+  const afterCaptainIdle = await state()
+  const heldAfterIdle = afterCaptainIdle?.tasks.find(candidate => candidate.id === heldBeforeIdle?.id)
+  check('captain idle keeps an unfinished takeover with the captain and its attempt',
+    heldBeforeIdle !== undefined
+      && heldAfterIdle?.assignee === 'captain'
+      && heldAfterIdle.status === heldBeforeIdle.status
+      && heldAfterIdle.attemptId === heldBeforeIdle.attemptId)
+  await call('agent_teams_update_task', {
+    task_id: heldBeforeIdle.id, status: 'completed', output: 'captain finished after idle',
   })
-  check('unfinished captain takeover returns to a member when the captain becomes idle',
-    recoveredParallel.length === 2
-      && recoveredParallel.every(candidate => candidate.assignee !== 'captain')
-      && recoveredParallel.every(candidate => candidate.status === 'claimed' || candidate.status === 'in_progress'))
-  for (const recoveredTask of recoveredParallel) {
-    const owner = recoveredTask.assignee === 'gamma' ? gamma : beta
-    // Reassignment now drains the previous activation before publishing the
-    // new attempt. Reattach this fixture's durable continuation handle before
-    // its simulated member turn, rather than treating the drained old handle
-    // as the live registry entry.
-    liveAgents.set(owner.id, owner)
-    owner.status = 'running'
-    const claim = await call('agent_teams_claim_task', { task_id: recoveredTask.id }, owner)
-    await call('agent_teams_update_task', {
-      task_id: recoveredTask.id, status: 'in_progress', attempt_id: claim.attempt_id,
-    }, owner)
-    await call('agent_teams_update_task', {
-      task_id: recoveredTask.id, status: 'completed', output: 'member recovered captain work', attempt_id: claim.attempt_id,
-    }, owner)
-  }
+  check('captain completes its held takeover in a later turn',
+    (await task(heldBeforeIdle.id))?.status === 'completed'
+      && (await task(heldBeforeIdle.id))?.output === 'captain finished after idle')
+  const memberHeld = heldBeforeIdle.id === t8.task_id
+    ? { id: t9.task_id, owner: gamma, claim: gammaParallelClaim }
+    : { id: t8.task_id, owner: beta, claim: betaParallelClaim }
+  // Reassignment drained the taken-over member's activation; reattach both
+  // fixture handles as the live registry entries for the later activity check.
+  liveAgents.set(beta.id, beta)
+  liveAgents.set(gamma.id, gamma)
+  memberHeld.owner.status = 'running'
+  await call('agent_teams_update_task', {
+    task_id: memberHeld.id, status: 'completed', output: 'member finished its own task', attempt_id: memberHeld.claim.attempt_id,
+  }, memberHeld.owner)
 
   beta.status = 'running'
   gamma.status = 'idle'

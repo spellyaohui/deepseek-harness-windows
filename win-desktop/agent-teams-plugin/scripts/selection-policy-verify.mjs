@@ -16,13 +16,13 @@ assert.deepEqual(selectMemberCandidate({
 
 assert.deepEqual(selectMemberCandidate({
   captain,
-  role: { provider: 'opencode-go', model: 'review-model', reasoningMode: 'target-default' },
-}), { provider: 'opencode-go', model: 'review-model' })
+  role: { provider: 'alt-gateway', model: 'review-model', reasoningMode: 'target-default' },
+}), { provider: 'alt-gateway', model: 'review-model' })
 
 assert.deepEqual(selectMemberCandidate({
   captain,
-  role: { provider: 'opencode-go', model: 'review-model', reasoningMode: 'route-aware' },
-}), { provider: 'opencode-go', model: 'review-model' })
+  role: { provider: 'alt-gateway', model: 'review-model', reasoningMode: 'route-aware' },
+}), { provider: 'alt-gateway', model: 'review-model' })
 
 assert.deepEqual(selectMemberCandidate({
   captain,
@@ -32,19 +32,19 @@ assert.deepEqual(selectMemberCandidate({
 assert.deepEqual(selectMemberCandidate({
   captain,
   role: {
-    provider: 'opencode-go',
+    provider: 'alt-gateway',
     model: 'review-model',
     reasoningMode: 'explicit',
     reasoningEffort: 'max',
   },
-}), { provider: 'opencode-go', model: 'review-model', reasoningEffort: 'max' })
+}), { provider: 'alt-gateway', model: 'review-model', reasoningEffort: 'max' })
 
 assert.throws(
   () => selectMemberCandidate({ captain, role: { reasoningMode: 'invalid-mode' } }),
   /reasoning mode/i,
 )
 assert.throws(
-  () => selectMemberCandidate({ captain, role: { provider: 'opencode-go', reasoningMode: 'target-default' } }),
+  () => selectMemberCandidate({ captain, role: { provider: 'alt-gateway', reasoningMode: 'target-default' } }),
   /provider.*model|route/i,
 )
 assert.throws(
@@ -62,7 +62,7 @@ const roleTemplate = (name, provider, model, reasoningMode = 'explicit', reasoni
 })
 const ruleTemplates = [
   roleTemplate('analyst', 'cpa', 'analyst-model', 'explicit', 'low', 'requirements analyst'),
-  roleTemplate('implementer', 'opencode-go', 'implementer-model', 'explicit', 'high', 'implementation engineer'),
+  roleTemplate('implementer', 'alt-gateway', 'implementer-model', 'explicit', 'high', 'implementation engineer'),
   roleTemplate('tester', 'commandcodeai', 'tester-model', 'explicit', 'max', 'verification engineer'),
   roleTemplate('reviewer', 'woyaopro', 'reviewer-model', 'explicit', 'xhigh', 'code and risk reviewer'),
 ]
@@ -74,7 +74,7 @@ for (const [name, provider, model, effort] of [
   ['reviewer5', 'woyaopro', 'reviewer-model', 'xhigh'],
   ['reviewer6', 'woyaopro', 'reviewer-model', 'xhigh'],
   ['analyst2', 'cpa', 'analyst-model', 'low'],
-  ['implementer2', 'opencode-go', 'implementer-model', 'high'],
+  ['implementer2', 'alt-gateway', 'implementer-model', 'high'],
   ['tester2', 'commandcodeai', 'tester-model', 'max'],
 ]) {
   const result = findMemberRoleTemplate({ memberName: name, members: ruleTemplates })
@@ -119,7 +119,7 @@ assert.equal(
 assert.equal(
   findMemberRoleTemplate({ memberName: 'quality-gate2', role: 'same role', members: [
     roleTemplate('first', 'cpa', 'first-model', 'explicit', 'low', 'same role'),
-    roleTemplate('second', 'opencode-go', 'second-model', 'explicit', 'high', 'same role'),
+    roleTemplate('second', 'alt-gateway', 'second-model', 'explicit', 'high', 'same role'),
   ] }).kind,
   'ambiguous',
 )

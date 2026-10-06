@@ -158,7 +158,7 @@ Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/re
 - Configure each member's Provider, model, and reasoning policy in its Profile role card.
 - Global member-model and reasoning settings are no longer supported.
 - Profile documents and Team state require `schemaVersion: 2`. Older data remains on disk but is rejected rather than loaded or migrated; create a new Profile and Team.
-- CPA and OpenCode models continue to use the shared Harness catalog.
+- CPA and other gateway models continue to use the shared Harness catalog.
 
 ## Why AgentTeams?
 

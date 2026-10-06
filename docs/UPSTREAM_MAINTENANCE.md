@@ -8,15 +8,61 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.15` (published; clean Windows build and installed first run verified)
+- Windows desktop wrapper: `0.2.0-rc.16` (source only; not packaged or published)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
-- OpenCode manual validation plugin: retired at desktop `0.2.0-rc.4` by user request
-- AgentTeams fork: `0.1.22-desktop.8`, based on upstream `v0.1.22` at fixed commit
+- Output-limit finish plugin: `dsh-output-limit-finish@0.1.0`
+- OpenCode compatibility: manual validation retired at desktop `0.2.0-rc.4`; all remaining OpenCode rewrites and `model-fetcher` retired at `0.2.0-rc.16` by user request
+- AgentTeams fork: `0.1.22-desktop.9`, based on upstream `v0.1.22` at fixed commit
   `9cba4fe4171f27c019991cafd2a107f87ef3517b`
 - CPA provider plugin: `0.1.11`
 - Models settings fork: `0.2.0-rc.2-desktop.4`
 - Desktop Settings plugin: `0.1.5`
+
+## Desktop 0.2.0-rc.16 session-audit fixes, gateway truncation and OpenCode retirement — 2026-10-06
+
+Harness `0.2.0-rc.2` and upstream AgentTeams `v0.1.22` pins are unchanged. The
+fixes come from the exported 2026-10-03/06 Team session (main session plus 11
+member sessions) and were reproduced against current code before changing it.
+
+AgentTeams `0.1.22-desktop.9`, all REAPPLY. Three of these defects exist in
+upstream v0.1.22 itself (captain idle requeue in `scheduler.ts`, count-based
+evidence fallback in `quality-gates.ts`, silent `amend_task` field drop). No
+upstream PR is planned. On every future AgentTeams refresh, check these three
+spots first: if upstream still has them, reapply the local fix; if upstream
+changed them, classify the new behavior and keep the regressions below:
+
+- Captain takeover is retained across the captain's idle edge. The previous
+  "unfinished captain takeover returns to a member" regression asserted the
+  defect (t2 was handed to analyst after the captain finished it) and is
+  replaced by retention plus later captain completion.
+- Contract evidence matches by normalized text identity. The former
+  `tdd.complete.ordered-evidence-tolerates-model-paraphrase` check accepted an
+  unrelated verify command and is replaced by explicit rejection checks.
+- Git working-tree snapshots audit implementation/repair `changedPaths`
+  (`src/workspace-audit.ts`); t6's dropped `package.json` edits and
+  directory-for-files report are reproduced by `tdd.audit.*.tool`.
+- Numbered members inherit the base role prompt; `amend_task` rejects unknown
+  fields with zero writes; `integration` waits for every Team review
+  (t10 deploy versus later-created final review t11); `max-tokens` member turns
+  report their cause to the captain.
+
+Gateway truncation, new wrapper-owned plugin `dsh-output-limit-finish`: member
+18f8345c used `outputTokens=16000` of a 16000 limit on reasoning, while the
+`cli2api` gateway reported `stop`. Four configured gateways (cli2api,
+workbuddy2api, cursor-api-proxy, CPA) report finish reasons differently, so the
+fix is one provider-neutral official `llm/stream` listener instead of a
+per-gateway rewrite. `tests/output-limit-finish.test.js` runs the real
+AgentLoop/LlmRuntime and proves `completed` without and `max-tokens` with the
+plugin. The low declared output limit itself is user configuration.
+
+OpenCode compatibility is removed by user request (no longer used): the pi-ai
+finish/session-affinity/Kimi Schema rewrites, `src/model-fetcher.js`, their
+tests and fixtures. The OpenCode rows in the owner tables below are historical;
+`local-capability-manifest.test.js` now asserts absence.
+
+Evidence: complete offline `npm run verify:upstream` gate (see release notes).
+No live provider request, packaging, installation or publication is claimed.
 
 ## Desktop 0.2.0-rc.15 explicit scope retry guidance — 2026-10-06
 

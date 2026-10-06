@@ -138,7 +138,7 @@ Team 模式下队长的原生 `subagent` 自动转交到真实团队成员和任
 - 每个成员的 Provider、model 和 reasoning policy 都在 Profile 角色卡中配置。
 - 不再支持全局成员模型和推理设置。
 - Profile 文档与 Team 状态严格要求 `schemaVersion: 2`。旧数据保留在磁盘，但拒绝加载、不做迁移；请新建 Profile 和 Team。
-- CPA 与 OpenCode 模型继续使用共享 Harness catalog。
+- CPA 与其他网关模型继续使用共享 Harness catalog。
 
 ## 为什么需要 AgentTeams？
 

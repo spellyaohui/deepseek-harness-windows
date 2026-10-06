@@ -47,6 +47,7 @@ export interface MemberRoleTemplate {
   reasoningMode: RoleReasoningMode
   reasoningEffort?: string
   fallback?: { provider: string; model: string }
+  executionPrompt?: string
 }
 
 export type MemberRoleTemplateMatch =

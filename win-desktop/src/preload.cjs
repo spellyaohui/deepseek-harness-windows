@@ -12,7 +12,6 @@ contextBridge.exposeInMainWorld('dshDesktop', {
   getAgentTeamsProfiles: () => ipcRenderer.invoke('agent-teams-profiles:get'),
   /** Validate, persist, and return the AgentTeams V2 profile snapshot. */
   setAgentTeamsProfiles: (profileDocument) => ipcRenderer.invoke('agent-teams-profiles:set', profileDocument),
-  /** Reconcile verified OpenCode model capabilities; restart activates changes. */
   /** Subscribe to settings changes from other windows. Returns an unsubscribe fn. */
   onSettingsChanged: (callback) => {
     const handler = (_event, settings) => callback(settings)

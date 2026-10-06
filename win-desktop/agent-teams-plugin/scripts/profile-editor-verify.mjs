@@ -163,7 +163,7 @@ const explicitRole = prepareProfileMapForSave({
   custom: {
     members: [{
       name: 'reviewer',
-      provider: 'opencode-go',
+      provider: 'alt-gateway',
       model: 'review-model',
       reasoning_mode: 'explicit',
       reasoning_effort: 'max',
@@ -174,7 +174,7 @@ assert.equal(explicitRole.ok, true)
 assert.equal(explicitRole.profiles.custom.members[0].reasoning_mode, 'explicit')
 
 const singleEffortModel = {
-  provider: 'opencode-go',
+  provider: 'alt-gateway',
   id: 'single-effort-model',
   name: 'Single effort model',
   efforts: [{ id: 'high', name: 'High' }],

@@ -19,6 +19,7 @@ const PLUGINS = [
   '@deepseek-ai/dsh-app-boot',
   '@nanmicoder/dsh-agent-teams',
   '@deepseek-ai/dsh-tool-call-guidance',
+  'dsh-output-limit-finish',
 ]
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))

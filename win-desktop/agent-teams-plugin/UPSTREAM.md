@@ -9,8 +9,26 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.22-desktop.8`.
+- Desktop fork version is `0.1.22-desktop.9`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-10-06 desktop.9 session-audit ownership, evidence and gate fixes
+
+Classification: REAPPLY; upstream v0.1.22 and Harness 0.2.0-rc.2 pins unchanged.
+Captain takeovers survive the captain idle edge; acceptance/verify evidence
+matches normalized contract text instead of a same-count fallback; Git
+working-tree snapshots audit implementation/repair changedPaths (no directory
+stand-ins, no unreported or hidden out-of-scope changes); numbered members
+inherit the base role executionPrompt; amend_task rejects unsupported fields
+with zero writes; integration waits for every Team review; max-tokens member
+turns report their cause. The idle requeue (`scheduler.ts` captain idle
+branch), count fallback (`quality-gates.ts` evidence matching) and silent amend
+field drop (`agent_teams_amend_task`) are upstream v0.1.22 behavior. No upstream
+PR is planned; these are the first refresh checkpoints: reapply when upstream
+still has them, otherwise classify the replacement and keep the regressions.
+Regressions: lifecycle-verify.mjs, quality-gates-tdd.mjs (tdd.audit.*,
+tdd.integration.*, count/paraphrase checks) and quality-gates-amend.test.mjs.
+Test fixtures use the neutral provider route `alt-gateway`.
 
 ## 2026-10-06 desktop.8 scope contract guidance
 

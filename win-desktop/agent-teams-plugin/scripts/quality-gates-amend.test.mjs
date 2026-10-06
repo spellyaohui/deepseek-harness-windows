@@ -21,6 +21,7 @@ import {
   evaluateQualityCompletion,
   hasValidQualityTaskFields,
   isTaskRevision,
+  unsupportedAmendmentArguments,
 } from '../lib/quality-gates.js'
 
 function member(name, role) {
@@ -177,4 +178,18 @@ test('local tool boundary remains captain-gated', async () => {
   const block = source.slice(source.indexOf("name: 'agent_teams_amend_task'"), source.indexOf("name: 'agent_teams_send_message'"))
   assert.match(block, /const captain = requireCaptain\(exec\)/)
   assert.match(block, /amendTaskContract/)
+  assert.ok(block.indexOf('unsupportedAmendmentArguments') !== -1
+    && block.indexOf('unsupportedAmendmentArguments') < block.indexOf('withTeamLock'),
+  'unsupported fields must be rejected before any durable write')
+})
+
+test('amend rejects unsupported fields as a whole instead of a partial success', () => {
+  // Session incident: {dependencies:"[]", objective} saved the objective,
+  // dropped the dependency change, reported success, and the task stayed blocked.
+  const mixed = unsupportedAmendmentArguments({ task_id: 't10', reason: 'r', objective: 'new goal', dependencies: '[]' })
+  assert.match(mixed, /cannot change dependencies; nothing was amended/)
+  assert.match(mixed, /agent_teams_edit_plan/)
+  assert.match(unsupportedAmendmentArguments({ task_id: 't1', reason: 'r', assignee: 'x' }), /cannot change assignee/)
+  assert.equal(unsupportedAmendmentArguments({ task_id: 't1', reason: 'r', objective: 'x', acceptance: ['a'], verify: ['v'], inScope: ['src/'], outOfScope: ['docs/'] }), undefined)
+  assert.equal(unsupportedAmendmentArguments({ task_id: 't1', reason: 'r', objective: 'x', dependencies: undefined }), undefined)
 })

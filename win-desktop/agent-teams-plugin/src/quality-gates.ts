@@ -265,6 +265,42 @@ export function classifyChangedPath(
   return 'undeclared'
 }
 
+export interface ChangedPathsAuditInput {
+  task: TeamTask
+  reported: readonly string[]
+  /** Files that actually changed during the attempt; undefined when unobservable. */
+  actual?: readonly string[]
+  /** inScope patterns of other open write tasks, which own their concurrent changes. */
+  otherWriteScopes?: readonly string[]
+  isDirectory?: (path: string) => boolean
+}
+
+/**
+ * Cross-check an implementation/repair report against the observed attempt.
+ * A directory never stands in for the files inside it, every in-scope change
+ * must be reported, and a change outside the contract cannot be hidden by
+ * dropping it from `changedPaths` on retry.
+ */
+export function auditChangedPaths(input: ChangedPathsAuditInput): string | undefined {
+  const kind = taskKindOf(input.task)
+  if (!WRITE_KINDS.includes(kind)) return undefined
+  const inScope = input.task.inScope ?? []
+  const outOfScope = input.task.outOfScope ?? []
+  const directories = input.reported.filter(path => path.trim().endsWith('/') || input.isDirectory?.(path) === true)
+  if (directories.length > 0) {
+    return `${kind} changedPaths must list changed files, not directories: ${listMissing(directories)}. Replace each directory with the files you changed inside it`
+  }
+  if (input.actual === undefined) return undefined
+  const reported = new Set(input.reported.map(path => normalizeWorkspacePath(path)).filter(path => path !== undefined))
+  const unreported = input.actual.filter(path => classifyChangedPath(path, inScope, outOfScope) === 'in_scope' && !reported.has(path))
+  const outside = input.actual.filter(path => classifyChangedPath(path, inScope, outOfScope) !== 'in_scope'
+    && !(input.otherWriteScopes ?? []).some(pattern => pathMatchesScope(path, pattern)))
+  const problems: string[] = []
+  if (unreported.length > 0) problems.push(`files changed during this attempt are missing from changedPaths: ${listMissing(unreported)}; report every changed file`)
+  if (outside.length > 0) problems.push(`files outside inScope changed during this attempt: ${listMissing(outside)}; revert them or ask the captain to amend inScope. Removing them from changedPaths does not hide them. If you did not make these changes, report that to the captain instead of completing`)
+  return problems.length === 0 ? undefined : `${kind} cannot complete: ${problems.join('. ')}`
+}
+
 export function collectChangedPaths(gitStatusText: string): string[] {
   const paths: string[] = []
   const seen = new Set<string>()
@@ -547,24 +583,32 @@ function openHighFindings(findings: readonly ReviewFinding[] | undefined): Revie
   ))
 }
 
-function acceptanceCovered(required: readonly string[] | undefined, results: readonly AcceptanceResult[] | undefined, exact = false): boolean {
-  if (results === undefined) return false
-  const byCriterion = new Map(results.map((item) => [item.criterion, item]))
-  if ((required ?? []).every((criterion) => byCriterion.get(criterion)?.status === 'passed')) return true
-  if (exact) return false
-  // Structured result arrays naturally preserve the contract order. Accept a
-  // same-length all-pass report even when a model paraphrases punctuation or
-  // whitespace in `criterion`; verification evidence remains independently
-  // required below. This avoids turning display text into an opaque id.
-  return results.length === (required ?? []).length && results.every((item) => item.status === 'passed')
+/**
+ * Contract text identity tolerant of formatting only: Unicode compatibility
+ * forms (full-width punctuation), whitespace runs, and trailing sentence
+ * punctuation. Different wording is a different item; a report that merely
+ * has the same number of passed rows never covers a contract.
+ */
+export function contractItemKey(value: string): string {
+  return value.normalize('NFKC').replace(/\s+/gu, ' ').trim().replace(/[\s.;,:!?。；，：！？、]+$/u, '')
 }
 
-function verifyCovered(required: readonly string[] | undefined, results: readonly CommandResult[] | undefined, exact = false): boolean {
-  if (results === undefined) return false
-  const byCommand = new Map(results.map((item) => [item.command, item]))
-  if ((required ?? []).every((command) => byCommand.get(command)?.status === 'passed')) return true
-  if (exact) return false
-  return results.length === (required ?? []).length && results.every((item) => item.status === 'passed')
+function uncoveredItems<T>(required: readonly string[] | undefined, results: readonly T[] | undefined, text: (item: T) => string, passed: (item: T) => boolean): string[] {
+  const covered = new Set((results ?? []).filter(passed).map(item => contractItemKey(text(item))))
+  return (required ?? []).filter(item => !covered.has(contractItemKey(item)))
+}
+
+function missingAcceptance(required: readonly string[] | undefined, results: readonly AcceptanceResult[] | undefined): string[] {
+  return uncoveredItems(required, results, item => item.criterion, item => item.status === 'passed')
+}
+
+function missingVerify(required: readonly string[] | undefined, results: readonly CommandResult[] | undefined): string[] {
+  return uncoveredItems(required, results, item => item.command, item => item.status === 'passed')
+}
+
+function listMissing(items: readonly string[]): string {
+  const shown = items.slice(0, 5).map(item => JSON.stringify(item.length > 160 ? `${item.slice(0, 157)}...` : item)).join('; ')
+  return items.length > 5 ? `${shown}; and ${items.length - 5} more` : shown
 }
 
 export function evaluateQualityCompletion(
@@ -592,14 +636,16 @@ export function evaluateQualityCompletion(
       }
       const acceptanceResults = update.acceptanceResults ?? task.acceptanceResults
       const commands = update.commandsRun ?? task.commandsRun
-      if ((task.acceptance?.length ?? 0) > 0 && !acceptanceCovered(task.acceptance, acceptanceResults, true)) {
-        return { ok: false, error: `${kind} completion requires passed acceptanceResults matching every current acceptance item; amend the contract before reducing scope` }
+      const uncoveredAcceptance = missingAcceptance(task.acceptance, acceptanceResults)
+      if (uncoveredAcceptance.length > 0) {
+        return { ok: false, error: `${kind} completion requires passed acceptanceResults matching every current acceptance item; copy each criterion text exactly. Missing: ${listMissing(uncoveredAcceptance)}. Amend the contract before reducing scope` }
       }
       if (commands?.some(item => item.status === 'failed')) {
         return { ok: false, error: 'verify failure must fail the task', requiredStatus: 'failed' }
       }
-      if ((task.verify?.length ?? 0) > 0 && !verifyCovered(task.verify, commands, true)) {
-        return { ok: false, error: `${kind} completion requires a passed commandsRun entry matching every current verify command` }
+      const uncoveredVerify = missingVerify(task.verify, commands)
+      if (uncoveredVerify.length > 0) {
+        return { ok: false, error: `${kind} completion requires a passed commandsRun entry matching every current verify command; copy each command text exactly. Missing: ${listMissing(uncoveredVerify)}` }
       }
     }
     if (nextStatus === 'failed' && (verdict === 'needs_revision' || verdict === 'reject')) {
@@ -619,11 +665,13 @@ export function evaluateQualityCompletion(
     }
     if (nextStatus !== 'completed') return { ok: true }
     const acceptanceResults = update.acceptanceResults ?? task.acceptanceResults
-    if (acceptanceResults === undefined || !acceptanceCovered(task.acceptance, acceptanceResults)) {
-      return { ok: false, error: `${kind} completion requires passed acceptanceResults for every acceptance item` }
+    const uncoveredAcceptance = missingAcceptance(task.acceptance, acceptanceResults)
+    if (acceptanceResults === undefined || uncoveredAcceptance.length > 0) {
+      return { ok: false, error: `${kind} completion requires passed acceptanceResults for every acceptance item; copy each criterion text exactly${uncoveredAcceptance.length > 0 ? `. Missing: ${listMissing(uncoveredAcceptance)}` : ''}` }
     }
-    if (commands === undefined || !verifyCovered(task.verify, commands)) {
-      return { ok: false, error: `${kind} completion requires a passed commandsRun entry for every verify command` }
+    const uncoveredVerify = missingVerify(task.verify, commands)
+    if (commands === undefined || uncoveredVerify.length > 0) {
+      return { ok: false, error: `${kind} completion requires a passed commandsRun entry for every verify command; copy each command text exactly${uncoveredVerify.length > 0 ? `. Missing: ${listMissing(uncoveredVerify)}` : ''}` }
     }
     if (kind === 'implementation' || kind === 'repair') {
       const changed = update.changedPaths ?? task.changedPaths
@@ -699,6 +747,21 @@ export interface AmendTaskContractResult {
 }
 
 const AMENDABLE_CONTRACT_FIELDS = ['objective', 'acceptance', 'verify', 'inScope', 'outOfScope'] as const
+const AMEND_TASK_ARGUMENTS: ReadonlySet<string> = new Set(['task_id', 'reason', ...AMENDABLE_CONTRACT_FIELDS])
+
+/**
+ * Reject the whole amendment when the caller sends a field the contract
+ * cannot change. Dropping it silently would report success while the task
+ * keeps, for example, the dependency the captain meant to remove.
+ */
+export function unsupportedAmendmentArguments(args: Readonly<Record<string, unknown>>): string | undefined {
+  const unsupported = Object.entries(args).filter(([key, value]) => value !== undefined && !AMEND_TASK_ARGUMENTS.has(key)).map(([key]) => key)
+  if (unsupported.length === 0) return undefined
+  const dependencies = unsupported.includes('dependencies')
+    ? ' Dependencies are fixed once a task exists: in a staged Team use agent_teams_edit_plan; in a running Team cancel the task and create a replacement with the intended dependencies.'
+    : ''
+  return `agent_teams_amend_task cannot change ${unsupported.join(', ')}; nothing was amended. Only ${AMENDABLE_CONTRACT_FIELDS.join(', ')} are amendable.${dependencies} Retry without the unsupported fields.`
+}
 
 /** Apply one audited captain contract replacement before a passing review freezes it. */
 export function amendTaskContract(team: TeamState, task: TeamTask, input: ContractAmendmentInput, by: string, reason: string): AmendTaskContractResult {
@@ -889,6 +952,26 @@ function qualityTerminals(tasks: readonly TeamTask[], item: TeamTask, path = new
   if (followUps.length === 0) return [item]
   const nextPath = new Set(path).add(item.id)
   return followUps.flatMap(next => qualityTerminals(tasks, next, nextPath))
+}
+
+/**
+ * Reviews that still gate an integration (merge, release or deployment) task.
+ * Every unresolved review in the Team blocks it, including a final review the
+ * captain created after the integration task and therefore never listed as a
+ * dependency. Reviews downstream of the integration itself are excluded so a
+ * post-integration review cannot deadlock it.
+ */
+export function integrationReviewBlockers(tasks: readonly TeamTask[], task: TeamTask): string[] {
+  if (taskKindOf(task) !== 'integration') return []
+  const quality = tasks.filter(item => isQualityKind(taskKindOf(item)))
+  return tasks.filter(item => taskKindOf(item) === 'review'
+    && item.id !== task.id
+    && item.reviewedTaskId !== task.id
+    && !dependencyClosureContains(tasks, item.dependencies, task.id)
+    && (item.status === 'failed'
+      ? !qualityTerminals(quality, item).every(next => next.status === 'completed')
+      : item.status === 'completed' ? item.verdict !== 'pass' : item.status !== 'cancelled'))
+    .map(item => item.id)
 }
 
 export function canDeclareDelivery(team: TeamState): DeliveryResult {

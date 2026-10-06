@@ -2,7 +2,13 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.15`（已发布） · [最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)
+> 当前源码版本：`v0.2.0-rc.16`（仅源码，未打包） · [最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)
+
+## 源码待打包：`v0.2.0-rc.16`
+
+- AgentTeams `0.1.22-desktop.9`：队长接管的任务跨回合保留；验收与验证证据按合同条目逐条匹配；Git 工作树快照核对变更清单；编号成员继承角色提示词；`amend_task` 拒绝合同外字段；integration（部署/发布）等待全部审查通过；输出截断时向队长说明原因。
+- 新增 `dsh-output-limit-finish`：通过官方 `llm/stream` 扩展点，把“报告为 stop 但输出已用满上限”的回复统一改为官方 `max-tokens`，与具体网关和模型无关。
+- 按用户要求移除全部 OpenCode 兼容代码；完整离线门禁通过，Harness 保持 `0.2.0-rc.2`。
 
 ## 已发布：`v0.2.0-rc.15`
 
@@ -294,8 +300,7 @@
 - **CPA 多模型与多模态**：通过 `CPA / CLIProxyAPI` 原生提供方接入 OpenAI Responses 兼容网关，自动获取模型；CPA 新模型默认仅文本，可逐模型启用图像输入，支持图片附件和模型级纯文本覆盖。
 - **完整的思考协议映射**：支持 `off / low / medium / high / xhigh / max`，其他模型保留完整七档词汇，GPT-5.6 按其可用档位过滤。
 - **子智能体可控可追踪**：AgentTeams 的 Profile 角色卡分别管理 Provider、模型和 reasoning policy；保存后重启用于新团队，Team/Native 委派路由仍在主程序设置 TAB 中管理。
-- **OpenCode 图片能力自愈**：启动时校正已验证的协议和图片能力；遇到旧目录或可疑模型时，可在“设置 → 模型”一键校验，不会修改 API 地址或 Token。
-- **OpenCode Go 会话路由兼容**：所有 OpenCode Go 模型沿用 Harness 当前会话的 `x-opencode-session` 粘性路由，避免 Kimi K3 等模型被网关误路由后伪装成“API key 无效”；通用 Provider 不受影响。
+- **网关截断识别**：任意 OpenAI 兼容网关把“输出用满上限”误报为正常结束时，统一按官方 `max-tokens` 处理，不针对单个网关打补丁。
 - **面向长期维护的插件边界**：CPA、AgentTeams、Models 设置、桌面设置和 Windows 包装器各自负责清晰能力，便于后续独立升级和回归。
 
 ## 与上游项目的关系
@@ -325,7 +330,7 @@
 - “模型”设置中的 `CPA / CLIProxyAPI` 插件：填写 API 地址和 Token，从 `/v1/models` 获取模型，并供主会话与 AgentTeams 共用。
 - AgentTeams 插件集成；成员 Provider、模型与 reasoning policy 在 Profile 角色卡中配置。权限模式由上游 Harness 官方预设负责。
 - AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。角色 Profile 保存后需重启才用于新团队。
-- OpenCode 完整工具流缺少 `finish_reason` 时的兼容处理；不完整的流仍严格报错。
+- 网关把用满输出上限的回复报告为 `stop` 时，按官方 `max-tokens` 结束回合并提示截断。
 
 ## 历史：`v0.1.1-rc.19` 更新说明
 
