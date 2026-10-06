@@ -72,7 +72,9 @@ Evidence: the complete offline `npm run verify:upstream` gate passes (189
 wrapper tests). Local rc.16 EXE/ZIP/blockmap were built after it; unpacked and
 ZIP closures resolve 869/868 production packages (one more than rc.15: the new
 plugin) and match 1,042 manifests; changed runtime files match source bytes and
-the EXE keeps the official whale icon. Sizes and SHA-256 are in
+the EXE keeps the official whale icon. The artifacts were rebuilt from fb9cbfc
+after the guidance 0.1.1 change, replacing the earlier unpublished local build
+of the same version. Sizes and SHA-256 are in
 `win-desktop/release-notes/v0.2.0-rc.16.md`. No live provider request, NSIS
 installation or publication is claimed.
 
