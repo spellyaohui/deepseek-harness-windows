@@ -8,7 +8,7 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.16` (source only; not packaged or published)
+- Windows desktop wrapper: `0.2.0-rc.16` (locally packaged and verified; not published)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
 - Output-limit finish plugin: `dsh-output-limit-finish@0.1.0`
@@ -61,8 +61,13 @@ finish/session-affinity/Kimi Schema rewrites, `src/model-fetcher.js`, their
 tests and fixtures. The OpenCode rows in the owner tables below are historical;
 `local-capability-manifest.test.js` now asserts absence.
 
-Evidence: complete offline `npm run verify:upstream` gate (see release notes).
-No live provider request, packaging, installation or publication is claimed.
+Evidence: the complete offline `npm run verify:upstream` gate passes (189
+wrapper tests). Local rc.16 EXE/ZIP/blockmap were built after it; unpacked and
+ZIP closures resolve 869/868 production packages (one more than rc.15: the new
+plugin) and match 1,042 manifests; changed runtime files match source bytes and
+the EXE keeps the official whale icon. Sizes and SHA-256 are in
+`win-desktop/release-notes/v0.2.0-rc.16.md`. No live provider request, NSIS
+installation or publication is claimed.
 
 ## Desktop 0.2.0-rc.15 explicit scope retry guidance — 2026-10-06
 
