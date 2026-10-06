@@ -23,7 +23,7 @@ outOfScope remains authoritative, including protected-path exclusion. Captain
 guidance retains the 3,500-character budget. quality-gates-tdd.mjs reproduces the
 reported path, verifies corrected input, JSON serialization and zero-write failures.
 The full offline verify:upstream gate passes, including 205 wrapper tests; desktop
-rc.15 assets have been built; production-file parity, packaged closures and isolated startup/settings/import/restart pass. Publication and clean-runner installation are pending.
+rc.15 assets have been built; production-file parity, packaged closures and isolated startup/settings/import/restart pass. Clean Windows rebuild and actual NSIS installation/first-run pass in GitHub run 37455992912 (runtime source 40a1201). rc.15 is published with sanitized acceptance records.
 
 ## 2026-10-06 desktop.7 session-audit lifecycle and quality fixes
 

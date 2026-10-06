@@ -8,7 +8,7 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.15` (locally packaged; pending release)
+- Windows desktop wrapper: `0.2.0-rc.15` (published; clean Windows build and installed first run verified)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.0`
 - OpenCode manual validation plugin: retired at desktop `0.2.0-rc.4` by user request
@@ -33,6 +33,8 @@ exact-file and sibling boundaries, exclusion priority, JSON-wire schema guidance
 and zero durable writes on rejected tool calls. The complete offline verify:upstream
 gate passes, including 205 wrapper tests. Harness and upstream AgentTeams pins remain
 unchanged. rc.15 EXE/ZIP/blockmap have been built, source/lib parity and both runtime closures pass, and isolated fresh launch/settings/import/restart succeeds. No live provider call or local NSIS installation is claimed.
+
+Clean Windows rebuild and actual NSIS installation/first-run acceptance both pass on GitHub run 37455992912 for runtime source commit 40a1201615a397dd33ebef3fa216d4576c1ea2c5. Release rc.15 includes SHA-256 and sanitized local/clean-runner evidence. No live model request is claimed.
 
 ## Desktop 0.2.0-rc.14 session-audit fixes — 2026-10-06
 

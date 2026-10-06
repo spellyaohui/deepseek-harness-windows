@@ -2,13 +2,13 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.15`（本地安装包已构建，待发布） · [最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)
+> 当前源码版本：`v0.2.0-rc.15`（已发布） · [最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)
 
-## 本地已构建，待发布：`v0.2.0-rc.15`
+## 已发布：`v0.2.0-rc.15`
 
 - AgentTeams `0.1.22-desktop.8` 明确 implementation/repair 必须提供独立的 `inScope` 和 `verify` 数组；写在 description 或 deliverables 中不能替代范围声明。
 - 范围中的文件为精确路径，目录必须以 `/` 结尾，例如 `server/src/modules/summary-report/`。创建、修改计划和修改合同的 Schema 统一说明，缺少字段或目录斜杠时返回具体重试步骤。
-- `outOfScope` 优先于 `inScope`，目录型排除项同样必须带 `/`；不推断或自动放宽用户范围。完整离线门禁通过，Harness 保持 `0.2.0-rc.2`；本版 EXE、ZIP 和 blockmap 已构建并通过隔离启动/重启验收，尚未上传；校验值见 rc.15 发布记录。
+- `outOfScope` 优先于 `inScope`，目录型排除项同样必须带 `/`；不推断或自动放宽用户范围。完整离线门禁通过，Harness 保持 `0.2.0-rc.2`；本版 EXE、ZIP 和 blockmap 已构建并通过隔离启动/重启验收，GitHub 干净机器重新编译和实际安装验收通过，已发布；校验值见 rc.15 发布记录。
 
 ## 本地已构建，待发布：`v0.2.0-rc.14`
 

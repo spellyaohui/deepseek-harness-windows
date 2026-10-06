@@ -1,11 +1,11 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.15`（本地安装包已构建，待发布）；[最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.10)。
+本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.15`（已发布）；[最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)。
 
-## 本地已构建，待发布：`v0.2.0-rc.15`
+## 已发布：`v0.2.0-rc.15`
 
 - AgentTeams `0.1.22-desktop.8` 修正任务 Schema 和范围错误指引：implementation/repair 需要独立的非空 `inScope`/`verify` 数组，目录范围及排除项以 `/` 结尾。
-- 缺少字段及目录斜杠返回具体重试步骤；严格保留精确文件、排除项优先、受保护路径和拒绝时零状态写入。完整离线门禁通过，Harness 保持 `0.2.0-rc.2`；本版 EXE、ZIP 和 blockmap 已构建并通过隔离启动/重启验收，尚未上传；校验值见 rc.15 发布记录。
+- 缺少字段及目录斜杠返回具体重试步骤；严格保留精确文件、排除项优先、受保护路径和拒绝时零状态写入。完整离线门禁通过，Harness 保持 `0.2.0-rc.2`；本版 EXE、ZIP 和 blockmap 已构建并通过隔离启动/重启验收，GitHub 干净机器重新编译和实际安装验收通过，已发布；校验值见 rc.15 发布记录。
 
 ## 本地已构建，待发布：`v0.2.0-rc.14`
 
