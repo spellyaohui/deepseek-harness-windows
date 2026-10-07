@@ -175,8 +175,10 @@ evidence that the local capability is preserved.
   3,500-character captain prompt budget regressions.
 
 - Global AgentTeams settings own Team/Native delegation and the separate default
-  Provider/model/reasoning policy for temporary captain `subagent` calls in Team
-  mode. This default never overrides Profile roles or native-mode settings.
+  Provider/model/reasoning policy for temporary captain `subagent` calls and
+  unbound custom `agent_teams_add_member` calls in Team mode, under both captain
+  planning and fixed task templates. This default never overrides frozen Profile
+  roles, numbered-role inheritance, explicit tool policies or native-mode settings.
   Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
   use its configured Provider/model/effort; only `target-default` and
@@ -284,14 +286,26 @@ evidence that the local capability is preserved.
   Provider/model/reasoning policy from the current Team. This is generic for
   every configured role and any suffix length; `-`/`_`/space separators are
   accepted. The unnumbered base member wins over numbered members, explicit
-  request fields win over inheritance, unmatched custom names keep captain
-  routing, and ambiguous role-description fallback must fail closed. Keep the
-  focused selection and lifecycle regressions through every upstream refresh.
+  request fields win over inheritance, unmatched custom names use the saved
+  temporary policy (or captain routing when absent), and ambiguous role-description
+  fallback must fail closed. An explicit `role_template` binds an exact active
+  current-Team member name; unknown/blank bindings fail before writes/spawns.
+  Never guess a renamed member's role or read a later live Profile for inheritance.
+  Keep the focused selection and lifecycle regressions through every upstream refresh.
 - Every continuable child operation (start, send, interrupt, retirement and
   drain) must enter the single durable-session subagent gateway. The gateway
   resolves the exact live Agent, rejects stale or same-ID pseudo-handles, and
   serializes each child operation; no direct `ctx.subagents.*` call may bypass
   this admission boundary.
+
+- AgentTeams desktop.11 records optional model-policy provenance for new members
+  in strict V2 state and displays reasoning policy plus source in the activity UI.
+  Prompt-only staged edits preserve that source; actual policy changes become
+  explicit. Missing source in existing V2 records remains valid without migration.
+  Active fallback routes display their own model and target-default reasoning.
+  Retain `scripts/custom-member-routing.test.mjs` through every upstream refresh,
+  covering both planning modes, staged approval, frozen policies, concurrent calls,
+  unavailable defaults with zero writes, explicit role bindings and cold recovery.
 
 ## AgentTeams `0.1.22-desktop.9` session-audit invariants
 

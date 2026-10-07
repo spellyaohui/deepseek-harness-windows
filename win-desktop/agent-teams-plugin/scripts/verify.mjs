@@ -130,7 +130,7 @@ const builtTools = await readFile(new URL('../lib/tools.js', import.meta.url), '
 const builtIndex = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')
 check(
   'tool schema leaves role reasoning policy optional for numbered-role inheritance',
-  builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matching numbered base role; otherwise use the captain route.' }")
+  builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matched frozen role or saved temporary/custom default. explicit requires provider/model/reasoning_effort.' }")
     && builtTools.includes('explicit requires provider/model/reasoning_effort')
     && !builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], default: 'target-default'"),
 )

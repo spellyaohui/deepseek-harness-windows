@@ -1,6 +1,6 @@
 /** Shared, demand-driven state for the AgentTeams browser monitor. */
 
-import type { RoleReasoningMode } from '../selection-policy.ts'
+import type { MemberPolicySource, RoleReasoningMode } from '../selection-policy.ts'
 import type { TaskKind } from '../types.ts'
 
 /** One member row of a host snapshot. */
@@ -12,6 +12,8 @@ export interface ActivityMember {
   readonly model?: string
   readonly reasoningMode?: RoleReasoningMode
   readonly reasoningEffort?: string
+  readonly modelPolicySource?: MemberPolicySource
+  readonly fallbackActive?: boolean
   readonly executionPrompt?: string
   readonly status?: 'idle' | 'working' | 'removed'
   readonly activity: 'working' | 'idle' | 'unknown'

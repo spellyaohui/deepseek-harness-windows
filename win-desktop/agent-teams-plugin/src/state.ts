@@ -21,6 +21,7 @@ import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, TERMINAL_TASK_STATUSES, type TaskStatus, type TeamMember, type TeamMessage, type TeamProfileSnapshot, type TeamState, type TeamTask } from './types.ts'
 import { hasValidQualityTaskFields, isReviewPolicy } from './quality-gates.ts'
 import { isAttemptWorkspaceAudit } from './workspace-audit.ts'
+import { MEMBER_POLICY_SOURCES } from './selection-policy.ts'
 
 export {
   buildCoverageMatrix,
@@ -873,6 +874,7 @@ function isTeamMember(value: unknown): value is TeamMember {
     && value['model'].trim() !== ''
     && (value['reasoningMode'] === 'target-default' || value['reasoningMode'] === 'route-aware' || value['reasoningMode'] === 'explicit')
     && isOptionalString(value['reasoningEffort'])
+    && (value['modelPolicySource'] === undefined || MEMBER_POLICY_SOURCES.some(source => source === value['modelPolicySource']))
     && isOptionalString(value['activeProvider'])
     && isOptionalString(value['activeModel'])
     && (value['executionPrompt'] === undefined || typeof value['executionPrompt'] === 'string')

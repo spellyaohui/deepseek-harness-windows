@@ -604,6 +604,7 @@ test('Team trusted temporary default selects the configured provider, model and 
   const member = team.members.find(item => item.id === result.value.subagentId)
   assert.ok(member)
   assert.equal(team.members.length, 1, 'temporary delegation must not instantiate the four Profile roles')
+  assert.equal(team.members[0].modelPolicySource, 'temporary')
   assert.equal(member.provider, TEMPORARY_MEMBER_POLICY.provider)
   assert.equal(member.model, TEMPORARY_MEMBER_POLICY.model)
   assert.equal(member.reasoningMode, 'explicit')
@@ -692,7 +693,7 @@ test('Native delegation ignores the Team temporary default and retains the offic
   assert.equal(adapter.requests[0].reasoningEffort, undefined)
 })
 
-test('Team temporary default does not become a global override for ordinary added members or frozen Profile routes', { timeout: 15_000 }, async t => {
+test('Team custom members use temporary defaults while frozen Profile routes stay independent', { timeout: 15_000 }, async t => {
   const profiles = {
     'explicit-profile': {
       taskPlanning: 'captain', tasks: [], members: [{
@@ -715,8 +716,8 @@ test('Team temporary default does not become a global override for ordinary adde
   assert.equal(ordinary.isError, false, text(ordinary))
   await eventually(() => adapter.requests.length === 2, 'ordinary add-member never executed')
   const ordinaryRequest = adapter.requests.find(request => request.sessionId === ordinary.value.member_id)
-  assert.equal(ordinaryRequest.provider, 'offline')
-  assert.equal(ordinaryRequest.model, 'offline-model')
+  assertTemporaryRequest(ordinaryRequest, ordinary.value.member_id)
+  assert.equal((await readTeam(stateRoot, before.id)).members.find(item => item.name === 'ordinary').modelPolicySource, 'temporary')
   const delegated = await execute(captain, 'subagent', { description: '临时专项工作', prompt: DELEGATED_PROMPT })
   assert.equal(delegated.isError, false, text(delegated))
   await eventually(() => adapter.requests.length === 3, 'temporary delegation alongside Profile members never executed')

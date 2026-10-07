@@ -169,7 +169,7 @@ export function AgentTeamsSettingsSection({
       </section>
 
       <TemporaryMemberSettings
-        key={actionScope.current.key}
+        key={`temporary-${actionScope.current.key}`}
         value={value.temporaryMember}
         catalog={catalog.models}
         catalogReady={catalog.status === 'ready'}
@@ -186,7 +186,7 @@ export function AgentTeamsSettingsSection({
       />
 
       <TeamProfilesEditor
-        key={actionScope.current.key}
+        key={`profiles-${actionScope.current.key}`}
         settings={settings}
         writer={writer}
         catalog={catalog}

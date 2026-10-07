@@ -5,7 +5,7 @@
 回归和治理文档并进行授权的构建验证，没有提交、推送、tag 或发布。随后用户明确授权保留成果并
 提交、推送及发布 rc.17 预发布；仍不部署或安装到用户环境、不调用收费模型、不迁移用户数据。
 
-当前 owner：wrapper `0.2.0-rc.17`、AgentTeams `0.1.22-desktop.10`、
+本次治理验收的 owner（rc.17）：wrapper `0.2.0-rc.17`、AgentTeams `0.1.22-desktop.10`、
 output-limit-finish `0.1.1`。Harness 仍固定 `0.2.0-rc.2` /
 `639ed015397290b3745d163aafe02ffee4aa3f84`，AgentTeams 上游仍固定 `v0.1.22` /
 `9cba4fe4171f27c019991cafd2a107f87ef3517b`。Models、CPA、Desktop Settings 与 guidance

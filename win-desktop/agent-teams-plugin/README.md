@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-202724" alt="DeepSeek Harness plugin">
 </p>
 
-Current desktop fork: `0.1.22-desktop.10`, on pinned Harness `0.2.0-rc.2`, distributed with the Windows rc.17 prerelease, not as an upstream npm release. Attempt-bound persistent audit, observed concurrency, current-version independent review admission, evidence source labels, atomic state failure and stale settings-response guards preserve the existing UI and routing. See the [governance acceptance record](../../docs/GOVERNANCE_ACCEPTANCE_20261007.md).
+Current desktop fork: `0.1.22-desktop.11`, on pinned Harness `0.2.0-rc.2`, included in the locally built Windows rc.18 installer, not an upstream npm release. Both captain planning and fixed task templates retain frozen Profile routing; unbound custom members and temporary captain subagent calls share saved defaults. Explicit tool policies win, and `role_template` binds a renamed member to an exact current-Team role. Member cards show reasoning policy and source. See the [routing regression record](release-notes/v0.1.22-desktop.11.md); prior audit behavior remains covered by the [governance acceptance record](../../docs/GOVERNANCE_ACCEPTANCE_20261007.md).
 
 ## One prompt. A working team.
 

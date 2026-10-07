@@ -691,6 +691,13 @@ export function TeamSection({ team, modelDirectory, onContinuePlanning, onDiscar
                               : memberStateLabel(member, team.tasks, historic, t)}
                       </span>
                     </span>
+                    {member.reasoningMode !== undefined && (
+                      <span className={css.memberStatusLine} data-member-policy={member.modelPolicySource} data-member-reasoning={member.fallbackActive ? 'target-default' : member.reasoningMode}>
+                        {t(`settings.profiles.reasoning.${member.fallbackActive ? 'target-default' : member.reasoningMode}.label`)}
+                        {member.fallbackActive !== true && member.reasoningMode !== 'target-default' && member.reasoningEffort ? ` · ${member.reasoningEffort}` : ''}
+                        {member.fallbackActive === true ? ` · ${t('member.policy.fallback')}` : member.modelPolicySource ? ` · ${t(`member.policy.${member.modelPolicySource}`)}` : ''}
+                      </span>
+                    )}
                     <span className={css.memberStatusLine}>{discarded
                       ? t('member.status.discarded')
                       : stopped

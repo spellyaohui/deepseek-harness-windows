@@ -9,10 +9,31 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.22-desktop.10`.
+- Desktop fork version is `0.1.22-desktop.11`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
-## 2026-10-07 desktop.10 complete governance
+## 2026-10-07 desktop.11 custom-member routing
+
+Classification: REAPPLY; upstream pins are unchanged. The existing member-selection
+boundary now shares the saved temporary default with unbound custom add-member calls.
+Explicit tool policy and frozen current-Team roles win first; exact `role_template`
+bindings support renamed roles without heuristic guesses or live Profile rereads.
+Captain planning and seed templates share this selection path. Unavailable defaults
+fail before member writes/spawns; existing members and cold continuation stay frozen.
+
+Optional strict V2 provenance labels feed the existing activity snapshot and UI alongside
+reasoning policy. Prompt-only staged edits retain provenance; policy edits become explicit.
+Active fallback routes display target-default, rather than the primary route's effort.
+No new store, resolver, dependencies, automatic Profile selection or Team migration.
+
+Regression: custom-member-routing.test.mjs (11 real-runtime tests), alongside the
+21 native compatibility tests. The complete offline gate passed before identity updates;
+isolated real Edge renders both planning choices and policy labels at 320/560/800px,
+without horizontal overflow or renderer/console errors. Model adapters and Settings APIs
+are offline fixtures, so this does not claim external-provider or installed-app testing.
+See [desktop.11 source notes](release-notes/v0.1.22-desktop.11.md).
+
+## Historical 2026-10-07 desktop.10 complete governance
 
 Classification: REAPPLY. The upstream source pins do not change. The existing
 state owner stores a separate schemaVersion 1 attempt baseline/evidence extension

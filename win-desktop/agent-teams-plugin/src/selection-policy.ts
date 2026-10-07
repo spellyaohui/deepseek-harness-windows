@@ -1,5 +1,8 @@
 export type RoleReasoningMode = 'target-default' | 'route-aware' | 'explicit'
 
+export const MEMBER_POLICY_SOURCES = ['profile', 'role-template', 'temporary', 'explicit', 'captain'] as const
+export type MemberPolicySource = typeof MEMBER_POLICY_SOURCES[number]
+
 export interface MemberRolePolicy {
   provider?: string
   model?: string
@@ -89,8 +92,15 @@ function numberedRoleBase(value: string): string | undefined {
 export function findMemberRoleTemplate(input: {
   memberName: string
   role?: string
+  templateName?: string
   members: readonly MemberRoleTemplate[]
 }): MemberRoleTemplateMatch {
+  if (input.templateName !== undefined) {
+    const matches = input.members.filter(member => member.name === input.templateName?.trim())
+    if (matches.length === 1) return { kind: 'matched', template: matches[0]! }
+    if (matches.length > 1) return { kind: 'ambiguous', templates: matches }
+    return { kind: 'none' }
+  }
   const base = numberedRoleBase(input.memberName)
   if (base !== undefined) {
     const nameMatches = input.members.filter((member) => (

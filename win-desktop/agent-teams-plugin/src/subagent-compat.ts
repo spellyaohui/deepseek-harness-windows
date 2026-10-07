@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { durableSessionId } from './agent-identity.ts'
 import { agentTeamsSubagentGateway } from './subagent-gateway.ts'
 import { resolveMemberLlmSelection, validateMemberLlmSelections } from './members.ts'
-import { findTeamByParticipant, readTeam, withTeamLock } from './state.ts'
+import { findTeamByParticipant, readTeam, withTeamLock, writeTeam } from './state.ts'
 import { TERMINAL_TASK_STATUSES, type TeamState } from './types.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
 
@@ -137,7 +137,20 @@ export function createSubagentCompatibility(ctx: Context, config: {
             ...(selection.reasoningMode !== 'explicit' ? {} : { reasoning_effort: selection.reasoningEffort }),
           } : {}),
         })
-        team = await readTeam(root, team.id)
+        // The compatibility tool pins its trusted selection through add_member.
+        // Record its original source under the same Team lock as normal edits.
+        const teamId = team.id
+        team = await withTeamLock(`team:${root}:${teamId}`, async () => {
+          const fresh = await readTeam(root, teamId)
+          if (fresh === undefined || fresh.captainSessionId !== captainId) throw new Error('compatibility Team is no longer available to this captain')
+          const addedMember = fresh.members.find(candidate => candidate.id === added.member_id)
+          if (addedMember === undefined) throw new Error('added compatibility member is missing from the Team')
+          if (pinSelection) {
+            addedMember.modelPolicySource = !explicitRoute && temporaryPolicy !== undefined ? 'temporary' : 'explicit'
+            await writeTeam(root, fresh)
+          }
+          return fresh
+        })
         member = team?.members.find(candidate => candidate.id === added.member_id)
       }
       if (team === undefined || member === undefined || member.id === '') throw new Error('Team member startup did not produce a durable child session')

@@ -198,6 +198,8 @@ export interface TeamMember {
   reasoningMode: import('./selection-policy.ts').RoleReasoningMode
   /** Resolved reasoning effort captured from the captain or target model default. */
   reasoningEffort?: string
+  /** Selection origin captured at creation; absent on existing V2 records. */
+  modelPolicySource?: import('./selection-policy.ts').MemberPolicySource
   /** Prompt specific to this member's execution turns. */
   executionPrompt?: string
   /** Configured second-choice route. */

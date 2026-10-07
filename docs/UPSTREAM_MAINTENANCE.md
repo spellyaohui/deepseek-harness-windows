@@ -8,18 +8,44 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.17` (prerelease distribution authorized after local build and isolated acceptance; final evidence in rc.17 release notes)
+- Windows desktop wrapper: `0.2.0-rc.18` (local installer built and isolated package acceptance passed; not released)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.1`
 - Output-limit finish plugin: `dsh-output-limit-finish@0.1.1`
 - OpenCode compatibility: manual validation retired at desktop `0.2.0-rc.4`; all remaining OpenCode rewrites and `model-fetcher` retired at `0.2.0-rc.16` by user request
-- AgentTeams fork: `0.1.22-desktop.10`, based on upstream `v0.1.22` at fixed commit
+- AgentTeams fork: `0.1.22-desktop.11`, based on upstream `v0.1.22` at fixed commit
   `9cba4fe4171f27c019991cafd2a107f87ef3517b`
 - CPA provider plugin: `0.1.11`
 - Models settings fork: `0.2.0-rc.2-desktop.4`
 - Desktop Settings plugin: `0.1.5`
 
-## Desktop 0.2.0-rc.17 complete governance — 2026-10-07
+## Desktop 0.2.0-rc.18 custom-member routing — 2026-10-07
+
+AgentTeams owns this REAPPLY capability. Both captain-planning and seed-task Profiles
+retain frozen role routes, all three reasoning modes and persona prompts. The existing
+add-member selection boundary now applies the saved temporary policy to unbound custom
+members, after explicit call policy and frozen role inheritance. Missing temporary policy
+retains captain selection. An optional exact `role_template` binds renamed members to an
+active current-Team member; it never rereads a changed live Profile. Unknown bindings and
+invalid/unavailable defaults reject before durable member writes or spawning.
+
+New strict V2 member records optionally label their policy source; older V2 records remain
+valid without migration. The activity view shows reasoning policy and source, and active
+fallback models with target-default reasoning. Staged prompt edits preserve provenance;
+actual policy changes become explicit. Settings reuse existing controls and CSS, with
+distinct lifetime keys for the temporary and Profile editors.
+
+Keep `scripts/custom-member-routing.test.mjs` in the offline gate. Its real AgentLoop,
+JSONL and Tools regressions cover five concurrent custom members, cold continuation,
+live-default changes, captain/seed modes, automatic/chat approval, all reasoning modes,
+explicit precedence, frozen role binding and zero-write failures. Combined with native
+compatibility regressions, 32 focused checks pass. The complete offline gate passed before
+version/provenance synchronization; final gate, package closure/parity, isolated startup
+and restart evidence are in the rc.18 notes. Harness and upstream AgentTeams revisions
+remain unchanged. Local installer construction was subsequently authorized; no Release
+or real NSIS installation/second-machine acceptance is claimed.
+
+## Historical desktop 0.2.0-rc.17 complete governance — 2026-10-07
 
 All ten requested governance items and their evidence boundaries are recorded in
 [GOVERNANCE_ACCEPTANCE_20261007.md](GOVERNANCE_ACCEPTANCE_20261007.md). AgentTeams owns
@@ -360,7 +386,7 @@ version for ZIP/hash names; installed acceptance strictly compares the same
 version, with explicit rc.10 retained for its historical workflow. No current
 rc.11 clean-machine installation or published Release is claimed here.
 
-## Pending AgentTeams desktop.5 temporary subagent defaults — 2026-10-02
+## Historical AgentTeams desktop.5 temporary subagent defaults — 2026-10-02
 
 AgentTeams owns this REAPPLY capability through settings.ts, the settings client
 and subagent-compat.ts. A separate optional temporaryMember policy applies only

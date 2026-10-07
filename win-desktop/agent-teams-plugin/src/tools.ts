@@ -75,7 +75,7 @@ import {
   type MemberRuntimeConfig,
 } from './members.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
-import { findMemberRoleTemplate, type RoleReasoningMode } from './selection-policy.ts'
+import { findMemberRoleTemplate, type MemberPolicySource, type RoleReasoningMode } from './selection-policy.ts'
 import { installTeamScheduler } from './scheduler.ts'
 import { installMailboxAdmission, mailboxPrompt } from './mailbox.ts'
 import type { AgentTeamsSettingsRuntime } from './settings.ts'
@@ -103,7 +103,7 @@ export interface ToolsConfig {
   memberMaxDepth?: number
   /** Team size cap (members). */
   maxMembers: number
-  /** Live AgentTeams settings runtime retained for non-routing settings. */
+  /** Live delegation and unbound temporary/custom member defaults. */
   settings: AgentTeamsSettingsRuntime
   /** Durable Team/Native policy installed into captains and member children. */
   delegationPolicy?: DelegationPolicyRuntime
@@ -716,6 +716,10 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
             fallback: member.fallback,
           }, signal)
+          if (member.provider !== selection.provider || member.model !== selection.model
+            || member.reasoningMode !== selection.reasoningMode || member.reasoningEffort !== selection.reasoningEffort) {
+            member.modelPolicySource = 'explicit'
+          }
           member.role = trimmedOptional(mutation.role)
           member.provider = selection.provider
           member.model = selection.model
@@ -1541,13 +1545,14 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_add_member',
-    description: 'Add a durable continuable member. When no model policy is supplied, a name formed from any unnumbered current-Team role plus a positive integer inherits that base role template; separators such as hyphen, underscore, or space are accepted. Explicit provider/model/reasoning settings always win. target-default and route-aware otherwise use the captain route; explicit requires provider/model/reasoning_effort. In a staged team this only adds an editable plan row and does not spawn a child; approval spawns the final configuration. In a running team it creates the durable continuable member immediately.',
+    description: 'Add a durable continuable member. Bind role_template to an exact current-Team member name to reuse its frozen route and prompt with a custom name. Numbered names and exact role descriptions also inherit a matching current-Team role. Explicit provider/model/reasoning settings win; otherwise unbound members use the saved temporary/custom default, or the captain route when none is saved. explicit requires provider/model/reasoning_effort. In a staged team this adds an editable plan row without spawning; approval starts its final configuration. In a running team it starts the continuable member immediately.',
     parameters: {
       name: { type: 'string', required: true, description: 'Unique member name inside the team.' },
       role: { type: 'string', description: 'Role of the member (e.g. researcher, engineer, reviewer).' },
+      role_template: { type: 'string', description: 'Optional exact name of an active current-Team role member whose frozen model/reasoning/prompt this custom member should inherit. Omit for a new independent specialist; never guess a template name.' },
       provider: { type: 'string', description: 'Optional LLM provider route. Use only when the user explicitly requests a different provider; requires model.' },
-      model: { type: 'string', description: 'Optional model override. Omit to use the captain route.' },
-      reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matching numbered base role; otherwise use the captain route.' },
+      model: { type: 'string', description: 'Optional model override. Omit to use the matched role or saved temporary/custom default; an unconfigured custom member uses the captain route.' },
+      reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matched frozen role or saved temporary/custom default. explicit requires provider/model/reasoning_effort.' },
       reasoning_effort: { type: 'string', description: 'Required with explicit reasoning_mode; otherwise omit.' },
       executionPrompt: { type: 'string', description: 'Optional member-specific execution prompt. Omit to inherit the matching base role prompt. It remains editable while staged.' },
     },
@@ -1600,6 +1605,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           || trimmedOptional(args.model) !== undefined
           || trimmedOptional(args.reasoning_effort) !== undefined
           || (args.reasoning_mode !== undefined && args.reasoning_mode !== 'target-default')
+        let modelPolicySource: MemberPolicySource = explicitSelection ? 'explicit' : 'captain'
         let roleSelection: {
           provider?: string
           model?: string
@@ -1616,8 +1622,12 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         const templateMatch = findMemberRoleTemplate({
           memberName,
           role: args.role,
+          templateName: args.role_template,
           members: fresh.members.filter((candidate) => candidate.status !== 'removed'),
         })
+        if (args.role_template !== undefined && templateMatch.kind === 'none') {
+          throw new Error(`unknown current-Team role_template "${args.role_template}"; use an exact active member name or omit role_template for an independent custom member`)
+        }
         // Role responsibilities are independent of the model route, so a
         // matched base role also seeds the prompt when the route is explicit.
         const inheritedExecutionPrompt = templateMatch.kind === 'matched' ? templateMatch.template.executionPrompt : undefined
@@ -1627,6 +1637,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
             throw new Error(`member name "${memberName}" matches multiple role templates (${names}); provide an explicit provider, model, and reasoning policy`)
           }
           if (templateMatch.kind === 'matched') {
+            modelPolicySource = 'role-template'
             const template = templateMatch.template
             roleSelection = {
               provider: template.provider,
@@ -1637,9 +1648,16 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
               reasoningEffort: template.reasoningMode === 'explicit' ? template.reasoningEffort : undefined,
               fallback: template.fallback ?? config.fallback,
             }
+          } else {
+            const temporaryPolicy = config.settings?.get().temporaryMember
+            if (temporaryPolicy !== undefined) {
+              roleSelection = { ...temporaryPolicy, fallback: config.fallback }
+              modelPolicySource = 'temporary'
+            }
           }
         }
         const selection = await resolveMemberLlmSelection(ctx, captain, roleSelection, exec.signal)
+        await validateMemberLlmSelections(ctx, [selection], exec.signal)
         const member: TeamMember = {
           id: '',
           name: memberName,
@@ -1648,6 +1666,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           model: selection.model,
           reasoningMode: selection.reasoningMode,
           reasoningEffort: selection.reasoningEffort,
+          modelPolicySource,
           executionPrompt: trimmedOptional(args.executionPrompt) ?? inheritedExecutionPrompt,
           ...selection.fallback === undefined ? {} : { fallback: selection.fallback },
           joinedAt: Date.now(),
@@ -3075,6 +3094,7 @@ async function initializeProfileTeam(input: {
         model: selection.model,
         reasoningMode: selection.reasoningMode,
         reasoningEffort: selection.reasoningEffort,
+        modelPolicySource: 'profile',
         executionPrompt: template.executionPrompt ?? profile.executionPrompt ?? input.config.executionPrompt,
         ...selection.fallback === undefined ? {} : { fallback: selection.fallback },
         joinedAt: now,

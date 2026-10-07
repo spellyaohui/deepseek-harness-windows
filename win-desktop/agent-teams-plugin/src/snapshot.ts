@@ -17,7 +17,7 @@ import {
   taskDepthsById, taskVisualState,
 } from './state.ts'
 import type { MemberStatus, TaskKind, TeamState, TeamTask } from './types.ts'
-import type { RoleReasoningMode } from './selection-policy.ts'
+import type { MemberPolicySource, RoleReasoningMode } from './selection-policy.ts'
 
 /** Visual task state for the activity panel. */
 export type VisualTaskState = 'blocked' | 'open' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -31,6 +31,8 @@ export interface TeamActivityMember {
   readonly model: string
   readonly reasoningMode: RoleReasoningMode
   readonly reasoningEffort: string
+  readonly modelPolicySource?: MemberPolicySource
+  readonly fallbackActive?: boolean
   readonly executionPrompt: string
   readonly status: MemberStatus
   readonly activity: 'working' | 'idle' | 'unknown'
@@ -155,10 +157,12 @@ export async function assembleTeamSnapshot(
       id: member.id,
       name: member.name,
       role: member.role ?? '',
-      provider: member.provider?.trim() ?? '',
-      model: member.model?.trim() ?? '',
+      provider: (member.activeProvider ?? member.provider)?.trim() ?? '',
+      model: (member.activeModel ?? member.model)?.trim() ?? '',
       reasoningMode: member.reasoningMode,
       reasoningEffort: member.reasoningEffort?.trim() ?? '',
+      ...member.modelPolicySource === undefined ? {} : { modelPolicySource: member.modelPolicySource },
+      ...member.fallbackActive === undefined ? {} : { fallbackActive: member.fallbackActive },
       executionPrompt: member.executionPrompt ?? '',
       status: member.status,
       activity: options.historic === true

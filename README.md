@@ -2,7 +2,14 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.17`（预发布，本地构建与隔离验收通过） · [rc.17 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.17)
+> 当前源码版本：`v0.2.0-rc.18`（本地安装包已构建并验证，未发布） · [已发布 rc.17 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.17)
+
+## 子智能体路由修复：`v0.2.0-rc.18`（未发布）
+
+- AgentTeams `0.1.22-desktop.11`：队长规划和固定任务模板均保留 Profile 角色的指定模型与思考策略；未绑定角色的自定义成员与临时 `subagent` 共用“临时与自定义子智能体”默认配置。
+- 编号角色继续继承当前团队的冻结配置；改名成员可用 `role_template` 明确绑定现有角色。工具明确指定优先，配置不可用直接拒绝，不悄悄切回队长模型。
+- 成员卡片显示思考策略和配置来源；更改默认只影响后续成员，已有团队与重启续接保留原策略。Harness 保持 `0.2.0-rc.2`。
+- 回归覆盖两种规划模式、审批、并发和续接；完整离线门禁、EXE/ZIP 依赖闭包、生产文件一致性及隔离启动/重启验证通过。构建状态与校验值见 [rc.18 构建记录](win-desktop/release-notes/v0.2.0-rc.18.md)。修复尚未包含在 rc.17 安装包中。
 
 ## 预发布治理更新：`v0.2.0-rc.17`
 
