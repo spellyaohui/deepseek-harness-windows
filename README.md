@@ -2,9 +2,16 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.16`（本地已构建，待发布） · [最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)
+> 当前源码版本：`v0.2.0-rc.17`（预发布，本地构建与隔离验收通过） · [rc.17 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.17)
 
-## 本地已构建，待发布：`v0.2.0-rc.16`
+## 预发布治理更新：`v0.2.0-rc.17`
+
+- AgentTeams `0.1.22-desktop.10` 统一完成审计，持久化 attempt 基线并明确缺证据失败；并发归属按实际观察核对，review/integration 在开始和完成时校验当前对象与版本。
+- 区分成员报告、执行器命令证据与独立审查；保留原有设置布局和模型路由，防止慢保存响应跨取消或新设置回写；Windows 状态写入失败保持旧提交。
+- 输出上限插件 `0.1.1` 补齐 usage 时序和通知绑定；loader 锚点按固定上游 revision 校验，删除已由官方实现的重复隐藏改写。Harness 保持 `0.2.0-rc.2`，永久移除项保持移除。
+- 十项实现、回归、证据边界及回滚见 [治理验收记录](docs/GOVERNANCE_ACCEPTANCE_20261007.md)；最终门禁和本地打包状态见 [rc.17 记录](win-desktop/release-notes/v0.2.0-rc.17.md)。
+
+## 历史本地构建：`v0.2.0-rc.16`（未发布）
 
 - AgentTeams `0.1.22-desktop.9`：队长接管的任务跨回合保留；验收与验证证据按合同条目逐条匹配；Git 工作树快照核对变更清单；编号成员继承角色提示词；`amend_task` 拒绝合同外字段；integration（部署/发布）等待全部审查通过；输出截断时向队长说明原因。
 - 新增 `dsh-output-limit-finish`：通过官方 `llm/stream` 扩展点，把“报告为 stop 但输出已用满上限”的回复统一改为官方 `max-tokens`，与具体网关和模型无关。

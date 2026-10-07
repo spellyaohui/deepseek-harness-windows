@@ -1,6 +1,6 @@
 {
   "name": "dsh-output-limit-finish",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Report gateway responses that consumed the whole output budget as the official max-tokens finish reason",
   "type": "module",

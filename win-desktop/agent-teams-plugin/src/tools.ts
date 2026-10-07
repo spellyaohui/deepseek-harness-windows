@@ -59,7 +59,9 @@ import {
 } from './state.ts'
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, type AcceptanceResult, type CommandResult, type ReviewFinding, type ReviewVerdict, type TaskKind } from './types.ts'
 import { appendTaskEvidence, auditChangedPaths, integrationReviewBlockers, normalizeWorkspacePath, unsupportedAmendmentArguments } from './quality-gates.ts'
-import { changedSince, snapshotWorkspace, type WorkspaceSnapshot } from './workspace-audit.ts'
+import { captureAttemptAudit, observeAttemptChanges, observeWorkspace } from './workspace-audit.ts'
+import { attributedConcurrentPaths, installAttemptEvidence, taskContractHash, workspaceCodeVersion } from './attempt-evidence.ts'
+import { contractIdentity } from './audit-contract.ts'
 import {
   deliverToMember,
   installMemberDelegationGuard,
@@ -325,7 +327,7 @@ function requireRunningTeam(team: TeamState): void {
 }
 
 function integrationGateError(taskId: string, reviews: readonly string[]): string {
-  return `integration task ${taskId} is blocked until every review passes: ${reviews.join(', ')} — finish or cancel those reviews first; deployment and release never start before the final review gate`
+  return `integration task ${taskId} is blocked until every required review passes: ${reviews.join(', ')} — finish the reviews or replace failed/cancelled reviews with a current independent passing review. Quality admission does not authorize deployment or release.`
 }
 
 function trimmedOptional(value: string | null | undefined): string | undefined {
@@ -610,17 +612,42 @@ export function stagedPlanFeedbackContext(teamName: string): string {
  * @param config - resolved tool config.
  */
 export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): AgentTeamsRuntime {
+  installAttemptEvidence(ctx, config.stateDir)
   installRetiredMemberGuard(ctx, config.stateDir)
   installMemberDelegationGuard(ctx, config.stateDir, config.memberMaxDepth ?? 0)
   installMailboxAdmission(ctx, config.stateDir)
   const scheduler = installTeamScheduler(ctx, { stateDir: config.stateDir, executionPrompt: config.executionPrompt, dispatch: dispatchMember })
-  // Process-local by design: after a restart the attempt has no baseline and
-  // the change audit is skipped instead of attributing older edits to it.
-  const attemptBaselines = new Map<string, WorkspaceSnapshot>()
+  const auditStatePrefix = `${normalizeWorkspacePath(config.stateDir) ?? config.stateDir}/`
   let memberSelections!: ReturnType<typeof installMemberSelectionRuntime>
   const statusFingerprints = new Map<string, string>()
   const maxStatusFingerprints = 256
   const approvalCredentials = createApprovalCredentialStore()
+
+  async function currentCodeVersion(workspace: string): Promise<string> {
+    const observed = await observeWorkspace(workspace)
+    if (observed.status === 'failed') throw new Error(`quality version observation failed: ${observed.error}`)
+    return observed.status === 'not-git' ? 'not-git' : workspaceCodeVersion({ ...observed.snapshot,
+      files: new Map([...observed.snapshot.files].filter(([path]) => !path.startsWith(auditStatePrefix))) })
+  }
+
+  async function startQualityAttempt(workspace: string, team: TeamState, task: TeamTask): Promise<void> {
+    if (['implementation', 'repair'].includes(taskKindOf(task))) {
+      task.workspaceAudit = await captureAttemptAudit(workspace, team.id, task, auditStatePrefix)
+    }
+    if (taskKindOf(task) === 'review') {
+      const target = team.tasks.find(item => item.id === task.reviewedTaskId)
+      if (!target?.attemptId || target.status !== 'completed') throw new Error(`review ${task.id} requires a completed current target attempt`)
+      if (!task.assignee || task.assignee === target.assignee) throw new Error('review must be performed by an independent owner')
+      task.reviewBasis = { schemaVersion: 1, reviewedTaskId: target.id, targetAttemptId: target.attemptId,
+        targetContract: contractIdentity(target), codeVersion: await currentCodeVersion(workspace), reviewer: task.assignee }
+      task.reviewedAttempt = target.attempt
+    }
+    if (taskKindOf(task) === 'integration') {
+      task.reviewCodeVersion = await currentCodeVersion(workspace)
+      const blockers = integrationReviewBlockers(team.tasks, task, task.reviewCodeVersion, team.reviewPolicy?.requiredReviewers)
+      if (blockers.length) throw new Error(integrationGateError(task.id, blockers))
+    }
+  }
 
   async function dispatchMember(captain: Agent, teamId: string, memberName: string, text: string, signal: AbortSignal, mode: 'queue' | 'steer', attemptId?: string): Promise<boolean> {
     const root = stateRootOf(workspaceOf(captain), config)
@@ -1932,7 +1959,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
 
   ctx.tools.register(defineTool({
     name: 'agent_teams_reassign_task',
-    description: 'Atomically retry, reassign, or let the captain take over one ready unfinished/failed task. The old attempt is revoked before its member is interrupted, so late updates cannot overwrite the new owner. Use assignee="captain" only when you will finish that task in this turn; a captain can own only one unfinished takeover at a time, and an unfinished takeover returns to the member pool when the captain becomes idle.',
+    description: 'Atomically retry, reassign, or let the captain take over one ready unfinished/failed task. The old attempt is revoked before its member is interrupted, so late updates cannot overwrite the new owner. A captain can own only one unfinished takeover; ownership spans turns until completion, failure, or explicit reassignment.',
     parameters: {
       task_id: { type: 'string', required: true, description: 'Task to retry/reassign.' },
       assignee: { type: 'string', required: true, description: 'Active member name, or "captain" for captain takeover.' },
@@ -1980,7 +2007,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           if (pending.length > 0) {
             throw new Error(`task ${task.id} is blocked by unfinished dependencies: ${pending.join(', ')} — complete them before captain takeover`)
           }
-          const reviewGate = integrationReviewBlockers(fresh.tasks, task)
+          const reviewGate = integrationReviewBlockers(fresh.tasks, task,
+            taskKindOf(task) === 'integration' ? await currentCodeVersion(workspace) : undefined,
+            fresh.reviewPolicy?.requiredReviewers)
           if (reviewGate.length > 0) throw new Error(integrationGateError(task.id, reviewGate))
         } else if (targetMember !== undefined) {
           const busy = memberOpenTask(fresh, targetMember.name, task.id)
@@ -2060,6 +2089,7 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           // The captain is already in the turn that requested takeover; there
           // is no later member claim handshake to move claimed -> in_progress.
           task.status = 'in_progress'
+          await startQualityAttempt(workspace, fresh, task)
           task.updatedAt = Date.now()
         }
         await writeTeam(stateRoot, fresh)
@@ -2163,7 +2193,9 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (pending.length > 0) {
           throw new Error(`task ${task.id} is blocked by unfinished dependencies: ${pending.join(', ')} — complete them first`)
         }
-        const reviewGate = integrationReviewBlockers(fresh.tasks, task)
+        const reviewGate = integrationReviewBlockers(fresh.tasks, task,
+          taskKindOf(task) === 'integration' ? await currentCodeVersion(workspace) : undefined,
+          fresh.reviewPolicy?.requiredReviewers)
         if (reviewGate.length > 0) throw new Error(integrationGateError(task.id, reviewGate))
         const transition = transitionError(task.status, 'claimed')
         if (transition !== undefined) throw new Error(transition)
@@ -2331,6 +2363,20 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         const findings = parseFindings(input.findings)
         const acceptanceResults = parseAcceptanceResults(args.acceptanceResults)
         const commandsRun = parseCommandResults(args.commandsRun)
+        if (args.status === 'completed' && taskKindOf(task) === 'integration') {
+          const version = await currentCodeVersion(workspace)
+          const blockers = integrationReviewBlockers(fresh.tasks, task, version, fresh.reviewPolicy?.requiredReviewers)
+          if (blockers.length) throw new Error(integrationGateError(task.id, blockers))
+          task.reviewCodeVersion = version
+        }
+        if (args.status === 'completed' && taskKindOf(task) === 'review') {
+          const target = fresh.tasks.find(item => item.id === task.reviewedTaskId)
+          const basis = task.reviewBasis
+          if (!basis || !target || target.attemptId !== basis.targetAttemptId || contractIdentity(target) !== basis.targetContract
+            || basis.reviewer !== task.assignee || task.assignee === target.assignee || basis.codeVersion !== await currentCodeVersion(workspace)) {
+            throw new Error('review target/attempt/contract/code changed or its review basis is missing; start a fresh independent review')
+          }
+        }
         const gate = evaluateQualityCompletion(task, {
           status: args.status,
           output: args.output,
@@ -2342,37 +2388,30 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
           commandsRun,
         })
         if (!gate.ok) throw new Error(gate.error ?? 'update_task rejected by quality gates')
-        const auditKey = `${fresh.id}\u0000${task.id}\u0000${task.attemptId ?? task.attempt ?? 0}`
-        if (args.status === 'completed' && input.changedPaths !== undefined) {
-          const baseline = attemptBaselines.get(auditKey)
-          const stateDirPrefix = `${normalizeWorkspacePath(config.stateDir) ?? config.stateDir}/`
-          const actual = baseline === undefined ? undefined : (await changedSince(workspace, baseline))
-            ?.filter(path => !path.startsWith(stateDirPrefix))
+        const effectiveChangedPaths = input.changedPaths ?? task.changedPaths
+        if (args.status === 'completed' && ['implementation', 'repair'].includes(taskKindOf(task)) && effectiveChangedPaths !== undefined) {
+          const observed = await observeAttemptChanges(workspace, fresh.id, task, auditStatePrefix)
+          const actual = observed.actual
           const audit = auditChangedPaths({
             task,
-            reported: input.changedPaths,
+            reported: effectiveChangedPaths,
             actual,
-            otherWriteScopes: fresh.tasks
-              .filter(other => other.id !== task.id && ['implementation', 'repair'].includes(taskKindOf(other))
-                && ['pending', 'claimed', 'in_progress'].includes(other.status))
-              .flatMap(other => other.inScope ?? []),
+            otherObservedPaths: observed.status === 'observed' ? attributedConcurrentPaths(task, fresh.tasks, observed.current) : [],
             isDirectory: (path) => {
               const normalized = normalizeWorkspacePath(path)
               try { return normalized !== undefined && statSync(join(workspace, normalized)).isDirectory() } catch { return false }
             },
           })
           if (audit !== undefined) throw new Error(audit)
+          if (observed.status === 'observed') task.workspaceAudit!.completed = observed.current
         }
         if (args.status !== undefined) {
           const transition = transitionError(task.status, args.status)
           if (transition !== undefined) throw new Error(transition)
-          if (args.status === 'in_progress' && task.status !== 'in_progress'
-            && ['implementation', 'repair'].includes(taskKindOf(task))) {
-            const baseline = await snapshotWorkspace(workspace)
-            if (baseline !== undefined) attemptBaselines.set(auditKey, baseline)
+          if (args.status === 'in_progress' && task.status !== 'in_progress') {
+            await startQualityAttempt(workspace, fresh, task)
           }
           task.status = args.status
-          if (TERMINAL_TASK_STATUSES.includes(task.status)) attemptBaselines.delete(auditKey)
         }
         if (args.output !== undefined) task.output = args.output
         if (args.verdict !== undefined) task.verdict = args.verdict as ReviewVerdict
@@ -2381,6 +2420,11 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         if (args.noChangesReason !== undefined) task.noChangesReason = args.noChangesReason.trim() || undefined
         if (acceptanceResults !== undefined) task.acceptanceResults = acceptanceResults
         if (commandsRun !== undefined) task.commandsRun = commandsRun
+        if (acceptanceResults !== undefined || commandsRun !== undefined) task.completionEvidenceSource = 'member-report'
+        if (args.status === 'completed' && taskKindOf(task) !== 'work') {
+          task.completionReportBasis = { schemaVersion: 1, source: 'member-report', attemptId: task.attemptId!,
+            contractHash: taskContractHash(task), codeVersion: await currentCodeVersion(workspace), at: Date.now() }
+        }
         task.updatedAt = Date.now()
         const followUp = (task.status === 'failed' && (task.verdict === 'needs_revision' || task.verdict === 'reject'))
           ? applyQualityFollowUp(fresh, task)
@@ -2720,6 +2764,15 @@ export function registerAgentTeamsTools(ctx: Context, config: ToolsConfig): Agen
         ...task.round === undefined ? {} : { round: task.round },
         ...task.verdict === undefined ? {} : { verdict: task.verdict },
         findings_open: (task.findings ?? []).filter((finding) => finding.resolved !== true).length,
+        evidence_source: task.completionEvidenceSource ?? 'unverified',
+        audit_status: task.workspaceAudit?.status ?? 'missing',
+        executor_observations: (task.executorEvidence ?? []).filter(row => row.attemptId === task.attemptId && row.contractHash === taskContractHash(task)).length,
+        ...args.detail === 'full' ? {
+          reported_commands: (task.commandsRun ?? []).map(row => ({ ...row })),
+          executor_evidence: (task.executorEvidence ?? []).map(row => ({ ...row })),
+          ...task.completionReportBasis === undefined ? {} : { report_basis: { ...task.completionReportBasis } },
+          ...task.reviewBasis === undefined ? {} : { review_basis: { ...task.reviewBasis } },
+        } : {},
         ...task.profileSeedId === undefined ? {} : { seed_id: task.profileSeedId },
         ...task.output !== undefined ? { output: task.output } : {},
       }))

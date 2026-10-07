@@ -9,10 +9,29 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.22-desktop.9`.
+- Desktop fork version is `0.1.22-desktop.10`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
-## 2026-10-06 desktop.9 session-audit ownership, evidence and gate fixes
+## 2026-10-07 desktop.10 complete governance
+
+Classification: REAPPLY. The upstream source pins do not change. The existing
+state owner stores a separate schemaVersion 1 attempt baseline/evidence extension
+inside strict V2 Team documents; missing baseline and Git failure block completion,
+while explicit non-Git applicability remains visible. Final effective changedPaths,
+captain takeover baseline, exact observed concurrent paths, current object/version
+review and integration admission, labelled member/executor/review evidence, atomic
+rename failure, slow settings-response lifetime and durable turn notification binding
+are covered by governance-audit.test.mjs, quality-gates-tdd.mjs, verify.mjs,
+settings-client-verify.mjs, lifecycle-verify.mjs and the wrapper's real runtime tests.
+See [full ten-item evidence and limitations](../../docs/GOVERNANCE_ACCEPTANCE_20261007.md).
+
+No Team migration, second store, resolver, UI layout replacement or startup owner is
+introduced. Upstream Symbol/start wrapping remains upstream ownership; local tools.get
+filtering is tested for HMR/dispose/outer-wrapper composition. Historical OpenCode
+references and desktop JSON Profile writer below are retired designs, not current
+requirements. Official Settings/CAS with live new-Team/frozen old-Team behavior remains.
+
+## Historical 2026-10-06 desktop.9 session-audit ownership, evidence and gate fixes
 
 Classification: REAPPLY; upstream v0.1.22 and Harness 0.2.0-rc.2 pins unchanged.
 Captain takeovers survive the captain idle edge; acceptance/verify evidence
@@ -449,8 +468,10 @@ restore, draft-only behavior and explicit Save. No live model requests are used.
 
 ## Upgrade rule
 
-Import a future upstream release into a fresh isolated worktree, classify every
+Import a future upstream release in canonical `D:\Trae\其他\deepseek-harness`
+on `main`, preserving existing and synchronized differences; do not create a worktree
+without explicit user instruction. Classify every
 registered capability in `../../docs/UPSTREAM_MAINTENANCE.md`, reapply or
-migrate the intentional local modules above, then run `pnpm test` here and
+migrate the intentional local modules above, then run the local verification here and
 `npm run verify:upstream` from `win-desktop` before changing the recorded
 baseline.

@@ -15,11 +15,12 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, TERMINAL_TASK_STATUSES, type TaskStatus, type TeamMember, type TeamMessage, type TeamProfileSnapshot, type TeamState, type TeamTask } from './types.ts'
 import { hasValidQualityTaskFields, isReviewPolicy } from './quality-gates.ts'
+import { isAttemptWorkspaceAudit } from './workspace-audit.ts'
 
 export {
   buildCoverageMatrix,
@@ -331,6 +332,7 @@ export function cancelUnfinishedTask(task: TeamTask, output?: string): void {
   if (TERMINAL_TASK_STATUSES.includes(task.status)) return
   task.status = 'cancelled'
   task.attemptId = undefined
+  task.workspaceAudit = undefined
   task.handoffId = undefined
   task.reassigning = false
   if (output !== undefined) task.output = output
@@ -353,6 +355,13 @@ export function invalidateTaskAttempt(
 
 /** A fresh attempt must not inherit terminal evidence from a revoked owner. */
 function clearAttemptResult(task: TeamTask): void {
+  task.workspaceAudit = undefined
+  task.noChangesReason = undefined
+  task.executorEvidence = undefined
+  task.completionEvidenceSource = undefined
+  task.completionReportBasis = undefined
+  task.reviewBasis = undefined
+  task.reviewCodeVersion = undefined
   task.output = undefined
   task.verdict = undefined
   task.findings = undefined
@@ -430,9 +439,12 @@ export function readTeamSync(stateRoot: string, teamId: string): TeamState | und
 export async function writeTeam(stateRoot: string, state: TeamState): Promise<TeamState> {
   const teamId = state.id
   const previous = await readRevisionSnapshot(stateRoot, teamId)
-  advanceTaskRevisions(previous, state)
-  advancePlanRevision(previous, state)
-  await atomicWriteText(join(stateRoot, teamId, 'team.json'), JSON.stringify(state, null, 2))
+  const staged = structuredClone(state)
+  advanceTaskRevisions(previous, staged)
+  advancePlanRevision(previous, staged)
+  await atomicWriteText(join(stateRoot, teamId, 'team.json'), JSON.stringify(staged, null, 2))
+  state.planRevision = staged.planRevision
+  staged.tasks.forEach((task, index) => { state.tasks[index]!.revision = task.revision })
   return state
 }
 
@@ -741,12 +753,12 @@ function stripLeadingBom(value: string): string {
   return value.charCodeAt(0) === 0xFEFF ? value.slice(1) : value
 }
 
-/** Rename attempts before falling back to a direct overwrite. */
+/** Bounded rename attempts; a busy target keeps its previous committed bytes. */
 const ATOMIC_RENAME_RETRIES = 3
 /** Pause between rename attempts, giving a briefly-locking owner time to finish. */
 const ATOMIC_RENAME_RETRY_DELAY_MS = 50
 /**
- * Rename error codes worth retrying before the direct-write fallback. On
+ * Rename error codes worth retrying before surfacing the failure. On
  * Windows, replacing an existing file whose target is momentarily held open
  * without FILE_SHARE_DELETE surfaces as EPERM (or EACCES/EBUSY variants);
  * EEXIST/ENOTEMPTY cover other "target busy" edge shapes.
@@ -772,26 +784,16 @@ export interface AtomicReplacePrimitives {
 
 /** Tuning knobs for {@link replaceFileAtomicOrDirect} (defaults match production). */
 export interface AtomicReplaceOptions {
-  /** Rename attempts before the direct-write fallback (default 3). */
+  /** Rename retries before failure (default 3). */
   retries?: number
   /** Delay between rename attempts in ms (default 50). */
   retryDelayMs?: number
 }
 
 /**
- * Replace `file` with `content`, preferring an atomic same-directory rename of
- * an already-written temp file.
- *
- * On Windows, `rename(tmp, file)` over an existing target throws EPERM while
- * any other process keeps the target open without FILE_SHARE_DELETE (editors,
- * indexers, antivirus scans, preview panes). By that point the payload has
- * already been fully written to the temp file, so a direct overwrite of the
- * target is a content-equivalent degraded path: retry the rename a few times
- * (transient locks clear quickly), then write the target in place. Every path
- * removes the temp file; when both the atomic rename and the direct write
- * fail, the combined error surfaces as an {@link AggregateError}.
- *
- * @returns nothing once the file has been replaced by one of the two paths.
+ * Commit by same-directory rename. A direct overwrite could truncate the only
+ * committed record before a crash, so exhausted Windows lock retries fail.
+ * The exported name and injectable signature remain compatible with callers.
  */
 export async function replaceFileAtomicOrDirect(
   temporary: string,
@@ -811,33 +813,26 @@ export async function replaceFileAtomicOrDirect(
         await sleep(retryDelayMs)
         continue
       }
-      let fallbackError: unknown
-      try {
-        await primitives.writeFile(file, content)
-      } catch (writeError: unknown) {
-        fallbackError = writeError
-      }
       await primitives.remove(temporary).catch(() => undefined)
-      if (fallbackError !== undefined) {
-        throw new AggregateError(
-          [error, fallbackError],
-          `failed to replace "${file}" atomically (${String(error)}) or by direct write (${String(fallbackError)})`,
-        )
-      }
-      return
+      throw error
     }
   }
 }
 
 /**
- * Atomically replace one UTF-8 state file from a same-directory temp file,
- * degrading to a direct overwrite when the atomic rename cannot proceed
- * (see {@link replaceFileAtomicOrDirect} for the Windows EPERM rationale).
+ * Flush a complete temp file before atomic replacement. Readers only use the
+ * committed filename; crash leftovers are never promoted into committed state.
  */
 async function atomicWriteText(file: string, content: string): Promise<void> {
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`
   try {
-    await writeFile(temporary, content, { encoding: 'utf8', flag: 'wx' })
+    const handle = await open(temporary, 'wx')
+    try {
+      await handle.writeFile(content, 'utf8')
+      await handle.sync()
+    } finally {
+      await handle.close()
+    }
   } catch (error: unknown) {
     await rm(temporary, { force: true }).catch(() => undefined)
     throw error
@@ -908,6 +903,8 @@ export function isTeamTask(value: unknown): value is TeamTask {
   const attempt = value['attempt']
   const attemptId = value['attemptId']
   return typeof value['id'] === 'string'
+    && (value['workspaceAudit'] === undefined || (isAttemptWorkspaceAudit(value['workspaceAudit'])
+      && value['workspaceAudit'].taskId === value['id'] && value['workspaceAudit'].attemptId === attemptId))
     && Number.isSafeInteger(value['revision'])
     && (value['revision'] as number) >= 1
     && isOptionalString(value['profileSeedId'])

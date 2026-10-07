@@ -20,14 +20,6 @@ const STARTF_USESHOWWINDOW = 1
 const STARTF_USESTDHANDLES = 256
 const HIDDEN_CONSOLE_STARTF = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES
 
-const SUBPROCESS_SPAWN_NEEDLE = 'detached: platform !== "win32"'
-const SUBPROCESS_SPAWN_PATCH = 'detached: platform !== "win32", windowsHide: true'
-const SUBPROCESS_SPAWN_UPSTREAM_EQUIVALENT = `detached: platform !== "win32",
-\t\twindowsHide: platform === "win32"`
-const TASKKILL_NEEDLE = '], { stdio: "ignore" });'
-const TASKKILL_PATCH = '], { stdio: "ignore", windowsHide: true });'
-const TASKKILL_UPSTREAM_EQUIVALENT = `stdio: "ignore",
-\t\twindowsHide: true`
 const RUNNER_PROD_NEEDLE = 'if (existsSync(builtEntry)) return [process.execPath, builtEntry];'
 const RUNNER_DEV_NEEDLE = `return [
 			process.execPath,
@@ -200,16 +192,8 @@ export function rewriteDesktopConsoleSource(source, moduleUrl = '', hookImportUr
     next = next.replace(PROFILE_INSTALL_ANCHOR_NEEDLE, PROFILE_INSTALL_ANCHOR_PATCH)
   }
   if (url.includes('@deepseek-ai/dsh-subprocess-local')) {
-    if (next.includes(SUBPROCESS_SPAWN_NEEDLE)
-      && !next.includes(SUBPROCESS_SPAWN_PATCH)
-      && !next.includes(SUBPROCESS_SPAWN_UPSTREAM_EQUIVALENT)) {
-      next = next.replace(SUBPROCESS_SPAWN_NEEDLE, SUBPROCESS_SPAWN_PATCH)
-    }
-    if (next.includes(TASKKILL_NEEDLE)
-      && !next.includes(TASKKILL_PATCH)
-      && !next.includes(TASKKILL_UPSTREAM_EQUIVALENT)) {
-      next = next.replace(TASKKILL_NEEDLE, TASKKILL_PATCH)
-    }
+    // Pinned upstream owns spawn and both taskkill visibility flags. The
+    // executable registry verifies their exact equivalent forms at load time.
     if (hookImportUrl) {
       next = next.replace(
         SUBPROCESS_RUNNER_PROD_PATTERN,

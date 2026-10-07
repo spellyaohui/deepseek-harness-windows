@@ -32,6 +32,13 @@ interface StatusRenderTeam {
     round?: number
     verdict?: string
     findings_open?: number
+    evidence_source?: string
+    audit_status?: string
+    executor_observations?: number
+    reported_commands?: JsonValue
+    executor_evidence?: JsonValue
+    review_basis?: JsonValue
+    report_basis?: JsonValue
   }[]
   captain_inbox: { from: string; content: string }[]
   member_inboxes: Record<string, { count: number; latest: string }>
@@ -76,6 +83,9 @@ export function statusFingerprint(value: JsonValue): string {
       round: task.round,
       verdict: task.verdict,
       findings_open: task.findings_open,
+      evidence_source: task.evidence_source,
+      audit_status: task.audit_status,
+      executor_observations: task.executor_observations,
     })),
     captain_inbox: team.captain_inbox.map((message) => ({
       from: message.from,
@@ -153,6 +163,9 @@ function renderSummaryStatus(team: StatusRenderTeam): string {
         task.verdict === undefined ? undefined : `verdict ${task.verdict}`,
         task.findings_open === undefined || task.findings_open === 0 ? undefined : `findings ${task.findings_open}`,
         task.reassigning ? 'reassigning' : undefined,
+        task.evidence_source === undefined ? undefined : `evidence ${task.evidence_source}`,
+        task.audit_status === undefined ? undefined : `audit ${task.audit_status}`,
+        task.executor_observations ? `executor observations ${task.executor_observations}` : undefined,
       ].filter((item): item is string => item !== undefined)
       const suffix = details.length > 0 ? ` ${details.join(' ')}` : ''
       const seed = task.seed_id === undefined || task.seed_id === '' ? '' : ` seed ${task.seed_id}`
@@ -198,7 +211,14 @@ function renderFullStatus(team: StatusRenderTeam): string {
     `Tasks (${team.tasks.length}):`,
     ...team.tasks.map((task) => {
       const deps = task.dependencies.length > 0 ? ` (deps: ${task.dependencies.join(',')})` : ''
-      const output = task.output !== undefined ? `\n      output: ${task.output}` : ''
+      const evidence = `\n      evidence: ${task.evidence_source ?? 'unverified'}; Git audit: ${task.audit_status ?? 'missing'}; executor observations: ${task.executor_observations ?? 0}`
+      const records = [
+        task.reported_commands === undefined ? '' : `\n      member-reported commands: ${JSON.stringify(task.reported_commands)}`,
+        task.executor_evidence === undefined ? '' : `\n      executor observations (check attempt/contract/code): ${JSON.stringify(task.executor_evidence)}`,
+        task.review_basis === undefined ? '' : `\n      independent review basis: ${JSON.stringify(task.review_basis)}`,
+        task.report_basis === undefined ? '' : `\n      member report basis: ${JSON.stringify(task.report_basis)}`,
+      ].join('')
+      const output = (task.output !== undefined ? `\n      output: ${task.output}` : '') + evidence + records
       const handoff = task.reassigning ? ' (reassigning)' : ''
       const seed = task.seed_id === undefined || task.seed_id === '' ? '' : ` seed ${task.seed_id}`
       const kind = task.kind ? ` ${task.kind}` : ''

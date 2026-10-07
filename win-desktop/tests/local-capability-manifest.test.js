@@ -29,8 +29,8 @@ const localVersions = {
   '@deepseek-ai/dsh-cpa-provider': '0.1.11',
   '@deepseek-ai/dsh-desktop-settings': '0.1.5',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.1',
-  'dsh-output-limit-finish': '0.1.0',
-  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.9',
+  'dsh-output-limit-finish': '0.1.1',
+  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.10',
 }
 
 const sourcePluginDirectories = [
@@ -52,9 +52,9 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.2.0-rc.16')
-  assert.equal(packageLock.version, '0.2.0-rc.16')
-  assert.equal(packageLock.packages[''].version, '0.2.0-rc.16')
+  assert.equal(packageJson.version, '0.2.0-rc.17')
+  assert.equal(packageLock.version, '0.2.0-rc.17')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.17')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
   assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.4')
@@ -62,10 +62,10 @@ test('desktop composition retains every independently owned local plugin', () =>
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.2.0-rc.2-desktop.4',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.9')
+  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.10')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.22-desktop.9',
+    '0.1.22-desktop.10',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -180,9 +180,18 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/release-notes/v0.1.22-desktop.7.md',
     'agent-teams-plugin/release-notes/v0.1.22-desktop.8.md',
     'agent-teams-plugin/release-notes/v0.1.22-desktop.9.md',
+    'agent-teams-plugin/release-notes/v0.1.22-desktop.10.md',
+    'agent-teams-plugin/scripts/governance-audit.test.mjs',
+    'agent-teams-plugin/src/attempt-evidence.ts',
+    'agent-teams-plugin/src/attempt-turn.ts',
+    'agent-teams-plugin/src/audit-contract.ts',
+    'src/compatibility-anchors.js',
+    'tests/compatibility-anchors.test.js',
+    'tests/agent-teams-governance-runtime.test.js',
     'release-notes/v0.2.0-rc.14.md',
     'release-notes/v0.2.0-rc.15.md',
     'release-notes/v0.2.0-rc.16.md',
+    'release-notes/v0.2.0-rc.17.md',
     'agent-teams-plugin/src/workspace-audit.ts',
     'agent-teams-plugin/scripts/coverage-contract-consistency.test.mjs',
     'agent-teams-plugin/scripts/team-return-guidance.test.mjs',

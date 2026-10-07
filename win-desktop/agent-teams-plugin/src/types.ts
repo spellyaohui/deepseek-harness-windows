@@ -152,14 +152,22 @@ export interface TeamTask {
   deliverables?: string[]
   nonGoals?: string[]
   changedPaths?: string[]
+  /** Versioned evidence owned and atomically committed by this task's attempt. */
+  workspaceAudit?: import('./audit-contract.ts').AttemptWorkspaceAudit
   /** Required when an implementation/repair completes with no changed paths. */
   noChangesReason?: string
   acceptanceResults?: AcceptanceResult[]
   commandsRun?: CommandResult[]
   /** Append-only observations which never replace the terminal result. */
   supplementalEvidence?: TaskEvidence[]
+  /** Host-observed command outcomes; model reports cannot set this field. */
+  executorEvidence?: import('./audit-contract.ts').ExecutorCommandEvidence[]
+  completionEvidenceSource?: 'member-report'
+  completionReportBasis?: import('./audit-contract.ts').CompletionReportBasis
   reviewedTaskId?: string
   reviewedAttempt?: number
+  reviewBasis?: import('./audit-contract.ts').ReviewBasis
+  reviewCodeVersion?: string
   /** Repair source: the implementation / previous successful artifact. */
   sourceTaskId?: string
   sourceFindingIds?: string[]

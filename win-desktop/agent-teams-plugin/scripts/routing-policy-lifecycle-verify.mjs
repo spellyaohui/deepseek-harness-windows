@@ -88,6 +88,7 @@ const registry = new Map([
   [existingMember.agent.id, existingMember.agent],
 ])
 const ctx = {
+  tools: { get(name, scope) { return allTools.has(name) ? { name, scope } : undefined } },
   agents: {
     get: id => registry.get(id),
     list: () => [...registry.values()],
@@ -113,6 +114,13 @@ const dispose = registerDelegationPolicyLifecycle(ctx, {
   text: policy => `${policyMarker(policy)}\n\ncaptain policy`,
   memberText: policy => `${policyMarker(policy)}\n\nmember policy`,
 })
+const ownedLookup = ctx.tools.get
+let outerCalls = 0
+ctx.tools.get = function(name, scope) { outerCalls++; return ownedLookup.call(this, name, scope) }
+const outerLookup = ctx.tools.get
+assert.equal(ctx.tools.get('subagent', existingCaptain.agent), undefined, 'scope-local get agrees with Team admission')
+assert.ok(ctx.tools.get('subagent'), 'global lookup remains available')
+assert.ok(ctx.tools.get('agent_teams_update_task', existingMember.agent), 'member report lookup stays visible')
 
 assert.equal(existingCaptain.sections.length, 1, 'an already-live captain must receive one policy section')
 assert.equal(existingMember.sections.length, 1, 'an already-live member must receive one member policy section')
@@ -133,6 +141,9 @@ assert.equal(legacyCaptain.sections.length, 1, 'legacy session-start must attach
 assert.equal(legacyCaptain.denials.has('subagent_fork'), true, 'legacy Team captain must restrict global native delegation')
 
 dispose()
+assert.equal(ctx.tools.get, outerLookup, 'disposal cannot overwrite a later independent wrapper')
+assert.ok(ctx.tools.get('subagent', existingCaptain.agent), 'disposed lookup releases policy through an outer wrapper')
+assert.ok(outerCalls > 0)
 for (const rootDispose of rootEffects.splice(0).reverse()) rootDispose()
 for (const subject of [existingCaptain, existingMember, legacyCaptain]) {
   assert.equal(subject.sections.length, 0, 'policy disposal must remove prompt sections')

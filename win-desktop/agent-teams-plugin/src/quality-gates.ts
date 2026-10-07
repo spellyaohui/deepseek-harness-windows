@@ -22,6 +22,7 @@ import {
   type TeamState,
   type TeamTask,
 } from './types.ts'
+import { contractIdentity, isCompletionReportBasis, isExecutorCommandEvidence, isReviewBasis } from './audit-contract.ts'
 
 const QUALITY_KINDS: readonly TaskKind[] = [
   'requirements',
@@ -270,8 +271,10 @@ export interface ChangedPathsAuditInput {
   reported: readonly string[]
   /** Files that actually changed during the attempt; undefined when unobservable. */
   actual?: readonly string[]
-  /** inScope patterns of other open write tasks, which own their concurrent changes. */
+  /** Compatibility input only; scopes never establish authorship. */
   otherWriteScopes?: readonly string[]
+  /** Exact paths with attempt-bound, content-matching execution observations. */
+  otherObservedPaths?: readonly string[]
   isDirectory?: (path: string) => boolean
 }
 
@@ -293,8 +296,11 @@ export function auditChangedPaths(input: ChangedPathsAuditInput): string | undef
   if (input.actual === undefined) return undefined
   const reported = new Set(input.reported.map(path => normalizeWorkspacePath(path)).filter(path => path !== undefined))
   const unreported = input.actual.filter(path => classifyChangedPath(path, inScope, outOfScope) === 'in_scope' && !reported.has(path))
-  const outside = input.actual.filter(path => classifyChangedPath(path, inScope, outOfScope) !== 'in_scope'
-    && !(input.otherWriteScopes ?? []).some(pattern => pathMatchesScope(path, pattern)))
+  const outside = input.actual.filter(path => {
+    const classification = classifyChangedPath(path, inScope, outOfScope)
+    return classification !== 'in_scope'
+      && !(classification === 'undeclared' && input.otherObservedPaths?.includes(path))
+  })
   const problems: string[] = []
   if (unreported.length > 0) problems.push(`files changed during this attempt are missing from changedPaths: ${listMissing(unreported)}; report every changed file`)
   if (outside.length > 0) problems.push(`files outside inScope changed during this attempt: ${listMissing(outside)}; revert them or ask the captain to amend inScope. Removing them from changedPaths does not hide them. If you did not make these changes, report that to the captain instead of completing`)
@@ -370,6 +376,9 @@ export function normalizeBlankOptionalTaskFields<T extends object>(task: T): T {
   for (const key of BLANK_SENSITIVE_STRING_LIST_FIELDS) {
     const value = next[key]
     if (!Array.isArray(value)) continue
+    // An explicit empty report is meaningful: it must reach the no-change
+    // contract and observed-change audit instead of becoming an omitted field.
+    if (key === 'changedPaths' && value.length === 0) continue
     const kept = value.filter((item) => !(typeof item === 'string' && item.trim() === ''))
     if (kept.length === 0) delete next[key]
     else next[key] = kept
@@ -804,7 +813,9 @@ export function amendTaskContract(team: TeamState, task: TeamTask, input: Contra
     && item.reviewedTaskId === task.id && item.verdict === 'pass'
   ))) return { ok: false, error: `task ${task.id} already passed review; its contract is frozen` }
   const revision: TaskRevision = { at: Date.now(), by, reason, fields: Object.keys(next), previous }
-  return { ok: true, revision, task: { ...task, ...next, revisions: [...(task.revisions ?? []), revision], updatedAt: Date.now() } as TeamTask }
+  return { ok: true, revision, task: { ...task, ...next, acceptanceResults: undefined, commandsRun: undefined,
+    completionEvidenceSource: undefined, completionReportBasis: undefined,
+    revisions: [...(task.revisions ?? []), revision], updatedAt: Date.now() } as TeamTask }
 }
 
 const CAPTAIN_ASSIGNEE = 'captain'
@@ -961,17 +972,55 @@ function qualityTerminals(tasks: readonly TeamTask[], item: TeamTask, path = new
  * dependency. Reviews downstream of the integration itself are excluded so a
  * post-integration review cannot deadlock it.
  */
-export function integrationReviewBlockers(tasks: readonly TeamTask[], task: TeamTask): string[] {
+export function integrationReviewBlockers(tasks: readonly TeamTask[], task: TeamTask, codeVersion = task.reviewCodeVersion, requiredReviewers: readonly string[] = []): string[] {
   if (taskKindOf(task) !== 'integration') return []
-  const quality = tasks.filter(item => isQualityKind(taskKindOf(item)))
-  return tasks.filter(item => taskKindOf(item) === 'review'
+  const upstream = tasks.filter(item => item.id !== task.id && !dependencyClosureContains(tasks, item.dependencies, task.id))
+  const reviews = upstream.filter(item => taskKindOf(item) === 'review'
     && item.id !== task.id
-    && item.reviewedTaskId !== task.id
-    && !dependencyClosureContains(tasks, item.dependencies, task.id)
-    && (item.status === 'failed'
-      ? !qualityTerminals(quality, item).every(next => next.status === 'completed')
-      : item.status === 'completed' ? item.verdict !== 'pass' : item.status !== 'cancelled'))
-    .map(item => item.id)
+    && item.reviewedTaskId !== task.id)
+  const validPass = (review: TeamTask): boolean => {
+    const target = tasks.find(item => item.id === review.reviewedTaskId)
+    const basis = review.reviewBasis
+    return review.status === 'completed' && review.verdict === 'pass' && target?.status === 'completed'
+      && isReviewBasis(basis) && basis.reviewedTaskId === target.id && basis.targetAttemptId === target.attemptId
+      && basis.targetContract === contractIdentity(target) && basis.reviewer === review.assignee
+      && review.assignee !== undefined && review.assignee !== target.assignee
+      && (codeVersion === undefined || basis.codeVersion === codeVersion)
+  }
+  const descendant = (candidate: TeamTask, id: string, seen = new Set<string>()): boolean => {
+    if (candidate.id === id) return true
+    if (candidate.kind !== 'repair' || candidate.status !== 'completed' || !candidate.sourceTaskId || seen.has(candidate.id)) return false
+    const parent = tasks.find(item => item.id === candidate.sourceTaskId)
+    return parent !== undefined && descendant(parent, id, new Set(seen).add(candidate.id))
+  }
+  const passing = reviews.filter(validPass)
+  const blockers = reviews.filter(review => {
+    if (validPass(review)) return false
+    if (review.status !== 'failed' && review.status !== 'cancelled') return true
+    return !passing.some(replacement => {
+      if ((replacement.round ?? 1) <= (review.round ?? 1)) return false
+      const reviewed = tasks.find(item => item.id === replacement.reviewedTaskId)
+      if (!reviewed || !review.reviewedTaskId || !descendant(reviewed, review.reviewedTaskId)) return false
+      if (review.status === 'cancelled') return true
+      const findingIds = unresolvedFindings(review).map(item => item.id)
+      return findingIds.length > 0 && reviewed.kind === 'repair'
+        && findingIds.every(id => reviewed.sourceFindingIds?.includes(id))
+    })
+  }).map(item => item.id)
+  const required = upstream.filter(item => ['implementation', 'repair'].includes(taskKindOf(item)) && item.status !== 'cancelled')
+  for (const target of required) {
+    const covers = passing.filter(review => {
+      const reviewed = tasks.find(item => item.id === review.reviewedTaskId)
+      return reviewed !== undefined && descendant(reviewed, target.id)
+    })
+    if (covers.length === 0) blockers.push(`review required for ${target.id}`)
+    for (const reviewer of requiredReviewers) if (!covers.some(review => review.assignee === reviewer)) blockers.push(`review by ${reviewer} required for ${target.id}`)
+  }
+  // A declared post-integration review can cover a pure integration operation.
+  // It cannot replace a review of any implementation/repair input.
+  if (required.length === 0 && reviews.length === 0 && !tasks.some(item => item.kind === 'review'
+    && item.reviewedTaskId === task.id && dependencyClosureContains(tasks, item.dependencies, task.id))) blockers.push('required review is missing')
+  return [...new Set(blockers)]
 }
 
 export function canDeclareDelivery(team: TeamState): DeliveryResult {
@@ -1083,6 +1132,12 @@ export function isTaskRevision(value: unknown): value is TaskRevision {
 }
 
 export function hasValidQualityTaskFields(value: Record<string, unknown>): boolean {
+  if (value['reviewBasis'] !== undefined && !isReviewBasis(value['reviewBasis'])) return false
+  if (value['reviewCodeVersion'] !== undefined && !nonemptyString(value['reviewCodeVersion'])) return false
+  if (value['completionEvidenceSource'] !== undefined && value['completionEvidenceSource'] !== 'member-report') return false
+  if (value['completionReportBasis'] !== undefined && !isCompletionReportBasis(value['completionReportBasis'])) return false
+  if (value['executorEvidence'] !== undefined && (!Array.isArray(value['executorEvidence']) || value['executorEvidence'].length > 256
+    || !value['executorEvidence'].every(isExecutorCommandEvidence))) return false
   // This helper validates the optional quality extension; full durable Task V2
   // validation still requires kind in state.ts before it reaches this seam.
   if (value['kind'] !== undefined && !(TASK_KINDS as readonly string[]).includes(value['kind'] as string)) return false

@@ -224,14 +224,9 @@ test('dsh web args preload the Windows console-hide guard', () => {
   assert.ok(args.includes('--no-open'))
 })
 
-test('subprocess-local keeps the legacy console-hide rewrite but accepts the 0.1.5 upstream equivalent', () => {
-  const legacy = 'spawn(program, args, { detached: platform !== "win32" });\nspawn("taskkill", [], { stdio: "ignore" });'
-  const legacyRewritten = rewriteDesktopConsoleSource(
-    legacy,
-    'file:///x/node_modules/@deepseek-ai/dsh-subprocess-local/lib/index.js',
-  )
-  assert.match(legacyRewritten, /detached: platform !== "win32", windowsHide: true/)
-  assert.match(legacyRewritten, /stdio: "ignore", windowsHide: true/)
+test('pinned upstream owns subprocess spawn and both taskkill console-hide paths', () => {
+  assert.equal([...subprocessRunnerSource.matchAll(/detached: platform !== "win32",\s*windowsHide: platform === "win32"/g)].length, 1)
+  assert.equal([...subprocessRunnerSource.matchAll(/stdio: "ignore",\s*windowsHide: true/g)].length, 2)
 
   assert.equal(
     rewriteDesktopConsoleSource(

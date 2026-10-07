@@ -1,8 +1,12 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.16`（本地已构建，待发布）；[最新已发布安装包](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.15)。
+本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.17`（预发布，本地构建与隔离验收通过）；[rc.17 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.17)。
 
-## 本地已构建，待发布：`v0.2.0-rc.16`
+## 预发布治理更新：`v0.2.0-rc.17`
+
+AgentTeams `0.1.22-desktop.10` 与 output-limit-finish `0.1.1` 完成十项治理：持久审计、并发观察、当前版本审查、证据来源、慢响应保护、原子提交和截断通知。保留现有 UI、路由和状态 owner；关键 loader 锚点漂移失败，Models fork 保留必要 draft/Save 能力。见 [逐项验收](../docs/GOVERNANCE_ACCEPTANCE_20261007.md) 和 [本地构建记录](release-notes/v0.2.0-rc.17.md)。
+
+## 历史本地构建：`v0.2.0-rc.16`（未发布）
 
 - AgentTeams `0.1.22-desktop.9` 修复会话复核出的问题：队长接管跨回合保留、验收证据逐条匹配、Git 快照核对 changedPaths、编号成员继承角色提示词、`amend_task` 拒绝合同外字段、integration 等待全部审查、截断原因报告给队长。
 - 新增插件 `dsh-output-limit-finish`（官方 `llm/stream` 扩展点）统一识别网关误报为 `stop` 的输出截断；移除全部 OpenCode 兼容。完整离线门禁通过；本地 EXE、ZIP 和 blockmap 已构建并通过闭包、文件一致性和图标验收，校验值见 rc.16 发布记录。

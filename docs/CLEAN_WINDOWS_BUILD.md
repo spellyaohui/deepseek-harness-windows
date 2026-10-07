@@ -1,6 +1,6 @@
 # 从干净 Windows 机器构建
 
-当前桌面源码版本为 `0.2.0-rc.11`，Harness 固定为 `0.2.0-rc.2`，Electron 固定为
+当前桌面源码版本为 `0.2.0-rc.17`，Harness 固定为 `0.2.0-rc.2`，Electron 固定为
 `44.0.0`。不需要开发机目录、全局 DSH、用户配置或已有 `node_modules`。
 运行安装包不需要安装 Node.js 或 pnpm；下面的工具链只用于编译源码。
 

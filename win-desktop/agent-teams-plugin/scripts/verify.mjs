@@ -2313,13 +2313,12 @@ try {
   await rm(rc1Workspace, { recursive: true, force: true })
 }
 
-console.log('8/8 state-file atomic write hardening (Windows EPERM fallback)')
+console.log('8/8 state-file atomic write hardening (Windows lock preserves commit)')
 // The durable state files (team.json, mailboxes, retired index) are replaced
 // through `atomicWriteText` = write-temp + rename. On Windows a rename over an
 // existing target throws EPERM while another process holds it open without
 // FILE_SHARE_DELETE; the hardened path retries the rename a few times and then
-// degrades to a direct overwrite (content-equivalent because the temp file was
-// fully written). These checks pin that behavior through the injectable seam
+// fails without touching committed bytes. These checks pin that behavior through the injectable seam
 // and, on Windows, against a real cross-process handle lock.
 const atomicStateRoot = await mkdtemp(join(tmpdir(), 'dsh-agent-teams-atomic-'))
 try {
@@ -2337,22 +2336,23 @@ try {
   let fallbackRemovals = 0
   let fallbackContent = ''
   const fallbackTarget = join(atomicStateRoot, 'forced', 'team.json')
+  let renameFailure
   await replaceFileAtomicOrDirect('forced.tmp', fallbackTarget, '{"fallback":1}', {
     rename: async () => { renameCalls += 1; throw epermError() },
     writeFile: async (_file, content) => { fallbackWrites += 1; fallbackContent = content },
     remove: async () => { fallbackRemovals += 1 },
-  }, { retryDelayMs: 1 })
+  }, { retryDelayMs: 1 }).catch(error => { renameFailure = error })
   check(
     'persistent EPERM exhausts the rename retries (1 initial + 3 retries)',
     renameCalls === 4,
     `renameCalls = ${renameCalls}`,
   )
   check(
-    'persistent EPERM falls back to a direct overwrite of the target',
-    fallbackWrites === 1 && fallbackContent === '{"fallback":1}',
+    'persistent EPERM surfaces failure without directly overwriting committed bytes',
+    renameFailure?.code === 'EPERM' && fallbackWrites === 0 && fallbackContent === '',
     `fallbackWrites = ${fallbackWrites}`,
   )
-  check('the temp file is removed after the fallback write', fallbackRemovals === 1)
+  check('the failed replacement temp file is removed', fallbackRemovals === 1)
 
   let transientCalls = 0
   let transientWrites = 0
@@ -2379,15 +2379,15 @@ try {
       remove: async () => { dualRemovals += 1 },
     }, { retryDelayMs: 1 })
   } catch (error) {
-    aggregateThrown = error instanceof AggregateError
+    aggregateThrown = error?.code === 'EPERM'
   }
-  check('failure of both the atomic and the direct path raises AggregateError', aggregateThrown)
+  check('atomic failure reports the original rename error without attempting direct write', aggregateThrown)
   check('the temp file is removed even after a dual failure', dualRemovals === 1)
 
   if (process.platform === 'win32') {
     // Real cross-process lock: hold team.json with FileShare.ReadWrite (no
     // FILE_SHARE_DELETE) from a child .NET handle, then verify the public
-    // write path still persists through the direct-write fallback.
+    // write path fails without losing its committed record or advancing revisions.
     const lockedTeam = {
       schemaVersion: 2,
       name: 'Locked Team',
@@ -2395,7 +2395,7 @@ try {
       captainSessionId: 'sess-lock',
       createdAt: Date.now(),
       members: [],
-      tasks: [],
+      tasks: [{ id: 'lock-task', subject: 'revision under lock', kind: 'work', status: 'pending', dependencies: [], createdAt: Date.now(), updatedAt: Date.now() }],
       taskSeq: 0,
       ...automaticRunningProvenance('locked-team'),
       phase: 'running',
@@ -2433,15 +2433,22 @@ try {
     })
     try {
       if (held) {
-        lockedTeam.members.push({ id: 'sess-new', name: 'member', joinedAt: Date.now(), status: 'idle' })
-        await writeTeam(atomicStateRoot, lockedTeam)
+        lockedTeam.members.push({ id: 'sess-new', name: 'member', provider: 'controlled', model: 'offline', reasoningMode: 'target-default', joinedAt: Date.now(), status: 'idle' })
+        const priorRevision = lockedTeam.tasks[0].revision
+        lockedTeam.tasks[0].description = 'next uncommitted draft'
+        const original = await readFile(lockedJson, 'utf8')
+        let lockedError
+        await writeTeam(atomicStateRoot, lockedTeam).catch(error => { lockedError = error })
         const persisted = JSON.parse(await readFile(lockedJson, 'utf8'))
         const leftovers = (await readdir(join(atomicStateRoot, lockedTeam.id))).filter(name => name.endsWith('.tmp'))
         check(
-          'writeTeam survives a real Windows lock without FILE_SHARE_DELETE',
-          persisted.members.length === 1 && leftovers.length === 0,
+          'writeTeam preserves the original commit under a real Windows lock without FILE_SHARE_DELETE',
+          lockedError?.code === 'EPERM' && persisted.members.length === 0
+            && await readFile(lockedJson, 'utf8') === original && leftovers.length === 0,
           `members = ${persisted.members.length}, tmp leftovers = ${leftovers.join(', ') || 'none'}`,
         )
+        check('failed Windows commit leaves caller and persisted task revisions unchanged',
+          lockedTeam.tasks[0].revision === priorRevision && persisted.tasks[0].revision === priorRevision)
       }
       // Archive moves the whole team directory with `rename(source, target)`.
       // The same Windows delete-sharing EPERM applies when a file below the

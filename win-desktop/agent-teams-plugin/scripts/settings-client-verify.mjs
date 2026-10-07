@@ -378,6 +378,44 @@ assert.deepEqual(actionStates, [
   { status: 'error', ops: orderedOps, error: 'visible failure' },
 ], 'the shared UI action exposes every failure and always leaves busy')
 
+// An old transport may still commit. It must not publish into a cancelled or
+// replaced UI scope, or resurrect the stale retry payload after a new Save.
+const staleAction = deferred()
+const fencedStates = []
+let actionGeneration = 1
+let actualWrites = 0
+const oldAction = runAgentTeamsSettingsAction(
+  { write: async () => { actualWrites++; return staleAction.promise } },
+  orderedOps,
+  state => fencedStates.push(state),
+  () => actionGeneration === 1,
+)
+actionGeneration = 2
+await runAgentTeamsSettingsAction(
+  { write: async () => ({ status: 'ready', error: null }) },
+  [{ op: 'set', path: ['delegationMode'], value: 'native' }],
+  state => fencedStates.push(state),
+  () => actionGeneration === 2,
+)
+staleAction.resolve({ status: 'error', error: 'old scope failure' })
+const retiredResult = await oldAction
+assert.equal(actualWrites, 1, 'retiring a UI draft does not claim to cancel an already submitted server write')
+assert.equal(retiredResult.status, 'error', 'the old caller still receives its actual outcome')
+assert.equal(fencedStates.at(-1).status, 'idle', 'old failure cannot replace the newer Save result')
+assert.equal(fencedStates.some(state => state.error === 'old scope failure'), false, 'retired retry payload must not revive')
+
+const cancelledAction = deferred()
+let scopeAlive = true
+const cancelledStates = []
+const cancelledRun = runAgentTeamsSettingsAction(
+  { write: async () => cancelledAction.promise }, orderedOps,
+  state => cancelledStates.push(state), () => scopeAlive,
+)
+scopeAlive = false // Cancel, unmount or session/settings-scope replacement.
+cancelledAction.resolve({ status: 'ready', error: null })
+assert.equal((await cancelledRun).status, 'ready')
+assert.equal(cancelledStates.length, 1, 'late success must not publish into a cancelled or replaced scope')
+
 const settingsSectionSource = await readFile(
   new URL('../src/client/AgentTeamsSettingsSection.tsx', import.meta.url),
   'utf8',

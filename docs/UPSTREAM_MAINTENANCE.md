@@ -8,18 +8,75 @@ prove it still exists.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.16` (locally packaged and verified; not published)
+- Windows desktop wrapper: `0.2.0-rc.17` (prerelease distribution authorized after local build and isolated acceptance; final evidence in rc.17 release notes)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.1`
-- Output-limit finish plugin: `dsh-output-limit-finish@0.1.0`
+- Output-limit finish plugin: `dsh-output-limit-finish@0.1.1`
 - OpenCode compatibility: manual validation retired at desktop `0.2.0-rc.4`; all remaining OpenCode rewrites and `model-fetcher` retired at `0.2.0-rc.16` by user request
-- AgentTeams fork: `0.1.22-desktop.9`, based on upstream `v0.1.22` at fixed commit
+- AgentTeams fork: `0.1.22-desktop.10`, based on upstream `v0.1.22` at fixed commit
   `9cba4fe4171f27c019991cafd2a107f87ef3517b`
 - CPA provider plugin: `0.1.11`
 - Models settings fork: `0.2.0-rc.2-desktop.4`
 - Desktop Settings plugin: `0.1.5`
 
-## Desktop 0.2.0-rc.16 session-audit fixes, gateway truncation and OpenCode retirement — 2026-10-06
+## Desktop 0.2.0-rc.17 complete governance — 2026-10-07
+
+All ten requested governance items and their evidence boundaries are recorded in
+[GOVERNANCE_ACCEPTANCE_20261007.md](GOVERNANCE_ACCEPTANCE_20261007.md). AgentTeams owns
+the attempt audit extension within its existing strict V2 state, independent review
+admission, executor observations, settings lifetime guards and turn-bound notifications.
+The output-limit plugin remains the sole provider-neutral stream listener. No second
+resolver, startup wrapper, storage owner, ModelPicker or Team migration is introduced.
+Old claimed-to-completed rejection, identity/FIFO/retirement and frozen role policy stay.
+
+Missing Git baseline or Git failure blocks strict completion instead of passing on
+missing evidence; explicitly non-Git workspaces retain path/contract checks and report
+the observed-change audit as inapplicable. Concurrent scope is not author evidence:
+only attempt/contract-bound observed operations whose final fingerprints match may
+explain exact other-task paths. Exclusions, protected paths and overlapping write
+scope are never exempted. Command reports remain labelled self-report; only trusted
+foreground execution DTOs produce executor exit-code observations. Review approval
+is object/attempt/contract/code-version bound and rechecked at integration completion.
+This is quality admission, not deployment authorization. See the acceptance record
+for unavoidable net-observation and logical reviewer limitations.
+
+### Executable loader anchor contract
+
+`win-desktop/src/compatibility-anchors.js` is the executable registry. Every row
+pins Harness `0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`, the
+specific package and lib module, expected post-rewrite match count, classification,
+retention rationale and regression. Drift throws before evaluating the target module;
+unrelated modules remain untouched. `compatibility-anchors.test.js` tests installed
+source, exact counts, duplicate/missing anchors, idempotence and regression presence.
+
+| Anchor | Target package / lib module | Count | Classification | Regression and retained seam |
+| --- | --- | --- | --- | --- |
+| profile-default-layer | dsh-app-boot / index | 1 | REAPPLY | settings-save; additive default layer below Profile/Home/CLI is not a public boot hook |
+| profile-install-anchor | dsh / profile-boot-* | 1 | REAPPLY | runtime-closure; official resolver requires complete desktop installation closure |
+| subprocess-spawn-hide | dsh-subprocess-local / runner-launch-* | 1 | UPSTREAM_EQUIVALENT | console; official spawn already owns visibility, duplicate local rewrite removed |
+| subprocess-taskkill-hide | same | 2 | UPSTREAM_EQUIVALENT | console; both official taskkill paths hide consoles, duplicate local rewrite removed |
+| subprocess-preload | same | 2 | REAPPLY | console-descendants; filtered NODE_OPTIONS requires additive default argv preload |
+| sandbox-preload | dsh-sandbox-local / index | 2 | REAPPLY | console-descendants; preserve user override instead of replacing the default runner |
+| pwsh-redundant-escalation | dsh-tool-pwsh / index | 1 | REAPPLY | console; official policy validator body is the compatible normalization seam |
+| bash-redundant-escalation | dsh-tool-bash / index | 1 | REAPPLY | console; preserve logged identity arguments while passing normalized executor args |
+| fs-redundant-escalation | dsh-tool-fs / index | 1 | REAPPLY | console; pre-dispatch hooks do not replace immutable call arguments |
+| bounded-period-quota | dsh-llm / index | 1 | REAPPLY | console/quota; no public classifier extension preserves terminal QUOTA semantics |
+| grep-durable-alias | dsh-llm-pi-ai / index | 1 | REAPPLY | grep-tool-argument-compatibility; final adapter block owns durable exact alias normalization |
+| web-activation | dsh-tool-web / index | 1 | REAPPLY | desktop-web-tools; every official mount must respect startup opt-out without dropping providers |
+
+AgentTeams upstream already owns Symbol/start wrapping; do not attribute all wrapper
+mechanisms locally. Local scoped tools.get filtering retains real HMR/dispose and
+outer-wrapper composition regressions. Models' public provider slot does not expose
+the parent draft updater or Save/CAS contract; its provider-neutral normalization seam
+and smallest manual-declaration fork remain REAPPLY, with no CPA logic inside Models.
+Historical capability probing, desktop JSON Profile writing and Native-card hiding
+below are superseded records, not instructions to restore them. OpenCode/model-fetcher
+and AUTO remain permanently absent.
+
+Source regression evidence was available before owner/provenance synchronization;
+the final synchronized gate and package evidence are recorded in the rc.17 release notes.
+
+## Historical desktop 0.2.0-rc.16 session-audit fixes, gateway truncation and OpenCode retirement — 2026-10-06
 
 Harness `0.2.0-rc.2` and upstream AgentTeams `v0.1.22` pins are unchanged. The
 fixes come from the exported 2026-10-03/06 Team session (main session plus 11
@@ -883,8 +940,10 @@ regression evidence. Tests survive ownership moves.
 
 ## Seven-step upstream refresh workflow
 
-1. Create a fresh isolated worktree and record the current branch, HEAD, dirty
-   state, upstream tag/commit, and affected package versions.
+1. Work in canonical `D:\Trae\其他\deepseek-harness` on `main`; record HEAD,
+   dirty state, upstream tag/commit and affected package versions. Preserve and
+   review all parallel or synchronized differences. Do not create a worktree or
+   nested checkout unless the user explicitly requests one; never reset/clean.
 2. Run the current `npm run verify:upstream` gate before importing anything; a
    failing baseline must be diagnosed separately.
 3. Compare the new upstream source with every registry row and assign one of

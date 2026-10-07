@@ -7,6 +7,18 @@
 - Imported: 2026-09-30
 - Local desktop fork: `0.2.0-rc.2-desktop.4`
 
+## 2026-10-07 public seam reassessment
+
+No source or owner-version change. Classification remains REAPPLY for the smallest
+provider-neutral manual-declaration/draft/Save fork. The existing
+normalize-provider-profile seam is additive. The official provider display slot
+exposes provider/configured/keyConfigured, not the parent draft updater or atomic
+Save/CAS contract, so it is not an equivalent replacement for this fork. CPA-specific
+normalization remains CPA-owned; no second ModelPicker or capability-probing service
+is introduced. Models regressions pass against the installed official closure.
+Historical probing sections below are superseded by the 2026-10-01 user-requested
+replacement and must not be restored during refreshes.
+
 ## 2026-10-03 input-choice typography
 
 The manual image/text-only labels now use the official Checkbox's 14px font size

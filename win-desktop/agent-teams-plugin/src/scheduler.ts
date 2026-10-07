@@ -38,6 +38,10 @@ import {
 import type { TeamMember, TeamMessage, TeamState, TeamTask } from './types.ts'
 import { durableSessionId } from './agent-identity.ts'
 import { integrationReviewBlockers } from './quality-gates.ts'
+import { observeWorkspace } from './workspace-audit.ts'
+import { workspaceCodeVersion } from './attempt-evidence.ts'
+import { sessionOwnEvents } from './harness-compat.ts'
+import { latestAttemptTurnEnd } from './attempt-turn.ts'
 
 /** Per-dependency output cap in the assignment prompt. */
 export const DEPENDENCY_OUTPUT_MAX_CHARS = 2_000
@@ -269,7 +273,6 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
   // graph kicks must keep it parked. A cold process starts with an empty map,
   // so durable open attempts are still recovered after restart.
   const parkedAttempts = new Map<string, string>()
-  const lastTurnEnd = new Map<string, string>()
 
   const memberQueueKey = (stateRoot: string, teamId: string, memberName: string): string => (
     `${stateRoot}\u0000${teamId}\u0000${memberName}`
@@ -367,6 +370,13 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
               await writeTeam(stateRoot, fresh)
             }
             return undefined
+          }
+          if (task.kind === 'integration') {
+            const observed = await observeWorkspace(workspace)
+            if (observed.status === 'failed') throw new Error(`integration observation failed: ${observed.error}`)
+            const version = observed.status === 'not-git' ? 'not-git' : workspaceCodeVersion({ ...observed.snapshot,
+              files: new Map([...observed.snapshot.files].filter(([path]) => !path.startsWith(`${config.stateDir}/`))) })
+            if (integrationReviewBlockers(fresh.tasks, task, version, fresh.reviewPolicy?.requiredReviewers).length > 0) return undefined
           }
           const previousAssignee = task.assignee
           const previousStatus = recoverOwned ? task.status as 'claimed' | 'in_progress' : undefined
@@ -491,13 +501,13 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
         if (owned?.attemptId === undefined) parkedAttempts.delete(agentSessionId)
         else {
           parkedAttempts.set(agentSessionId, owned.attemptId)
-          const truncated = lastTurnEnd.get(agentSessionId) === 'max-tokens'
+          const truncated = latestAttemptTurnEnd(sessionOwnEvents(agent.session), owned.id, owned.attemptId) === 'max-tokens'
           const id = `${owned.attemptId}:${truncated ? 'max-tokens' : 'idle-open'}`
           if (fresh.halted !== true && current.stopping !== true && owned.reassigning !== true
             && !(await readMailbox(stateRoot, fresh.id, CAPTAIN_KEY)).some(message => message.id === id)) {
             report = {
               ...createMessage(current.name, CAPTAIN_KEY, truncated
-                ? `成员 ${current.name} 的上一回合因模型输出达到上限（max-tokens）被截断，任务 ${owned.id} 仍为 ${owned.status}，尚未提交结果。当前 attempt_id=${owned.attemptId}。这通常是推理强度过高耗尽了输出额度，而不是成员拒绝执行；原样重试大概率再次截断。请先调大该模型的输出上限或降低该角色的推理强度，再用 agent_teams_send_message 让成员继续同一任务，或明确接管。不要把回合结束当成任务完成。`
+                ? `成员 ${current.name} 的当前 attempt 回合报告输出上限（max-tokens），任务 ${owned.id} 仍为 ${owned.status}，尚未提交结果。当前 attempt_id=${owned.attemptId}。结束原因不能确定额度消耗来自推理强度。请检查实际请求输出预算和已保存结果，调整预算或拆分剩余工作后，再用 agent_teams_send_message 明确继续同一任务，或接管。系统不会自动按原预算重试。不要把回合结束当成任务完成。`
                 : `成员 ${current.name} 已空闲，但任务 ${owned.id} 仍为 ${owned.status}，尚未提交完成或失败结果。当前 attempt_id=${owned.attemptId}。如用户已暂停，请保持暂停；否则检查产出，用 agent_teams_send_message 让成员继续同一任务，或明确接管。不要重复创建任务，也不要把回合结束当成任务完成。`),
               id,
               sourceTaskId: owned.id,
@@ -529,15 +539,6 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
     }
     if (status === 'idle') await runtime.kickMember(workspace, located.id, member.name)
   }
-
-  // The idle edge alone cannot tell an output-limit truncation from a turn the
-  // member simply ended; remember each session's latest turn-end reason.
-  ctx.on('session/event', (session, event) => {
-    if (event.type !== 'turn/end') return
-    const kind = (event.data as { reason?: { kind?: unknown } }).reason?.kind
-    const id = session.id ?? session.header?.id
-    if (typeof kind === 'string' && typeof id === 'string') lastTurnEnd.set(id, kind)
-  })
 
   ctx.on('agent/status', ({ agent, status }) => {
     void syncMemberStatus(agent, status).catch((error: unknown) => {

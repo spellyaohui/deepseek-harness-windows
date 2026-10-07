@@ -12,6 +12,8 @@
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-202724" alt="DeepSeek Harness plugin">
 </p>
 
+Current desktop fork: `0.1.22-desktop.10`, on pinned Harness `0.2.0-rc.2`, distributed with the Windows rc.17 prerelease, not as an upstream npm release. Attempt-bound persistent audit, observed concurrency, current-version independent review admission, evidence source labels, atomic state failure and stale settings-response guards preserve the existing UI and routing. See the [governance acceptance record](../../docs/GOVERNANCE_ACCEPTANCE_20261007.md).
+
 ## One prompt. A working team.
 
 `dsh-agent-teams` turns the current DeepSeek Harness session into a captain that can assemble durable sub-agents, split a goal into dependency-aware tasks, and coordinate work through direct messages.
@@ -26,7 +28,7 @@ Ask in natural language. The plugin provides the team protocol, thirteen coordin
 
 Read the [latest release notes](https://github.com/NanmiCoder/dsh-agent-teams/releases/latest) or browse the [complete release history](https://github.com/NanmiCoder/dsh-agent-teams/releases). The same Markdown notes are included in the npm package under `release-notes/`.
 
-### v0.1.22-desktop.5 (pending desktop release)
+### Historical v0.1.22-desktop.5
 
 - Adds an independent temporary subagent Provider/model/reasoning default in AgentTeams settings for Team-mode captain calls. Profile roles and Native mode keep their own policies.
 - Supports concurrent and repeated calls through the existing durable gateway. Unavailable defaults fail before writes, and already-created members retain their route.

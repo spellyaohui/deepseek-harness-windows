@@ -2,7 +2,7 @@
   <a href="./README.md">English</a> · <strong>简体中文</strong>
 </p>
 
-当前桌面分支为 `0.1.22-desktop.5`，宿主保持 Harness `0.2.0-rc.2`；新增功能待发布安装包。
+当前桌面分支为 `0.1.22-desktop.10`，宿主保持 Harness `0.2.0-rc.2`；随 Windows rc.17 预发布交付，不是上游 npm 发版。完成审计绑定 attempt 并跨重启保留，review/integration 校验当前合同与版本，命令证据区分成员自报和执行器观察；状态提交失败保持旧记录，慢保存响应不会覆盖新草稿。原有子智能体及临时子智能体布局与路由能力保留。见 [治理验收](../../docs/GOVERNANCE_ACCEPTANCE_20261007.md)。
 AgentTeams 设置新增独立的“临时子智能体”默认 Provider、模型及思考策略，适用于 Team 模式队长的临时调用；支持连续及并发调用，不覆盖 Profile 角色与 Native 设置。指定模型不可用会报错，已创建成员保留原路由。
 Team 模式下队长的原生 `subagent` 自动转交到真实团队成员和任务；前后台、路由、审批、暂停、成员权限均保留。Native 模式不变。
 配置页字号、字重、行高与表单控件对齐官方组件。

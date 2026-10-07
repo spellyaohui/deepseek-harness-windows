@@ -1952,9 +1952,11 @@ try {
   // authorizes the scheduler to revoke the live attempt. Repeated status kicks
   // must be idempotent until the captain performs an explicit reassignment.
   publishStatus(alpha, 'idle')
-  await new Promise(resolve => setTimeout(resolve, 20))
   const idleNoticeId = `${alphaClaim.attempt_id}:idle-open`
-  const idleNotice = (await readMailbox(stateRoot, teamId, 'captain')).find(item => item.id === idleNoticeId)
+  const idleNotice = await waitFor('durable delivered idle notice', async () => {
+    const notice = (await readMailbox(stateRoot, teamId, 'captain')).find(item => item.id === idleNoticeId)
+    return notice?.deliveredAt === undefined ? undefined : notice
+  })
   check('idle member with an unfinished task reports the parked attempt to the captain',
     idleNotice?.sourceTaskId === t1.task_id && idleNotice.sourceAttemptId === alphaClaim.attempt_id
       && idleNotice.content.includes('agent_teams_send_message') && idleNotice.deliveredAt !== undefined)
@@ -1964,17 +1966,19 @@ try {
     (await readMailbox(stateRoot, teamId, 'captain')).filter(item => item.id === idleNoticeId).length === 1)
   // Session incident: a member spent its whole 16000-token output budget on
   // reasoning; the captain only saw "idle without a result" and blamed the model.
-  for (const listener of listeners.get('session/event') ?? []) {
-    listener({ id: beta.id }, { type: 'turn/end', data: { turn: 1, reason: { kind: 'max-tokens' } } })
-  }
+  ;(beta.session._ownEvents ?? beta.session.events).push(
+    { type: 'turn/start', seq: 0, data: { turn: 1 } },
+    { type: 'tool/call', seq: 1, data: { turn: 1, name: 'agent_teams_update_task', arguments: JSON.stringify({ task_id: t2.task_id, attempt_id: betaClaim.attempt_id }) } },
+    { type: 'turn/end', seq: 2, data: { turn: 1, reason: { kind: 'max-tokens' } } },
+  )
   publishStatus(beta, 'idle')
-  await new Promise(resolve => setTimeout(resolve, 20))
-  const truncatedNotice = (await readMailbox(stateRoot, teamId, 'captain'))
-    .find(item => item.id === `${betaClaim.attempt_id}:max-tokens`)
+  const truncatedNotice = await waitFor('durable truncated attempt notice', async () =>
+    (await readMailbox(stateRoot, teamId, 'captain')).find(item => item.id === `${betaClaim.attempt_id}:max-tokens`))
   check('member turn truncated by the output limit reports the cause to the captain',
     truncatedNotice?.sourceTaskId === t2.task_id
       && truncatedNotice.content.includes('max-tokens')
       && truncatedNotice.content.includes('输出上限')
+      && truncatedNotice.content.includes('不能确定')
       && (await task(t2.task_id))?.attemptId === betaClaim.attempt_id)
   publishStatus(beta, 'running')
   // Normal continuable settlement disposes its live AgentHandle between

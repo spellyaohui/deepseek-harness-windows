@@ -247,6 +247,7 @@ export async function runAgentTeamsSettingsAction(
   writer: AgentTeamsSettingsWriter,
   ops: readonly SettingsPathOpView[],
   publish: (state: SettingsWriteView) => void,
+  isCurrent: () => boolean = () => true,
 ): Promise<SettingsWriteState> {
   const retryOps = [...ops]
   publish({ status: 'busy', ops: retryOps, error: null })
@@ -257,7 +258,7 @@ export async function runAgentTeamsSettingsAction(
     result = { status: 'error', error: errorMessage(error) }
   } finally {
     if (result === undefined) result = { status: 'error', error: 'settings write did not settle' }
-    publish(result.status === 'ready'
+    if (isCurrent()) publish(result.status === 'ready'
       ? { status: 'idle', ops: null, error: null }
       : { status: 'error', ops: retryOps, error: result.error })
   }

@@ -1578,6 +1578,67 @@ console.log('quality-gates TDD — tool-level closed loop')
     check('tdd.audit.complete-report-passes-and-ignores-pre-existing-dirt.tool',
       honest === '' && (await readTeam(join(workspace, '.agent-teams'), 'gates'))
         ?.tasks.find(item => item.id === auditTask.task_id)?.status === 'completed', honest)
+
+    // A report saved before completion must face the same audit as one sent
+    // with completion. Omitting it must not hide the newly changed package.
+    const storedTask = await call('agent_teams_create_task', {
+      subject: 'stored report audited at completion', assignee: 'captain', kind: 'implementation',
+      objective: 'change the feature again', inScope: ['src/feature.ts'],
+      acceptance: ['feature changed again'], verify: ['node -e 0'],
+    })
+    const storedClaim = await call('agent_teams_claim_task', { task_id: storedTask.task_id })
+    await call('agent_teams_update_task', { task_id: storedTask.task_id, status: 'in_progress', attempt_id: storedClaim.attempt_id })
+    await writeFile(join(workspace, 'src', 'feature.ts'), 'export const a = 3\n')
+    await writeFile(join(workspace, 'package.json'), '{"name":"hidden-change"}\n')
+    await call('agent_teams_update_task', { task_id: storedTask.task_id, attempt_id: storedClaim.attempt_id, changedPaths: ['src/feature.ts'] })
+    const omittedReport = await call('agent_teams_update_task', {
+      task_id: storedTask.task_id, status: 'completed', output: 'done', attempt_id: storedClaim.attempt_id,
+      acceptanceResults: [{ criterion: 'feature changed again', status: 'passed' }],
+      commandsRun: [{ command: 'node -e 0', status: 'passed' }],
+    }).then(() => '', error => String(error?.message ?? error))
+    check('tdd.audit.stored-changed-paths-omitted-at-completion-still-audited.tool',
+      /outside inScope changed during this attempt: "package\.json"/.test(omittedReport), omittedReport)
+    await call('agent_teams_update_task', { task_id: storedTask.task_id, status: 'failed', output: 'stop rejected audit attempt', attempt_id: storedClaim.attempt_id })
+    const takeoverTask = await call('agent_teams_create_task', {
+      subject: 'captain takeover captures same durable audit', assignee: 'implementer', kind: 'implementation',
+      objective: 'continue feature', inScope: ['src/feature.ts'], acceptance: ['takeover done'], verify: ['node -e 0'],
+    })
+    const takeover = await call('agent_teams_reassign_task', { task_id: takeoverTask.task_id, assignee: 'captain' })
+    const durableTakeover = (await readTeam(join(workspace, '.agent-teams'), 'gates')).tasks.find(item => item.id === takeoverTask.task_id)
+    check('tdd.audit.captain-takeover-captures-durable-baseline.tool',
+      durableTakeover.status === 'in_progress' && durableTakeover.workspaceAudit?.attemptId === takeover.attempt_id)
+    await writeFile(join(workspace, 'package.json'), '{"name":"hidden-takeover-change"}\n')
+    const takeoverError = await call('agent_teams_update_task', {
+      task_id: takeoverTask.task_id, status: 'completed', output: 'done', attempt_id: takeover.attempt_id, changedPaths: [], noChangesReason: 'no feature change',
+      acceptanceResults: [{ criterion: 'takeover done', status: 'passed' }], commandsRun: [{ command: 'node -e 0', status: 'passed' }],
+    }).then(() => '', error => String(error?.message ?? error))
+    check('tdd.audit.captain-takeover-cannot-hide-outside-change.tool', /outside inScope.*package\.json/.test(takeoverError), takeoverError)
+    await call('agent_teams_update_task', { task_id: takeoverTask.task_id, status: 'failed', output: 'fence rejected attempt', attempt_id: takeover.attempt_id })
+    const priorTeam = await readTeam(join(workspace, '.agent-teams'), 'gates')
+    await call('agent_teams_delete', {})
+    const { observeWorkspace } = await import('../lib/workspace-audit.js')
+    const { workspaceCodeVersion } = await import('../lib/attempt-evidence.js')
+    const { contractIdentity } = await import('../lib/audit-contract.js')
+    const observation = await observeWorkspace(workspace)
+    const version = workspaceCodeVersion({ ...observation.snapshot,
+      files: new Map([...observation.snapshot.files].filter(([path]) => !path.startsWith('.agent-teams/'))) })
+    const inputTask = task({ id: 'i', ...implContract(), assignee: 'implementer', status: 'completed', changedPaths: ['src/parser.ts'] })
+    const passedReview = task({ id: 'r', ...reviewContract(), reviewedTaskId: 'i', assignee: 'reviewer', status: 'completed', verdict: 'pass',
+      reviewBasis: { schemaVersion: 1, reviewedTaskId: 'i', targetAttemptId: inputTask.attemptId,
+        targetContract: contractIdentity(inputTask), codeVersion: version, reviewer: 'reviewer' } })
+    await createTeamDir(join(workspace, '.agent-teams'), team({ id: 'integration-tools', members: priorTeam.members,
+      tasks: [inputTask, passedReview], taskSeq: 2, reviewPolicy: { requiredReviewers: [] } }))
+    const integration = await call('agent_teams_create_task', { subject: 'local integration check', kind: 'integration', assignee: 'captain',
+      objective: 'integrate approved result', acceptance: ['integrated'], verify: ['node -e 0'], dependencies: ['i'] })
+    const integrationClaim = await call('agent_teams_claim_task', { task_id: integration.task_id })
+    await call('agent_teams_update_task', { task_id: integration.task_id, status: 'in_progress', attempt_id: integrationClaim.attempt_id })
+    await call('agent_teams_create_task', { subject: 'late independent review', ...reviewContract(), assignee: 'reviewer', reviewedTaskId: 'i', objective: 'review late requirement', dependencies: ['i'] })
+    const beforeRejectedIntegration = JSON.stringify(await readTeam(join(workspace, '.agent-teams'), 'integration-tools'))
+    const lateReviewError = await call('agent_teams_update_task', { task_id: integration.task_id, status: 'completed', attempt_id: integrationClaim.attempt_id,
+      acceptanceResults: [{ criterion: 'integrated', status: 'passed' }], commandsRun: [{ command: 'node -e 0', status: 'passed' }] })
+      .then(() => '', error => String(error?.message ?? error))
+    check('tdd.integration.new-review-after-start-blocks-completion-with-zero-writes.tool',
+      /integration.*review/i.test(lateReviewError) && beforeRejectedIntegration === JSON.stringify(await readTeam(join(workspace, '.agent-teams'), 'integration-tools')), lateReviewError)
   } finally {
     await rm(workspace, { recursive: true, force: true })
   }
@@ -1586,24 +1647,30 @@ console.log('quality-gates TDD — tool-level closed loop')
 console.log('quality-gates TDD — integration waits for every review')
 {
   const { integrationReviewBlockers } = await import('../lib/quality-gates.js')
+  const { contractIdentity } = await import('../lib/audit-contract.js')
   const t = (id, extra) => task({ id, ...extra })
   // Session incident: deployment t10 depended on t8/t9/t1, while the final
   // review t11 was created later and never listed; t10 could start first.
   const tasks = [
-    t('t8', { kind: 'implementation', status: 'completed' }),
+    t('t8', { kind: 'implementation', status: 'completed', assignee: 'writer' }),
     t('t10', { kind: 'integration', status: 'pending', dependencies: ['t8'] }),
-    t('t11', { kind: 'review', status: 'pending', dependencies: ['t8'], reviewedTaskId: 't8' }),
+    t('t11', { kind: 'review', status: 'pending', dependencies: ['t8'], reviewedTaskId: 't8', assignee: 'reviewer' }),
   ]
   check('tdd.integration.unlisted-final-review-blocks-deployment',
-    JSON.stringify(integrationReviewBlockers(tasks, tasks[1])) === JSON.stringify(['t11']))
-  const passed = tasks.map(item => item.id === 't11' ? { ...item, status: 'completed', verdict: 'pass' } : item)
+    integrationReviewBlockers(tasks, tasks[1]).includes('t11'))
+  const basis = { schemaVersion: 1, reviewedTaskId: 't8', targetAttemptId: tasks[0].attemptId,
+    targetContract: contractIdentity(tasks[0]), codeVersion: 'current-code', reviewer: 'reviewer' }
+  const passed = tasks.map(item => item.id === 't11' ? { ...item, status: 'completed', verdict: 'pass', reviewBasis: basis } : item)
   check('tdd.integration.passed-review-releases-deployment', integrationReviewBlockers(passed, passed[1]).length === 0)
   const rejected = tasks.map(item => item.id === 't11' ? { ...item, status: 'completed', verdict: 'needs_revision' } : item)
-  check('tdd.integration.non-pass-review-keeps-blocking', integrationReviewBlockers(rejected, rejected[1]).length === 1)
+  check('tdd.integration.non-pass-review-keeps-blocking', integrationReviewBlockers(rejected, rejected[1]).includes('t11'))
   const cancelled = tasks.map(item => item.id === 't11' ? { ...item, status: 'cancelled' } : item)
-  check('tdd.integration.cancelled-review-does-not-block', integrationReviewBlockers(cancelled, cancelled[1]).length === 0)
-  const downstream = [...tasks.slice(0, 2), t('t12', { kind: 'review', status: 'pending', dependencies: ['t10'], reviewedTaskId: 't10' })]
+  check('tdd.integration.cancelled-review-requires-valid-replacement', integrationReviewBlockers(cancelled, cancelled[1]).includes('t11'))
+  const downstream = [...passed, t('t12', { kind: 'review', status: 'pending', dependencies: ['t10'], reviewedTaskId: 't10' })]
   check('tdd.integration.post-integration-review-cannot-deadlock', integrationReviewBlockers(downstream, downstream[1]).length === 0)
+  check('tdd.integration.stale-review-code-version-blocks', integrationReviewBlockers(passed, passed[1], 'new-code').length > 0)
+  check('tdd.integration.stale-target-attempt-blocks', integrationReviewBlockers(passed.map(item => item.id === 't8' ? { ...item, attemptId: 'new-attempt' } : item), passed[1]).length > 0)
+  check('tdd.integration.required-reviewer-is-enforced', integrationReviewBlockers(passed, passed[1], 'current-code', ['another-reviewer']).length > 0)
   check('tdd.integration.other-kinds-are-unaffected', integrationReviewBlockers(tasks, tasks[0]).length === 0)
 }
 

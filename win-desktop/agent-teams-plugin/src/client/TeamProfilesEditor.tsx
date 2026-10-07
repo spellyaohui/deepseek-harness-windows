@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
@@ -668,6 +668,15 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, settings, writer, 
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const writeScope = useRef({ settings, writer, active: true })
+  if (writeScope.current.settings !== settings || writeScope.current.writer !== writer) {
+    writeScope.current = { settings, writer, active: true }
+  }
+  useEffect(() => {
+    const scope = writeScope.current
+    scope.active = true
+    return () => { scope.active = false }
+  }, [settings, writer])
 
   const acceptProfiles = useCallback((value: unknown, signature: string) => {
     const next = normalizeEffectiveProfileMap(value)
@@ -879,10 +888,13 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, settings, writer, 
     }
     setSaving(true)
     setMessage(null)
+    const scope = writeScope.current
+    const isCurrent = () => scope === writeScope.current && scope.active
     try {
       const result = await writer.write([
         { op: 'set', path: ['profiles'], value: prepared.profiles as unknown as JsonValue },
       ], baselineSignature)
+      if (!isCurrent()) return
       if (result.status === 'error') {
         setError(result.error === PROFILE_DRAFT_CONFLICT ? t('settings.profiles.conflict') : result.error)
         return
@@ -891,9 +903,9 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, settings, writer, 
       acceptProfiles(next, profileSettingsSignature(next))
       setMessage(`${t('settings.profiles.saved')} ${t('settings.profiles.restart')}`)
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : String(reason))
+      if (isCurrent()) setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
-      setSaving(false)
+      if (isCurrent()) setSaving(false)
     }
   }
 

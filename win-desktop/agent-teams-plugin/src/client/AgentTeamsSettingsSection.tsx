@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -52,6 +52,24 @@ export function AgentTeamsSettingsSection({
   const [writeView, setWriteView] = useState<SettingsWriteView>({
     status: 'idle', ops: null, error: null,
   })
+  const actionScope = useRef({ settings, writer, generation: 0, active: true, key: 0 })
+  if (actionScope.current.settings !== settings || actionScope.current.writer !== writer) {
+    actionScope.current = { settings, writer, generation: 0, active: true, key: actionScope.current.key + 1 }
+  }
+  useEffect(() => {
+    const scope = actionScope.current
+    scope.active = true
+    setWriteView({ status: 'idle', ops: null, error: null })
+    return () => { scope.active = false; scope.generation += 1 }
+  }, [settings, writer])
+
+  const writeCurrent = useCallback(async (ops: readonly SettingsPathOpView[]): Promise<boolean> => {
+    const scope = actionScope.current
+    const generation = ++scope.generation
+    const isCurrent = () => scope === actionScope.current && scope.active && generation === scope.generation
+    const result = await runAgentTeamsSettingsAction(writer, ops, setWriteView, isCurrent)
+    return isCurrent() && result.status === 'ready'
+  }, [writer])
 
   useEffect(() => {
     let active = true
@@ -67,8 +85,8 @@ export function AgentTeamsSettingsSection({
   const controlsDisabled = !writable || writeView.status === 'busy'
 
   const runWrite = useCallback(async (ops: readonly SettingsPathOpView[]): Promise<void> => {
-    await runAgentTeamsSettingsAction(writer, ops, setWriteView)
-  }, [writer])
+    await writeCurrent(ops)
+  }, [writeCurrent])
 
   const runPlan = useCallback(async (plan: SettingsWritePlan): Promise<void> => {
     await runWrite(plan.ops)
@@ -151,22 +169,24 @@ export function AgentTeamsSettingsSection({
       </section>
 
       <TemporaryMemberSettings
+        key={actionScope.current.key}
         value={value.temporaryMember}
         catalog={catalog.models}
         catalogReady={catalog.status === 'ready'}
         disabled={controlsDisabled}
         native={value.delegationMode === 'native'}
         onDiscardPendingWrite={() => {
+          actionScope.current.generation += 1
           setWriteView(discardTemporaryMemberWrite)
         }}
         onSave={async policy => {
-          const result = await runAgentTeamsSettingsAction(writer, planTemporaryMemberChange(policy).ops, setWriteView)
-          return result.status === 'ready'
+          return writeCurrent(planTemporaryMemberChange(policy).ops)
         }}
         t={t}
       />
 
       <TeamProfilesEditor
+        key={actionScope.current.key}
         settings={settings}
         writer={writer}
         catalog={catalog}
