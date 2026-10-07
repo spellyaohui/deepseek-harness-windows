@@ -33,14 +33,14 @@ function text(result) {
   return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
 }
 
-async function eventually(read, message, timeoutMs = 5_000) {
+async function eventually(read, message, timeoutMs = 5_000, diagnose) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const value = await read()
     if (value) return value
     await delay(10)
   }
-  assert.fail(message)
+  assert.fail(diagnose === undefined ? message : `${message}; ${await diagnose()}`)
 }
 
 /** A controllable external-model boundary around the unmodified child loop. */
@@ -95,6 +95,10 @@ async function fixture(t, mode, { modelSelection = false, profiles = {}, maxMemb
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-team-subagent-compat-'))
   const ctx = new Context()
   const adapter = new OfflineAdapter()
+  const statusEvents = []
+  const toolResults = []
+  ctx.on('agent/status', ({ agent, status }) => { statusEvents.push({ id: agent.id, status }) })
+  ctx.on('agent/error', ({ agent, error }) => { statusEvents.push({ id: agent.id, error: String(error) }) })
   t.after(async () => {
     adapter.releaseAll()
     await ctx.fiber.dispose()
@@ -145,8 +149,22 @@ async function fixture(t, mode, { modelSelection = false, profiles = {}, maxMemb
     name,
     arguments: args,
     agent,
+  }).then(result => {
+    toolResults.push({ name, isError: result.isError, error: result.error?.message })
+    return result
   })
-  return { ctx, workspace, stateRoot: join(workspace, '.agent-teams'), adapter, captain: handle.agent, execute, teamFiber }
+  const stateRoot = join(workspace, '.agent-teams')
+  const diagnose = async () => {
+    const team = await findTeamByCaptain(stateRoot, handle.agent.id)
+    return JSON.stringify({
+      phase: team?.phase,
+      members: team?.members.map(({ id, name, status }) => ({ id, name, status, liveStatus: ctx.agents.get(SessionId(id))?.status })),
+      tasks: team?.tasks.map(({ id, status, assignee, attemptId }) => ({ id, status, assignee, attemptId })),
+      childRequests: adapter.requests.map(({ sessionId }) => sessionId),
+      statusEvents: statusEvents.slice(-128), toolResults: toolResults.slice(-64),
+    })
+  }
+  return { ctx, workspace, stateRoot, adapter, captain: handle.agent, execute, teamFiber, diagnose }
 }
 
 async function readStoredSession(ctx, id) {
@@ -158,11 +176,11 @@ async function readStoredSession(ctx, id) {
   }
 }
 
-async function assignedTask(stateRoot, teamId, memberName) {
+async function assignedTask(stateRoot, teamId, memberName, diagnose) {
   return eventually(async () => {
     const team = await readTeam(stateRoot, teamId)
     return team?.tasks.find(item => item.assignee === memberName && ['claimed', 'in_progress'].includes(item.status))
-  }, 'the real Team scheduler never assigned the delegated task')
+  }, 'the real Team scheduler never assigned the delegated task', 5_000, diagnose)
 }
 
 async function completeTaskThroughMemberTools(execute, child, task, output = CHILD_OUTPUT) {
@@ -276,7 +294,7 @@ test('Team captain native subagent creates an actual Team member, assigned task 
 })
 
 test('Team explicit foreground waits for its actual assigned task to complete and returns official output', { timeout: 15_000 }, async t => {
-  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams')
+  const { ctx, stateRoot, adapter, captain, execute, diagnose } = await fixture(t, 'teams')
   let settled = false
   let observedResult
   const pending = execute(captain, 'subagent', {
@@ -286,11 +304,14 @@ test('Team explicit foreground waits for its actual assigned task to complete an
     if (observedResult?.isError) assert.fail(`foreground delegation was rejected: ${text(observedResult)}`)
     return findTeamByCaptain(stateRoot, captain.id)
   }, 'foreground delegation did not create a Team')
-  const member = await eventually(async () => (await readTeam(stateRoot, team.id))?.members.find(item => item.id !== ''), 'foreground delegation never published a member')
+  const member = await eventually(async () => {
+    if (observedResult?.isError) assert.fail(`foreground delegation was rejected: ${text(observedResult)}`)
+    return (await readTeam(stateRoot, team.id))?.members.find(item => item.id !== '')
+  }, 'foreground delegation never published a member', 5_000, diagnose)
   await eventually(() => adapter.requests.length > 0, 'foreground member greeting never executed')
   assert.equal(settled, false, 'foreground cannot complete while the member is still greeting')
   adapter.release(0)
-  const task = await assignedTask(stateRoot, team.id, member.name)
+  const task = await assignedTask(stateRoot, team.id, member.name, diagnose)
   const child = await eventually(() => ctx.agents.get(SessionId(member.id)), 'foreground child never became live')
   await eventually(() => adapter.requests.length > 1, 'foreground child never executed its assigned task')
   assert.equal(settled, false, 'the result cannot pretend success before the actual Team task is terminal')
@@ -350,7 +371,7 @@ for (const phase of ['staged', 'halted']) {
 }
 
 test('Concurrent Team native delegations share one Team and persist distinct members, tasks, attempts and child ids', { timeout: 15_000 }, async t => {
-  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams')
+  const { ctx, stateRoot, adapter, captain, execute, diagnose } = await fixture(t, 'teams')
   const prompts = [DELEGATED_PROMPT + ' 分支一', DELEGATED_PROMPT + ' 分支二']
   const results = await Promise.all(prompts.map((prompt, index) => execute(captain, 'subagent', {
     description: `并发离线委派 ${index + 1}`, prompt,
@@ -365,7 +386,7 @@ test('Concurrent Team native delegations share one Team and persist distinct mem
   const ready = await eventually(async () => {
     const fresh = await readTeam(stateRoot, team.id)
     return fresh?.tasks.length === 2 && fresh.tasks.every(item => item.attemptId) ? fresh : undefined
-  }, 'concurrent tasks were lost or not assigned')
+  }, 'concurrent tasks were lost or not assigned', 5_000, diagnose)
   assert.equal(ready.members.length, 2)
   assert.equal(new Set(ready.members.map(item => item.name)).size, 2)
   assert.deepEqual(new Set(ready.members.map(item => item.id)), new Set(childIds))
@@ -491,7 +512,7 @@ test('Team malformed native arguments fail validation before persistent writes o
 })
 
 test('Cancelling a foreground compatibility wait returns an error and preserves the actual delegated Team task', { timeout: 15_000 }, async t => {
-  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams')
+  const { ctx, stateRoot, adapter, captain, execute, diagnose } = await fixture(t, 'teams')
   const controller = new AbortController()
   let observedResult
   const pending = execute(captain, 'subagent', {
@@ -504,7 +525,7 @@ test('Cancelling a foreground compatibility wait returns an error and preserves 
   const member = await eventually(async () => (await readTeam(stateRoot, team.id))?.members.find(item => item.id), 'cancel fixture did not create a member')
   await eventually(() => adapter.requests.length > 0, 'cancel fixture greeting never ran')
   adapter.release(0)
-  const task = await assignedTask(stateRoot, team.id, member.name)
+  const task = await assignedTask(stateRoot, team.id, member.name, diagnose)
   await eventually(() => adapter.requests.length > 1, 'cancel fixture task never ran')
   controller.abort(new Error('caller cancelled the foreground wait'))
   const result = await pending
