@@ -2410,8 +2410,9 @@ try {
         `$f = '${lockedJson.replaceAll("'", "''")}';
          $s = [System.IO.File]::Open($f, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite);
          [Console]::Out.WriteLine('HELD'); [Console]::Out.Flush();
-         Start-Sleep -Seconds 45; $s.Dispose()`],
-      { stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true },
+         [Console]::In.ReadLine() | Out-Null;
+         [Threading.Thread]::Sleep(400); $s.Dispose()`],
+      { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true },
     )
     const held = await new Promise((resolve, reject) => {
       let buffer = ''
@@ -2450,6 +2451,18 @@ try {
         )
         check('failed Windows commit leaves caller and persisted task revisions unchanged',
           lockedTeam.tasks[0].revision === priorRevision && persisted.tasks[0].revision === priorRevision)
+        // A clean Windows runner can keep the replacement target locked for
+        // longer than the former 150ms budget. Confirm real late release still
+        // commits via rename, without reintroducing a direct-write fallback.
+        holder.stdin.write('\n')
+        let lateReleaseError
+        await writeTeam(atomicStateRoot, lockedTeam).catch(error => { lateReleaseError = error })
+        const recovered = await readTeam(atomicStateRoot, lockedTeam.id)
+        check('a real Windows lock released after 400ms recovers without losing the atomic commit',
+          lateReleaseError === undefined && recovered?.members.length === 1
+            && recovered.tasks[0].description === 'next uncommitted draft'
+            && lockedTeam.tasks[0].revision === recovered.tasks[0].revision,
+          String(lateReleaseError ?? ''))
       }
       // Archive moves the whole team directory with `rename(source, target)`.
       // The same Windows delete-sharing EPERM applies when a file below the

@@ -755,8 +755,8 @@ function stripLeadingBom(value: string): string {
 
 /** Bounded rename attempts; a busy target keeps its previous committed bytes. */
 const ATOMIC_RENAME_RETRIES = 3
-/** Pause between rename attempts, giving a briefly-locking owner time to finish. */
-const ATOMIC_RENAME_RETRY_DELAY_MS = 50
+/** Four attempts span 750ms; real Windows readers can outlast the old 150ms window. */
+const ATOMIC_RENAME_RETRY_DELAY_MS = 250
 /**
  * Rename error codes worth retrying before surfacing the failure. On
  * Windows, replacing an existing file whose target is momentarily held open

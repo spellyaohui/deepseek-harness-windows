@@ -23,6 +23,10 @@ review and integration admission, labelled member/executor/review evidence, atom
 rename failure, slow settings-response lifetime and durable turn notification binding
 are covered by governance-audit.test.mjs, quality-gates-tdd.mjs, verify.mjs,
 settings-client-verify.mjs, lifecycle-verify.mjs and the wrapper's real runtime tests.
+Clean Windows CI exposed native replacement EPERM beyond the former 150ms
+window. Four attempts now span 750ms; the real 400ms late-release regression
+fails against the old policy and passes against this bounded policy. Persistent
+locks still preserve committed bytes/revisions and never use direct overwrite.
 See [full ten-item evidence and limitations](../../docs/GOVERNANCE_ACCEPTANCE_20261007.md).
 
 No Team migration, second store, resolver, UI layout replacement or startup owner is
