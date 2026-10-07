@@ -58,6 +58,12 @@ Windows 构建/启动均通过，结果记录在 [rc.17 发布记录](../win-des
 模型实际调用以真实 Cordis/AgentLoop/Settings runtime 加受控适配器验证；未调用收费模型或真实
 用户网关、未使用用户凭据。隔离打包验证不等于真实 NSIS 安装、第二台机器验证或线上发布。
 
+最终远端 [Windows CI 37616589848](https://github.com/spellyaohui/deepseek-harness-windows/actions/runs/37616589848)
+对生产提交 `70746f9` 已结束为 failure：Team/Native 15/21 通过，仍有真实原子替换 EPERM
+及由此暴露的委派失败，安装验收跳过。750ms 窗口是有界恢复策略，不保证所有占用都可恢复；
+具体占用者尚未证明。此限制随用户明确授权的 rc.17 预发布公开记录，不计作已验收通过，
+不删除、跳过或弱化相关回归；发布的是本地完整强制门禁和实际包验收通过的重建附件。
+
 2026-10-07 单独只读核对 [官方 Harness releases](https://github.com/deepseek-ai/deepseek-harness/releases)
 与 [官方 AgentTeams releases](https://github.com/NanmiCoder/dsh-agent-teams/releases)：前者已有
 `v0.2.1-alpha.1`，后者为 `v0.1.22`；按用户约束不擅升 alpha，也不改固定运行时依赖。
