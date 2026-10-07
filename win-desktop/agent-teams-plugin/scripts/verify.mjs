@@ -11,7 +11,8 @@
  */
 
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { existsSync, promises as filesystemPromises } from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -2452,9 +2453,9 @@ try {
       }
       // Archive moves the whole team directory with `rename(source, target)`.
       // The same Windows delete-sharing EPERM applies when a file below the
-      // directory is momentarily locked, so it retries the rename. A short
-      // (≈150 ms) lock falls inside the retry window and must not abort the
-      // archive.
+      // directory is momentarily locked, so it retries the rename. Release
+      // the real handle only after observing the first native EPERM: a fixed
+      // sleep close to the retry budget races Windows runner scheduling.
       const { archiveTeamDir } = await import('../lib/state.js')
       const transientTeam = {
         schemaVersion: 2,
@@ -2476,8 +2477,9 @@ try {
           `$f = '${transientJson.replaceAll("'", "''")}';
            $s = [System.IO.File]::Open($f, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite);
            [Console]::Out.WriteLine('HELD_T'); [Console]::Out.Flush();
-           [Threading.Thread]::Sleep(140); $s.Dispose()`],
-        { stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true },
+           [Console]::In.ReadLine() | Out-Null; $s.Dispose();
+           [Console]::Out.WriteLine('RELEASED_T'); [Console]::Out.Flush()`],
+        { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true },
       )
       const flashed = await new Promise((resolve, reject) => {
         let buffer = ''
@@ -2498,14 +2500,47 @@ try {
         flasher.stdout.on('data', onData)
         flasher.on('exit', onExit)
       })
+      const nativeRename = filesystemPromises.rename
+      let archiveRenameCalls = 0
+      let observedLockError
+      filesystemPromises.rename = async (from, to) => {
+        if (from !== join(atomicStateRoot, transientTeam.id)) return nativeRename(from, to)
+        archiveRenameCalls += 1
+        try {
+          return await nativeRename(from, to)
+        } catch (error) {
+          if (archiveRenameCalls === 1) {
+            observedLockError = error
+            await new Promise((resolve, reject) => {
+              let buffer = ''
+              const onData = chunk => {
+                buffer += chunk.toString()
+                if (buffer.includes('RELEASED_T')) { cleanup(); resolve() }
+              }
+              const onExit = () => { cleanup(); reject(new Error('transient holder exited before confirmed release')) }
+              const timer = setTimeout(() => { cleanup(); reject(new Error('timed out waiting for confirmed release')) }, 10_000)
+              function cleanup() {
+                clearTimeout(timer)
+                flasher.stdout.off('data', onData)
+                flasher.off('exit', onExit)
+              }
+              flasher.stdout.on('data', onData)
+              flasher.on('exit', onExit)
+              flasher.stdin.write('\n')
+            })
+          }
+          throw error
+        }
+      }
+      syncBuiltinESMExports()
       try {
-        // The flasher releases after ~140 ms; archiveTeamDir retries the
-        // rename across that window, so archiving must still succeed.
         await archiveTeamDir(atomicStateRoot, transientTeam.id)
         const archived = await readFile(join(atomicStateRoot, 'archive', transientTeam.id, 'team.json'), 'utf8')
         check(
           'archiveTeamDir survives a transient Windows directory lock via rename retries',
-          flashed && JSON.parse(archived).id === transientTeam.id,
+          flashed && observedLockError?.code === 'EPERM' && archiveRenameCalls === 2
+            && JSON.parse(archived).id === transientTeam.id,
+          `native lock error = ${observedLockError?.code}, rename calls = ${archiveRenameCalls}`,
         )
       } catch (error) {
         check(
@@ -2514,6 +2549,8 @@ try {
           String(error),
         )
       } finally {
+        filesystemPromises.rename = nativeRename
+        syncBuiltinESMExports()
         flasher.kill()
       }
     } finally {
