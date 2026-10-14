@@ -9,8 +9,24 @@
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.23-desktop.6`.
+- Desktop fork version is `0.1.23-desktop.7`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
+
+## 2026-10-14 desktop.7 Windows lifecycle scheduling
+
+REAPPLY: status observations serialize per durable child. The official disposal
+event provides a second pending-work scheduling opportunity after a Windows idle
+write failed. Under the Team lock reject obsolete status and replaced live Agent
+identities before parking, notifications or scheduling. Atomic failure remains
+fail-safe. Disposal fallback requires that exact Agent to have emitted a real idle
+edge; creation-only failures do not loop into new attempts. No new timers,
+automatic active-attempt reruns or migration are added.
+Real native FileShare lock RED→GREEN and slow actual-runtime suite68/68, then
+full offline gate passed (wrapper209/209). Retain scripts/team-subagent-compat.test.mjs
+and scripts/stability-tdd.mjs. Foreground denial keeps whole-state/mailbox/no-request
+checks after normal durable settlement. Persistent storage faults are not claimed
+healed. Final CI/artifact proof belongs to [desktop.7 notes](release-notes/v0.1.23-desktop.7.md)
+and wrapper rc.25; recommended Harness0.2.0-rc.2 and upstream source remain fixed.
 
 ## 2026-10-14 desktop.6 frozen role tool inheritance
 

@@ -10,6 +10,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { spawn } from 'node:child_process'
 import { Context } from '@deepseek-ai/cordis'
 import { createVolatile, updateVolatile } from '@deepseek-ai/cosmokit'
 import { LlmAdapter, ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -104,6 +105,10 @@ async function fixture(t, mode, { modelSelection = false, profiles = {}, default
   const adapter = new OfflineAdapter()
   const statusEvents = []
   const toolResults = []
+  const warnings = []
+  ctx.logger.exporter({ levels: { default: 3 }, export(message) {
+    if (message.type === 'warn') warnings.push(message.args.map(String).join(' '))
+  } })
   ctx.on('agent/status', ({ agent, status }) => { statusEvents.push({ id: agent.id, status }) })
   ctx.on('agent/error', ({ agent, error }) => { statusEvents.push({ id: agent.id, error: String(error) }) })
   t.after(async () => {
@@ -175,10 +180,10 @@ async function fixture(t, mode, { modelSelection = false, profiles = {}, default
       members: team?.members.map(({ id, name, status }) => ({ id, name, status, liveStatus: ctx.agents.get(SessionId(id))?.status })),
       tasks: team?.tasks.map(({ id, status, assignee, attemptId }) => ({ id, status, assignee, attemptId })),
       childRequests: adapter.requests.map(({ sessionId }) => sessionId),
-      statusEvents: statusEvents.slice(-128), toolResults: toolResults.slice(-64),
+      statusEvents: statusEvents.slice(-128), toolResults: toolResults.slice(-64), warnings: warnings.slice(-16),
     })
   }
-  return { ctx, workspace, stateRoot, adapter, captain: handle.agent, execute, teamFiber, diagnose }
+  return { ctx, workspace, stateRoot, adapter, captain: handle.agent, execute, teamFiber, diagnose, warnings }
 }
 
 async function readStoredSession(ctx, id) {
@@ -627,6 +632,70 @@ test('Team captain native subagent creates an actual Team member, assigned task 
   adapter.release(1)
 })
 
+test('settled child retries pending dispatch after idle scheduling hits a Windows sharing violation', { timeout: 15_000, skip: process.platform !== 'win32' }, async t => {
+  const { ctx, stateRoot, adapter, captain, execute, diagnose, warnings } = await fixture(t, 'teams', { temporaryAuthorization: true })
+  const result = await execute(captain, 'subagent', { description: 'Windows idle edge', prompt: DELEGATED_PROMPT })
+  assert.equal(result.isError, false, text(result))
+  const team = await findTeamByCaptain(stateRoot, captain.id)
+  const member = team.members[0]
+  await eventually(() => adapter.requests.length === 1, 'greeting never executed', 5_000, diagnose)
+  const path = join(stateRoot, team.id, 'team.json')
+  const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+    `$s = [IO.File]::Open('${path.replaceAll("'", "''")}', [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite); [Console]::Out.WriteLine('HELD'); [Console]::Out.Flush(); [Console]::In.ReadLine() | Out-Null; $s.Dispose()`],
+  { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true })
+  let output = ''
+  holder.stdout.on('data', chunk => { output += chunk })
+  const closed = new Promise((resolve, reject) => { holder.once('exit', resolve); holder.once('error', reject) })
+  try {
+    await eventually(() => output.includes('HELD'), 'native Windows lock did not arm')
+    adapter.release(0)
+    await eventually(() => warnings.some(message => message.includes('member status scheduling failed') && message.includes('EPERM')), 'idle status did not encounter the real sharing violation', 5_000, diagnose)
+    assert.equal((await readTeam(stateRoot, team.id)).tasks[0].status, 'pending', 'failed atomic replace cannot commit an attempt')
+    holder.stdin.end('\n')
+    await closed
+    const task = await assignedTask(stateRoot, team.id, member.name, diagnose)
+    await eventually(() => adapter.requests.length === 2, 'settled child did not receive exactly one task', 5_000, diagnose)
+    assert.equal(task.attempt, 1, 'no failed-write attempt may be spent')
+    const child = ctx.agents.get(SessionId(member.id))
+    await completeTaskThroughMemberTools(execute, child, task)
+    adapter.release(1)
+  } finally {
+    holder.stdin.end('\n')
+    await closed
+  }
+})
+
+test('failed cold child creation cannot turn disposal into an unbounded scheduling retry', { timeout: 15_000 }, async t => {
+  const { ctx, stateRoot, adapter, captain, execute, diagnose, warnings } = await fixture(t, 'teams', { temporaryAuthorization: true })
+  const result = await execute(captain, 'subagent', { description: 'cold failure', prompt: DELEGATED_PROMPT })
+  assert.equal(result.isError, false, text(result))
+  const team = await findTeamByCaptain(stateRoot, captain.id)
+  const member = team.members[0]
+  await eventually(() => adapter.requests.length === 1, 'initial greeting never executed')
+  let coldCreations = 0
+  ctx.on('agent/created', ({ agent }) => {
+    if (agent.id === member.id && ++coldCreations <= 4) throw new Error('controlled cold creation refusal')
+  })
+  // Hold the durable Team lock until the native child has actually unloaded.
+  const entered = Promise.withResolvers(), release = Promise.withResolvers()
+  const holding = withTeamLock(`team:${stateRoot}:${team.id}`, async () => { entered.resolve(); await release.promise })
+  await entered.promise
+  try {
+    adapter.release(0)
+    await eventually(() => ctx.agents.get(SessionId(member.id)) === undefined, 'greeting child never unloaded')
+  } finally { release.resolve(); await holding }
+  await eventually(() => coldCreations > 0 && warnings.some(message => message.includes('followup to member') && message.includes('unavailable')), 'cold continuation refusal was not exercised', 5_000, diagnose)
+  await eventually(async () => {
+    const current = await readTeam(stateRoot, team.id)
+    return coldCreations > 2 || (current.tasks[0].status === 'pending' && current.tasks[0].attempt === 2)
+  }, 'both mature lifecycle opportunities must settle', 5_000, diagnose)
+  assert.ok(coldCreations <= 2, `creation-only disposal must not retry again: ${coldCreations}; ${await diagnose()}`)
+  const current = await readTeam(stateRoot, team.id)
+  assert.equal(current.tasks[0].status, 'pending')
+  assert.equal(current.tasks[0].attemptId, undefined)
+  assert.equal(adapter.requests.length, 1, 'failed admission spends no task model request')
+})
+
 test('temporary-admission markers are host-only strict state, never model tool fields', { timeout: 15_000 }, async t => {
   const { ctx, captain, stateRoot, execute } = await fixture(t, 'teams', { temporaryAuthorization: true, temporaryMember: TEMPORARY_MEMBER_POLICY })
   const directSchemas = ctx.tools.schemas(captain)
@@ -706,6 +775,7 @@ test('Team explicit foreground waits for its actual assigned task to complete an
   const persisted = await readTeam(stateRoot, team.id)
   assert.equal(persisted.tasks.find(item => item.id === task.id)?.status, 'completed')
   await eventually(() => ctx.agents.get(SessionId(member.id)) === undefined, 'completed temporary member must unload')
+  await eventually(async () => (await readTeam(stateRoot, team.id)).members.find(item => item.id === member.id)?.status === 'idle', 'completed member durable status must settle before checking unauthorized writes', 5_000, diagnose)
   captain.session.append('turn/start', { turn: 2 })
   captain.session.append('user/message', { source: { kind: 'user' }, content: [{ type: 'text', text: 'continue normally' }] }, { surfaceOp: 'append' })
   const beforeMessage = await readTeam(stateRoot, team.id)

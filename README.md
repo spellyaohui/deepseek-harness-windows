@@ -2,7 +2,11 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.24` · [rc.24 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.24)
+> 当前源码版本：`v0.2.0-rc.25` · [rc.25 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.25)
+
+## Windows 调度收尾：`v0.2.0-rc.25`
+
+AgentTeams `0.1.23-desktop.7` 修复 Windows 原子调度写入失败后 pending 任务丢失唤醒；只为确实结束过回合的成员处理释放补调度，创建失败不形成重试循环。旧状态/替换 Agent 不影响当前任务；宿主仍固定插件推荐的 `0.2.0-rc.2`。全部累计治理保留，用户配置不自动切换。详见 [rc.25 记录](win-desktop/release-notes/v0.2.0-rc.25.md)；rc.24 因干净 CI 失败保留为未发布草稿。
 
 ## 累计改进与权限继承：`v0.2.0-rc.24`
 

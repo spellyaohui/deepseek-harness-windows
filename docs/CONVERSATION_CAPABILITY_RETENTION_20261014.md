@@ -7,7 +7,7 @@
 - Harness `0.2.0-rc.2`：`639ed015397290b3745d163aafe02ffee4aa3f84`。跟随 AgentTeams 声明的推荐宿主，不因 Harness 单独发版就浮动升级。
 - AgentTeams 上游 `v0.1.23`：`1094b84add6f2fb19edf659367fe2fd5f7f14154`。保留上游新功能；本地补丁仅补上游未覆盖的合同。
 - Superpowers 官方 `v7.0.0`：`bb92a77741419a4ab5f06e711a283343f1ada0c3`，15 个技能、75 份原始文件及 LICENSE，总摘要 `4b646fcbb694f25c32d5840657cc20becb1b0e9791a9de5d4081898cf09116c7`。只做 Harness 工具映射，不创建第二套工具、Hook 或调度器。
-- Electron `44.0.0`。本轮发布包身份、校验和与验收边界见 [rc.24 发布记录](../win-desktop/release-notes/v0.2.0-rc.24.md)。
+- Electron `44.0.0`。本轮发布包身份、校验和与验收边界见 [rc.25 发布记录](../win-desktop/release-notes/v0.2.0-rc.25.md)；rc.24 因干净 CI 未通过保持草稿。
 
 ## 必须保留的现行能力
 
@@ -51,6 +51,8 @@
 5. 发布只提交审查后的精确源路径；EXE/ZIP/blockmap 进 Release，不进 Git。上传后复读 main/tag peeled commit、每项资产大小/摘要；清理只移除已核对且可重建的构建缓存和本次临时材料。
 
 ## 本轮证据与边界
+
+- rc.25 / AgentTeams desktop.7：真实 Windows 共享锁复现 idle 调度写入失败后 pending 丢失唤醒；顺序化状态观察、锁内过时/替换 Agent 拒绝，官方释放事件提供第二次机会。只允许确实发出过 idle 的精确 Agent；独立复核发现的创建失败循环经真实冷恢复 RED→GREEN 修复。保留 team-subagent-compat/stability 全部回归；不直接覆写、不无限重试、不轮询重跑已执行 attempt。持久文件锁仍需显式恢复，代码/CI/安装/付费模型/隔夜验收分开。
 
 - 累计只读复核发现并阻断：角色副本漏冻结工具限制。4 个实证失败后最小修复，5 个权限回归通过；完整门禁与新包校验另记 rc.24。
 - 轻微遗留：临时成员设置的旧帮助文字未完全表达当前真人授权边界；运行时严格拒绝仍有效，本轮不扩大范围修 UI 文案。

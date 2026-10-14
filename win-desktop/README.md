@@ -1,6 +1,10 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.24`；[rc.24 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.24)。
+本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.25`；[rc.25 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.25)。
+
+## Windows 调度收尾：`v0.2.0-rc.25`
+
+AgentTeams `0.1.23-desktop.7` 保留全部累计治理，修复原子 idle 调度写入遇共享锁后的 pending 唤醒丢失。官方释放事件只对确实结束过回合的精确 Agent 补调度；创建失败不循环重试，旧状态不影响当前任务。不修改用户配置、会话或安装目录。见 [rc.25 记录](release-notes/v0.2.0-rc.25.md)；rc.24 干净 CI 失败，保持未发布草稿。
 
 ## 累计发布与权限继承：`v0.2.0-rc.24`
 

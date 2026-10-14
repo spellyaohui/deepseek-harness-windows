@@ -3,7 +3,9 @@ import { test } from 'node:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createTeamDir, createMessage, appendMailbox, readMailbox, readUnreadMailbox, readPendingMailbox, markMailboxDelivered, writeTeam } from '../lib/state.js'
+import { setTimeout as delay } from 'node:timers/promises'
+import { createTeamDir, createMessage, appendMailbox, readMailbox, readUnreadMailbox, readPendingMailbox, markMailboxDelivered, readTeam, withTeamLock, writeTeam } from '../lib/state.js'
+import { installTeamScheduler } from '../lib/scheduler.js'
 import { canDeclareDelivery } from '../lib/quality-gates.js'
 import { installMailboxAdmission, mailboxPrompt } from '../lib/mailbox.js'
 import { installMemberSelectionRuntime, installMemberDelegationGuard } from '../lib/members.js'
@@ -143,4 +145,33 @@ await test('member-relative delegation limit covers raw runtime calls and preser
   await assert.rejects(h.ctx.subagents.startContinuable({ request: { parent: worker } }), /delegation limit/)
   await h.ctx.subagents.start('spawn', { parent: captain })
   assert.deepEqual(created, ['captain'])
+})
+
+await test('an obsolete idle edge cannot park or report the current running attempt', async t => {
+  const h = await fixture(t)
+  const child = { id: 'worker', status: 'idle', session: { header: { cwd: h.workspace }, ownEvents: () => [] } }
+  const captain = { id: 'captain', status: 'running', session: { header: { cwd: h.workspace } } }
+  const observed = Promise.withResolvers()
+  let observations = 0
+  h.ctx.agents = { get: id => {
+    if (id === 'worker') { if (++observations === 2) observed.resolve(); return child }
+    return id === 'captain' ? captain : undefined
+  } }
+  let dispatched = 0
+  installTeamScheduler(h.ctx, { stateDir: '.agent-teams', dispatch: async () => { dispatched++; return true } })
+  const entered = Promise.withResolvers(), release = Promise.withResolvers()
+  const holding = withTeamLock(`team:${h.root}:team`, async () => { entered.resolve(); await release.promise })
+  await entered.promise
+  try {
+    h.handlers.get('agent/status')({ agent: child, status: 'idle' })
+    child.status = 'running'
+    h.handlers.get('agent/status')({ agent: child, status: 'running' })
+  } finally { release.resolve(); await holding }
+  await Promise.race([observed.promise, delay(2_000).then(() => assert.fail('both status edges must check the current live child'))])
+  // The second live check runs inside the Team lock; this sentinel follows it.
+  await withTeamLock(`team:${h.root}:team`, async () => {
+    assert.deepEqual(await readTeam(h.root, 'team'), h.state)
+    assert.deepEqual(await readMailbox(h.root, 'team', 'captain'), [])
+  })
+  assert.equal(dispatched, 0)
 })

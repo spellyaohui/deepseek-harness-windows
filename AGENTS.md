@@ -310,6 +310,21 @@ evidence that the local capability is preserved.
   covering both planning modes, staged approval, frozen policies, concurrent calls,
   unavailable defaults with zero writes, explicit role bindings and cold recovery.
 
+## AgentTeams `0.1.23-desktop.7` Windows lifecycle scheduling
+
+- Per-child status observations are ordered. Only an exact Agent with a real
+  prior idle edge may use the official disposal event; creation-only disposal
+  must never create a scheduling retry loop. The eligible disposal event
+  is a second event-driven pending-work scheduling opportunity after an idle
+  atomic write failed; no timer-based rerun or direct state overwrite is allowed.
+- Check exact live Agent identity and current status inside the Team lock before
+  parking, reporting or scheduling. Obsolete/replaced observations do nothing.
+  Captain cross-turn ownership and parked executed attempts remain unchanged.
+- Retain real Windows FileShare lock/AgentLoop and obsolete-edge regressions in
+  `team-subagent-compat.test.mjs` and `stability-tdd.mjs`. Foreground denial tests
+  settle durable idle before capturing state; never remove zero-write/no-wake checks.
+  Persistent storage failure may still need explicit recovery; do not claim otherwise.
+
 ## AgentTeams `0.1.23-desktop.6` frozen tool-policy inheritance
 
 - Numbered role members and exact `role_template` clones inherit the current

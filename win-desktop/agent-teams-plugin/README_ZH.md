@@ -2,7 +2,7 @@
   <a href="./README.md">English</a> · <strong>简体中文</strong>
 </p>
 
-当前桌面分支为 `0.1.23-desktop.6`，上游 v0.1.23 和宿主 Harness `0.2.0-rc.2` 固定来源不变。编号角色与精确模板副本省略工具策略时继承冻结的 policy/filter，显式策略仍优先。包含 desktop.2–.5 的 Profile/临时真人授权、防空转和就绪诊断，保留角色模型/思考规则、严格 V2、质量审计与唯一网关。用户自行切换 software-delivery 的“队长动态规划”并保存，不要恢复默认；安装不改当前配置。完整回归、打包及人工验收见 [分支记录](release-notes/v0.1.23-desktop.6.md) 和 [累计保留索引](../../docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md)；此 fork 不发布 npm 包。
+当前桌面分支为 `0.1.23-desktop.7`，上游 v0.1.23 和宿主 Harness `0.2.0-rc.2` 固定来源不变。保留冻结角色工具权限、模型/思考、严格 V2、质量审计、唯一网关和 desktop.2–.6 全部治理。状态观察顺序化，释放补调度只适用于确实结束过回合的精确 Agent；修复 Windows 原子写失败后的唤醒丢失，不让创建失败循环重试。用户自行切换 software-delivery 的“队长动态规划”并保存，不要恢复默认；安装不改当前配置。完整回归、打包及人工验收见 [分支记录](release-notes/v0.1.23-desktop.7.md) 和 [累计保留索引](../../docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md)；此 fork 不发布 npm 包。
 AgentTeams 设置新增独立的“临时子智能体”默认 Provider、模型及思考策略，适用于 Team 模式队长的临时调用；支持连续及并发调用，不覆盖 Profile 角色与 Native 设置。指定模型不可用会报错，已创建成员保留原路由。
 Team 模式下仅当前用户明确授权的 `/agent-teams --temporary <目标>` 临时调用转交到真实团队成员和任务；前后台、路由、审批、暂停、成员权限均保留。Native 模式不变。
 配置页字号、字重、行高与表单控件对齐官方组件。

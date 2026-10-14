@@ -39,7 +39,7 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
     ['agent-teams-plugin', '@nanmicoder/dsh-agent-teams'],
   )
   const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
-  assert.equal(packageJson.version, '0.1.23-desktop.6')
+  assert.equal(packageJson.version, '0.1.23-desktop.7')
 })
 
 test('AgentTeams declared repair utility and v0.1.23 notes match the local owner', () => {
@@ -53,6 +53,7 @@ test('AgentTeams declared repair utility and v0.1.23 notes match the local owner
     'release-notes/v0.1.23-desktop.4.md',
     'release-notes/v0.1.23-desktop.5.md',
     'release-notes/v0.1.23-desktop.6.md',
+    'release-notes/v0.1.23-desktop.7.md',
   ]) {
     assert.deepEqual(readFileSync(new URL(file, source)), readFileSync(new URL(file, installed)), file)
   }

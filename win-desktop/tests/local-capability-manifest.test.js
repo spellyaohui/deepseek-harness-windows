@@ -32,7 +32,7 @@ const localVersions = {
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.1',
   'dsh-output-limit-finish': '0.1.1',
   '@deepseek-ai/dsh-superpowers': '0.1.1',
-  '@nanmicoder/dsh-agent-teams': '0.1.23-desktop.6',
+  '@nanmicoder/dsh-agent-teams': '0.1.23-desktop.7',
 }
 
 const sourcePluginDirectories = [
@@ -55,9 +55,9 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.2.0-rc.24')
-  assert.equal(packageLock.version, '0.2.0-rc.24')
-  assert.equal(packageLock.packages[''].version, '0.2.0-rc.24')
+  assert.equal(packageJson.version, '0.2.0-rc.25')
+  assert.equal(packageLock.version, '0.2.0-rc.25')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.25')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
   assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.4')
@@ -65,10 +65,10 @@ test('desktop composition retains every independently owned local plugin', () =>
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.2.0-rc.2-desktop.4',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.23-desktop.6')
+  assert.equal(agentTeamsPackage.version, '0.1.23-desktop.7')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.23-desktop.6',
+    '0.1.23-desktop.7',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -199,6 +199,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/release-notes/v0.1.23-desktop.4.md',
     'agent-teams-plugin/release-notes/v0.1.23-desktop.5.md',
     'agent-teams-plugin/release-notes/v0.1.23-desktop.6.md',
+    'agent-teams-plugin/release-notes/v0.1.23-desktop.7.md',
     'agent-teams-plugin/src/inactive-poll-guard.ts',
     'agent-teams-plugin/scripts/inactive-poll-guard.test.mjs',
     'agent-teams-plugin/src/artifacts.ts',
@@ -234,6 +235,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'release-notes/v0.2.0-rc.22.md',
     'release-notes/v0.2.0-rc.23.md',
     'release-notes/v0.2.0-rc.24.md',
+    'release-notes/v0.2.0-rc.25.md',
     'agent-teams-plugin/src/workspace-audit.ts',
     'agent-teams-plugin/scripts/coverage-contract-consistency.test.mjs',
     'agent-teams-plugin/scripts/team-return-guidance.test.mjs',

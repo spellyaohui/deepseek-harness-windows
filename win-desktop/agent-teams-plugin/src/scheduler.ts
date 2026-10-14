@@ -285,6 +285,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
   // graph kicks must keep it parked. A cold process starts with an empty map,
   // so durable open attempts are still recovered after restart.
   const parkedAttempts = new Map<string, string>()
+  const settledAgents = new WeakSet<Agent>()
 
   const memberQueueKey = (stateRoot: string, teamId: string, memberName: string): string => (
     `${stateRoot}\u0000${teamId}\u0000${memberName}`
@@ -518,10 +519,14 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
       parkedAttempts.delete(agentSessionId)
       return
     }
+    let observed = false
     const notice = await withTeamLock(teamLockKey(stateRoot, located.id), async () => {
       const fresh = await readTeam(stateRoot, located.id)
       const current = fresh?.members.find(candidate => candidate.id === agentSessionId && candidate.status !== 'removed')
       if (fresh === undefined || current === undefined) return
+      const live = liveMember(ctx, current)
+      if ((live !== undefined && live !== agent) || agent.status !== status) return
+      observed = true
       const next = status === 'running' ? 'working' : 'idle'
       let report: TeamMessage | undefined
       if (next === 'idle') {
@@ -555,6 +560,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
       }
       return report === undefined ? undefined : { captainSessionId: fresh.captainSessionId, report }
     })
+    if (!observed) return
     if (notice !== undefined) {
       const captain = liveCaptain(ctx, notice.captainSessionId)
       const delivered = captain !== undefined && steerCaptainReport(captain, member.name, notice.report.content,
@@ -568,10 +574,19 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
     if (status === 'idle') await runtime.kickMember(workspace, located.id, member.name)
   }
 
-  ctx.on('agent/status', ({ agent, status }) => {
-    void syncMemberStatus(agent, status).catch((error: unknown) => {
+  const observeStatus = (agent: Agent, status: AgentStatus): void => {
+    const key = `status:${stateRootOf(agent.session.header.cwd ?? process.cwd(), config)}\u0000${durableSessionId(agent)}`
+    void serializeMember(key, () => syncMemberStatus(agent, status)).catch((error: unknown) => {
       ctx.logger.warn(`agent-teams: member status scheduling failed for ${durableSessionId(agent)}: ${String(error)}`)
     })
+  }
+  ctx.on('agent/status', ({ agent, status }) => {
+    if (status === 'idle') settledAgents.add(agent)
+    observeStatus(agent, status)
+  })
+  // The final release is a second event-driven chance after an idle write failed.
+  ctx.on('agent/disposed', ({ agent }) => {
+    if (settledAgents.has(agent)) observeStatus(agent, 'idle')
   })
 
   return runtime

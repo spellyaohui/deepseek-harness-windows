@@ -13,18 +13,37 @@ export, capability probing or the superseded Profile writer/native-card hiding.
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.24` (final gate/package evidence in the rc.24 release record)
+- Windows desktop wrapper: `0.2.0-rc.25` (gate/package/publication evidence in the rc.25 release record)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.1`
 - Output-limit finish plugin: `dsh-output-limit-finish@0.1.1`
 - OpenCode compatibility: manual validation retired at desktop `0.2.0-rc.4`; all remaining OpenCode rewrites and `model-fetcher` retired at `0.2.0-rc.16` by user request
-- AgentTeams fork: `0.1.23-desktop.6`, based on upstream `v0.1.23` at fixed commit
+- AgentTeams fork: `0.1.23-desktop.7`, based on upstream `v0.1.23` at fixed commit
   `1094b84add6f2fb19edf659367fe2fd5f7f14154`
 - CPA provider plugin: `0.1.11`
 - Models settings fork: `0.2.0-rc.2-desktop.4`
 - Desktop Settings plugin: `0.1.5`
 - Superpowers bundled skills: `@deepseek-ai/dsh-superpowers@0.1.1`, official v7.0.0
   at `bb92a77741419a4ab5f06e711a283343f1ada0c3`
+
+## Desktop 0.2.0-rc.25 Windows lifecycle scheduling — 2026-10-14
+
+Classification: REAPPLY, AgentTeams-owned. A failed atomic idle-edge scheduling
+write can strand pending work after the native child unloads. Observe the official
+agent/disposed edge as a second opportunity; serialize status observations and
+reject obsolete status or replaced live-Agent identities under the Team lock.
+Only an exact Agent with an actual prior idle edge admits that fallback; a failed
+cold creation's paired disposal cannot loop into further scheduling attempts.
+Do not broaden atomic retries, directly overwrite state, rotate parked executed
+attempts, or turn lifecycle repair into polling. Persistent storage faults still
+surface and may require explicit recovery. Preserve captain cross-turn ownership.
+Real Windows FileShare lock + production AgentLoop regression failed with pending
+work after unlock, then passed with exactly one attempt and task request. Foreground
+zero-write tests wait for normal durable idle settlement before taking a baseline;
+whole-state/mailbox/no-wake assertions remain. Keep team-subagent-compat.test.mjs
+and stability-tdd.mjs, including bounded scheduler-warning diagnostics. The full
+offline gate passed before identity sync (wrapper209/209); further artifact/CI
+proof is recorded in [rc.25 notes](../win-desktop/release-notes/v0.2.0-rc.25.md).
 
 ## Desktop 0.2.0-rc.24 frozen role tool inheritance — 2026-10-14
 

@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-202724" alt="DeepSeek Harness plugin">
 </p>
 
-Current desktop fork: `0.1.23-desktop.6`, based on fixed upstream v0.1.23 and pinned Harness `0.2.0-rc.2`. Numbered and exact-role clones inherit the frozen tool policy/filter when omitted; explicit policies still win. Includes desktop.2–.5 Profile/temporary authority, inactive pacing and readiness, role routes/reasoning, strict admission and the single durable gateway. User configuration is not changed automatically. See [fork notes](release-notes/v0.1.23-desktop.6.md) and [retention index](../../docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md) for regressions and separate package/user acceptance limits. No npm release is claimed.
+Current desktop fork: `0.1.23-desktop.7`, based on fixed upstream v0.1.23 and pinned Harness `0.2.0-rc.2`. Preserve frozen clone tool policies and all prior governance. Ordered lifecycle observations repair pending-work wakeups after a Windows atomic write failure; disposal fallback requires an exact Agent that actually became idle, preventing creation-failure retry loops. See [fork notes](release-notes/v0.1.23-desktop.7.md) and [retention index](../../docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md) for regressions and separate package/user acceptance limits. No npm release is claimed.
 
 ## One prompt. A working team.
 
