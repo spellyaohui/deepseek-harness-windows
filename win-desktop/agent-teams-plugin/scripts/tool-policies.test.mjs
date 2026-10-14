@@ -247,7 +247,7 @@ test('durable member records reject wrong-typed tool policy fields', async () =>
       await assert.rejects(readTeam(root, id), /AgentTeams V2 状态无效/u, `${id} must be rejected at the durable boundary`)
     }
   } finally {
-    await rm(root, { recursive: true, force: true })
+    await rm(root, { recursive: true, force: true, maxRetries: 8, retryDelay: 25 })
   }
 })
 
