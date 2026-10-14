@@ -12,7 +12,7 @@ const PROFILE_KEYS = new Set([
   'tasks', 'taskPlanning', 'reviewPolicy',
 ])
 const MEMBER_KEYS = new Set([
-  'name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback',
+  'name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback', 'tool_policy',
 ])
 const TASK_KEYS = new Set(['id', 'subject', 'description', 'assignee', 'dependencies'])
 const FALLBACK_KEYS = new Set(['provider', 'model'])
@@ -30,6 +30,7 @@ export interface TeamModelFallbackConfig {
 export type RoleReasoningMode = 'target-default' | 'route-aware' | 'explicit'
 
 export interface TeamProfileMemberConfig {
+  tool_policy?: string
   name: string
   role?: string
   provider?: string
@@ -273,7 +274,7 @@ function normalizeMemberForEditor(value: unknown): TeamProfileMemberConfig | und
   }
   if (reasoning_mode !== 'explicit' && reasoning_effort !== undefined) return undefined
   const member: TeamProfileMemberConfig = { name, reasoning_mode }
-  for (const key of ['role', 'executionPrompt'] as const) {
+  for (const key of ['role', 'executionPrompt', 'tool_policy'] as const) {
     const normalized = key === 'executionPrompt' ? promptString(value[key]) : trimString(value[key])
     if (normalized !== undefined && normalized !== '') member[key] = normalized
   }
@@ -482,7 +483,7 @@ function normalizeMemberForSave(value: unknown, path: string, errors: string[]):
     errors.push(`${path}.reasoning_effort is valid only for explicit policy`)
   }
   const member: TeamProfileMemberConfig = { name, reasoning_mode }
-  for (const key of ['role', 'executionPrompt'] as const) {
+  for (const key of ['role', 'executionPrompt', 'tool_policy'] as const) {
     const normalized = key === 'executionPrompt'
       ? promptString(value[key], `${path}.${key}`, errors)
       : optionalString(value[key], `${path}.${key}`, errors)

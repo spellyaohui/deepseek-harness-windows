@@ -2,6 +2,7 @@
 
 import type { MemberPolicySource, RoleReasoningMode } from '../selection-policy.ts'
 import type { TaskKind } from '../types.ts'
+import type { MemberToolFilter } from '../tool-policies.ts'
 
 /** One member row of a host snapshot. */
 export interface ActivityMember {
@@ -15,6 +16,8 @@ export interface ActivityMember {
   readonly modelPolicySource?: MemberPolicySource
   readonly fallbackActive?: boolean
   readonly executionPrompt?: string
+  readonly toolPolicy?: string
+  readonly toolFilter?: MemberToolFilter
   readonly status?: 'idle' | 'working' | 'removed'
   readonly activity: 'working' | 'idle' | 'unknown'
   readonly progress: number
@@ -49,6 +52,14 @@ export interface ActivityTask {
   readonly sourceTaskId?: string
   readonly sourceFindingIds?: readonly string[]
   readonly coverageOf?: readonly string[]
+  /**
+   * Server-side audit of this task's verdict against the current bytes. Set
+   * when the recorded pass (or its generated work order) no longer describes
+   * the workspace, so the panel cannot render a bare green verdict.
+   */
+  readonly verdictStale?: string
+  /** Durable last-write stamp; drives the finished-member ordering (issue #192). */
+  readonly updatedAt?: number
 }
 
 /** One captain-inbox preview row. */

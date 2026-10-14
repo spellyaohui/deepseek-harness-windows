@@ -82,7 +82,7 @@ async function fixture(t, mode) {
   const initialGetDescriptor = Object.getOwnPropertyDescriptor(ctx.tools, 'get')
   const teamConfig = {
     delegationMode: mode, stateDir: '.agent-teams', memberProvider: 'spawn',
-    memberMaxDepth: 0, maxMembers: 4, profiles: {}, slashCommand: false,
+    memberMaxDepth: 0, maxMembers: 4, profiles: { reporting: { taskPlanning: 'captain', members: [{ name: 'reporter', reasoning_mode: 'target-default' }] } }, defaultProfile: 'reporting', slashCommand: false,
   }
   const teamFiber = ctx.plugin(AgentTeams, teamConfig)
   await teamFiber
@@ -111,7 +111,7 @@ test('Team member first request advertises only usable reporting and no native r
   const { ctx, adapter, captain, execute } = await fixture(t, 'teams')
   const created = await execute(captain, 'agent_teams_create', { description: '团队返回指引离线回归' })
   assert.equal(created.isError, false, resultText(created))
-  const added = await execute(captain, 'agent_teams_add_member', { name: 'worker', role: '验证返回指引' })
+  const added = await execute(captain, 'agent_teams_add_member', { name: 'worker', role: '验证返回指引', role_template: 'reporter' })
   assert.equal(added.isError, false, resultText(added))
   const request = await eventually(() => adapter.requests.find(item => item.sessionId === added.value.member_id), 'the child did not reach the real model-request boundary')
   const child = ctx.agents.get(SessionId(added.value.member_id))
@@ -154,6 +154,8 @@ test('Native continuable child keeps official return guidance and adjacent-Agent
 
 test('Team policies hide later scoped native registrations and preserve captain subagent compatibility', { timeout: 15_000 }, async t => {
   const { ctx, adapter, captain, execute } = await fixture(t, 'teams')
+  captain.session.append('turn/start', { turn: 1 })
+  captain.session.append('user/message', { source: { kind: 'user' }, content: [{ type: 'text', text: '/agent-teams --temporary check scoped controls' }] }, { surfaceOp: 'append' })
   const delegated = await execute(captain, 'subagent', {
     description: '队长临时委派兼容边界', prompt: '离线检查团队控制工具。', run_in_background: true,
   })

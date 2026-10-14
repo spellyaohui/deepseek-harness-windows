@@ -5,21 +5,173 @@ DeepSeek Harness or AgentTeams upstream refresh. Root `AGENTS.md` defines the
 binding rules; this registry records who owns each capability and which tests
 prove it still exists.
 
+For the cumulative conversation requirements, active/retired distinction and
+next-refresh checklist, start with [the retention index](CONVERSATION_CAPABILITY_RETENTION_20261014.md).
+Historical owner rows below do not restore retired OpenCode, AUTO, Markdown
+export, capability probing or the superseded Profile writer/native-card hiding.
+
 ## Current local identities
 
 - Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.18` (local installer built and isolated package acceptance passed; not released)
+- Windows desktop wrapper: `0.2.0-rc.24` (final gate/package evidence in the rc.24 release record)
 - Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
 - Tool-call guidance plugin: `0.1.1`
 - Output-limit finish plugin: `dsh-output-limit-finish@0.1.1`
 - OpenCode compatibility: manual validation retired at desktop `0.2.0-rc.4`; all remaining OpenCode rewrites and `model-fetcher` retired at `0.2.0-rc.16` by user request
-- AgentTeams fork: `0.1.22-desktop.11`, based on upstream `v0.1.22` at fixed commit
-  `9cba4fe4171f27c019991cafd2a107f87ef3517b`
+- AgentTeams fork: `0.1.23-desktop.6`, based on upstream `v0.1.23` at fixed commit
+  `1094b84add6f2fb19edf659367fe2fd5f7f14154`
 - CPA provider plugin: `0.1.11`
 - Models settings fork: `0.2.0-rc.2-desktop.4`
 - Desktop Settings plugin: `0.1.5`
+- Superpowers bundled skills: `@deepseek-ai/dsh-superpowers@0.1.1`, official v7.0.0
+  at `bb92a77741419a4ab5f06e711a283343f1ada0c3`
 
-## Desktop 0.2.0-rc.18 custom-member routing — 2026-10-07
+## Desktop 0.2.0-rc.24 frozen role tool inheritance — 2026-10-14
+
+Classification: REAPPLY, AgentTeams-owned. Numbered and exact role_template
+clones inherit frozen toolPolicy/toolFilter when the optional tool_policy is
+omitted. Copy the current Team snapshot, not a later mounted owner policy;
+explicit policy selection keeps the existing resolver/validation and precedence.
+No V2/output Schema, tool set, gateway API, user configuration or migration change.
+Four real-runtime inheritance cases failed before the fix; all five new cases
+pass, including staged/direct creation, policy remount drift, actual child tool
+visibility, rejected write/pwsh execution, captain isolation and cold continuation.
+Full offline gate passed before identity sync (wrapper209/209); keep these cases
+in scripts/custom-member-routing.test.mjs through future refreshes. Version,
+installed artifact and package verification are recorded in
+[rc.24 notes](../win-desktop/release-notes/v0.2.0-rc.24.md).
+
+## Desktop 0.2.0-rc.23 Profile readiness — 2026-10-14
+
+Classification: REAPPLY, AgentTeams-owned. Inactive status diagnoses the trusted
+saved default: missing/invalid binding, empty fixed template, or captain/seed
+readiness. It explicitly describes only that default, not an inferred current
+user selection; a direct user's Profile command still takes precedence. No
+configuration/Team/session write, output-schema change, hidden result field,
+shared per-call cache, automatic selection, task fabrication or Native bypass.
+The prompt exposes the saved binding and empty-seed blocker. A ready captain
+must create a Team and goal-specific tasks assigned to frozen roles; empty
+Team creation does not mean members have begun work. Existing empty-seed strict
+rejection and three-real-query pacing remain unchanged.
+
+Behavioral RED (26 old passes, 9 new readiness failures), then real-loop35/35,
+full AgentTeams build/verify and the complete offline gate (wrapper209/209)
+passed before this identity update. Keep all regressions in verify:inactive-poll.
+User explicitly retained configuration switching personally: no profile import,
+restore or migration is performed. Host/upstream/Superpowers pins remain unchanged.
+Synchronized gate, fresh independent review and package proof are separate from
+live models/user installation/overnight acceptance; see
+[rc.23 notes](../win-desktop/release-notes/v0.2.0-rc.23.md).
+
+## Desktop 0.2.0-rc.22 inactive Team polling — 2026-10-13
+
+Classification: REAPPLY; AgentTeams owns model-turn pacing and Profile recovery.
+Three consecutive genuine successful inactive model status calls pause a root
+TEAM captain through official pre-step rejection, without a fourth model request.
+API/Web probes, duplicate observations, failed/other tools, Native, children and
+other sessions do not count. Effective installed/persisted policy is authoritative.
+Fresh user/turn/binding, active Team and plugin reload retire stale streaks; queued
+genuine user input resumes via public Inbox reads and non-authoritative steer at
+the guard's own idle edge. Plugin reminders alone never wake it. No host/dependency,
+Team format, task, gateway, configuration, permission or public-tool change.
+
+Recovery text points to saving the default or a current user's configured Profile
+command, never a model inline plan or Native bypass. Captain prompt remains <=3500.
+Behavioral RED then 26/26 real-loop controls and full offline gate (wrapper209/209)
+passed before this identity update. `verify:inactive-poll` retains this regression
+alongside all prior stages. Final synchronized gate, review and local package proof
+are separate from user installation, live models and overnight acceptance; see
+[rc.22 candidate notes](../win-desktop/release-notes/v0.2.0-rc.22.md).
+
+## Desktop 0.2.0-rc.21 Profile delegation boundary — 2026-10-13
+
+Classification: REAPPLY, owned by AgentTeams. Ordinary Team creation binds the
+trusted saved `defaultProfile` or a configured Profile selected by the current
+direct user. Missing/invalid defaults and empty fixed task templates reject with
+repair guidance before state or child writes. Ordinary added members bind exact
+or numbered frozen roles (including explicit role_template); they cannot use an
+unbound custom-member default. SettingsForms/ConfigEditor remains the sole save
+owner; default selection, map rename/delete, restart and encrypted backup preserve
+the binding, role policy, prompts, tool_policy and official Home/CLI/CAS refusal.
+The selector starts empty and requires an explicit user choice; no configuration
+or existing Team is migrated.
+
+The former ordinary ad-hoc/create-default and unbound custom-member policy is
+SUPERSEDED_BY_DESIGN by this user-approved boundary. Its low-level compatibility
+shape and temporaryMember policy remain only in the admitted temporary lane.
+The deterministic command is `/agent-teams --temporary <goal>`; permission reads
+the whole current direct user context, never a model declaration, skill or history.
+Native, frozen roles, concurrency, allowlists and the single durable gateway stay
+with their existing owners. System-prompt text supplements strict Schema and
+execution admission rather than replacing them. Superpowers' Harness mapping
+documents the same boundary without modifying its 75 original v7.0.0 files.
+
+Retained evidence: selection-policy, verify, custom-member-routing,
+team-subagent-compat, settings-client and profile-editor suites, new
+`scripts/default-profile-client.test.mjs` registered in AgentTeams `verify`, and
+wrapper settings-save/Profile-layering/configuration-backup fixtures. Source and
+regression evidence existed before this version/provenance update. The final
+synchronized offline gate, independent review and authorized local package receipt
+remain separate; see [rc.21 notes](../win-desktop/release-notes/v0.2.0-rc.21.md).
+Harness/upstream AgentTeams/Electron pins and the Superpowers raw-blob digest are
+unchanged. No installation, external-model or manual acceptance is claimed here.
+
+## Historical desktop 0.2.0-rc.20 source recovery and create defaults — 2026-10-13
+
+The installed AgentTeams desktop.1 was lib-only while GitHub/main still held the
+v0.1.22 fork. Canonical main was first aligned with origin/main at 72dc27c, then
+fixed v0.1.23 TypeScript was semantically merged with local governance. No installed
+compiled code was imported as source. The recommended host and official tarballs
+remain unchanged. Source regressions passed before this identity/ownership sync.
+The complete offline gate and final source reviews passed (wrapper209/209);
+the local installer and isolated ZIP closure are verified, not installed or released.
+Actual versions, hashes, signature and manual acceptance boundaries are recorded in
+[rc.20 verification](../win-desktop/release-notes/v0.2.0-rc.20.md).
+
+| Active capability | Classification / retained owner | Regression |
+| --- | --- | --- |
+| Unicode activity identity and event folding | UPSTREAM_EQUIVALENT; upstream AgentTeams | issue-203-card, workspace activity |
+| Finding validation and corrupt-record diagnostics | UPSTREAM_EQUIVALENT at write boundary; strict durable reads REAPPLY | issue-188, corrupt-teamjson, strict V2 |
+| Provider-aware model selection | REAPPLY at local paired Profile/temporary/explicit selector; upstream global overrides forbidden | issue-189, selection-policy, custom-member-routing |
+| Post-settlement failure notes | UPSTREAM_EQUIVALENT; bounded/redacted local summaries REAPPLY | issue-205, member-failure, lifecycle |
+| Content-bound artifact verdicts and repair/verification lineage | UPSTREAM_EQUIVALENT; new upstream artifact/quality owner | content-bound, cross-binding, work-order, repair-wiring, excluded-scope |
+| Attempt Git baselines, command/acceptance matching and independent current review | REAPPLY; existing local audit/quality owner composes with upstream verdicts | governance-audit, quality-gates, real wrapper governance |
+| Fork identity and current session-source format | UPSTREAM_EQUIVALENT; strict live-handle gateway admission REAPPLY | lineage-identity, custom-member-routing, gateway |
+| Explicit non-destructive historical source repair utility | UPSTREAM_EQUIVALENT as manual script only; no automatic Team migration | legacy-session-source-repair |
+| Owner tool policies and mandatory coordination tools | UPSTREAM_EQUIVALENT; local editor/cache/CAS/frozen-filter preservation REAPPLY | tool-policies, profile-editor, Profile store, custom-member-routing |
+| Role/temporary/explicit models, three reasoning modes and frozen provenance | REAPPLY; AgentTeams selection owner | settings, selection-policy, custom-member-routing |
+| Shared model catalog, fallback, Team/Native and scoped HMR/disposal | REAPPLY; existing local AgentTeams seams, not new owners | host catalog, fallback, routing-policy lifecycle, HMR |
+| All child start/send/interrupt/retire/drain operations | REAPPLY; sole durable subagent gateway, now keyed to durable captain across forks | gateway, custom-member-routing, lifecycle |
+| Web authentication/revision CAS, staged semantics, prompt budget and quality scope | REAPPLY; existing AgentTeams owner | Web routes, Alpha.2 contract, staged approval, quality/lifecycle, verify |
+| Models/CPA/desktop backup/settings/window/console/quota/grep/command integration | REAPPLY unchanged; existing owners and loader registry remain separate | mandatory wrapper gate and existing owner suites |
+| Native discovery/precedence/loading for bundled skills | UPSTREAM_EQUIVALENT; official skill/filesystem/tool-skill | real Registry/AgentLoop Superpowers Host tests |
+| Pinned Superpowers bundle/mapping and desktop mounting | REAPPLY; independent dsh-superpowers plus wrapper | assets/provider/integration/healing/artifact tests |
+| Complete skill assets and dependency closure in EXE/ZIP | REAPPLY; existing wrapper closure verifier | runtime/ZIP tests and real package checks |
+| Non-lib publication files in installed/package inputs | REAPPLY; bounded wrapper artifact sync and ZIP parity | artifact source/installed utility+notes, ZIP tamper and real output hashes |
+
+The rc.20 create-plan defaults were applied only to ad-hoc default-shaped members, never an
+implicit Profile or an explicit route/effort. The route/policy is frozen once before
+durable writes; unavailable and partial explicit policies reject without spawning.
+Changing live settings or restarting does not reroute old members. Keep the real
+Tools/AgentLoop/JSONL regression; its post-Schema RED asserts captain-gateway instead
+of alt-gateway, then GREEN proves the actual child requests, not just panel labels.
+That ordinary ad-hoc contract is superseded by rc.21; its retained temporary
+compatibility path does not authorize ordinary Team creation or role bypass.
+
+The Superpowers 75-file raw-Git-blob digest remains independently pinned to
+`4b646fcbb694f25c32d5840657cc20becb1b0e9791a9de5d4081898cf09116c7`.
+No Hook, additional tool, settings writer, scheduler or second gateway is introduced.
+User/project skill precedence and disabled composition survive restart. The skill
+compatibility fixture does not prove paid-model automatic selection or an actual
+spawned child lifecycle; AgentTeams' separate runtime regressions cover child routing.
+
+Automatic historical coercion and global memberModel/memberLlmProvider remain
+excluded by explicit user constraints, not by a merge convenience. All valid current
+upstream features remain. AUTO, Session Markdown export, retired OpenCode rewrites
+and legacy Profile/Team migration stay absent. Previous source copies and user
+planning files are retained; only source/cache preparation occurred outside gates.
+
+## Historical desktop 0.2.0-rc.18 custom-member routing — 2026-10-07
 
 AgentTeams owns this REAPPLY capability. Both captain-planning and seed-task Profiles
 retain frozen role routes, all three reasoning modes and persona prompts. The existing
@@ -945,7 +1097,7 @@ fork's settings contract:
 | The model-facing tool supported the full quality contract but the Web editor/Host route silently kept only basic task fields or filtered malformed list items into accidental clears | Snapshot, browser-shaped Host payload, and durable mutation round-trip every quality field; empty lists clear fields, while lists containing any non-string item are rejected | `staged plan browser and host preserve the complete quality task contract`, `tdd.plan-http.task-contract-round-trips-completely`, `tdd.plan-http.rejects-non-string-list-items-instead-of-clearing-fields`, `snapshot and browser-shaped Host payload persist the complete staged task contract`, and `browser-shaped empty lists and strings clear every optional staged task field durably` |
 | Implementation/repair claimed delivery with uncovered deliverables or `changedPaths: []` | Deliverables must be inside `inScope`; empty changed paths need `noChangesReason` and cannot hide declared deliverables | `tdd.create.implementation-deliverable-must-be-in-scope`, `tdd.complete.empty-changed-paths-requires-no-change-reason`, and `tdd.complete.empty-changed-paths-cannot-hide-deliverables` |
 | A model used a prose label as a deliverable, selected `server/.env.example`, or sent `captain` / an empty string as a task assignee | Keep the scope and protected-path gates strict, but return actionable guidance: concrete deliverable paths belong in `inScope`, abstract outcomes belong in subject/description/acceptance, `captain` is a valid captain-owned alias, and blank assignee means the shared pool | `tdd.create.undeclared-deliverable-explains-concrete-path-repair`, `tdd.create.protected-env-deliverable-explains-safe-boundary`, `tdd.create.blank-assignee-normalizes-to-shared-pool`, plus lifecycle captain/shared-pool boundary checks |
-| A model sent `profile: ""` and Team creation failed although Profile is optional | Missing, empty, and whitespace-only Profile input all create an ad-hoc Team; an unknown non-empty name still fails before any durable write or member spawn and lists configured names | `create without Profile produces an ad-hoc Team`, `blank Profile normalizes to the same ad-hoc Team shape`, `unknown non-empty Profile rejects before state write or member spawn`, and the dynamic schema-description check |
+| A model omitted or blanked optional Profile and bypassed configured Team roles | SUPERSEDED_BY_DESIGN at desktop.3: ordinary missing/blank optional Profile resolves only trusted saved defaultProfile; explicit selection requires current direct user authority. Unknown/missing bindings reject before writes/spawns. Ad-hoc shape remains only for admitted temporary compatibility calls | `scripts/selection-policy-verify.mjs`, `scripts/custom-member-routing.test.mjs`, `scripts/team-subagent-compat.test.mjs`, `scripts/default-profile-client.test.mjs`, and `usage prompt requires a trusted Profile binding before ordinary creation` in `scripts/verify.mjs` |
 | The captain prompt grew past 7,000 characters yet models still repeated invalid lifecycle calls | Keep the built-in `software-delivery` output at or below 3,500 characters, start with unknown/inactive/staged/running/halted state rules, and retain every registered reasoning, dependency, attempt, quality, resume/delete, and deployment-confirmation marker | `usage prompt stays within the software-delivery budget` plus all `usage prompt preserves ...` checks in `scripts/verify.mjs` |
 
 These are release-blocking observable contracts, not historical notes. During

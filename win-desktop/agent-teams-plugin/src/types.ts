@@ -8,6 +8,8 @@
  * @module dsh-agent-teams/types
  */
 
+import type { MemberToolFilter } from './tool-policies.ts'
+
 /** Task lifecycle statuses in progression order. */
 export type TaskStatus =
   | 'pending'
@@ -91,6 +93,61 @@ export interface TaskEvidence {
   commandsRun?: CommandResult[]
 }
 
+/**
+ * Identity of one workspace path at one instant. A verdict is evidence about a
+ * revision, so recording the bytes it judged (not only the task id) lets the
+ * delivery check refuse to advertise a revision no review ever saw.
+ */
+export interface ArtifactDigest {
+  /** Workspace-relative POSIX path. */
+  path: string
+  /** Whether a regular file existed when the digest was taken. */
+  present: boolean
+  /** Lowercase hex sha256 of the file bytes; absent unless the file was read. */
+  sha256?: string
+  /** File size in bytes; absent unless the file was read. */
+  size?: number
+  /** File mtime in epoch ms; lets a legacy record detect a later edit. */
+  mtimeMs?: number
+  /**
+   * The path exists but could not be read or safely resolved (permissions,
+   * symlink escaping the workspace, I/O error). Never conflated with "absent":
+   * unreadable bytes cannot be claimed as unchanged.
+   */
+  unreadable?: boolean
+  /** Why the path could not be read, when `unreadable` is set. */
+  reason?: string
+}
+
+/**
+ * A declared scope that could not be fully enumerated (file cap reached,
+ * unreadable directory, path that is not workspace-relative). Recorded so a
+ * partial artifact list is never mistaken for complete coverage.
+ */
+export interface ArtifactScopeGap {
+  /** The pattern or path that could not be fully resolved. */
+  pattern: string
+  reason: string
+}
+
+/** One set of artifact digests captured at a single instant. */
+export interface ArtifactSnapshot {
+  /** Epoch ms when these bytes were read. */
+  at: number
+  artifacts: ArtifactDigest[]
+  /** Present when the recorded coverage is known to be incomplete. */
+  gaps?: ArtifactScopeGap[]
+}
+
+/** Profile / team review-loop limits. */
+export interface ReviewPolicy {
+  requirementsMinRounds?: number
+  requirementsMaxRounds?: number
+  codeMaxRounds?: number
+  maxRepairAttempts?: number
+  requiredReviewers?: string[]
+}
+
 /** One captain-only contract amendment retained with the task audit trail. */
 export interface TaskRevision {
   at: number
@@ -122,6 +179,8 @@ export interface TeamTask {
   status: TaskStatus
   /** Member name (or `captain`) the task is assigned to; unassigned tasks await a claim. */
   assignee?: string
+  /** This work was admitted for a temporarily authorized member. */
+  temporaryAdmission?: true
   /** Task ids that must reach `completed` before this task can be claimed. */
   dependencies: string[]
   /** Monotonic durable revision used by task mutation compare-and-swap checks. */
@@ -165,11 +224,49 @@ export interface TeamTask {
   completionEvidenceSource?: 'member-report'
   completionReportBasis?: import('./audit-contract.ts').CompletionReportBasis
   reviewedTaskId?: string
+  /** Execution generation of the reviewed task at the moment of judgment. */
   reviewedAttempt?: number
   reviewBasis?: import('./audit-contract.ts').ReviewBasis
   reviewCodeVersion?: string
+  /**
+   * Bytes this verdict judged, read from the workspace when the gate closed.
+   * A later edit, deletion or re-attempt invalidates the verdict.
+   */
+  reviewedArtifacts?: ArtifactDigest[]
+  /** Scope of that verdict that could not be fully enumerated, if any. */
+  reviewedGaps?: ArtifactScopeGap[]
+  /**
+   * Scope patterns the verdict bound (e.g. `lib/`). A file that appears under
+   * one of them later was never reviewed, so the verdict must not claim it.
+   */
+  reviewedScope?: string[]
+  /**
+   * Drift observed while this verdict was being formed (the workspace changed
+   * between claim and close). The verdict cannot be read as binding a stable
+   * revision.
+   */
+  reviewedDuringDrift?: string[]
+  /**
+   * Workspace snapshot taken when this verdict's attempt started, so a close
+   * can tell whether it judged a revision that was changing underneath it.
+   */
+  verdictStartSnapshot?: ArtifactSnapshot
+  /**
+   * Workspace snapshot an auto-generated contract (acceptance / inScope /
+   * verify) was derived from. When a cited artifact changes underneath it the
+   * work order is marked stale instead of being read as authoritative.
+   */
+  contractSnapshot?: ArtifactSnapshot
   /** Repair source: the implementation / previous successful artifact. */
   sourceTaskId?: string
+  /**
+   * The failed gate task(s) whose findings this repair fixes. Recorded as an
+   * explicit causal edge because `dependencies` cannot carry it: a failed task
+   * never reaches `completed`, so a dependency on it would make the repair
+   * permanently unclaimable. Delivery reads this to tell a closed loop from
+   * genuinely unresolved work (issue #175A).
+   */
+  findingSourceTaskIds?: string[]
   sourceFindingIds?: string[]
   /** User-constraint / goal items this task claims to cover. */
   coverageOf?: string[]
@@ -184,6 +281,8 @@ export type MemberStatus = 'idle' | 'working' | 'removed'
 
 /** One team member: a continuable subagent plus its team-side record. */
 export interface TeamMember {
+  /** Last failed startup diagnostic; absence means no recorded failure. */
+  spawnError?: string
   /** Durable continuable subagent session id (empty until spawned). */
   id: string
   /** Unique display name inside the team. */
@@ -200,6 +299,8 @@ export interface TeamMember {
   reasoningEffort?: string
   /** Selection origin captured at creation; absent on existing V2 records. */
   modelPolicySource?: import('./selection-policy.ts').MemberPolicySource
+  /** This member was admitted by one current-turn human temporary authorization. */
+  temporaryAdmission?: true
   /** Prompt specific to this member's execution turns. */
   executionPrompt?: string
   /** Configured second-choice route. */
@@ -209,6 +310,19 @@ export interface TeamMember {
   activeModel?: string
   /** Whether the fallback route is currently active. */
   fallbackActive?: boolean
+  /**
+   * Owner-declared tool-policy id this member selected (`#59`), absent for a
+   * member without a policy (the unchanged default behavior). The Captain
+   * model may only select a configured id; it never submits raw tool lists.
+   */
+  toolPolicy?: string
+  /**
+   * The immutable effective tool filter resolved when the member was created
+   * and handed to the child's `toolFilter`. `team.json` keeps it for audit,
+   * status, and recovery diagnostics; the continuable descriptor remains the
+   * authority that reapplies the filter to a cold-resumed child.
+   */
+  toolFilter?: MemberToolFilter
   joinedAt: number
   status: MemberStatus
   /** Execution admission is closed while a failed/pending handoff is drained. */

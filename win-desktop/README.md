@@ -1,6 +1,22 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.17`（预发布，本地构建与隔离验收通过）；[rc.17 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.17)。
+本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.24`；[rc.24 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.24)。
+
+## 累计发布与权限继承：`v0.2.0-rc.24`
+
+AgentTeams `0.1.23-desktop.6` 修复冻结角色副本漏继承工具限制；省略策略继承当前 Team 的 policy/filter，显式策略仍优先。包含 rc.20–23 上游适配、Superpowers、默认 Profile/临时授权边界、防空转和就绪诊断，并保留此前全部有效补丁与回归。宿主仍是插件推荐的 `0.2.0-rc.2`。见 [累计保留索引](../docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md) 和 [rc.24 记录](release-notes/v0.2.0-rc.24.md)；不自动修改用户配置，人工安装与隔夜运行不由代码门禁替代。
+
+## 历史本地候选：TEAM 就绪诊断 `v0.2.0-rc.23`
+
+AgentTeams `0.1.23-desktop.5` 明确诊断已保存默认的未绑定/无效、固定模板零任务或可创建状态；本轮用户明确选择仍优先。动态规划要求建立真实任务并分配冻结角色，不把空团队当作成员已启动。保留三次空查暂停、路由/思考策略及统一网关。用户自行切换 `software-delivery` → “队长动态规划” → “保存 Profile”，不要恢复默认；安装不修改当前设置。本地验收、完整门禁、独立复核和产物校验分层见 [rc.23 记录](release-notes/v0.2.0-rc.23.md)。本轮不提交或发版，旧包保留。
+
+## TEAM 防空转：`v0.2.0-rc.22`
+
+AgentTeams `0.1.23-desktop.4` 在 TEAM 队长同一轮连续三次真实无团队查询后暂停，并给出默认 Profile 设置或用户命令恢复指引。新输入、有效绑定与团队可继续；已排队用户消息保留顺序且只处理一次。Native、子成员、其他会话和已运行团队不受影响。宿主与其他插件版本不变，不新增权限或临时绕行。完整门禁、独立复核、本地 EXE/ZIP 与安装验收边界见 [rc.22 记录](release-notes/v0.2.0-rc.22.md)。本轮不提交或发版，rc.20/rc.21 产物保留。
+
+## 历史：Team 默认 Profile 与临时委派边界：`v0.2.0-rc.21`
+
+AgentTeams `0.1.23-desktop.3` 的普通 Team 创建绑定保存的默认或当前用户明确选择的 Profile；请先在 Profile 配置页显式选择并保存默认项。普通新增成员必须绑定当前团队冻结的角色或编号角色。临时策略仅用于当前用户明确授权的 `/agent-teams --temporary <目标>` 调用；Native 配置保持独立。默认绑定通过官方设置接口及加密备份保存，已有团队不迁移。Superpowers 本地插件为 `0.1.1`，原始 v7.0.0 资产保持固定摘要。最终完整门禁、构建和安装验收状态分别见 [rc.21 记录](release-notes/v0.2.0-rc.21.md)。
 
 ## 预发布治理更新：`v0.2.0-rc.17`
 

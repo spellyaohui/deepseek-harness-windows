@@ -8,6 +8,7 @@ const DESKTOP_ENTRIES = new Map([
   ['cpa-provider', '@deepseek-ai/dsh-cpa-provider'],
   ['tool-call-guidance', '@deepseek-ai/dsh-tool-call-guidance'],
   ['output-limit-finish', 'dsh-output-limit-finish'],
+  ['superpowers', '@deepseek-ai/dsh-superpowers'],
   ['agent-teams', '@nanmicoder/dsh-agent-teams'],
 ])
 const LAYER_IMPORT = new URL('./desktop-profile-layer.js', import.meta.url).href

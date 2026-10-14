@@ -21,7 +21,7 @@ export const PROFILE_PROTOCOL_PROMPT_LIMIT = 240
 
 const PROFILE_KEYS = ['description', 'protocol', 'executionPrompt', 'fallback', 'members', 'tasks', 'taskPlanning', 'reviewPolicy'] as const
 const REVIEW_POLICY_KEYS = ['requirementsMinRounds', 'requirementsMaxRounds', 'codeMaxRounds', 'maxRepairAttempts', 'requiredReviewers'] as const
-const MEMBER_KEYS = ['name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback'] as const
+const MEMBER_KEYS = ['name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback', 'tool_policy'] as const
 const FALLBACK_KEYS = ['provider', 'model'] as const
 const TASK_KEYS = ['id', 'subject', 'description', 'assignee', 'dependencies'] as const
 
@@ -40,6 +40,11 @@ export interface TeamProfileMemberConfig {
   reasoning_effort?: string
   executionPrompt?: string
   fallback?: TeamModelFallbackConfig
+  /**
+   * Owner-declared tool-policy id this profile member selects (#59). The
+   * profile only names a configured policy; it never carries raw tool lists.
+   */
+  tool_policy?: string
 }
 
 /** One seed-task row in a named team-profile template (unresolved). */
@@ -78,6 +83,7 @@ export interface NormalizedProfileMember {
   reasoningEffort?: string
   executionPrompt?: string
   fallback?: TeamModelFallbackConfig
+  toolPolicy?: string
 }
 
 /** A profile seed task after assignee canonicalization; `sourceIndex` is the YAML order. */
@@ -152,11 +158,12 @@ export function listConfiguredProfiles(
  */
 export function formatProfilesForPrompt(
   profiles: Record<string, TeamProfileConfig> | undefined | null,
+  defaultProfile?: string,
 ): string {
   const listed = listConfiguredProfiles(profiles)
   if (listed.length === 0) return ''
   const lines = [
-    'Configured team profiles (pass profile= to agent_teams_create):',
+    `Profiles (saved default: ${defaultProfile ?? '(unset)'}; direct user command wins; model arg is not authority):`,
     ...listed.map((entry) => formatProfileListingLine(entry)),
   ]
   return lines.join('\n')
@@ -216,9 +223,10 @@ export function resolveTeamProfile(
 function formatProfileListingLine(entry: ListedTeamProfile): string {
   const memberCount = Array.isArray(entry.config.members) ? entry.config.members.length : 0
   const planning = resolveProfileTaskPlanning(entry.config)
+  const taskCount = Array.isArray(entry.config.tasks) ? entry.config.tasks.length : 0
   const graph = planning === 'captain'
     ? 'captain planning'
-    : countLabel(Array.isArray(entry.config.tasks) ? entry.config.tasks.length : 0, 'task')
+    : `${countLabel(taskCount, 'task')}${taskCount === 0 ? '; cannot create: add tasks or select captain planning' : ''}`
   const counts = `(${countLabel(memberCount, 'member')}, ${graph})`
   const summary = protocolSummary(entry.config.protocol) ?? protocolSummary(entry.config.description)
   return summary === undefined
@@ -464,6 +472,7 @@ function normalizeMember(
   const reasoningEffort = optionalNonEmptyString(raw['reasoning_effort'], `${path}.reasoning_effort`)
   const executionPrompt = optionalNonEmptyString(raw['executionPrompt'], `${path}.executionPrompt`)
   const fallback = normalizeFallback(raw['fallback'], `${path}.fallback`)
+  const toolPolicy = optionalNonEmptyString(raw['tool_policy'], `${path}.tool_policy`)
   if ((provider === undefined) !== (model === undefined)) {
     throw new Error(`profile member "${name}" must set provider and model together`)
   }
@@ -473,7 +482,7 @@ function normalizeMember(
   if (reasoningMode !== 'explicit' && reasoningEffort !== undefined) {
     throw new Error(`profile member "${name}" reasoning_effort is valid only in explicit mode`)
   }
-  return omitUndefined({ name, role, provider, model, reasoningMode, reasoningEffort, executionPrompt, fallback })
+  return omitUndefined({ name, role, provider, model, reasoningMode, reasoningEffort, executionPrompt, fallback, toolPolicy })
 }
 
 function normalizeReasoningMode(value: unknown, path: string): RoleReasoningMode {

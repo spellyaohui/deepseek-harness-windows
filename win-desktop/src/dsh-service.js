@@ -55,6 +55,8 @@ export function generateAgentTeamsPatch({
     "      name: '@deepseek-ai/dsh-tool-call-guidance'",
     '    - id: output-limit-finish',
     "      name: 'dsh-output-limit-finish'",
+    '    - id: superpowers',
+    "      name: '@deepseek-ai/dsh-superpowers'",
     '    - id: agent-teams',
     "      name: '@nanmicoder/dsh-agent-teams'",
     '      config:',

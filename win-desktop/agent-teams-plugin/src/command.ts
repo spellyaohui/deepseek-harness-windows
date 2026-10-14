@@ -1,8 +1,11 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import { createUserMessage, type UserMessage } from '@deepseek-ai/dsh-llm'
+import { agentTeamsSource, sessionOwnEvents } from './harness-compat.ts'
 import { parseProfileInvocation, resolveProfileTaskPlanning, type TeamProfileConfig, type AgentTeamsInvocation } from './profiles.ts'
+import { latestDirectUserTemporaryAuthorization, parseTemporaryAuthorization } from './temporary-authorization.ts'
 
 export const AGENT_TEAMS_COMMAND = 'agent-teams'
 const PROFILE_COMMAND_PREFIX = `${AGENT_TEAMS_COMMAND}-`
@@ -14,6 +17,14 @@ declare module '@deepseek-ai/dsh-llm' {
 }
 
 const GESTURE = /^\/agent-teams(?=$|[\t\n\r ])/u
+
+function temporaryCommandIntent(text: string): boolean {
+  return /^\/agent-teams[\t ]+--temporary(?:[\t ]|$)/u.test(text.trim())
+}
+
+function temporaryInvocation(text: string): { goal?: string } | undefined {
+  return parseTemporaryAuthorization(text)
+}
 
 /**
  * Convert a configured profile key into a stable, closed-namespace command
@@ -51,6 +62,7 @@ export function invokedAgentTeamsInvocation(messages: readonly UserMessage[], ge
     if (message === undefined || message.source.kind !== 'user') continue
     for (const block of message.content) {
       if (block.type !== 'text') continue
+      if (temporaryCommandIntent(block.text)) return undefined
       const invocation = parseCommandText(block.text, getProfiles())
       if (invocation !== undefined) return invocation
     }
@@ -60,6 +72,29 @@ export function invokedAgentTeamsInvocation(messages: readonly UserMessage[], ge
 
 export function invokedAgentTeamsGoal(messages: readonly UserMessage[]): string | undefined {
   return invokedAgentTeamsInvocation(messages)?.goal
+}
+
+/** Return an exact Profile command from this current direct-user turn only. */
+export function currentUserProfileCommand(agent: Agent, getProfiles: () => Record<string, TeamProfileConfig>): string | undefined {
+  const events = sessionOwnEvents(agent.session)
+  let turnStart = -Infinity
+  for (const event of events) {
+    if (event?.type === 'turn/start' && Number.isFinite(event.seq)) turnStart = event.seq
+  }
+  if (!Number.isFinite(turnStart)) return undefined
+  if (events.some(event => event?.type === 'turn/end' && Number.isFinite(event.seq) && event.seq > turnStart)) return undefined
+  const messages: UserMessage[] = []
+  for (const event of events) {
+    if (!Number.isFinite(event?.seq) || event.seq <= turnStart || event.type !== 'user/message') continue
+    if (event.data?.source?.kind !== 'user' || !Array.isArray(event.data?.content)) continue
+    messages.push({
+      id: `agent-teams-user-${event.seq}` as UserMessage['id'],
+      role: 'user',
+      content: event.data.content as UserMessage['content'],
+      source: { kind: 'user' },
+    })
+  }
+  return invokedAgentTeamsInvocation(messages.slice(-1), getProfiles)?.profile
 }
 
 export function buildActivationDirective(goal: string, profile?: string, taskPlanning: 'captain' | 'seed' = 'seed'): string {
@@ -84,6 +119,13 @@ export function buildActivationDirective(goal: string, profile?: string, taskPla
   return lines.join('\n')
 }
 
+export function buildTemporaryActivationDirective(goal?: string): string {
+  return [
+    'The user explicitly authorized one temporary subagent for this current turn. Use the official subagent tool only for this bounded request; the authorization expires after this turn.',
+    goal === undefined ? 'Ask for the temporary delegation goal if it is still unclear.' : `Goal: ${goal}`,
+  ].join('\n')
+}
+
 export function registerAgentTeamsCommand(ctx: Context, getProfiles: () => Record<string, TeamProfileConfig> = () => ({})): void {
   ctx.effect(() => {
     const dispose: Array<() => void> = []
@@ -92,6 +134,16 @@ export function registerAgentTeamsCommand(ctx: Context, getProfiles: () => Recor
       description: 'run a goal with a multi-agent team (you become the captain)',
       input: { hint: '[--profile <name>] <goal>' },
       handler(invocation: CommandInvocation): CommandResult {
+        const rawTemporary = `/${AGENT_TEAMS_COMMAND}${invocation.rawInput}`
+        const temporary = temporaryInvocation(rawTemporary)
+        if (temporaryCommandIntent(rawTemporary) && temporary === undefined) {
+          return { kind: 'error', text: `Usage: /${AGENT_TEAMS_COMMAND} --temporary <goal>; refused or ambiguous temporary authorization is not a Team command` }
+        }
+        if (temporary !== undefined) {
+          if (temporary.goal === undefined) return { kind: 'error', text: `Usage: /${AGENT_TEAMS_COMMAND} --temporary <goal>` }
+          invocation.agent.followup(createUserMessage({ content: [{ type: 'text', text: `/${AGENT_TEAMS_COMMAND}${invocation.rawInput}` }], source: { kind: 'user' } }))
+          return { kind: 'success', text: 'Temporary subagent authorization accepted for this turn.' }
+        }
         let parsed: AgentTeamsInvocation
         try { parsed = parseProfileInvocation(invocation.rawInput.trim()) } catch (error: unknown) { return { kind: 'error', text: String(error) } }
         if (parsed.profile !== undefined && !Object.keys(getProfiles()).some(key => key.trim() === parsed.profile)) return { kind: 'error', text: `unknown AgentTeams profile "${parsed.profile}"` }
@@ -126,7 +178,11 @@ export function installAgentTeamsGestureBoundary(ctx: Context, getProfiles: () =
     const decision = await next()
     if (decision.kind === 'reject') return decision
     let invocation: AgentTeamsInvocation | undefined
-    try { invocation = invokedAgentTeamsInvocation(messages, getProfiles) } catch (error: unknown) { return { kind: 'enter', messages: [...decision.messages, createUserMessage({ content: [{ type: 'text', text: `AgentTeams profile parsing failed: ${String(error)}` }], source: { kind: 'agent-teams-command' } })] } }
+    const temporary = latestDirectUserTemporaryAuthorization(messages)
+    if (temporary !== undefined) {
+      return { kind: 'enter', messages: [...decision.messages, createUserMessage({ content: [{ type: 'text', text: buildTemporaryActivationDirective(temporary.goal) }], source: agentTeamsSource({ kind: 'agent-teams-command' }) })] }
+    }
+    try { invocation = invokedAgentTeamsInvocation(messages, getProfiles) } catch (error: unknown) { return { kind: 'enter', messages: [...decision.messages, createUserMessage({ content: [{ type: 'text', text: `AgentTeams profile parsing failed: ${String(error)}` }], source: agentTeamsSource({ kind: 'agent-teams-command' }) })] } }
     if (invocation === undefined) return decision
     signal.throwIfAborted()
     const profiles = getProfiles()
@@ -137,6 +193,6 @@ export function installAgentTeamsGestureBoundary(ctx: Context, getProfiles: () =
     const text = !known
       ? `AgentTeams profile "${invocation.profile}" does not exist. Available profiles: ${Object.keys(profiles).join(', ') || '(none)'}. Do not create a team.`
       : buildActivationDirective(invocation.goal, invocation.profile, resolveProfileTaskPlanning(matched?.[1]))
-    return { kind: 'enter', messages: [...decision.messages, createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'agent-teams-command', ...invocation.goal === '' ? {} : { goal: invocation.goal }, ...invocation.profile === undefined ? {} : { profile: invocation.profile } } })] }
+    return { kind: 'enter', messages: [...decision.messages, createUserMessage({ content: [{ type: 'text', text }], source: agentTeamsSource({ kind: 'agent-teams-command', ...invocation.goal === '' ? {} : { goal: invocation.goal }, ...invocation.profile === undefined ? {} : { profile: invocation.profile } }) })] }
   })
 }

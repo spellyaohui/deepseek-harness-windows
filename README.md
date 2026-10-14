@@ -2,9 +2,44 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.18`（本地安装包已构建并验证，未发布） · [已发布 rc.17 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.17)
+> 当前源码版本：`v0.2.0-rc.24` · [rc.24 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.24)
 
-## 子智能体路由修复：`v0.2.0-rc.18`（未发布）
+## 累计改进与权限继承：`v0.2.0-rc.24`
+
+- AgentTeams `0.1.23-desktop.6` 保留上游 v0.1.23 的新功能；编号角色和 `role_template` 省略工具策略时，完整继承当前团队冻结的工具权限，不因后来配置变更扩大只读权限。显式策略仍优先。
+- 合入此前本地 rc.20–23：Superpowers 15 个固定官方技能、默认 Profile 与临时授权边界、三次真实空查暂停、就绪诊断；保留全部治理与独立所有者。Harness 保持插件推荐的 `0.2.0-rc.2`。
+- 后续适配先读 [累计改进保留索引](docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md) 和 [维护登记](docs/UPSTREAM_MAINTENANCE.md)。上游等价能力优先替换本地代码，但必须保留回归；退役能力不恢复。
+- [rc.24 发布记录](win-desktop/release-notes/v0.2.0-rc.24.md) 分开记录代码门禁、打包闭包与人工验收。安装不改用户 Profile；用户自行切换动态规划并保存，不要恢复默认。
+
+## 历史本地候选：TEAM 就绪诊断 `v0.2.0-rc.23`
+
+- AgentTeams `0.1.23-desktop.5` 区分未绑定/无效默认、固定模板零任务与可创建的动态/固定规划。提示标明仅为已保存默认；当前用户明确选择仍优先。队长动态规划必须创建任务分配给冻结角色，空团队不等于成员已开始工作。
+- 保留角色模型/思考规则、严格边界、三次空查暂停和唯一子会话网关。真实离线循环 35/35 与完整门禁通过后打包；不改用户配置、不提交或发版。
+- 用户自行在 AgentTeams 的 `software-delivery` Profile 选择“队长动态规划”并保存；不要“恢复内置”。旧设置不会因安装自动变更。证据层次见 [rc.23 记录](win-desktop/release-notes/v0.2.0-rc.23.md)。
+
+## 历史本地候选：TEAM 防空转 `v0.2.0-rc.22`
+
+- AgentTeams `0.1.23-desktop.4`：仅 TEAM 队长在同一轮连续三次真实查询返回无团队后暂停，避免继续消耗模型请求。无团队时明确提示保存默认 Profile 或由用户发送 `/agent-teams --profile <名称> <目标>`，不自动选择或改走临时模型。
+- 新输入、绑定变化或有效团队可继续；已经排队的用户消息保持顺序、只处理一次。Native、子成员、其他会话与已运行团队不受此规则影响。
+- Harness、上游插件和 Superpowers 固定来源不变，保留已有治理及全部回归。本轮仅交付本地测试包，源码、完整门禁、构建与人工安装验收分开记录，见 [rc.22 记录](win-desktop/release-notes/v0.2.0-rc.22.md)。
+
+## 历史：Team 默认 Profile 与临时委派边界：`v0.2.0-rc.21`（未发布）
+
+- AgentTeams `0.1.23-desktop.3` 与 Superpowers 本地插件 `0.1.1`；Harness `0.2.0-rc.2`、AgentTeams 上游 `v0.1.23` 和 Electron `44.0.0` 固定来源不变。
+- 在“设置 → AgentTeams 团队 → Profile 配置”显式选择并保存默认 Profile。普通 Team 创建绑定该默认或当前用户明确选择的 Profile；缺少有效默认时给出修复指引，不自动选择第一个 Profile，也不以临时模型替代角色配置。固定任务模板没有任务时，需要先补齐模板。
+- 普通新增成员绑定当前团队冻结的角色、编号角色或明确的 `role_template`；不猜测改名角色，不读取后来修改的 Profile。已有运行团队和旧配置不迁移。
+- 临时默认只用于当前用户明确授权的临时调用，确定入口为 `/agent-teams --temporary <目标>`。权限判断读取整个当前直接用户上下文；模型、技能或历史文本不能自行授权临时绕行。Native 保持独立。
+- 默认 Profile、重命名和删除通过原有官方设置接口一次保存；加密备份携带该绑定。Superpowers 保留 75 份原始文件和固定摘要，只更新 Harness 工具映射。源码验证与最终打包、安装验收分别记录在 [rc.21 记录](win-desktop/release-notes/v0.2.0-rc.21.md)。
+
+## 历史：AgentTeams 源码补齐与创建路由 `v0.2.0-rc.20`（未发布）
+
+- 基于官方 AgentTeams `v0.1.23` 固定源码，本地包为 `0.1.23-desktop.2`；推荐宿主仍是 Harness `0.2.0-rc.2`，Electron 保持 `44.0.0`。
+- 保留上游产物/修复链路绑定、验证修复、Unicode 面板身份、会话来源、分叉恢复和成员工具策略；尚未被上游覆盖的本地审计、角色思考规则与单一持久网关继续保留。
+- 当时创建无 Profile 的团队时，未明确指定路由的临时成员读取已保存的默认模型和思考策略；该普通 ad-hoc 契约已被 rc.21 的默认 Profile 边界取代。Profile、显式指定和已有团队的冻结配置不被覆盖。工具策略在 Profile 保存、审批和续接中保留。
+- 恢复内置 Superpowers `v7.0.0` 固定提交的 15 个技能和 75 份原始文件（含 LICENSE），沿用官方技能目录与 `/` 调用，不增加 Hook 或调度器。自动选技仍取决于模型。
+- 严格 V2、不自动迁移旧团队，不恢复全局成员模型覆盖或已移除能力。完整门禁（包装器 209/209）、独立复核、实际 EXE/ZIP 依赖闭包与原始技能文件校验通过；本地测试包已生成，尚未安装验收或发布。校验值和测试边界见 [rc.20 记录](win-desktop/release-notes/v0.2.0-rc.20.md)。
+
+## 历史：子智能体路由修复 `v0.2.0-rc.18`（未发布）
 
 - AgentTeams `0.1.22-desktop.11`：队长规划和固定任务模板均保留 Profile 角色的指定模型与思考策略；未绑定角色的自定义成员与临时 `subagent` 共用“临时与自定义子智能体”默认配置。
 - 编号角色继续继承当前团队的冻结配置；改名成员可用 `role_template` 明确绑定现有角色。工具明确指定优先，配置不可用直接拒绝，不悄悄切回队长模型。
@@ -314,7 +349,7 @@
 - **开箱即用的 Windows 桌面入口**：随机本地端口避免冲突，隐藏 Node/命令行窗口，启动失败提供更清晰的恢复路径。
 - **CPA 多模型与多模态**：通过 `CPA / CLIProxyAPI` 原生提供方接入 OpenAI Responses 兼容网关，自动获取模型；CPA 新模型默认仅文本，可逐模型启用图像输入，支持图片附件和模型级纯文本覆盖。
 - **完整的思考协议映射**：支持 `off / low / medium / high / xhigh / max`，其他模型保留完整七档词汇，GPT-5.6 按其可用档位过滤。
-- **子智能体可控可追踪**：AgentTeams 的 Profile 角色卡分别管理 Provider、模型和 reasoning policy；保存后重启用于新团队，Team/Native 委派路由仍在主程序设置 TAB 中管理。
+- **子智能体可控可追踪**：AgentTeams 的 Profile 角色卡分别管理 Provider、模型和 reasoning policy；显式保存默认 Profile 后用于新团队，已有团队保持冻结配置；Team/Native 委派路由仍在主程序设置 TAB 中管理。
 - **网关截断识别**：任意 OpenAI 兼容网关把“输出用满上限”误报为正常结束时，统一按官方 `max-tokens` 处理，不针对单个网关打补丁。
 - **面向长期维护的插件边界**：CPA、AgentTeams、Models 设置、桌面设置和 Windows 包装器各自负责清晰能力，便于后续独立升级和回归。
 
@@ -344,7 +379,7 @@
 - 主程序设置中的“桌面”与“AgentTeams 团队”入口沿用 Harness 设置外壳和主题；官方“插件 → 子智能体”单独管理 Native 配置。
 - “模型”设置中的 `CPA / CLIProxyAPI` 插件：填写 API 地址和 Token，从 `/v1/models` 获取模型，并供主会话与 AgentTeams 共用。
 - AgentTeams 插件集成；成员 Provider、模型与 reasoning policy 在 Profile 角色卡中配置。权限模式由上游 Harness 官方预设负责。
-- AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并只允许 AgentTeams 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。角色 Profile 保存后需重启才用于新团队。
+- AgentTeams 的 Team/Native 委派路由：新 Team 会话会记录 `teams-v1` 并按保存的默认或当前用户明确选择的 Profile 委派；Native 会话记录 `native-v1` 并保留官方原生委派工具。角色 Profile 保存后用于后续新团队，已有团队不改路由。
 - 网关把用满输出上限的回复报告为 `stop` 时，按官方 `max-tokens` 结束回合并提示截断。
 
 ## 历史：`v0.1.1-rc.19` 更新说明

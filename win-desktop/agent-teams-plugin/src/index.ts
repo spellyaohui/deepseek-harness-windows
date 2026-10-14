@@ -37,6 +37,7 @@ import { fileURLToPath } from 'node:url'
 import { collectArchivedTeamsActivity, collectTeamsActivity } from './snapshot.ts'
 import { findTeamByCaptain } from './state.ts'
 import { expectedPlanRevisionFromPayload, stagedPlanMutationFromPayload } from './staged-plan-payload.ts'
+import { leadIdentityOfAsync } from './lineage.ts'
 import { formatProfilesForPrompt, type TeamProfileConfig } from './profiles.ts'
 import { buildHostModelCatalog } from './host-model-catalog.ts'
 import {
@@ -51,6 +52,7 @@ import {
   type DelegationPolicyId,
   type DelegationPolicyRuntime,
 } from './routing-policy.ts'
+import { parseToolPolicies, type MemberToolPolicy } from './tool-policies.ts'
 import { TEAM_TOOL_NAMES } from './tool-names.ts'
 import { authenticatedWebRoutes, readJsonRequest, RequestBodyError, type BrowserRequestGate, type WebRouteHost } from './web-routes.ts'
 import { durableSessionId } from './agent-identity.ts'
@@ -67,6 +69,7 @@ export const inject = ['tools', 'llm', 'subagents', 'systemPrompt', 'agents']
 export interface Config {
   delegationMode?: Volatile<DelegationMode>
   temporaryMember?: Volatile<import('./selection-policy.ts').MemberRolePolicy | undefined>
+  defaultProfile?: Volatile<string | undefined>
   /**
    * State directory name under the captain's workspace; team state lives at
    * `<workspace>/<stateDir>/<teamId>/` (default `.agent-teams`).
@@ -84,6 +87,16 @@ export interface Config {
   maxMembers?: number
   /** Named multi-role team profiles. */
   profiles?: Volatile<Record<string, TeamProfileConfig>>
+  /**
+   * Reusable per-member tool policies declared by the deployment owner (#59),
+   * keyed by policy id. A member selects one by id (`tool_policy` on
+   * `agent_teams_add_member`, a plan member, or a profile member row); the
+   * Captain model can select an existing policy but never submit raw lists.
+   * `allow` keeps only the named global tools (the four coordination tools are
+   * always added); `deny` removes the named global tools. Captain-only tools
+   * stay denied either way.
+   */
+  toolPolicies?: Record<string, MemberToolPolicy>
   /** Prompt-section order for the usage policy (default `117`, after delegation policy). */
   promptSectionOrder?: number
   /**
@@ -95,9 +108,10 @@ export interface Config {
 }
 
 /** Serialized config accepts a value; the live runtime receives its stable ref. */
-export interface ConfigInput extends Omit<Config, 'delegationMode' | 'temporaryMember' | 'profiles'> {
+export interface ConfigInput extends Omit<Config, 'delegationMode' | 'temporaryMember' | 'defaultProfile' | 'profiles'> {
   delegationMode?: DelegationMode
   temporaryMember?: import('./selection-policy.ts').MemberRolePolicy
+  defaultProfile?: string
   profiles?: Record<string, TeamProfileConfig>
 }
 
@@ -109,9 +123,20 @@ const fallbackRouteConfig = z.union([
   z.const(undefined),
 ])
 
+// Same Schemastery defaulting trap for a tool policy: an `allow`-only policy
+// would materialize `deny: []` and fail a `.min(1)` on an absent list. Model
+// each accepted combination explicitly, so a policy that declares only one
+// side stays valid while an empty side is still rejected.
+const toolPolicyConfig = z.union([
+  z.object({ allow: z.array(z.string()).min(1).required(), deny: z.const(undefined) }),
+  z.object({ allow: z.const(undefined), deny: z.array(z.string()).min(1).required() }),
+  z.object({ allow: z.array(z.string()).min(1).required(), deny: z.array(z.string()).min(1).required() }),
+])
+
 export const Config: z<ConfigInput, Config> = z.object({
   delegationMode: z.union(['teams', 'native']).default('teams').volatile(),
   temporaryMember: TemporaryMemberSchema.volatile(),
+  defaultProfile: z.string().volatile(),
   stateDir: z.string().default('.agent-teams'),
   memberProvider: z.string().default('spawn'),
   executionPrompt: z.string(),
@@ -130,6 +155,8 @@ export const Config: z<ConfigInput, Config> = z.object({
       reasoning_effort: z.string(),
       executionPrompt: z.string(),
       fallback: fallbackRouteConfig,
+      // Owner-declared tool-policy id this profile member selects (#59).
+      tool_policy: z.string(),
     })).min(1).required(),
     taskPlanning: z.union([z.const('captain'), z.const('seed')]),
     reviewPolicy: z.object({
@@ -147,6 +174,7 @@ export const Config: z<ConfigInput, Config> = z.object({
       dependencies: z.array(z.string()),
     })),
   })).default({}).volatile(),
+  toolPolicies: z.dict(toolPolicyConfig).default({}),
   memberMaxDepth: z.natural().default(0),
   maxMembers: z.natural().min(1).default(8),
   promptSectionOrder: z.natural().default(117),
@@ -174,18 +202,18 @@ ${delegationPolicyUsagePreamble(policy)}
 
 State first:
 - unknown -> agent_teams_status once.
-- inactive -> create one Team; status/delete are safe probes.
+- inactive -> agent_teams_create via bound Profile; captain planning: agent_teams_create_task → frozen roles. Empty seed: user adds tasks/switches planning. No native bypass/polling; 3 empty polls pause.
 - staged -> edit roster/DAG or wait for explicit approval; no work runs.
 - running -> status, create-task, message, reassign, delete; never replacement Team, edit-plan, or approve.
 - halted -> agent_teams_resume(reason). Escalated is running; ask the user at the review-loop ceiling.
 
-Approval/Profile: Default delegation uses approval="automatic": omit name so AgentTeams generates it; captain planning creates task names/contracts—never ask the user to name a task. Use approval="required" only when the user explicitly asks to review the plan before startup; never self-approve in that create/edit turn. Approve only after agent_teams_status shows active=true and phase=staged; “继续/确认” alone is insufficient. Return/discard forbids replacement. Profiles add roster/guardrails. If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.
+Approval/Profile: Bind the current direct-user Profile or saved defaultProfile; otherwise ask the user to select one. Model profile/inline plans cannot replace it. Add by frozen role_template or numbered role. Default approval="automatic": omit name; captain names/plans tasks, never ask the user to name a task. Use approval="required" only for requested plan review; never self-approve that turn. Approve only after agent_teams_status active=true/phase=staged; “继续/确认” alone is insufficient. Return/discard forbids replacement.
 
-Reasoning/routes: roles own target-default, route-aware, or explicit. target-default uses role/captain route without effort; route-aware inherits captain effort only on the same provider/model; explicit requires role provider/model + effort. Omit provider/model for captain route or provide both for another route.
+Reasoning/routes: roles own target-default, route-aware, or explicit. target-default: role/captain route, no effort; route-aware: captain effort only on same provider/model; explicit: role provider/model + effort. Route: omit both or provide both.
 
-Tasks/execution: plan dependencies; scheduler assigns ready work to idle members. Create/reassign names an active member or captain; omit assignee for shared pool. Claim assigned work with task_id only; captain supplies assignee only for a real member. Pause parks the attempt; message to continue. Updates use current attempt_id; stale means reassign. agent_teams_status is read-only; never busy-poll. detail="full" gets reports/routes, acknowledge=true consumes shown mail, captain-only wake="recover" handles restart/stuck recovery. Never inspect or edit .agent-teams state files or plugin source code.
+Tasks: dependencies; scheduler assigns ready work to idle members. Create/reassign names an active member or captain; omit assignee for shared pool. Claim assigned work with task_id only; captain supplies assignee only for a real member. Pause parks attempt; message to continue. Updates use current attempt_id; stale means reassign. agent_teams_status is read-only; never busy-poll. detail="full" gets reports/routes, acknowledge=true consumes shown mail, captain-only wake="recover" handles restart/stuck recovery. Never inspect or edit .agent-teams state files or plugin source code.
 
-Quality mode is opt-in: requirements → implementation → verification → review → integration. Build the staged DAG; implementation waits for its requirements dependency with verdict=pass. Quality tasks need objective/acceptance and verification evidence. Review/requirements pass requires verdict=pass plus current acceptanceResults/commandsRun; needs_revision/reject fail with findings. User scope changes require agent_teams_amend_task before completion; messages alone do not change contracts. Review failure creates repair/next-review and rewires integration; do not duplicate it. Implementation/repair need inScope/verify arrays. POSIX files exact; directories end in /; exclude .env, secrets, .git. Implementation/repair deliverables must fit inScope; changedPaths=[] needs noChangesReason and cannot hide deliverables. Delivery waits for all gates.
+Quality is opt-in: requirements → implementation → verification → review → integration. Staged DAG: implementation waits for requirements dependency with verdict=pass. Quality needs objective/acceptance + verification evidence. Review/requirements pass needs verdict=pass and current acceptanceResults/commandsRun; needs_revision/reject fail with findings. User scope changes: agent_teams_amend_task before completion; messages do not amend contracts. Review failure creates repair/next-review and rewires integration; do not duplicate it. Implementation/repair need inScope/verify arrays. POSIX files exact; directories end in /; exclude .env, secrets, .git. Implementation/repair deliverables must fit inScope; changedPaths=[] needs noChangesReason and cannot hide deliverables. Delivery waits for all gates.
 
 Present results; agent_teams_delete unless work continues. Deployment requires explicit user confirmation.
 
@@ -204,7 +232,7 @@ The task assignment and its dependency results are authoritative. Claim by task 
 }
 
 export function apply(ctx: Context, config: Config): void {
-  const settings = createAgentTeamsSettingsRuntime(ctx, config.delegationMode, config.temporaryMember)
+  const settings = createAgentTeamsSettingsRuntime(ctx, config.delegationMode, config.temporaryMember, config.defaultProfile)
   // Read one immutable official settings snapshot for each operation. A Team
   // captures this once at creation; later saves never rewrite existing members.
   const getProfiles = (): Record<string, TeamProfileConfig> => structuredClone(config.profiles?.get() ?? {}) as Record<string, TeamProfileConfig>
@@ -219,6 +247,9 @@ export function apply(ctx: Context, config: Config): void {
     settings,
     delegationPolicy: undefined,
     get profiles() { return getProfiles() },
+    // Owner configuration is validated once, at mount: an empty or malformed
+    // policy must never reach a member creation path.
+    toolPolicies: parseToolPolicies(config.toolPolicies),
   }
 
   // Provider registration is a sibling plugin's effect (`subagent-spawn` /
@@ -231,7 +262,7 @@ export function apply(ctx: Context, config: Config): void {
   const delegationPolicy: DelegationPolicyRuntime = {
     defaultMode: () => settings.get().delegationMode,
     order: config.promptSectionOrder ?? 117,
-    text: (policy) => usageSectionText(policy, toolNames, formatProfilesForPrompt(getProfiles())),
+    text: (policy) => usageSectionText(policy, toolNames, formatProfilesForPrompt(getProfiles(), settings.get().defaultProfile)),
     memberText: (policy) => memberUsageSectionText(policy),
   }
   resolved.delegationPolicy = delegationPolicy
@@ -313,6 +344,9 @@ export function apply(ctx: Context, config: Config): void {
       const url = new URL(req.url ?? '/', 'http://x')
       const roots = workspaceRegistry.list().map((workspace) => ({
         workspace: workspace.title,
+        // The panel audits the same current bytes as agent_teams_status, so it
+        // cannot advertise a passing gate over a changed revision (#161).
+        workspacePath: workspace.path,
         stateRoot: join(workspace.path, resolved.stateDir),
       }))
       // ?archived=1 serves teams moved to archive/ (post-delete review).
@@ -363,7 +397,7 @@ export function apply(ctx: Context, config: Config): void {
         }
         const workspace = captain.session.header.cwd ?? process.cwd()
         const stateRoot = join(workspace, resolved.stateDir)
-        const team = await findTeamByCaptain(stateRoot, durableSessionId(captain))
+        const team = await findTeamByCaptain(stateRoot, durableSessionId(captain), await leadIdentityOfAsync(ctx, captain.session))
         if (team === undefined || team.id !== teamId) {
           res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
           res.end(JSON.stringify({ error: 'team not found for this captain' }))
@@ -422,7 +456,7 @@ export function apply(ctx: Context, config: Config): void {
         }
         const workspace = captain.session.header.cwd ?? process.cwd()
         const stateRoot = join(workspace, resolved.stateDir)
-        const team = await findTeamByCaptain(stateRoot, durableSessionId(captain))
+        const team = await findTeamByCaptain(stateRoot, durableSessionId(captain), await leadIdentityOfAsync(ctx, captain.session))
         if (team === undefined || team.id !== teamId) {
           res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
           res.end(JSON.stringify({ error: 'team not found for this captain' }))

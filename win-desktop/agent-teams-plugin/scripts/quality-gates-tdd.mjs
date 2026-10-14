@@ -1298,11 +1298,12 @@ console.log('quality-gates TDD — tool-level closed loop')
     settings: {
       get: () => ({
         delegationMode: 'teams',
+        defaultProfile: 'gates',
       }),
     },
     memberMaxDepth: 1,
     maxMembers: 8,
-    profiles: {},
+    profiles: { gates: { taskPlanning: 'captain', members: [{ name: 'implementer', role: 'implementer', reasoning_mode: 'target-default' }, { name: 'reviewer', role: 'correctness-reviewer', reasoning_mode: 'target-default' }] } },
   })
   const exec = { agent: captain, signal: new AbortController().signal }
   const taskSchema = JSON.parse(JSON.stringify(definitions.get('agent_teams_create_task').parameters)).properties
@@ -1343,7 +1344,8 @@ console.log('quality-gates TDD — tool-level closed loop')
     check(
       'tdd.status.without-active-team-is-a-clean-probe.tool',
       statusBeforeCreate?.active === false
-        && statusBeforeCreateRender?.[0]?.text === 'No active Team for this session.',
+        && statusBeforeCreateRender?.[0]?.text.startsWith('No active Team for this session.')
+        && statusBeforeCreateRender?.[0]?.text.includes('/agent-teams --profile'),
     )
 
     let approveBeforeCreate
@@ -1385,8 +1387,8 @@ console.log('quality-gates TDD — tool-level closed loop')
         expected.test(scopeError)
           && JSON.stringify(await readTeam(join(workspace, '.agent-teams'), 'gates')) === JSON.stringify(scopeBaseline))
     }
-    await call('agent_teams_add_member', { name: 'implementer', role: 'implementer' })
-    await call('agent_teams_add_member', { name: 'reviewer', role: 'correctness-reviewer' })
+    await call('agent_teams_send_message', { to: 'implementer', content: 'Activate the frozen implementation role.' })
+    await call('agent_teams_send_message', { to: 'reviewer', content: 'Activate the frozen review role.' })
 
     const memberAgent = liveAgents.get(children[0]?.id)
     let memberStatusWithCaptainWake

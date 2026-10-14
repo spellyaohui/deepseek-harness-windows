@@ -21,6 +21,7 @@ const localDependencies = {
   '@deepseek-ai/dsh-desktop-settings': 'desktop-settings-plugin',
   '@deepseek-ai/dsh-tool-call-guidance': 'tool-call-guidance-plugin',
   'dsh-output-limit-finish': 'output-limit-finish-plugin',
+  '@deepseek-ai/dsh-superpowers': 'superpowers-plugin',
   '@nanmicoder/dsh-agent-teams': 'agent-teams-plugin',
 }
 
@@ -30,13 +31,15 @@ const localVersions = {
   '@deepseek-ai/dsh-desktop-settings': '0.1.5',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.1',
   'dsh-output-limit-finish': '0.1.1',
-  '@nanmicoder/dsh-agent-teams': '0.1.22-desktop.11',
+  '@deepseek-ai/dsh-superpowers': '0.1.1',
+  '@nanmicoder/dsh-agent-teams': '0.1.23-desktop.6',
 }
 
 const sourcePluginDirectories = [
   'models-settings-plugin',
   'cpa-provider-plugin',
   'agent-teams-plugin',
+  'superpowers-plugin',
 ]
 
 function read(relativePath) {
@@ -52,9 +55,9 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.2.0-rc.18')
-  assert.equal(packageLock.version, '0.2.0-rc.18')
-  assert.equal(packageLock.packages[''].version, '0.2.0-rc.18')
+  assert.equal(packageJson.version, '0.2.0-rc.24')
+  assert.equal(packageLock.version, '0.2.0-rc.24')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.24')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
   assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.4')
@@ -62,10 +65,10 @@ test('desktop composition retains every independently owned local plugin', () =>
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
     '0.2.0-rc.2-desktop.4',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.22-desktop.11')
+  assert.equal(agentTeamsPackage.version, '0.1.23-desktop.6')
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.22-desktop.11',
+    '0.1.23-desktop.6',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -115,6 +118,14 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
   const requiredFiles = [
     '../AGENTS.md',
     '../docs/UPSTREAM_MAINTENANCE.md',
+    'superpowers-plugin/UPSTREAM.md',
+    'superpowers-plugin/lib/index.js',
+    'superpowers-plugin/lib/dsh-tools.md',
+    'superpowers-plugin/lib/upstream-manifest.json',
+    'superpowers-plugin/tests/assets.test.mjs',
+    'superpowers-plugin/tests/provider.test.mjs',
+    'tests/superpowers-host.test.js',
+    'tests/superpowers-integration.test.js',
     'tests/configuration-backup.test.js',
     '../docs/UPSTREAM_ALPHA2_SOURCE_MANIFEST.md',
     '../docs/UPSTREAM_RC1_SOURCE_MANIFEST.md',
@@ -182,6 +193,29 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/release-notes/v0.1.22-desktop.9.md',
     'agent-teams-plugin/release-notes/v0.1.22-desktop.10.md',
     'agent-teams-plugin/release-notes/v0.1.22-desktop.11.md',
+    'agent-teams-plugin/release-notes/v0.1.23.md',
+    'agent-teams-plugin/release-notes/v0.1.23-desktop.2.md',
+    'agent-teams-plugin/release-notes/v0.1.23-desktop.3.md',
+    'agent-teams-plugin/release-notes/v0.1.23-desktop.4.md',
+    'agent-teams-plugin/release-notes/v0.1.23-desktop.5.md',
+    'agent-teams-plugin/release-notes/v0.1.23-desktop.6.md',
+    'agent-teams-plugin/src/inactive-poll-guard.ts',
+    'agent-teams-plugin/scripts/inactive-poll-guard.test.mjs',
+    'agent-teams-plugin/src/artifacts.ts',
+    'agent-teams-plugin/src/lineage.ts',
+    'agent-teams-plugin/src/tool-policies.ts',
+    'agent-teams-plugin/scripts/issue-188.test.mjs',
+    'agent-teams-plugin/scripts/issue-189.test.mjs',
+    'agent-teams-plugin/scripts/issue-203-card.test.mjs',
+    'agent-teams-plugin/scripts/issue-205.test.mjs',
+    'agent-teams-plugin/scripts/lineage-identity.test.mjs',
+    'agent-teams-plugin/scripts/quality-gates-content-bound.test.mjs',
+    'agent-teams-plugin/scripts/quality-gates-cross-binding.test.mjs',
+    'agent-teams-plugin/scripts/quality-gates-excluded-scope.test.mjs',
+    'agent-teams-plugin/scripts/quality-gates-repair-wiring.test.mjs',
+    'agent-teams-plugin/scripts/quality-gates-work-order.test.mjs',
+    'agent-teams-plugin/scripts/tool-policies.test.mjs',
+    'agent-teams-plugin/scripts/legacy-session-source-repair.test.mjs',
     'agent-teams-plugin/scripts/custom-member-routing.test.mjs',
     'agent-teams-plugin/scripts/governance-audit.test.mjs',
     'agent-teams-plugin/src/attempt-evidence.ts',
@@ -195,6 +229,11 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'release-notes/v0.2.0-rc.16.md',
     'release-notes/v0.2.0-rc.17.md',
     'release-notes/v0.2.0-rc.18.md',
+    'release-notes/v0.2.0-rc.20.md',
+    'release-notes/v0.2.0-rc.21.md',
+    'release-notes/v0.2.0-rc.22.md',
+    'release-notes/v0.2.0-rc.23.md',
+    'release-notes/v0.2.0-rc.24.md',
     'agent-teams-plugin/src/workspace-audit.ts',
     'agent-teams-plugin/scripts/coverage-contract-consistency.test.mjs',
     'agent-teams-plugin/scripts/team-return-guidance.test.mjs',
@@ -304,6 +343,13 @@ test('the recommended 0.2.0 source manifest matches every packed official tarbal
 
 test('critical integration markers retain local capability ownership', () => {
   assert.match(agentTeamsPackage.scripts.verify, /hmr-member-runtime-verify\.mjs/)
+  assert.match(agentTeamsPackage.scripts.verify, /node --test scripts\/default-profile-client\.test\.mjs/)
+  assert.match(agentTeamsPackage.scripts.verify, /pnpm verify:inactive-poll/)
+  assert.equal(agentTeamsPackage.scripts['verify:inactive-poll'], 'node --test scripts/inactive-poll-guard.test.mjs')
+  assertContains('../AGENTS.md', /AgentTeams `0\.1\.23-desktop\.4` inactive polling boundary/)
+  assertContains('../AGENTS.md', /AgentTeams `0\.1\.23-desktop\.5` Profile readiness guidance/)
+  assertContains('../AGENTS.md', /AgentTeams `0\.1\.23-desktop\.3` Profile delegation boundary/)
+  assertContains('../docs/UPSTREAM_MAINTENANCE.md', /saved `defaultProfile`/)
   assertContains('../AGENTS.md', /AgentTeams `v0\.1\.16-rc\.1` interaction invariants/)
   assertContains('../AGENTS.md', /Models settings fork `0\.2\.0-rc\.2-desktop\.4` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
@@ -427,6 +473,7 @@ test('the complete upstream regression gate remains registered', () => {
     'models-settings-plugin',
     'cpa-provider-plugin',
     'agent-teams-plugin',
+    'superpowers-plugin',
   ]) {
     assert.match(runner, new RegExp(`['\"]${directory}['\"]`), `${directory} must remain in the full gate`)
   }
@@ -440,4 +487,17 @@ test('the complete upstream regression gate remains registered', () => {
   assert.match(runner, /verify-alpha2-runtime-closure\.mjs/)
   assert.match(runner, /command === 'node' \? process\.execPath/)
   assert.doesNotMatch(runner, /\b(?:install|publish|dist:win|electron-builder)\b/)
+})
+
+test('Superpowers retains fixed native SDK ownership and Team/Native mapping regressions', () => {
+  const manifest = JSON.parse(read('superpowers-plugin/package.json'))
+  assert.deepEqual(manifest.peerDependencies, {
+    '@deepseek-ai/cordis': '4.0.4', '@deepseek-ai/dsh-skill': '0.2.0-rc.2',
+    '@deepseek-ai/dsh-skill-filesystem': '0.2.0-rc.2',
+  })
+  assertContains('superpowers-plugin/lib/upstream-manifest.json', /bb92a77741419a4ab5f06e711a283343f1ada0c3/u)
+  assertContains('superpowers-plugin/lib/index.js', /FileSystemSkillProvider/u)
+  assertContains('superpowers-plugin/lib/dsh-tools.md', /teams-v1/u)
+  assertContains('superpowers-plugin/lib/dsh-tools.md', /native-v1/u)
+  assertContains('tests/superpowers-host.test.js', /createAgentTeamsSubagentGateway/u)
 })

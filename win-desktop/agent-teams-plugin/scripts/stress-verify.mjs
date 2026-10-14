@@ -168,11 +168,12 @@ function mountRuntime() {
     settings: {
       get: () => ({
         delegationMode: 'teams',
+        defaultProfile: 'stress',
       }),
     },
     memberMaxDepth: 1,
     maxMembers: 8,
-    profiles: {},
+    profiles: { stress: { taskPlanning: 'captain', members: memberNames.map(name => ({ name, role: `${name}-specialist`, reasoning_mode: 'target-default' })) } },
   })
 
   return {
@@ -304,7 +305,7 @@ runtime = mountRuntime()
 try {
   await call('agent_teams_create', { name: 'Stress Matrix', description: '8 members, 31-node DAG, injected failures and cold restart' })
   for (const name of memberNames) {
-    await call('agent_teams_add_member', { name, role: `${name}-specialist` })
+    await call('agent_teams_send_message', { to: name, content: 'Activate the frozen stress role.' })
   }
 
   // Keep every member unavailable while the complete graph is created. This

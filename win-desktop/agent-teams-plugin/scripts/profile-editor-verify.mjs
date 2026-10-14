@@ -17,7 +17,7 @@ import {
 const editorSource = await readFile(new URL('../src/client/TeamProfilesEditor.tsx', import.meta.url), 'utf8')
 assert.match(
   editorSource,
-  /writer\.write\(\[\s*\{ op: 'set', path: \['profiles'\], value: prepared\.profiles as unknown as JsonValue \},\s*\], baselineSignature\)/,
+  /writer\.write\(planProfileMapChange\(\s*prepared\.profiles, committedProfiles, renamed\.committedProfileNames, committedDefaultProfile,\s*\)\.ops, baselineSignature\)/,
   'Profile Save must use the official serialized CAS writer with its draft baseline',
 )
 assert.doesNotMatch(editorSource, /setAgentTeamsProfiles/, 'legacy desktop choices remain read-only')

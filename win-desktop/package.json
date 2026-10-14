@@ -1,6 +1,6 @@
 {
   "name": "deepseek-harness-windows",
-  "version": "0.2.0-rc.18",
+  "version": "0.2.0-rc.24",
   "description": "Windows 桌面包装器：启动官方 DeepSeek Harness Web UI",
   "type": "module",
   "main": "src/main.js",
@@ -287,6 +287,7 @@
     "@deepseek-ai/dsh-subprocess": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-subprocess-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-subprocess-local": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-subprocess-local-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-subprocess-ssh": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-subprocess-ssh-0.2.0-rc.2.tgz",
+    "@deepseek-ai/dsh-superpowers": "file:superpowers-plugin",
     "@deepseek-ai/dsh-system-prompt": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-system-prompt-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-terminal": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-terminal-0.2.0-rc.2.tgz",
     "@deepseek-ai/dsh-terminal-bash": "file:../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-terminal-bash-0.2.0-rc.2.tgz",

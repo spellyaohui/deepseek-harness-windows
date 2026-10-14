@@ -25,6 +25,14 @@ const temporaryMember = {
 assert.deepEqual(normalizeAgentTeamsSettings({ temporaryMember }), {
   delegationMode: 'teams', temporaryMember,
 }, 'the trusted temporary subagent policy must survive settings normalization')
+assert.deepEqual(normalizeAgentTeamsSettings({ defaultProfile: '  delivery  ' }), {
+  delegationMode: 'teams', defaultProfile: 'delivery',
+}, 'the saved default Profile is normalized once at the strict settings boundary')
+assert.deepEqual(normalizeAgentTeamsSettings({ defaultProfile: ' \t ' }), {
+  delegationMode: 'teams',
+}, 'a blank default Profile is absent rather than a hidden fallback')
+assert.throws(() => normalizeAgentTeamsSettings({ defaultProfile: 42 }), /defaultProfile|string/i,
+  'an invalid default Profile type must fail instead of being dropped')
 for (const policy of [
   { reasoningMode: 'unknown' },
   { provider: 'configured-provider', reasoningMode: 'target-default' },
@@ -82,17 +90,19 @@ assert.equal(attachment.presentation(), undefined)
 
 const liveHarness = createHarness('teams')
 let liveTemporaryMember = temporaryMember
-const liveRuntime = createAgentTeamsSettingsRuntime(liveHarness.ctx, liveHarness.ref, { get: () => liveTemporaryMember })
+let liveDefaultProfile = 'delivery'
+const liveRuntime = createAgentTeamsSettingsRuntime(liveHarness.ctx, liveHarness.ref, { get: () => liveTemporaryMember }, { get: () => liveDefaultProfile })
 const liveAttachment = liveHarness.attach()
-assert.deepEqual(liveRuntime.get(), { delegationMode: 'teams', temporaryMember })
+assert.deepEqual(liveRuntime.get(), { delegationMode: 'teams', temporaryMember, defaultProfile: 'delivery' })
 liveTemporaryMember = { provider: 'second-provider', model: 'second-model', reasoningMode: 'target-default' }
-assert.deepEqual(liveRuntime.get(), { delegationMode: 'teams', temporaryMember: liveTemporaryMember },
+assert.deepEqual(liveRuntime.get(), { delegationMode: 'teams', temporaryMember: liveTemporaryMember, defaultProfile: 'delivery' },
   'saved temporary route changes must be observed through the existing volatile Config boundary')
 liveAttachment.publish('native')
-assert.deepEqual(liveRuntime.get(), { delegationMode: 'native', temporaryMember: liveTemporaryMember },
+liveDefaultProfile = 'release'
+assert.deepEqual(liveRuntime.get(), { delegationMode: 'native', temporaryMember: liveTemporaryMember, defaultProfile: 'release' },
   'changing delegation mode must preserve the saved temporary policy for later Team sessions')
 liveTemporaryMember = undefined
-assert.deepEqual(liveRuntime.get(), { delegationMode: 'native' }, 'removing the temporary policy restores existing unconfigured behavior')
+assert.deepEqual(liveRuntime.get(), { delegationMode: 'native', defaultProfile: 'release' }, 'removing the temporary policy preserves the saved default Profile')
 liveAttachment.detach()
 
 const source = await readFile(new URL('../src/settings.ts', import.meta.url), 'utf8')

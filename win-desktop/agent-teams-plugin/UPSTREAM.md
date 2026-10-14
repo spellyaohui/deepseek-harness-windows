@@ -1,18 +1,144 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.22`
-- Tag: `v0.1.22`
-- Source commit: `9cba4fe4171f27c019991cafd2a107f87ef3517b`
-- Imported: `2026-09-30`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.23`
+- Tag: `v0.1.23`
+- Source commit: `1094b84add6f2fb19edf659367fe2fd5f7f14154`
+- Imported: `2026-10-13`
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.22-desktop.11`.
+- Desktop fork version is `0.1.23-desktop.6`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
-## 2026-10-07 desktop.11 custom-member routing
+## 2026-10-14 desktop.6 frozen role tool inheritance
+
+REAPPLY: numbered and exact role_template members copy the current Team's
+frozen toolPolicy/toolFilter if tool_policy is omitted; do not resolve from a
+later owner configuration. Explicit policy selection keeps its current precedence.
+Model/reasoning/prompt rules, gateway and strict V2 remain unchanged. Four runtime
+inheritance cases RED, five focused cases GREEN, then full offline gate passed
+(wrapper209/209) before identity sync. Retain actual schema/forced-invocation,
+staged approval, changed mount configuration and cold-resume regressions in
+scripts/custom-member-routing.test.mjs. Final synchronized gate/package evidence
+is recorded in [desktop.6 notes](release-notes/v0.1.23-desktop.6.md) and wrapper
+rc.24. The [cumulative retention index](../../docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md)
+distinguishes active and retired conversation requirements.
+
+## 2026-10-14 desktop.5 Profile readiness
+
+REAPPLY: inactive rendering diagnoses only the trusted saved default Profile,
+including the empty fixed-template blocker, and preserves direct-user command
+precedence. Ready captain guidance requires create then create-task/frozen roles;
+there is no automatic Team/configuration write or new output field. Existing
+creation admission, empty-seed rejection, three-query guard and durable gateway
+remain unchanged. Model-facing profile listing includes the saved binding and
+zero-task blocker within the built-in 3500 budget. RED then real-loop35/35,
+complete AgentTeams verify and full offline wrapper209/209 passed before identity
+sync; all previous controls remain. The user switches planning personally.
+Harness/upstream pins remain unchanged. Separate final gate/review/package limits
+are recorded in [desktop.5 notes](release-notes/v0.1.23-desktop.5.md).
+
+## 2026-10-13 desktop.4 inactive polling recovery
+
+REAPPLY, AgentTeams-owned: same-turn root TEAM captain pacing after three real
+successful inactive status calls, through official pre-step rejection. API/Web,
+duplicate results, errors, other tools, Native and children never count. Persisted
+policy, fresh Team/user/binding and reload controls remain separate; genuine queued
+user input resumes once in order via public Inbox/steer with plugin context, not
+fabricated user authority. No new tool, settings/state schema, gateway or host patch.
+Status recovery names the saved default/current-user Profile command; the prompt
+still fits3500 and inline plan arguments are not creation authority. Behavioral
+RED then real-loop26/26 and complete offline gate passed before version sync.
+All prior regressions remain; `verify:inactive-poll` is mandatory. Harness remains
+0.2.0-rc.2. Final synchronized gate/review/package evidence is recorded separately
+in [desktop.4 notes](release-notes/v0.1.23-desktop.4.md); no publication is authorized.
+
+## 2026-10-13 desktop.3 Profile delegation boundary
+
+REAPPLY, AgentTeams-owned: ordinary Team creation binds trusted saved
+defaultProfile or the current direct user's configured Profile selection;
+ordinary added members require exact/numbered frozen roles or role_template.
+Missing/invalid bindings and zero-task fixed templates reject before writes or
+spawns. The former ordinary ad-hoc and unbound custom-member default is
+SUPERSEDED_BY_DESIGN by the user-approved boundary. Existing Teams are neither
+rerouted nor migrated. Saved temporaryMember applies only to an admitted
+temporary call, not as a replacement for ordinary Profile roles.
+
+Temporary authority is read from the whole current direct user context through
+`/agent-teams --temporary <goal>`; model, skill and historical text cannot grant
+permission, and Profile aliases do not collide with this syntax. Schema and
+execution admission enforce the boundary; prompt text is secondary. Native,
+reasoning ownership, allowlists, concurrency and the sole durable gateway remain.
+
+The existing Profile editor uses one official SettingsForms/CAS operation for
+default/map rename/delete, retains temporary policy, prompts and tool_policy,
+and never auto-selects the first Profile. Restart and encrypted backup retain
+the explicit binding. The new default-profile-client.test.mjs is in `verify`
+alongside every existing stage. Source/runtime and client regression evidence
+preceded this metadata update. Final synchronized gate, independent review and
+package acceptance remain separately owned by the controller; see
+[desktop.3 candidate notes](release-notes/v0.1.23-desktop.3.md).
+Harness and upstream AgentTeams revisions/host matrix remain unchanged.
+
+## Historical 2026-10-13 desktop.2 semantic migration
+
+Source was integrated from the fixed v0.1.23 TypeScript tag, not installed lib.
+Imported capabilities: canonical Unicode card identity/metadata, finding-line
+validation and corrupt-record diagnostics, settled-attempt failure notes,
+content-bound review/verification artifacts, repair work-order snapshots and
+lineage binding, verification repair recovery, excluded-scope escalation,
+warm/cold multi-hop captain identity, current session-source metadata and the
+separate explicit non-destructive repair utility, plus owner-declared tool policies.
+
+REAPPLY: strict V2/no legacy coercion, role/temporary/explicit provider-model
+pairs, all reasoning modes and frozen provenance, Team/Native routing, scoped
+tools.get/HMR/disposal, single durable-session gateway, guarded Web/CAS,
+quality/audit/completion identity, captain takeover, attempt settlement, Chinese
+defaults and bounded prompts. The upstream provider-aware requirement (#189)
+is owned by the local paired selector; global memberModel/memberLlmProvider
+settings and model-owner guessing remain absent. Upstream automatic malformed
+V2/legacy coercion is excluded by the strict-read contract; valid current-record
+features and actionable finding diagnostics are preserved. The repair utility
+is shipped as an explicit script only and is never invoked on user state.
+
+At desktop.2, inline create-plan members with no actual explicit route or effort used the
+saved temporary policy, including blank optional routes and echoed target-default.
+Configured Profiles and explicit policy still win. Selection/source are frozen
+once before writes; invalid routes/policies reject without Team or child writes.
+Profile edits retain tool_policy; staged edits/snapshots retain the frozen filter.
+This ordinary ad-hoc default is superseded by desktop.3; only admitted temporary
+compatibility calls retain the low-level shape and temporary policy.
+Every spawn/delivery/retirement continues through the durable captain gateway,
+including fork callers. Four required member coordination tools remain available.
+
+Evidence: the complete offline plugin pnpm test passed after source integration;
+verify:upstream-023 is included in verify/test alongside every existing local suite.
+Real Harness Tools/AgentLoop/JSONL tests cover creation, staged approval, separate
+providers, frozen defaults, zero-write refusals, owner filters, cold children and
+multi-hop forks. The create-default control fails on the provider assertion after
+the inline Schema exists, then passes with the fix. See
+[migration notes](release-notes/v0.1.23-desktop.2.md).
+
+Scoped review fix round 1 retains that candidate identity. Quality follow-up
+receipts are persisted before delivery; cold captain attachment leaves the
+stored preset to the real SessionController; partial approval rollback and
+fork-requested Stop use the admitted original parent and drain barrier. All
+message producers use the pre-v3 source adapter. The manual repair utility
+preserves plain versus compressed encoding. Fresh full offline pnpm test passed
+after these fixes: real controller/AgentLoop/JSONL live and cold regressions,
+plain/zstd Host-backend repair loads, and eight production messages through the
+released-v2-to-current format catalog. The source-format production check is
+permanently included in verify:upstream-023. Browser/workspace chrome is stubbed
+in the controller fixture; this is not live-client or external-model acceptance.
+
+The final wrapper verify:upstream gate and package acceptance are controller-owned
+and pending at this source handoff. No install, packaging, live client/settings,
+external provider call or publication is claimed. The pinned Harness, recommended
+host matrix and stable release contract remain unchanged.
+
+## Historical 2026-10-07 desktop.11 custom-member routing
 
 Classification: REAPPLY; upstream pins are unchanged. The existing member-selection
 boundary now shares the saved temporary default with unbound custom add-member calls.

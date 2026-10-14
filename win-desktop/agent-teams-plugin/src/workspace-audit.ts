@@ -13,9 +13,34 @@
 
 import { execFile } from 'node:child_process'
 import { realpath } from 'node:fs/promises'
-import type { TeamTask } from './types.ts'
+import type { ArtifactDigest, ArtifactScopeGap, TeamState, TeamTask } from './types.ts'
+import { readArtifactScope } from './artifacts.ts'
+import { deliveryArtifactPaths, deliveryScopePatterns, type DeliveryAudit } from './quality-gates.ts'
 import type { AttemptWorkspaceAudit, SerializedWorkspaceSnapshot } from './audit-contract.ts'
 export type { AttemptWorkspaceAudit, SerializedWorkspaceSnapshot } from './audit-contract.ts'
+
+/** The same current bytes and enumeration gaps drive all delivery surfaces. */
+export function auditTeamWorkspace(workspace: string, team: TeamState): DeliveryAudit {
+  const paths = deliveryArtifactPaths(team)
+  const scopePatterns = deliveryScopePatterns(team)
+  const pathRead = paths.length === 0 ? { artifacts: [] as ArtifactDigest[], gaps: [] as ArtifactScopeGap[] } : readArtifactScope(workspace, paths)
+  const scopeRead = scopePatterns.length === 0 ? { artifacts: [] as ArtifactDigest[], gaps: [] as ArtifactScopeGap[] } : readArtifactScope(workspace, scopePatterns)
+  const gaps: ArtifactScopeGap[] = [...pathRead.gaps, ...scopeRead.gaps]
+  const seen = new Set(gaps.map(gap => `${gap.pattern}\u0000${gap.reason}`))
+  for (const artifact of [...pathRead.artifacts, ...scopeRead.artifacts]) {
+    if (artifact.unreadable !== true) continue
+    const reason = artifact.reason ?? 'path could not be read'
+    const key = `${artifact.path}\u0000${reason}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    gaps.push({ pattern: artifact.path, reason })
+  }
+  return {
+    artifacts: pathRead.artifacts,
+    expandedScope: scopeRead.artifacts.map(artifact => ({ path: artifact.path, present: artifact.present })),
+    ...gaps.length === 0 ? {} : { gaps },
+  }
+}
 
 /** Workspace-relative POSIX path → blob hash (or a deletion marker) for every dirty file. */
 export interface WorkspaceSnapshot {

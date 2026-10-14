@@ -103,7 +103,7 @@ assert.equal(
 )
 assert.equal(
   findMemberRoleTemplate({ memberName: 'quality-gate2', role: 'Code and Risk Reviewer', members: ruleTemplates }).template?.name,
-  'reviewer',
+  undefined,
 )
 assert.equal(
   findMemberRoleTemplate({ memberName: 'new-specialist2', role: 'new role', members: ruleTemplates }).kind,
@@ -121,7 +121,7 @@ assert.equal(
     roleTemplate('first', 'cpa', 'first-model', 'explicit', 'low', 'same role'),
     roleTemplate('second', 'alt-gateway', 'second-model', 'explicit', 'high', 'same role'),
   ] }).kind,
-  'ambiguous',
+  'none',
 )
 
 const profileWith = (member) => ({ demo: { members: [member] } })

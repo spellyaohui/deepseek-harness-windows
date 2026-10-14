@@ -313,7 +313,7 @@ const deleteBlock = deleteStart >= 0 && deleteEnd > deleteStart
 check(
   'team deletion serializes every member retirement with the gateway child lock',
   deleteBlock.includes('await recordRetiredMemberIds(stateRoot, members.map(member => member.id))')
-    && deleteBlock.includes('await stopTeamMemberActivations(ctx, captain, members, exec.signal)'),
+    && deleteBlock.includes('await stopTeamMemberActivations(ctx, await memberOperationParent(ctx, team, captain), members, exec.signal)'),
   deleteBlock.slice(0, 800),
 )
 check(

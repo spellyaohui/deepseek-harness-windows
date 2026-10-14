@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, test } from 'node:test'
@@ -9,6 +10,7 @@ import {
   resolveVerificationTarget,
   verifyRuntimeClosure,
 } from '../scripts/verify-alpha2-runtime-closure.mjs'
+import * as runtime from '../scripts/verify-alpha2-runtime-closure.mjs'
 
 const temporaryRoots = []
 
@@ -129,5 +131,55 @@ test('release-critical runtime package list includes the Alpha.2 and Cordis boot
     '@deepseek-ai/cordis-plugin-include',
     'js-yaml',
     'argparse',
+    '@deepseek-ai/dsh-superpowers',
   ])
+})
+
+test('Superpowers closure checks the fixed source, complete file set and local runtime resources', () => {
+  assert.equal(typeof runtime.verifySuperpowersAssets, 'function')
+  const root = join(temporaryRoot(), 'plugin')
+  cpSync(new URL('../superpowers-plugin/', import.meta.url), root, { recursive: true })
+  assert.deepEqual(runtime.verifySuperpowersAssets(root), {
+    skillCount: 15, assetCount: 75, commit: 'bb92a77741419a4ab5f06e711a283343f1ada0c3' })
+  const manifestPath = join(root, 'lib', 'upstream-manifest.json')
+  const manifestBytes = readFileSync(manifestPath)
+  const manifest = JSON.parse(manifestBytes)
+  for (const path of ['skills/brainstorming/SKILL.md', 'skills/executing-plans/scripts/task-start',
+    'LICENSE', 'dsh-tools.md', 'index.js', 'upstream-manifest.json']) {
+    const target = join(root, 'lib', path)
+    const bytes = readFileSync(target)
+    rmSync(target)
+    assert.throws(() => runtime.verifySuperpowersAssets(root), /Superpowers|superpowers/u)
+    writeFileSync(target, bytes)
+  }
+  const asset = join(root, 'lib', manifest.files[0].path)
+  const bytes = readFileSync(asset)
+  writeFileSync(asset, 'tampered')
+  assert.throws(() => runtime.verifySuperpowersAssets(root), /hash/u)
+  writeFileSync(asset, bytes)
+  const bad = structuredClone(manifest)
+  bad.files[0].path = '../outside.txt'
+  writeJson(manifestPath, bad)
+  assert.throws(() => runtime.verifySuperpowersAssets(root), /path/u)
+  writeFileSync(manifestPath, manifestBytes)
+  const extra = join(root, 'lib', 'skills', 'unexpected.md')
+  writeFileSync(extra, 'unexpected')
+  assert.throws(() => runtime.verifySuperpowersAssets(root), /file set/u)
+  rmSync(extra)
+  symlinkSync(join(root, 'lib', 'skills', 'brainstorming'), extra,
+    process.platform === 'win32' ? 'junction' : 'dir')
+  assert.throws(() => runtime.verifySuperpowersAssets(root), /link/u)
+})
+
+test('Superpowers closure rejects coordinated asset and manifest tampering', () => {
+  const root = join(temporaryRoot(), 'plugin')
+  cpSync(new URL('../superpowers-plugin/', import.meta.url), root, { recursive: true })
+  const path = join(root, 'lib', 'LICENSE')
+  writeFileSync(path, 'Different bytes with a matching self-reported hash')
+  const manifestPath = join(root, 'lib', 'upstream-manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath))
+  manifest.files.find(entry => entry.path === 'LICENSE').sha256 =
+    createHash('sha256').update(readFileSync(path)).digest('hex')
+  writeJson(manifestPath, manifest)
+  assert.throws(() => runtime.verifySuperpowersAssets(root), /fixed source/u)
 })

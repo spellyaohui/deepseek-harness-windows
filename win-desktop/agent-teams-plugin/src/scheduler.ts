@@ -42,6 +42,8 @@ import { observeWorkspace } from './workspace-audit.ts'
 import { workspaceCodeVersion } from './attempt-evidence.ts'
 import { sessionOwnEvents } from './harness-compat.ts'
 import { latestAttemptTurnEnd } from './attempt-turn.ts'
+import { contractStaleness, isVerdictKind, taskKindOf, verdictScopePatterns } from './quality-gates.ts'
+import { digestWorkspacePaths, snapshotWorkspacePaths } from './artifacts.ts'
 
 /** Per-dependency output cap in the assignment prompt. */
 export const DEPENDENCY_OUTPUT_MAX_CHARS = 2_000
@@ -97,6 +99,7 @@ export interface DispatchTicket {
   readonly acceptance?: readonly string[]
   readonly verify?: readonly string[]
   readonly reviewedTaskId?: string
+  readonly findingSourceTaskIds?: readonly string[]
 }
 
 function taskProfileSeedId(task: TeamTask): string | undefined {
@@ -212,13 +215,21 @@ function nextReadyTask(tasks: readonly TeamTask[], memberName: string): TeamTask
     ?? ready.find(task => task.assignee === undefined)
 }
 
-export function assignmentPrompt(ticket: DispatchTicket, stateDir: string, teamId: string): string {
+export function assignmentPrompt(
+  ticket: DispatchTicket,
+  stateDir: string,
+  teamId: string,
+  workOrderWarnings: readonly string[] = [],
+): string {
   const description = ticket.description === undefined ? '' : `\n\n${ticket.description}`
   const seed = ticket.profileSeedId === undefined ? '' : ` [${ticket.profileSeedId}]`
   const goal = ticket.teamDescription?.trim() || '(not provided)'
   const protocol = ticket.profileProtocol?.trim() || '(none)'
   const executionPrompt = ticket.executionPrompt?.trim()
   const kind = ticket.kind?.trim() || 'work'
+  const staleWorkOrder = workOrderWarnings.length === 0
+    ? ''
+    : `\nBefore you edit anything: this auto-generated work order was derived from a workspace that has since changed.\n${workOrderWarnings.map((warning) => `- ${warning}`).join('\n')}\nRe-read the cited files first, locate the code by content anchor rather than by any position, and report a blocker instead of editing a target that no longer exists.\n`
   const contract = [
     `Kind: ${kind}${ticket.round === undefined ? '' : ` (round ${ticket.round})`}`,
     ticket.objective === undefined || ticket.objective === '' ? '' : `Objective: ${ticket.objective}`,
@@ -227,6 +238,7 @@ export function assignmentPrompt(ticket: DispatchTicket, stateDir: string, teamI
     ticket.acceptance === undefined || ticket.acceptance.length === 0 ? '' : `Acceptance: ${ticket.acceptance.join('; ')}`,
     ticket.verify === undefined || ticket.verify.length === 0 ? '' : `Verify: ${ticket.verify.join('; ')}`,
     ticket.reviewedTaskId === undefined ? '' : `Reviewed task: ${ticket.reviewedTaskId}`,
+    ticket.findingSourceTaskIds === undefined || ticket.findingSourceTaskIds.length === 0 ? '' : `Fixes findings of: ${ticket.findingSourceTaskIds.join(', ')}`,
   ].filter((line) => line !== '').join('\n')
   const structuredCompletion = ['implementation', 'repair', 'verification', 'integration'].includes(kind)
     ? `
@@ -253,7 +265,7 @@ Completed dependency results:
 ${formatDependencyOutputs(ticket.dependencyOutputs)}
 
 Task: ${ticket.taskId}${seed} — ${ticket.subject}${description}
-${contract === '' ? '' : `\nContract:\n${contract}\n`}
+${staleWorkOrder}${contract === '' ? '' : `\nContract:\n${contract}\n`}
 ${structuredCompletion}
 Attempt: ${ticket.attempt}
 Attempt id: ${ticket.attemptId}
@@ -364,6 +376,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
           const task = recoverOwned ? owned : owned === undefined
             ? nextReadyTask(fresh.tasks, currentMember.name)
             : undefined
+          if (currentMember.temporaryAdmission === true && task?.temporaryAdmission !== true) return undefined
           if (task === undefined) {
             if (currentMember.status !== 'idle') {
               currentMember.status = 'idle'
@@ -383,6 +396,13 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
           const previousAttempt = recoverOwned ? task.attempt : undefined
           const previousAttemptId = recoverOwned ? task.attemptId : undefined
           const attemptId = beginTaskAttempt(task, currentMember.name)
+          // A verdict must be able to say which revision was on disk when it
+          // started, so a review that runs while someone else edits the tree
+          // cannot later claim to have judged stable bytes (issue #161).
+          if (isVerdictKind(taskKindOf(task))) {
+            const scope = verdictScopePatterns(fresh, task)
+            if (scope.length > 0) task.verdictStartSnapshot = snapshotWorkspacePaths(workspace, scope)
+          }
           // A recovered generation is parked before delivery. This makes each
           // (member, attempt) recovery idempotent even if every status poll
           // sees a disposed handle. Fresh pending work remains unparked so a
@@ -420,6 +440,7 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
             ...task.acceptance === undefined ? {} : { acceptance: task.acceptance },
             ...task.verify === undefined ? {} : { verify: task.verify },
             ...task.reviewedTaskId === undefined ? {} : { reviewedTaskId: task.reviewedTaskId },
+            ...task.findingSourceTaskIds === undefined ? {} : { findingSourceTaskIds: task.findingSourceTaskIds },
             dependencyOutputs: collectCompletedDependencyOutputs(
               fresh.tasks,
               task.id,
@@ -429,7 +450,14 @@ export function installTeamScheduler(ctx: Context, config: SchedulerConfig): Tea
         })
         if (ticket === undefined) return
 
-        const prompt = assignmentPrompt(ticket, config.stateDir, team.id)
+        const taskForWarning = team.tasks.find((item) => item.id === ticket.taskId)
+        const workOrderStale = taskForWarning?.contractSnapshot === undefined
+          ? []
+          : contractStaleness(
+            taskForWarning,
+            digestWorkspacePaths(workspace, taskForWarning.contractSnapshot.artifacts.map((artifact) => artifact.path)),
+          )
+        const prompt = assignmentPrompt(ticket, config.stateDir, team.id, workOrderStale)
         const signal = new AbortController().signal
         const accepted = config.dispatch === undefined
           ? await deliverToMember(ctx, captain, ticket.memberId, prompt, config.stateDir, signal)

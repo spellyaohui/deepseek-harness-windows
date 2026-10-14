@@ -8,6 +8,7 @@ import type { DelegationMode } from './settings.ts'
 import { onAgentReady, sessionOwnEvents } from './harness-compat.ts'
 import { CAPTAIN_TOOL_NAMES } from './tool-names.ts'
 import type { SubagentCompatibility } from './subagent-compat.ts'
+import { hasCurrentTurnTemporaryAuthorization } from './temporary-authorization.ts'
 
 export type DelegationPolicyId = 'teams-v1' | 'native-v1'
 export const POLICY_PREFIX = 'AgentTeams delegation policy:'
@@ -24,7 +25,7 @@ export function policyMarker(policy: DelegationPolicyId): string {
 /** Policy-specific activation guidance placed before the shared AgentTeams protocol. */
 export function delegationPolicyUsagePreamble(policy: DelegationPolicyId): string {
   return policy === 'teams-v1'
-    ? 'AgentTeams owns delegation. Captain subagent calls route to real Team members/tasks; coordinate them with agent_teams_* tools. Ordinary single-agent work needs no Team. When delegating, you are the captain.'
+    ? 'Single-agent work needs no Team. Temporary subagent/custom roles require current direct-user authorization: /agent-teams --temporary <goal>. It expires each turn; admitted tasks/quality follow-ups may finish. Use agent_teams_*.'
     : 'When the user asks to run something with AgentTeams (e.g. "use AgentTeams to do X"), or an activation message from the /agent-teams slash command arrives, you are the captain of a multi-agent team.'
 }
 
@@ -76,7 +77,7 @@ const compatibleCaptains = new WeakSet<Agent>()
 
 function hiddenTeamTool(agent: Agent, name: string): boolean {
   return installedPolicies.get(agent) === 'teams-v1' && nativeDelegationToolNames.has(name)
-    && !(name === 'subagent' && compatibleCaptains.has(agent))
+    && !(name === 'subagent' && compatibleCaptains.has(agent) && hasCurrentTurnTemporaryAuthorization(agent))
 }
 
 /** Make the official continuation capability lookup agree with Team admission.
@@ -87,17 +88,32 @@ function installTeamToolLookup(ctx: Context): () => void {
   if (typeof tools?.get !== 'function') return () => undefined
   const original = tools.get
   const descriptor = Object.getOwnPropertyDescriptor(tools, 'get')
+  const originalSchemas = tools.schemas
+  const schemasDescriptor = Object.getOwnPropertyDescriptor(tools, 'schemas')
   let active = true
   const lookup: typeof original = function (this: typeof tools, name, scope) {
-    if (active && scope !== undefined && hiddenTeamTool(scope as Agent, name)) return undefined
+    if (active && scope !== undefined && hiddenTeamTool(scope as Agent, name)
+      && !(name === 'subagent' && compatibleCaptains.has(scope as Agent))) return undefined
     return original.call(this, name, scope)
   }
   tools.get = lookup
+  const schemaLookup: typeof originalSchemas = function (this: typeof tools, scope) {
+    const schemas = originalSchemas.call(this, scope)
+    return active && scope !== undefined
+      ? schemas.filter(schema => !hiddenTeamTool(scope as Agent, schema.name))
+      : schemas
+  }
+  tools.schemas = schemaLookup
   return () => {
     active = false
-    if (Object.getOwnPropertyDescriptor(tools, 'get')?.value !== lookup) return
-    if (descriptor === undefined) Reflect.deleteProperty(tools, 'get')
-    else Object.defineProperty(tools, 'get', descriptor)
+    if (Object.getOwnPropertyDescriptor(tools, 'get')?.value === lookup) {
+      if (descriptor === undefined) Reflect.deleteProperty(tools, 'get')
+      else Object.defineProperty(tools, 'get', descriptor)
+    }
+    if (Object.getOwnPropertyDescriptor(tools, 'schemas')?.value === schemaLookup) {
+      if (schemasDescriptor === undefined) Reflect.deleteProperty(tools, 'schemas')
+      else Object.defineProperty(tools, 'schemas', schemasDescriptor)
+    }
   }
 }
 
@@ -167,6 +183,9 @@ export function installDelegationPolicy(input: {
         compatibleCaptains.add(agent)
         disposeCompatibility = agent.ctx.on('tools/execute', async (execution, next) => {
           if (execution.name !== 'subagent' || execution.agent !== agent) return next()
+          if (!hasCurrentTurnTemporaryAuthorization(agent)) {
+            throw new Error('temporary subagent requires current direct user authorization; use /agent-teams --temporary <goal>')
+          }
           const value = await compatibility(execution)
           // ToolRuntime validates and renders this through the original official
           // output contract. Never execute the unmanaged native tool body.

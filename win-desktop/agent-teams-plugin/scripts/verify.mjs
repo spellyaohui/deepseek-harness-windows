@@ -128,9 +128,17 @@ check(
 
 const builtTools = await readFile(new URL('../lib/tools.js', import.meta.url), 'utf8')
 const builtIndex = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')
+check('tool descriptions require trusted Profile and frozen roles with an authorized temporary exception',
+  builtTools.includes('Create a team from the trusted saved defaultProfile')
+    && builtTools.includes('Ordinary creation uses the trusted Profile')
+    && builtTools.includes('role descriptions do not bind roles')
+    && builtTools.includes('Unbound members require current direct-user temporary authorization')
+    && builtTools.includes('Explicit provider/model/reasoning settings win within an admitted role or temporary call')
+    && !builtTools.includes('ordinary-work roster')
+    && !builtTools.includes('Omit for a new independent specialist'))
 check(
   'tool schema leaves role reasoning policy optional for numbered-role inheritance',
-  builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matched frozen role or saved temporary/custom default. explicit requires provider/model/reasoning_effort.' }")
+  builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], description: 'Optional role reasoning policy. Omit to inherit a matched frozen role or authorized temporary default. explicit requires provider/model/reasoning_effort.' }")
     && builtTools.includes('explicit requires provider/model/reasoning_effort')
     && !builtTools.includes("reasoning_mode: { type: 'string', enum: ['target-default', 'route-aware', 'explicit'], default: 'target-default'"),
 )
@@ -139,13 +147,13 @@ check(
   builtIndex.includes('target-default') && builtIndex.includes('route-aware') && builtIndex.includes('explicit'),
 )
 check(
-  'usage prompt omits profile when no profile is configured',
-  builtIndex.includes('If none are listed, omit the profile property; never send profile="" or default/none/captain placeholders.'),
+  'usage prompt requires a trusted Profile binding before ordinary creation',
+  builtIndex.includes('current direct-user Profile or saved defaultProfile; otherwise ask the user to select one.')
+    && builtIndex.includes('Model profile/inline plans cannot replace it.'),
 )
 check(
   'ordinary delegation defaults to automatic startup and model-owned naming/planning',
-  builtIndex.includes('Default delegation uses approval="automatic"')
-    && builtIndex.includes('omit name so AgentTeams generates it')
+  builtIndex.includes('Default approval="automatic": omit name; captain names/plans tasks')
     && builtIndex.includes('never ask the user to name a task')
     && builtTools.includes('Default to approval=automatic')
     && builtTools.includes('Use approval=required only when the user explicitly asks to review the plan before startup.'),
@@ -215,7 +223,7 @@ for (const [label, pattern] of [
   ['state halted', /halted[^\n]*resume/i],
   ['approval boundary', /approval="required"[^\n]*never[^\n]*(?:self-approve|approve it)/i],
   ['approval preflight', /agent_teams_status[^\n]*active=true[^\n]*phase=staged/i],
-  ['profile omission', /omit the profile property[^\n]*profile=""/i],
+  ['Profile binding and temporary admission', /current direct-user Profile or saved defaultProfile/i],
   ['reasoning ownership', /target-default[^\n]*route-aware[^\n]*explicit/i],
   ['route pairing', /provider\/model[^\n]*(?:both|pair)/i],
   ['scheduler dependencies', /dependenc[^\n]*scheduler/i],

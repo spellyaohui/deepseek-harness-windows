@@ -264,3 +264,59 @@ test('cloneAgentTeamsProfiles rejects arrays and returns independent JSON data',
   clone.custom.members[0].name = 'changed'
   assert.equal(source.custom.members[0].name, 'custom')
 })
+
+test('V2 member tool_policy survives write, JSON restart, and unrelated edits', () => {
+  const document = {
+    schemaVersion: 2,
+    profiles: {
+      custom: {
+        ...customProfile,
+        members: [{ ...customProfile.members[0], tool_policy: ' policy-default ' }],
+      },
+    },
+  }
+  let settings = {}
+  writeAgentTeamsProfiles(document, {
+    load: () => settings,
+    flush: (next) => { settings = next },
+  })
+
+  const restarted = JSON.parse(JSON.stringify(settings))
+  const saved = getAgentTeamsProfileSnapshot({ settings: restarted }).profiles.custom
+  assert.equal(saved.members[0].tool_policy, 'policy-default')
+  saved.executionPrompt = 'Unrelated prompt edit'
+  writeAgentTeamsProfiles({ schemaVersion: 2, profiles: { custom: saved } }, {
+    load: () => restarted,
+    flush: (next) => { settings = next },
+  })
+  assert.equal(settings.agentTeamsProfiles.profiles.custom.members[0].tool_policy, 'policy-default')
+})
+
+test('V2 member tool_policy remains omitted or rejects malformed public fields without flushing', () => {
+  let settings = {}
+  writeAgentTeamsProfiles({ schemaVersion: 2, profiles: { custom: customProfile } }, {
+    load: () => settings,
+    flush: (next) => { settings = next },
+  })
+  assert.equal(Object.hasOwn(settings.agentTeamsProfiles.profiles.custom.members[0], 'tool_policy'), false)
+
+  for (const [field, value] of [
+    ['tool_policy', ''],
+    ['tool_policy', '   '],
+    ['tool_policy', null],
+    ['tool_policy', 1],
+    ['toolPolicy', 'policy-default'],
+    ['toolFilter', { allow: ['read'] }],
+  ]) {
+    const member = { ...customProfile.members[0], [field]: value }
+    const document = { schemaVersion: 2, profiles: { custom: { ...customProfile, members: [member] } } }
+    const before = JSON.stringify(document)
+    let flushed = false
+    assert.throws(() => writeAgentTeamsProfiles(document, {
+      load: () => settings,
+      flush: () => { flushed = true },
+    }), /tool/i)
+    assert.equal(flushed, false)
+    assert.equal(JSON.stringify(document), before)
+  }
+})

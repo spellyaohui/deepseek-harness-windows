@@ -15,3 +15,7 @@
 *.jpg binary
 *.jpeg binary
 *.gif binary
+
+# Bundled upstream skill assets retain their verified raw Git bytes.
+/win-desktop/superpowers-plugin/lib/skills/** -text
+/win-desktop/superpowers-plugin/lib/LICENSE -text

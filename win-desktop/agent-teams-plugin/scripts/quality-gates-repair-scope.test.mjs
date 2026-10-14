@@ -87,10 +87,9 @@ test('line-number suffixes are stripped from derived paths', () => {
 
 test('automatic repair scope fails closed for protected paths and accepts ordinary workspace paths', () => {
   for (const protectedPath of ['.env', '.git/config', 'secrets/token.txt']) {
-    assert.throws(
-      () => repairScopeFromFindings([finding({ file: protectedPath })], ['src/']),
-      /protected/,
-    )
+    const scope = repairScopeFromFindings([finding({ file: protectedPath })], ['src/'])
+    assert.deepEqual(scope, ['src/'])
+    assert.ok(!scope.includes(protectedPath), 'protected paths never enter an automatic contract')
   }
   assert.deepEqual(
     repairScopeFromFindings([finding({ file: 'src/fix.ts' })], ['src/']),

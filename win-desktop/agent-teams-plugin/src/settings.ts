@@ -9,6 +9,8 @@ export interface AgentTeamsSettings {
   delegationMode: DelegationMode
   /** Only Team-mode native subagent compatibility calls use this policy. */
   temporaryMember?: MemberRolePolicy
+  /** The saved Profile bound to ordinary new Teams. */
+  defaultProfile?: string
 }
 
 // Alpha.2 validates the namespace at the SettingsProvider boundary and no
@@ -56,12 +58,18 @@ export const TemporaryMemberSchema = z.union([
 export const AgentTeamsSettingsSchema: z<AgentTeamsSettings> = z.object({
   delegationMode: z.union(['teams', 'native']).default('teams'),
   temporaryMember: TemporaryMemberSchema,
+  defaultProfile: z.string(),
 })
 
 export function normalizeAgentTeamsSettings(input: Partial<AgentTeamsSettings>): AgentTeamsSettings {
+  if (input.defaultProfile !== undefined && typeof input.defaultProfile !== 'string') {
+    throw new Error('defaultProfile must be a string')
+  }
+  const defaultProfile = typeof input.defaultProfile === 'string' ? input.defaultProfile.trim() : undefined
   return {
     delegationMode: input.delegationMode ?? 'teams',
     ...(input.temporaryMember === undefined ? {} : { temporaryMember: normalizeTemporaryMember(input.temporaryMember) }),
+    ...(defaultProfile === undefined || defaultProfile === '' ? {} : { defaultProfile }),
   }
 }
 
@@ -73,6 +81,7 @@ export function createAgentTeamsSettingsRuntime(
   ctx: Context,
   delegationMode: Volatile<DelegationMode> | undefined,
   temporaryMember?: Volatile<MemberRolePolicy | undefined>,
+  defaultProfile?: Volatile<string | undefined>,
 ): AgentTeamsSettingsRuntime {
   ctx.inject(['settings'], (settingsCtx) => {
     // The v0.1.7 settings service projects volatile Config fields itself.
@@ -80,6 +89,8 @@ export function createAgentTeamsSettingsRuntime(
     settingsCtx.effect(() => settingsCtx.settings.configure({ auto: false }, ctx.fiber))
   })
   return {
-    get: () => normalizeAgentTeamsSettings({ delegationMode: delegationMode?.get(), temporaryMember: temporaryMember?.get() }),
+    get: () => normalizeAgentTeamsSettings({
+      delegationMode: delegationMode?.get(), temporaryMember: temporaryMember?.get(), defaultProfile: defaultProfile?.get(),
+    }),
   }
 }

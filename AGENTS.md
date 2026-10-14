@@ -175,9 +175,11 @@ evidence that the local capability is preserved.
   3,500-character captain prompt budget regressions.
 
 - Global AgentTeams settings own Team/Native delegation and the separate default
-  Provider/model/reasoning policy for temporary captain `subagent` calls and
-  unbound custom `agent_teams_add_member` calls in Team mode, under both captain
-  planning and fixed task templates. This default never overrides frozen Profile
+  Provider/model/reasoning policy for explicitly authorized temporary captain
+  `subagent` calls in Team mode, under both captain planning and fixed task
+  templates. Ordinary added members require frozen role binding; the former
+  unbound custom-member default is superseded by the desktop.3 boundary below.
+  This default never overrides frozen Profile
   roles, numbered-role inheritance, explicit tool policies or native-mode settings.
   Each Profile
   role owns its Provider, model, and `reasoning_mode`. An `explicit` role must
@@ -243,11 +245,12 @@ evidence that the local capability is preserved.
   scheduler/attempt/reassignment safety, quality gates, halt/resume, cleanup,
   and explicit deployment confirmation.
 - At `agent_teams_create`, a missing, empty, or whitespace-only optional
-  `profile` means no Profile and creates an ad-hoc Team. A non-empty name must
-  exactly match a configured Profile and must fail before durable writes or
-  member spawning when unknown. Keep the model-facing parameter an optional
-  string with configured names in its description; do not replace it with an
-  enum or add a default Profile.
+  `profile` in ordinary Team mode resolves only the trusted saved `defaultProfile`.
+  An explicit selection requires the current user's direct authority and an
+  exact configured Profile; unknown/missing bindings reject before writes/spawns.
+  The old ad-hoc shape remains only for admitted temporary compatibility calls.
+  Keep the model-facing Profile string and strict configured-name validation;
+  do not silently choose a built-in or the first configured Profile.
 - A running Team may queue implementation behind an open requirements task
   only through an explicit dependency. The scheduler must still wait for that
   requirements task to finish with `verdict=pass` before implementation runs.
@@ -286,9 +289,9 @@ evidence that the local capability is preserved.
   Provider/model/reasoning policy from the current Team. This is generic for
   every configured role and any suffix length; `-`/`_`/space separators are
   accepted. The unnumbered base member wins over numbered members, explicit
-  request fields win over inheritance, unmatched custom names use the saved
-  temporary policy (or captain routing when absent), and ambiguous role-description
-  fallback must fail closed. An explicit `role_template` binds an exact active
+  request fields win over inheritance, and ordinary unmatched custom names
+  reject before writes/spawns instead of using the saved temporary policy.
+  Ambiguous role-description fallback must fail closed. An explicit `role_template` binds an exact active
   current-Team member name; unknown/blank bindings fail before writes/spawns.
   Never guess a renamed member's role or read a later live Profile for inheritance.
   Keep the focused selection and lifecycle regressions through every upstream refresh.
@@ -306,6 +309,71 @@ evidence that the local capability is preserved.
   Retain `scripts/custom-member-routing.test.mjs` through every upstream refresh,
   covering both planning modes, staged approval, frozen policies, concurrent calls,
   unavailable defaults with zero writes, explicit role bindings and cold recovery.
+
+## AgentTeams `0.1.23-desktop.6` frozen tool-policy inheritance
+
+- Numbered role members and exact `role_template` clones inherit the current
+  Team's frozen `toolPolicy` and effective `toolFilter` when optional
+  `tool_policy` is omitted or blank. Never re-resolve that snapshot from later
+  owner configuration. Explicit policy selections keep their resolver and
+  precedence; model-route overrides alone do not discard role tool restrictions.
+- Retain `scripts/custom-member-routing.test.mjs` coverage of direct/staged
+  creation, changed mount configuration, actual child schemas, forced denied
+  invocation, captain isolation and cold continuation. This is tool admission,
+  not an OS sandbox. The cumulative active/retired capability index is
+  `docs/CONVERSATION_CAPABILITY_RETENTION_20261014.md`.
+
+## AgentTeams `0.1.23-desktop.5` Profile readiness guidance
+
+- Inactive status remains a successful read-only `{active:false}` probe. Its
+  renderer diagnoses only the trusted saved default Profile: absent, invalid,
+  empty fixed seed, or a valid captain/seed plan. It explicitly labels that
+  default; a current direct-user Profile command still takes precedence.
+- Captain planning requires create followed by goal-specific create-task calls
+  assigned to frozen roles; an empty Team is not evidence of member execution.
+  Empty seed asks the user to add real template tasks or select captain planning,
+  never to restore defaults, fabricate tasks, select a guessed Profile, or bypass
+  to temporary/native delegation. No tool/output Schema or admission changes.
+- Guidance reads live settings without per-call shared caches or hidden result
+  fields. The prompt exposes the saved binding and zero-task blocker while
+  retaining the 3500-character built-in budget and all prior boundaries.
+  Keep the real-loop readiness/start/completion additions in
+  `scripts/inactive-poll-guard.test.mjs`. No automatic user configuration migration.
+
+## AgentTeams `0.1.23-desktop.4` inactive polling boundary
+
+- Only a root TEAM captain's three consecutive actual model `agent_teams_status`
+  calls returning successful `active: false` in the same turn pause through
+  official `agent/pre-step` rejection. Direct API/Web probes, duplicate result
+  observations, failures, child actors, Native, other sessions and active Teams
+  do not arm it. Persisted/installed policy wins over later global settings.
+- New genuine user input/turn, changed Profile binding, plugin reload or a fresh
+  active Team cancels stale pacing. At its own blocked idle edge, wake only genuine
+  queued user input via the official Inbox/steer API with non-authoritative plugin
+  context; preserve user message identity/order. Plugin reminders cannot resume it.
+- Status remains a read-only successful inactive probe with unchanged result
+  schema. Guidance names settings or `/agent-teams --profile`; no guessed Profile,
+  inline-plan authority, Native bypass, Team/config write or new tool is allowed.
+  Retain `scripts/inactive-poll-guard.test.mjs` in full verify and the 3500 budget.
+
+## AgentTeams `0.1.23-desktop.3` Profile delegation boundary
+
+- Ordinary Team creation binds the trusted saved `defaultProfile` or the Profile
+  selected by the current direct user. Missing/invalid bindings and zero-task
+  fixed templates provide repair guidance before Team/member/task writes.
+  Ordinary added members require exact or numbered frozen roles, including
+  explicit `role_template`; explicit route fields do not authorize role bypass.
+- Only current direct user authority admits the temporary lane, with deterministic
+  `/agent-teams --temporary <goal>` syntax. Evaluate the whole direct user context;
+  model, skill and historical text cannot grant permission. Profile aliases must
+  not collide with that command. Native and the single durable gateway remain.
+- `defaultProfile` is optional and never auto-selected or migrated. The Profile
+  editor persists map/binding rename/delete through one official SettingsForms/CAS
+  write, preserving temporary policies, role prompts, tool_policy and Home/CLI
+  refusal. Backups retain the binding. Existing Teams remain frozen and unmigrated.
+- System-prompt guidance supplements strict Schema and execution admission; it
+  cannot replace either. Retain runtime routing, authority/lifecycle and client
+  regressions, including `scripts/default-profile-client.test.mjs` in `verify`.
 
 ## AgentTeams `0.1.22-desktop.9` session-audit invariants
 

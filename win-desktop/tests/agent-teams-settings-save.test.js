@@ -92,8 +92,47 @@ if (process.argv.includes('--fixture')) {
     await clientCtx.configForms.describe().load()
     assert.equal(form.getSnapshot().status, 'ready')
     assert.equal(form.getSnapshot().value.temporaryMember, undefined)
-    const { createAgentTeamsSettingsWriter, planTemporaryMemberChange } = await import('../agent-teams-plugin/lib/client/settings-write.js')
+    const { createAgentTeamsSettingsWriter, planTemporaryMemberChange, planDefaultProfileChange, planProfileMapChange, profileDraftSignature } = await import('../agent-teams-plugin/lib/client/settings-write.js')
     const writer = createAgentTeamsSettingsWriter({ api: clientCtx.remote, scope: form, describe: clientCtx.configForms.describe() })
+    assert.equal(form.getSnapshot().value.defaultProfile, undefined, 'hydration does not guess the first default Profile')
+    const initialProfiles = structuredClone(form.getSnapshot().value.profiles)
+    const customProfiles = { ...initialProfiles, custom: structuredClone(initialProfiles['software-delivery']) }
+    assert.equal((await writer.write([{ op: 'set', path: ['profiles'], value: customProfiles }], profileDraftSignature(form.getSnapshot().value))).status, 'ready')
+    assert.equal((await writer.write(planDefaultProfileChange('  custom  ').ops, profileDraftSignature(form.getSnapshot().value))).status, 'ready')
+    assert.equal(form.getSnapshot().value.defaultProfile, '  custom  ', 'real JSON hydration retains the raw explicit default')
+    const bindingRevision = descriptor().revision
+    const renamedProfiles = { ...initialProfiles, renamed: customProfiles.custom }
+    const renamedNames = Object.fromEntries(Object.keys(initialProfiles).map(name => [name, name]))
+    renamedNames.renamed = 'custom'
+    assert.equal((await writer.write(planProfileMapChange(renamedProfiles, customProfiles, renamedNames, form.getSnapshot().value.defaultProfile).ops,
+      profileDraftSignature(form.getSnapshot().value))).status, 'ready')
+    assert.equal(descriptor().revision, bindingRevision + 1, 'rename and binding consume one official CAS revision')
+    assert.equal(form.getSnapshot().value.defaultProfile, 'renamed')
+    assert.equal(descriptor().value.profiles.custom, undefined)
+    const renamedStored = yaml.load(readFileSync(patchPath, 'utf8')).find(row => row.id === 'agent-teams').config
+    assert.equal(renamedStored.defaultProfile, 'renamed')
+    assert.ok(renamedStored.profiles.renamed)
+    const staleBaseline = profileDraftSignature(form.getSnapshot().value)
+    await writer.write(planDefaultProfileChange('software-delivery').ops)
+    const beforeBindingConflict = readFileSync(patchPath, 'utf8')
+    assert.equal((await writer.write(planProfileMapChange(initialProfiles, renamedProfiles, {}, 'renamed').ops, staleBaseline)).status, 'error')
+    assert.equal(readFileSync(patchPath, 'utf8'), beforeBindingConflict, 'binding-only concurrent save refuses stale delete with no durable write')
+    await writer.write(planDefaultProfileChange(' renamed ').ops)
+    const rawBaseline = profileDraftSignature(form.getSnapshot().value)
+    await writer.write(planDefaultProfileChange('renamed').ops)
+    const beforeRawConflict = readFileSync(patchPath, 'utf8')
+    for (let attempt = 0; attempt < 2; attempt++) {
+      assert.equal((await writer.write(planProfileMapChange(initialProfiles, renamedProfiles, {}, ' renamed ').ops, rawBaseline)).status, 'error')
+      assert.equal(readFileSync(patchPath, 'utf8'), beforeRawConflict, 'raw-only binding changes reject stale saves and retries without a durable write')
+    }
+    await writer.write(planDefaultProfileChange(' renamed ').ops)
+    const deleteRevision = descriptor().revision
+    assert.equal((await writer.write(planProfileMapChange(initialProfiles, renamedProfiles,
+      Object.fromEntries(Object.keys(initialProfiles).map(name => [name, name])), form.getSnapshot().value.defaultProfile).ops,
+      profileDraftSignature(form.getSnapshot().value))).status, 'ready')
+    assert.equal(descriptor().revision, deleteRevision + 1, 'delete and clear binding consume one official CAS revision')
+    assert.equal(form.getSnapshot().value.defaultProfile, undefined, 'deletion explicitly clears the binding without choosing another Profile')
+    assert.equal((await writer.write(planDefaultProfileChange('software-delivery').ops)).status, 'ready')
     const result = await writer.write(planTemporaryMemberChange(temporaryMember).ops)
     assert.equal(result.status, 'ready')
     assert.deepEqual(descriptor().value.temporaryMember, temporaryMember, 'Host accepts the whole temporary policy')
@@ -127,9 +166,10 @@ if (process.argv.includes('--fixture')) {
     await assert.rejects(ctx.settings.mutate('agent-teams', planTemporaryMemberChange({ reasoningMode: 'target-default' }).ops, original.revision),
       /changed since it was read/)
     assert.equal(readFileSync(patchPath, 'utf8'), beforeStaleMutation, 'a stale temporary mutation cannot overwrite the saved route')
-    await ctx.settings.replace('agent-teams', { delegationMode: 'native', temporaryMember }, savedRevision)
+    await ctx.settings.replace('agent-teams', { delegationMode: 'native', temporaryMember, defaultProfile: 'software-delivery' }, savedRevision)
     assert.equal(descriptor().value.delegationMode, 'native')
     assert.deepEqual(descriptor().value.temporaryMember, temporaryMember)
+    assert.equal(descriptor().value.defaultProfile, 'software-delivery', 'Native and temporary policies preserve the separate Team binding')
     const stored = readFileSync(patchPath, 'utf8')
     assert.match(stored, /delegationMode: native/)
     assert.deepEqual(yaml.load(stored).find(row => row.id === 'unrelated-user-row').config, { retain: 'fixture-only-value' })
@@ -147,6 +187,7 @@ if (process.argv.includes('--fixture')) {
     await clientCtx.configForms.describe().load()
     assert.equal(restartedForm.getSnapshot().status, 'ready', 'a fresh browser must decode the saved temporary policy after restart')
     assert.deepEqual(restartedForm.getSnapshot().value.temporaryMember, temporaryMember)
+    assert.equal(restartedForm.getSnapshot().value.defaultProfile, 'software-delivery', 'fresh browser decodes the saved default after restart')
     await clientCtx.fiber.dispose()
     clientCtx = undefined
     await assert.rejects(ctx.settings.replace('agent-teams', {

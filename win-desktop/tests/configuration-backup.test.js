@@ -23,7 +23,7 @@ const provider = { apiKeyEnv: 'BACKUP_TEST_KEY', api: 'openai-completions', base
 ] }
 const entries = [
   { id: 'llm-pi-ai', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers: { workbuddy: provider } } },
-  { id: 'agent-teams', name: '@nanmicoder/dsh-agent-teams', config: { profiles, temporaryMember: { provider: 'workbuddy', model: 'hy3', reasoningMode: 'explicit', reasoningEffort: 'max' } } },
+  { id: 'agent-teams', name: '@nanmicoder/dsh-agent-teams', config: { profiles, defaultProfile: 'software-delivery', temporaryMember: { provider: 'workbuddy', model: 'hy3', reasoningMode: 'explicit', reasoningEffort: 'max' } } },
   { id: 'subagent', name: '@deepseek-ai/dsh-subagent', config: { maxDepth: 3 } },
   { id: 'subagent-model-selection-settings', name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings', config: { enabled: true, allowedModels: [{ provider: 'workbuddy', model: 'hy3' }] } },
   { id: 'unrelated', name: 'test-unrelated', config: { secret: 'not-exported' } },
@@ -74,8 +74,9 @@ if (process.argv.includes('--fixture')) {
     assert.equal(decoded.records['llm-pi-ai/catalog-native'].key, 'fixture-native-secret')
     assert(!JSON.stringify(decoded).includes('never-export-login'))
     assert(!JSON.stringify(decoded).includes('not-exported'))
+    assert.equal(decoded.sections.find(row => row.ns === 'agent-teams').value.defaultProfile, 'software-delivery', 'backup carries the explicit Team binding')
     const changed = view(target.ctx, 'agent-teams')
-    await target.ctx.settings.mutate('agent-teams', [{ op: 'set', path: [], value: { ...changed.value, profiles: {}, temporaryMember: { reasoningMode: 'target-default' } } }], changed.revision)
+    await target.ctx.settings.mutate('agent-teams', [{ op: 'set', path: [], value: { ...changed.value, defaultProfile: '', profiles: {}, temporaryMember: { reasoningMode: 'target-default' } } }], changed.revision)
     await target.ctx.credentials.set('BACKUP_TEST_KEY', 'old-target-secret')
     const settingsValues = ctx => ctx.settings.describe().map(({ ns, value }) => ({ ns, value }))
     const unchanged = settingsValues(target.ctx)
@@ -90,6 +91,7 @@ if (process.argv.includes('--fixture')) {
     target.ctx = await target.open()
     for (const section of decoded.sections) assert.deepEqual(view(target.ctx, section.ns).value, view(source.ctx, section.ns).value, 'cross-home import survives restart')
     assert.equal(view(target.ctx, 'agent-teams').value.profiles['software-delivery'].members[0].executionPrompt, '  analyst 中文职责\n保留空白  ')
+    assert.equal(view(target.ctx, 'agent-teams').value.defaultProfile, 'software-delivery', 'cross-home import and restart restore the Team binding')
     // Home/CLI override refusal must roll back previously accepted namespaces.
     const rejected = structuredClone(decoded)
     rejected.sections.find(row => row.ns === 'llm-pi-ai').value.providers.workbuddy.baseURL = 'https://changed.invalid/v1'

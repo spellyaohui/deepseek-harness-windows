@@ -1,3 +1,5 @@
+import type { MemberToolFilter } from './tool-policies.js'
+
 export type RoleReasoningMode = 'target-default' | 'route-aware' | 'explicit'
 
 export const MEMBER_POLICY_SOURCES = ['profile', 'role-template', 'temporary', 'explicit', 'captain'] as const
@@ -41,7 +43,7 @@ export interface MemberSelectionCandidate {
   reasoningEffort?: string
 }
 
-/** The frozen model-policy fields used to seed a numbered role member. */
+/** The frozen role fields used to seed a numbered or explicitly bound member. */
 export interface MemberRoleTemplate {
   name: string
   role?: string
@@ -51,6 +53,8 @@ export interface MemberRoleTemplate {
   reasoningEffort?: string
   fallback?: { provider: string; model: string }
   executionPrompt?: string
+  toolPolicy?: string
+  toolFilter?: MemberToolFilter
 }
 
 export type MemberRoleTemplateMatch =
@@ -111,11 +115,9 @@ export function findMemberRoleTemplate(input: {
     if (nameMatches.length > 1) return { kind: 'ambiguous', templates: nameMatches }
   }
 
-  const role = normalizedRoleText(input.role)
-  if (role === '') return { kind: 'none' }
-  const roleMatches = input.members.filter((member) => normalizedRoleText(member.role) === role)
-  if (roleMatches.length === 1) return { kind: 'matched', template: roleMatches[0]! }
-  if (roleMatches.length > 1) return { kind: 'ambiguous', templates: roleMatches }
+  // Free-form role descriptions are model prose, not an authority boundary.
+  // New members may inherit only an exact role_template or a numbered frozen
+  // member name; never guess by a display description.
   return { kind: 'none' }
 }
 

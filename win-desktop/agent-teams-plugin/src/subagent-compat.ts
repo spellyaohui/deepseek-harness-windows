@@ -25,18 +25,27 @@ interface NativeRequest {
 
 export type SubagentCompatibility = (exec: ToolDispatchExecution) => Promise<JsonValue>
 
+// Admission is scoped to the adapter's exact internal call, never the captain.
+const admittedCalls = new Set<string>()
+export function isTemporaryToolAdmission(callId: string): boolean {
+  return admittedCalls.has(callId)
+}
+
 /** Call the existing tools through their complete validation and policy pipeline. */
 async function invoke(ctx: Context, exec: ToolDispatchExecution, name: string, args: Record<string, unknown>): Promise<Record<string, JsonValue>> {
   exec.signal.throwIfAborted()
-  const result = await ctx.tools.execute({
-    callId: ToolCallId(`${exec.callId}:agent-teams:${name}:${randomBytes(4).toString('hex')}`),
+  const callId = ToolCallId(`${exec.callId}:agent-teams:${name}:${randomBytes(16).toString('hex')}`)
+  admittedCalls.add(callId)
+  let result
+  try { result = await ctx.tools.execute({
+    callId,
     rootCallId: exec.rootCallId,
     parent: exec.token,
     name,
     arguments: args,
     agent: exec.agent,
     signal: exec.signal,
-  })
+  }) } finally { admittedCalls.delete(callId) }
   if (result.isError) throw new Error(result.error.message)
   return result.value as Record<string, JsonValue>
 }
@@ -145,10 +154,11 @@ export function createSubagentCompatibility(ctx: Context, config: {
           if (fresh === undefined || fresh.captainSessionId !== captainId) throw new Error('compatibility Team is no longer available to this captain')
           const addedMember = fresh.members.find(candidate => candidate.id === added.member_id)
           if (addedMember === undefined) throw new Error('added compatibility member is missing from the Team')
+          addedMember.temporaryAdmission = true
           if (pinSelection) {
             addedMember.modelPolicySource = !explicitRoute && temporaryPolicy !== undefined ? 'temporary' : 'explicit'
-            await writeTeam(root, fresh)
           }
+          await writeTeam(root, fresh)
           return fresh
         })
         member = team?.members.find(candidate => candidate.id === added.member_id)

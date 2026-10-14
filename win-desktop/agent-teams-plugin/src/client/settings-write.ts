@@ -56,6 +56,31 @@ export function profileSettingsSignature(value: unknown): string {
   return JSON.stringify(ordered(value ?? {}))
 }
 
+export function profileDraftSignature(value: AgentTeamsEditorSettings | undefined): string {
+  return profileSettingsSignature({ profiles: value?.profiles ?? {}, defaultProfile: value?.defaultProfile ?? '' })
+}
+
+export function planDefaultProfileChange(name: string): SettingsWritePlan {
+  return { ok: true, ops: name === ''
+    ? [{ op: 'unset', path: ['defaultProfile'] }]
+    : [{ op: 'set', path: ['defaultProfile'], value: name }] }
+}
+
+export function planProfileMapChange(
+  profiles: Record<string, TeamProfileConfig>,
+  committedProfiles: Record<string, TeamProfileConfig>,
+  committedNames: Record<string, string>,
+  defaultProfile: string | undefined,
+): SettingsWritePlan {
+  const ops: SettingsPathOpView[] = [{ op: 'set', path: ['profiles'], value: profiles as unknown as JsonValue }]
+  const boundName = defaultProfile?.trim() ?? ''
+  if (boundName !== '' && Object.hasOwn(committedProfiles, boundName)) {
+    const nextName = Object.keys(profiles).find(name => committedNames[name] === boundName) ?? ''
+    if (nextName !== boundName) ops.push(...planDefaultProfileChange(nextName).ops)
+  }
+  return { ok: true, ops }
+}
+
 export interface AgentTeamsSettingsWriter {
   write(ops: readonly SettingsPathOpView[], expectedProfilesSignature?: string): Promise<SettingsWriteState>
 }
@@ -135,7 +160,7 @@ class SerializedAgentTeamsSettingsWriter implements AgentTeamsSettingsWriter {
     const snapshot = this.options.scope.getSnapshot()
     this.revision = laterRevision(this.revision, snapshot.revision)
     if (expectedProfilesSignature !== undefined
-      && profileSettingsSignature(snapshot.value?.profiles) !== expectedProfilesSignature) {
+      && profileDraftSignature(snapshot.value) !== expectedProfilesSignature) {
       return { status: 'error', error: PROFILE_DRAFT_CONFLICT }
     }
     if (this.revision === undefined) {

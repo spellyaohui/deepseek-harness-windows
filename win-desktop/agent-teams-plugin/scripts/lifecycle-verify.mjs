@@ -14,6 +14,7 @@ import { join } from 'node:path'
 import { failMemberOpenAttempt } from '../lib/members.js'
 import { haltTeamWork, notifyStagedPlanApproved, registerAgentTeamsTools } from '../lib/tools.js'
 import { buildActivationDirective, invokedAgentTeamsGoal, invokedAgentTeamsInvocation, installAgentTeamsGestureBoundary, profileCommandName, registerAgentTeamsCommand } from '../lib/command.js'
+import { latestDirectUserTemporaryAuthorization, parseTemporaryAuthorization } from '../lib/temporary-authorization.js'
 import { createTeamDir, readArchivedTeam, readMailbox, readTeam, readUnreadMailbox, writeTeam } from '../lib/state.js'
 import { assembleTeamSnapshot, collectArchivedTeamsActivity, memberModelRoute } from '../lib/snapshot.js'
 import { stagedPlanMutationFromPayload } from '../lib/staged-plan-payload.js'
@@ -540,6 +541,7 @@ const agentTeamsRuntime = registerAgentTeamsTools(ctx, {
     },
   },
   profiles: {
+    'fixture-default': { taskPlanning: 'captain', members: [{ name: 'fixture-role', reasoning_mode: 'target-default' }], tasks: [] },
     'demo-delivery': {
       description: 'tiny delivery team',
       protocol: 'Discuss, then implement. Do not invent unanswered questions.',
@@ -602,6 +604,9 @@ function execFor(subject, extra = {}) {
 }
 
 async function call(name, args, subject = captain, extra = {}) {
+  // These lifecycle scenarios select their saved Profile before the model call.
+  // Unbound/model-conflict admission is exercised by the real AgentLoop suite.
+  if (name === 'agent_teams_create') memberDefaults = { ...memberDefaults, defaultProfile: args.profile?.trim() || 'fixture-default' }
   const definition = definitions.get(name)
   if (!definition) throw new Error(`missing tool ${name}`)
   return definition.execute(args, execFor(subject, extra))
@@ -792,10 +797,10 @@ const omittedProfileCreation = await call('agent_teams_create', {
   description: 'missing optional profile stays ad hoc',
 })
 const omittedProfileTeam = await readTeam(stateRoot, 'ad-hoc-omitted-profile')
-check('create without Profile produces an ad-hoc Team',
-  omittedProfileCreation.profile === undefined
-    && omittedProfileTeam?.profile === undefined
-    && omittedProfileTeam?.members.length === 0
+check('create without model Profile uses the saved fixture Profile',
+  omittedProfileCreation.profile === 'fixture-default'
+    && omittedProfileTeam?.profile.name === 'fixture-default'
+    && omittedProfileTeam?.members.length === 1
     && omittedProfileTeam?.tasks.length === 0)
 let duplicateCreateError = ''
 try {
@@ -823,10 +828,10 @@ try {
   blankProfileError = error
 }
 const blankProfileTeam = await readTeam(stateRoot, 'ad-hoc-blank-profile')
-check('blank Profile normalizes to the same ad-hoc Team shape',
+check('blank model Profile normalizes to the same saved Profile shape',
   blankProfileError === undefined
-    && blankProfileCreation?.profile === undefined
-    && blankProfileTeam?.profile === undefined
+    && blankProfileCreation?.profile === 'fixture-default'
+    && blankProfileTeam?.profile.name === 'fixture-default'
     && blankProfileTeam?.members.length === omittedProfileTeam?.members.length
     && blankProfileTeam?.tasks.length === omittedProfileTeam?.tasks.length)
 if (blankProfileTeam !== undefined) await call('agent_teams_delete', {})
@@ -908,7 +913,12 @@ const explicitRoleOverride = await call('agent_teams_add_member', {
   reasoning_mode: 'explicit',
   reasoning_effort: 'low',
 })
-const customNumberedRole = await call('agent_teams_add_member', { name: 'custom-role2', role: 'unmatched custom role' })
+let customNumberedRoleRejected = false
+try {
+  await call('agent_teams_add_member', { name: 'custom-role2', role: 'unmatched custom role' })
+} catch (error) {
+  customNumberedRoleRejected = /role_template|temporary|authorize/i.test(String(error?.message ?? error))
+}
 const ownPromptMember = await call('agent_teams_add_member', { name: 'implementer9', executionPrompt: 'own prompt wins' })
 const inheritedRoleTeam = await readTeam(stateRoot, 'rule-role-inheritance')
 const inheritedRoleByName = new Map(inheritedRoleTeam?.members.map(member => [member.name, member]) ?? [])
@@ -934,15 +944,13 @@ check('explicit numbered-role routing still wins over the base role template',
   explicitRoleOverride.model === 'custom-review-model'
     && explicitRoleOverride.reasoning_effort === 'low'
     && inheritedRoleByName.get('reviewer4')?.model === 'custom-review-model')
-check('unmatched numbered custom roles retain the captain route',
-  customNumberedRole.provider === 'fake'
-    && customNumberedRole.model === 'fake-model'
-    && customNumberedRole.reasoning_effort === undefined)
+check('unmatched numbered custom roles require an exact frozen binding or current temporary authorization',
+  customNumberedRoleRejected)
 check('numbered members inherit the base role execution prompt unless they supply their own',
   inheritedRoleByName.get('reviewer2')?.executionPrompt === 'reviewer duty prompt'
     && inheritedRoleByName.get('implementer2')?.executionPrompt === 'implementer duty prompt'
     && inheritedRoleByName.get('reviewer4')?.executionPrompt === 'reviewer duty prompt'
-    && inheritedRoleByName.get('custom-role2')?.executionPrompt === undefined
+    && inheritedRoleByName.get('custom-role2') === undefined
     && ownPromptMember.member_name === 'implementer9'
     && inheritedRoleByName.get('implementer9')?.executionPrompt === 'own prompt wins')
 await call('agent_teams_delete', {})
@@ -1083,6 +1091,37 @@ check('command getter sees HMR profile names',
     agent: captain, rawInput: '--profile hot-reload', signal: new AbortController().signal, commandId: 'cmd-hmr',
   }).kind === 'success')
 delete liveProfiles['hot-reload']
+
+const temporaryActivated = command.handler({
+  agent: captain, rawInput: ' --temporary inspect the current boundary', signal: new AbortController().signal, commandId: 'cmd-temporary',
+})
+const submittedTemporaryCommand = captain.followups.at(-1)
+for (const rawInput of [' --temporary', ' --temporary 不要启动，只解释边界',
+  ' --temporary review; cancel authorization',
+  ' --temporary inspect this; do not spawn a temporary subagent',
+  ' --temporary 请只解释，不允许调用临时子智能体',
+  ' --temporary review; revoke permission',
+  ' --temporary review; do not delegate to a temporary subagent',
+  ' --temporary 检查；取消授权',
+  ' --temporary 检查；禁止使用临时子智能体',
+]) {
+  const queued = captain.followups.length
+  const rejected = command.handler({ agent: captain, rawInput, signal: new AbortController().signal, commandId: 'invalid-temporary' })
+  check(`invalid temporary command never falls through to ordinary activation: ${rawInput}`, rejected.kind === 'error' && captain.followups.length === queued)
+  check(`refused full temporary text grants neither parser nor gesture authority: ${rawInput}`,
+    parseTemporaryAuthorization(`/agent-teams${rawInput}`) === undefined
+      && invokedAgentTeamsInvocation([userMessage(`/agent-teams${rawInput}`)], () => liveProfiles) === undefined)
+}
+check('temporary authorization uses the base slash command and preserves its exact trusted user text',
+  temporaryActivated.kind === 'success'
+    && submittedTemporaryCommand?.source?.kind === 'user'
+    && submittedTemporaryCommand.content.some(block => block.type === 'text' && block.text === '/agent-teams --temporary inspect the current boundary')
+    && latestDirectUserTemporaryAuthorization([submittedTemporaryCommand])?.goal === 'inspect the current boundary')
+check('temporary authorization does not consume the configured Profile alias namespace',
+  profileCommandName('temporary') === 'agent-teams-temporary')
+check('temporary command accepts scoped safety constraints but rejects a contradictory no-start clause',
+  parseTemporaryAuthorization('/agent-teams --temporary review the change; do not read .env') !== undefined
+    && parseTemporaryAuthorization('/agent-teams --temporary 不要启动，只解释边界') === undefined)
 
 try {
   const createdProfile = await call('agent_teams_create', {
@@ -1662,6 +1701,7 @@ try {
     sharedPoolTask = await call('agent_teams_create_task', {
       subject: 'shared-pool follow-up',
       assignee: '',
+      dependencies: [captainOwnedTask.task_id],
     })
   } catch (error) {
     sharedPoolTaskError = error
@@ -1749,9 +1789,8 @@ try {
     [pendingCaptain, dependentCaptain].every(created => afterPlanningIdle.tasks.some(item => (
       item.id === created.task_id && item.assignee === 'captain' && item.status === 'pending' && item.attempt === 0
     ))))
-  await call('agent_teams_add_member', { name: 'waiting-worker' })
   const waitingMember = await call('agent_teams_create_task', {
-    subject: 'blocked work cancelled by captain', assignee: 'waiting-worker', dependencies: [pendingCaptain.task_id],
+    subject: 'blocked work cancelled by captain', assignee: 'fixture-role', dependencies: [pendingCaptain.task_id],
   })
   let cancellationError
   try {
@@ -1765,12 +1804,10 @@ try {
       && cancelledBeforeExecution.attempt === 0, String(cancellationError ?? ''))
   await call('agent_teams_delete', {})
 
-  await call('agent_teams_create', { name: 'Quality Loop', description: 'review loop' })
-  await call('agent_teams_add_member', { name: 'builder', role: 'implementer' })
-  await call('agent_teams_add_member', { name: 'critic', role: 'reviewer' })
+  await call('agent_teams_create', { name: 'Quality Loop', description: 'review loop', profile: 'dynamic-delivery' })
   const impl = await call('agent_teams_create_task', {
     subject: 'implement parser',
-    assignee: 'builder',
+    assignee: 'implementer',
     kind: 'implementation',
     objective: 'Ship the parser',
     inScope: ['src/parser.ts'],
@@ -1784,9 +1821,10 @@ try {
     missingContractRejected = true
   }
   check('quality implementation without contract is rejected', missingContractRejected)
-  const qualityTeam = await readTeam(stateRoot, 'quality-loop')
-  const builder = [...liveAgents.values()].find(agent => qualityTeam?.members.some(member => member.id === agent.id && member.name === 'builder'))
-  const criticMember = [...liveAgents.values()].find(agent => qualityTeam?.members.some(member => member.id === agent.id && member.name === 'critic'))
+  const builder = await waitFor('actual quality implementer', async () => {
+    const team = await readTeam(stateRoot, 'quality-loop')
+    return liveAgents.get(team?.members.find(member => member.name === 'implementer')?.id)
+  })
   const implClaim = await call('agent_teams_claim_task', { task_id: impl.task_id }, builder)
   await call('agent_teams_update_task', { task_id: impl.task_id, status: 'in_progress', attempt_id: implClaim.attempt_id }, builder)
   let illegalCompleteRejected = false
@@ -1812,11 +1850,15 @@ try {
   }, builder)
   const review = await call('agent_teams_create_task', {
     subject: 'review parser',
-    assignee: 'critic',
+    assignee: 'reviewer',
     kind: 'review',
     objective: 'Review the parser',
     acceptance: ['no blocker or high findings'],
     reviewedTaskId: impl.task_id,
+  })
+  const criticMember = await waitFor('actual quality reviewer', async () => {
+    const team = await readTeam(stateRoot, 'quality-loop')
+    return liveAgents.get(team?.members.find(member => member.name === 'reviewer')?.id)
   })
   const reviewClaim = await call('agent_teams_claim_task', { task_id: review.task_id }, criticMember)
   await call('agent_teams_update_task', { task_id: review.task_id, status: 'in_progress', attempt_id: reviewClaim.attempt_id }, criticMember)
@@ -1847,13 +1889,13 @@ try {
     repair !== undefined && nextReview !== undefined
       && repair.dependencies.includes(impl.task_id)
       && !repair.dependencies.includes(review.task_id)
-      && nextReview.assignee === 'critic'
-      && nextReview.assignee !== 'builder')
+      && nextReview.assignee === 'reviewer'
+      && nextReview.assignee !== 'implementer')
   await call('agent_teams_delete', {})
 
   await call('agent_teams_create', { name: 'Lifecycle', description: 'adversarial DAG' })
-  const addedAlpha = await call('agent_teams_add_member', { name: 'alpha', role: 'slow implementer' })
-  const addedBeta = await call('agent_teams_add_member', { name: 'beta', role: 'researcher' })
+  const addedAlpha = await call('agent_teams_add_member', { name: 'alpha', role: 'slow implementer', role_template: 'fixture-role' })
+  const addedBeta = await call('agent_teams_add_member', { name: 'beta', role: 'researcher', role_template: 'fixture-role' })
   const persistedAlpha = (await state()).members.find(member => member.name === 'alpha')
   check('member additions ignore global route settings and persist the role policy',
     addedAlpha.provider === 'fake'
@@ -1865,7 +1907,8 @@ try {
       && persistedAlpha?.provider === 'fake'
       && persistedAlpha.model === 'fake-model'
       && persistedAlpha.reasoningMode === 'target-default')
-  const addedGamma = await call('agent_teams_add_member', { name: 'gamma', role: 'reviewer' })
+  const addedGamma = await call('agent_teams_add_member', { name: 'gamma', role: 'reviewer', role_template: 'fixture-role' })
+  await call('agent_teams_remove_member', { name: 'fixture-role' })
   const alpha = liveAgents.get(addedAlpha.member_id)
   const beta = liveAgents.get(addedBeta.member_id)
   const gamma = liveAgents.get(addedGamma.member_id)
@@ -2305,10 +2348,11 @@ try {
   const archivedSnapshot = (await collectArchivedTeamsActivity(ctx, [{ workspace, stateRoot }]))
     .find(candidate => candidate.teamId === teamId)
   check('archived activity keeps every member after shutdown',
-    archivedSnapshot?.members.length === 3
+    archivedSnapshot?.members.length === 4
       && ['alpha', 'beta', 'gamma'].every(name => archivedSnapshot.members.some(member => member.name === name))
       && archivedSnapshot.members.every(member => member.activity === 'idle'))
   const expectedArchivedRoutes = new Map([
+    ['fixture-role', 'fake/fake-model'],
     ['alpha', 'fake/fake-model'],
     ['beta', 'fake/fake-model'],
     ['gamma', 'fake/fake-model'],
@@ -2354,8 +2398,8 @@ try {
     description: 'invalid route must not partially start',
     approval: 'required',
   })
-  await call('agent_teams_add_member', { name: 'valid', role: 'writer', provider: 'fake', model: 'fake-model' })
-  await call('agent_teams_add_member', { name: 'invalid', role: 'reviewer', provider: 'fake', model: 'typo-model' })
+  await call('agent_teams_add_member', { name: 'valid', role: 'writer', provider: 'fake', model: 'fake-model', role_template: 'fixture-role' })
+  await call('agent_teams_add_member', { name: 'invalid', role: 'reviewer', provider: 'fake', model: 'typo-model', role_template: 'fixture-role' })
   await call('agent_teams_create_task', { subject: 'must remain staged', assignee: 'valid' })
   const atomicApprovalReady = await call('agent_teams_edit_plan', { operations: [], submit_for_review: true })
   const atomicWebApproval = await agentTeamsRuntime.prepareWebApproval(

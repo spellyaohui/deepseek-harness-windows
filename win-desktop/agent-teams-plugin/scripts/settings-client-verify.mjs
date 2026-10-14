@@ -9,6 +9,7 @@ import {
   planDelegationModeChange,
   planTemporaryMemberChange,
   profileSettingsSignature,
+  profileDraftSignature,
   runAgentTeamsSettingsAction,
 } from '../lib/client/settings-write.js'
 
@@ -153,13 +154,13 @@ const profileWriter = createAgentTeamsSettingsWriter({
   describe: { acceptView: next => { profileScope = next } },
 })
 const profileOps = [{ op: 'set', path: ['profiles'], value: nextProfiles }]
-assert.deepEqual(await profileWriter.write(profileOps, profileSettingsSignature(firstProfiles)), { status: 'ready', error: null })
+assert.deepEqual(await profileWriter.write(profileOps, profileDraftSignature({ profiles: firstProfiles })), { status: 'ready', error: null })
 assert.equal(profileRequests[0].expectedRevision, 11, 'an unrelated mode save advances CAS without invalidating the Profile baseline')
 assert.equal(profileScope.value.delegationMode, 'native', 'Profile Save preserves the unrelated preference')
 assert.deepEqual(profileScope.value.profiles, nextProfiles)
 profileScope = { revision: 13, value: { delegationMode: 'teams', profiles: firstProfiles } }
 const conflictDraft = structuredClone(profileOps)
-const conflict = await profileWriter.write(conflictDraft, profileSettingsSignature(nextProfiles))
+const conflict = await profileWriter.write(conflictDraft, profileDraftSignature({ profiles: nextProfiles }))
 assert.equal(conflict.status, 'error')
 assert.match(conflict.error, /Profile configuration changed/)
 assert.equal(profileRequests.length, 1, 'a changed Profile baseline rejects before any durable write')
@@ -175,11 +176,11 @@ const failedProfileWriter = createAgentTeamsSettingsWriter({
   scope: { getSnapshot: () => failedProfileScope },
   describe: { acceptView: next => { failedProfileScope = next } },
 })
-const refused = await failedProfileWriter.write(profileOps, profileSettingsSignature(firstProfiles))
+const refused = await failedProfileWriter.write(profileOps, profileDraftSignature({ profiles: firstProfiles }))
 assert.equal(refused.status, 'error')
 assert.match(refused.error, /Home overlay/)
 assert.deepEqual(failedProfileScope.value.profiles, nextProfiles, 'a failed write refreshes authoritative settings without overwriting them')
-const noRetry = await failedProfileWriter.write(profileOps, profileSettingsSignature(firstProfiles))
+const noRetry = await failedProfileWriter.write(profileOps, profileDraftSignature({ profiles: firstProfiles }))
 assert.equal(noRetry.status, 'error')
 assert.equal(failedProfileCalls, 1, 'the stale failed draft cannot auto-borrow the recovery revision')
 

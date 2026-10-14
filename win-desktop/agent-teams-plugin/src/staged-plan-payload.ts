@@ -123,6 +123,7 @@ export function stagedPlanMutationFromPayload(payload: Record<string, unknown>):
       provider: requiredPayloadString(payload, 'provider'),
       model: requiredPayloadString(payload, 'model'),
       reasoningMode,
+      ...('tool_policy' in payload ? { toolPolicy: requiredPayloadString(payload, 'tool_policy') } : {}),
       ...(reasoningMode === 'explicit' ? { reasoningEffort: effort } : {}),
       ...(role === undefined ? {} : { role }),
       ...(executionPrompt === undefined ? {} : { executionPrompt }),

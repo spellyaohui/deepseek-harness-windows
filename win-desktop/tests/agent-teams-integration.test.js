@@ -51,6 +51,7 @@ test('AgentTeams settings separate temporary call defaults from Profile role rou
   const settingsSource = readText(agentTeamsSourceRoot, 'settings.ts')
   const indexSource = readText(agentTeamsSourceRoot, 'index.ts')
   assert.match(settingsSource, /temporaryMember\?: MemberRolePolicy/)
+  assert.match(settingsSource, /defaultProfile\?: string/)
   assert.match(indexSource, /TemporaryMemberSchema\.volatile\(\)/)
   assert.doesNotMatch(settingsSource, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|migrationVersion|LegacyDesktopAgentTeamsSettings|normalizeLegacyDesktop|createLegacyDesktop|AGENT_TEAMS_MIGRATION_VERSION/)
   assert.doesNotMatch(indexSource, /memberLlmProvider|memberModel|memberReasoningMode|memberReasoningEffort|legacyDesktopSettings|migration-status|confirmAgentTeamsMigration|applyConfirmedAgentTeamsMigration|removeLegacyAgentTeamsSettings|AGENT_TEAMS_MIGRATION_VERSION|normalizeLegacyDesktop/)
@@ -82,7 +83,7 @@ test('installed AgentTeams fork remains runnable through the desktop patch and c
 
     const metadata = JSON.parse(readText(pluginRoot, 'package.json'))
     assert.equal(metadata.name, '@nanmicoder/dsh-agent-teams')
-    assert.equal(metadata.version, '0.1.22-desktop.11')
+    assert.equal(metadata.version, '0.1.23-desktop.6')
     assert.equal(metadata.exports['./client'].default, './lib/client.js')
 
     const imported = spawnSync(process.execPath, [

@@ -12,11 +12,14 @@ import type { Context } from '@deepseek-ai/cordis'
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { memberActivity } from './members.ts'
+import { canDeclareDelivery, describeQualityLoop, verdictAuditNotes } from './quality-gates.ts'
+import { auditTeamWorkspace } from './workspace-audit.ts'
 import {
   CAPTAIN_KEY, listArchivedTeamIds, readArchivedTeam, readUnreadMailbox, readTeam,
   taskDepthsById, taskVisualState,
 } from './state.ts'
 import type { MemberStatus, TaskKind, TeamState, TeamTask } from './types.ts'
+import type { MemberToolFilter } from './tool-policies.ts'
 import type { MemberPolicySource, RoleReasoningMode } from './selection-policy.ts'
 
 /** Visual task state for the activity panel. */
@@ -34,6 +37,8 @@ export interface TeamActivityMember {
   readonly modelPolicySource?: MemberPolicySource
   readonly fallbackActive?: boolean
   readonly executionPrompt: string
+  readonly toolPolicy?: string
+  readonly toolFilter?: MemberToolFilter
   readonly status: MemberStatus
   readonly activity: 'working' | 'idle' | 'unknown'
   readonly progress: number
@@ -68,6 +73,13 @@ export interface TeamActivityTask {
   readonly sourceTaskId?: string
   readonly sourceFindingIds?: readonly string[]
   readonly coverageOf?: readonly string[]
+  /**
+   * Set when this task's verdict or auto-generated work order no longer
+   * describes the current bytes; the panel must not render a bare pass badge.
+   */
+  readonly verdictStale?: string
+  /** Durable last-write stamp; drives the finished-member ordering (issue #192). */
+  readonly updatedAt: number
 }
 
 /** One captain-inbox preview row. */
@@ -91,6 +103,10 @@ export interface TeamActivitySnapshot {
   readonly tasks: readonly TeamActivityTask[]
   readonly messageCount: number
   readonly captainInbox: readonly TeamActivityMessage[]
+  /** Present when the snapshot could audit the workspace bytes. */
+  readonly loopState?: string
+  readonly deliverable?: boolean
+  readonly delivery?: { readonly ok: boolean; readonly blockers: readonly string[]; readonly warnings: readonly string[] }
 }
 
 /** Snapshot projection switches for live and archived teams. */
@@ -99,6 +115,12 @@ export interface TeamSnapshotOptions {
   readonly includeRemoved?: boolean
   /** Archived teams have no meaningful live activity after their sessions stop. */
   readonly historic?: boolean
+  /**
+   * Absolute workspace path of the owning workspace. When present, the snapshot
+   * audits the current bytes behind every recorded verdict, so the panel and
+   * the model-facing status tool cannot report different delivery verdicts.
+   */
+  readonly workspacePath?: string
 }
 
 /** The current task of a member: its first unfinished owned task. */
@@ -164,6 +186,8 @@ export async function assembleTeamSnapshot(
       ...member.modelPolicySource === undefined ? {} : { modelPolicySource: member.modelPolicySource },
       ...member.fallbackActive === undefined ? {} : { fallbackActive: member.fallbackActive },
       executionPrompt: member.executionPrompt ?? '',
+      ...(member.toolPolicy === undefined ? {} : { toolPolicy: member.toolPolicy }),
+      ...(member.toolFilter === undefined ? {} : { toolFilter: member.toolFilter }),
       status: member.status,
       activity: options.historic === true
         ? 'idle'
@@ -182,6 +206,17 @@ export async function assembleTeamSnapshot(
     }
   })
   const captainInbox = await readUnreadMailbox(stateRoot, state.id, CAPTAIN_KEY)
+  // The panel must reach the same delivery conclusion as the status tool, so
+  // it reads the same current bytes instead of trusting task records alone.
+  const audit = options.workspacePath === undefined ? undefined : auditTeamWorkspace(options.workspacePath, state)
+  const deliveryCheck = audit === undefined ? canDeclareDelivery(state) : canDeclareDelivery(state, audit)
+  const loop = audit === undefined ? describeQualityLoop(state) : describeQualityLoop(state, audit)
+  const staleById = new Map<string, string[]>()
+  if (audit !== undefined) {
+    for (const note of verdictAuditNotes(state, audit)) {
+      staleById.set(note.taskId, [...staleById.get(note.taskId) ?? [], note.message])
+    }
+  }
   return {
     workspace,
     teamId: state.id,
@@ -194,6 +229,11 @@ export async function assembleTeamSnapshot(
       ? { planReviewState: state.planReviewState ?? 'building' as const }
       : {},
     ...state.halted === true ? { halted: true } : {},
+    ...audit === undefined ? {} : {
+      loopState: loop.state,
+      deliverable: loop.deliverable,
+      delivery: { ok: deliveryCheck.ok, blockers: [...deliveryCheck.blockers], warnings: [...deliveryCheck.warnings] },
+    },
     members,
     tasks: tasks.map((task) => ({
       id: task.id,
@@ -219,6 +259,8 @@ export async function assembleTeamSnapshot(
       ...task.sourceTaskId === undefined ? {} : { sourceTaskId: task.sourceTaskId },
       ...task.sourceFindingIds === undefined ? {} : { sourceFindingIds: task.sourceFindingIds },
       ...task.coverageOf === undefined ? {} : { coverageOf: task.coverageOf },
+      ...staleById.get(task.id) === undefined ? {} : { verdictStale: (staleById.get(task.id) as string[]).join('; ') },
+      updatedAt: task.updatedAt,
     })),
     messageCount: captainInbox.length
       + members.reduce((count, member) => count + member.unread, 0),
@@ -237,7 +279,7 @@ export async function assembleTeamSnapshot(
  */
 export async function collectTeamsActivity(
   ctx: Context,
-  roots: readonly { workspace: string; stateRoot: string }[],
+  roots: readonly { workspace: string; stateRoot: string; workspacePath?: string }[],
 ): Promise<TeamActivitySnapshot[]> {
   const snapshots: TeamActivitySnapshot[] = []
   for (const root of roots) {
@@ -255,7 +297,9 @@ export async function collectTeamsActivity(
       try {
         const state = await readTeam(root.stateRoot, entry.name)
         if (state === undefined) continue
-        snapshots.push(await assembleTeamSnapshot(ctx, root.stateRoot, root.workspace, state))
+        snapshots.push(await assembleTeamSnapshot(ctx, root.stateRoot, root.workspace, state, {
+          ...root.workspacePath === undefined ? {} : { workspacePath: root.workspacePath },
+        }))
       } catch {
         ctx.logger.warn(`agent-teams: skipped unreadable team state "${entry.name}" in workspace "${root.workspace}"`)
       }

@@ -21,7 +21,7 @@ const PROFILE_KEYS = new Set([
   'tasks', 'taskPlanning', 'reviewPolicy',
 ])
 const MEMBER_KEYS = new Set([
-  'name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'fallback',
+  'name', 'role', 'provider', 'model', 'reasoning_mode', 'reasoning_effort', 'executionPrompt', 'tool_policy', 'fallback',
 ])
 const TASK_KEYS = new Set(['id', 'subject', 'description', 'assignee', 'dependencies'])
 const FALLBACK_KEYS = new Set(['provider', 'model'])
@@ -252,7 +252,7 @@ function normalizedMember(value, path) {
     throw new Error(`${path}.reasoning_effort is valid only for explicit policy`)
   }
   const member = { name, reasoning_mode }
-  for (const key of ['role', 'executionPrompt']) {
+  for (const key of ['role', 'executionPrompt', 'tool_policy']) {
     const normalized = (key === 'executionPrompt' ? preservedPrompt : normalizedOptionalString)(value[key], `${path}.${key}`)
     if (normalized !== undefined) member[key] = normalized
   }

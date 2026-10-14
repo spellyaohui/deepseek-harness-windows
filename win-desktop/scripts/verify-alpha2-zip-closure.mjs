@@ -8,6 +8,8 @@ import {
   resolve,
 } from 'node:path'
 import {
+  existsSync,
+  lstatSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -20,6 +22,7 @@ import {
   resolveVerificationTarget,
   verifyRuntimeClosure,
 } from './verify-alpha2-runtime-closure.mjs'
+import { declaredPublishedFilePaths } from './sync-local-plugin-artifacts.mjs'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const wrapperRoot = resolve(dirname(scriptPath), '..')
@@ -31,6 +34,20 @@ function sha256(path) {
 
 function toPosix(path) {
   return path.replaceAll('\\', '/')
+}
+
+function collectPublishedPathHashes(appRoot, packageRoot, publishedPath, hashes) {
+  const path = join(packageRoot, ...publishedPath.split('/'))
+  const entry = lstatSync(path)
+  if (entry.isSymbolicLink()) throw new Error(`ZIP published file comparison does not accept links: ${path}`)
+  if (entry.isFile()) {
+    hashes.set(toPosix(relative(appRoot, path)), sha256(path))
+    return
+  }
+  if (!entry.isDirectory()) throw new Error(`ZIP published file comparison does not accept unsupported entries: ${path}`)
+  for (const child of readdirSync(path, { withFileTypes: true })) {
+    collectPublishedPathHashes(appRoot, path, child.name, hashes)
+  }
 }
 
 export function validateArchiveEntries(entries) {
@@ -62,6 +79,28 @@ export function collectManifestHashes(appRoot) {
   }
   for (const path of ['package.json', 'src/dsh-service.js', 'assets/cli/dsh.cmd', 'assets/cli/command-path.ps1']) {
     hashes.set(path, sha256(join(absoluteRoot, ...path.split('/'))))
+  }
+  const skillPackage = join(absoluteRoot, 'node_modules', '@deepseek-ai', 'dsh-superpowers')
+  if (existsSync(skillPackage)) {
+    const pending = [join(skillPackage, 'lib')]
+    while (pending.length > 0) {
+      for (const entry of readdirSync(pending.pop(), { withFileTypes: true })) {
+        const path = join(entry.parentPath, entry.name)
+        if (entry.isDirectory()) pending.push(path)
+        else if (entry.isFile()) hashes.set(toPosix(relative(absoluteRoot, path)), sha256(path))
+        else throw new Error(`ZIP skill comparison does not accept links: ${path}`)
+      }
+    }
+    const upstream = join(skillPackage, 'UPSTREAM.md')
+    hashes.set(toPosix(relative(absoluteRoot, upstream)), sha256(upstream))
+  }
+  const agentTeamsPackage = join(absoluteRoot, 'node_modules', '@nanmicoder', 'dsh-agent-teams')
+  if (existsSync(agentTeamsPackage)) {
+    const manifest = JSON.parse(readFileSync(join(agentTeamsPackage, 'package.json'), 'utf8'))
+    for (const path of declaredPublishedFilePaths(manifest)) {
+      if (path === 'README.md' && !existsSync(join(agentTeamsPackage, path))) continue
+      collectPublishedPathHashes(absoluteRoot, agentTeamsPackage, path, hashes)
+    }
   }
   return hashes
 }

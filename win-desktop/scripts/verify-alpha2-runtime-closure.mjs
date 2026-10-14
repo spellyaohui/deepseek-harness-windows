@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -14,7 +15,64 @@ export const REQUIRED_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/cordis-plugin-include',
   'js-yaml',
   'argparse',
+  '@deepseek-ai/dsh-superpowers',
 ])
+
+const SUPERPOWERS_COMMIT = 'bb92a77741419a4ab5f06e711a283343f1ada0c3'
+const SUPERPOWERS_SKILLS = [
+  'brainstorming', 'diagnosing-superpowers', 'dispatching-parallel-agents',
+  'executing-plans', 'finishing-a-development-branch', 'receiving-code-review',
+  'requesting-code-review', 'subagent-driven-development', 'systematic-debugging',
+  'test-driven-development', 'using-git-worktrees', 'using-superpowers',
+  'verification-before-completion', 'writing-plans', 'writing-skills',
+]
+
+export function verifySuperpowersAssets(packageRoot) {
+  try {
+    const lib = join(packageRoot, 'lib')
+    const files = (directory, prefix = '') => {
+      if (lstatSync(directory).isSymbolicLink()) throw new Error(`link: ${directory}`)
+      return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const path = prefix + entry.name
+        if (entry.isDirectory()) return files(join(directory, entry.name), path + '/')
+        if (!entry.isFile()) throw new Error(`link or unsupported asset: ${path}`)
+        return [path]
+      })
+    }
+    if (lstatSync(packageRoot).isSymbolicLink()) throw new Error('package root is a link')
+    const allFiles = files(lib)
+    for (const path of ['index.js', 'dsh-tools.md', 'upstream-manifest.json', 'LICENSE']) {
+      if (!allFiles.includes(path) || readFileSync(join(lib, path)).length === 0) throw new Error(`missing runtime asset: ${path}`)
+    }
+    const manifest = readJson(join(lib, 'upstream-manifest.json'))
+    const expected = { repository: 'https://github.com/obra/superpowers', version: '7.0.0', tag: 'v7.0.0', commit: SUPERPOWERS_COMMIT }
+    if (manifest.schemaVersion !== 1 || Object.entries(expected).some(([key, value]) => manifest.upstream?.[key] !== value)
+      || !Array.isArray(manifest.skills) || JSON.stringify([...manifest.skills].sort()) !== JSON.stringify(SUPERPOWERS_SKILLS)
+      || !Array.isArray(manifest.files) || manifest.files.length !== 75) throw new Error('fixed source manifest mismatch')
+    const paths = []
+    for (const entry of manifest.files) {
+      if (typeof entry?.path !== 'string' || !/^(?:LICENSE|skills\/[a-z0-9-]+\/[^\\:]+)$/u.test(entry.path)
+        || entry.path.split('/').some(segment => ['', '.', '..'].includes(segment))
+        || !/^[0-9a-f]{64}$/u.test(entry.sha256)) throw new Error('unsafe asset path or hash')
+      paths.push(entry.path)
+      if (createHash('sha256').update(readFileSync(join(lib, entry.path))).digest('hex') !== entry.sha256) {
+        throw new Error(`asset hash mismatch: ${entry.path}`)
+      }
+    }
+    const originals = allFiles.filter(path => path === 'LICENSE' || path.startsWith('skills/')).sort()
+    if (new Set(paths).size !== paths.length || JSON.stringify(paths.sort()) !== JSON.stringify(originals)
+      || SUPERPOWERS_SKILLS.some(name => !paths.includes(`skills/${name}/SKILL.md`))) throw new Error('original asset file set mismatch')
+    // Anchor the original Git blobs independently of a regenerated local manifest.
+    const digest = createHash('sha256').update(manifest.files.map(entry =>
+      `${entry.path}\t${entry.sha256}`).sort().join('\n')).digest('hex')
+    if (digest !== '4b646fcbb694f25c32d5840657cc20becb1b0e9791a9de5d4081898cf09116c7') {
+      throw new Error('fixed source asset digest mismatch')
+    }
+    return { skillCount: 15, assetCount: paths.length, commit: SUPERPOWERS_COMMIT }
+  } catch (error) {
+    throw new Error(`Superpowers asset verification failed: ${error.message}`, { cause: error })
+  }
+}
 
 function readJson(path, label = path) {
   try {
@@ -168,6 +226,7 @@ export function verifyRuntimeClosure({
     if (isDsh && !localOwner && manifest.version !== EXPECTED_DSH_HOST_VERSION) {
       throw new Error(`${manifest.name}@${manifest.version} differs from pinned host ${EXPECTED_DSH_HOST_VERSION}`)
     }
+    if (manifest.name === '@deepseek-ai/dsh-superpowers') verifySuperpowersAssets(dirname(realManifestPath))
     visited.add(realManifestPath)
     packages.push({
       name: manifest.name,
@@ -216,6 +275,8 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(scriptPath)) {
   for (const entry of result.required) {
     console.log(`[runtime-closure] ${entry.name}@${entry.version} -> ${entry.manifestPath}`)
   }
+  const superpowers = result.packages.find(entry => entry.name === '@deepseek-ai/dsh-superpowers')
+  if (superpowers) console.log('[runtime-closure] Superpowers assets', verifySuperpowersAssets(dirname(join(result.appRoot, superpowers.manifestPath))))
   if (result.omittedOptional.length > 0) {
     console.log(`[runtime-closure] omitted ${result.omittedOptional.length} unavailable optional dependencies`)
   }

@@ -7,6 +7,7 @@ import type { DelegationMode } from '../settings.ts'
 import { loadModelCatalog, type ModelCatalogEntry, type ModelCatalogState } from './model-catalog.ts'
 import { TeamProfilesEditor } from './TeamProfilesEditor.tsx'
 import { TemporaryMemberSettings } from './TemporaryMemberSettings.tsx'
+import { DefaultTeamProfileSettings } from './DefaultTeamProfileSettings.tsx'
 import {
   discardTemporaryMemberWrite,
   planDelegationModeChange,
@@ -167,6 +168,14 @@ export function AgentTeamsSettingsSection({
           ))}
         </fieldset>
       </section>
+
+      <DefaultTeamProfileSettings
+        key={`default-profile-${actionScope.current.key}`}
+        value={value}
+        writer={writer}
+        disabled={controlsDisabled}
+        t={t}
+      />
 
       <TemporaryMemberSettings
         key={`temporary-${actionScope.current.key}`}
