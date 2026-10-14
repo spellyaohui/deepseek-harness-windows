@@ -365,10 +365,30 @@ for (const staged of [false, true]) {
       assert.equal((await execute('pwsh', {}, child)).isError, true)
       assert.equal(writes, 0, 'restricted tool implementations must not execute')
       assert.ok(ctx.tools.schemas(captain).some(tool => tool.name === 'write'), 'member filter must not restrict captain')
-      adapter.release(adapter.requests.indexOf(first))
+      if (staged) {
+        let task = (await readTeam(stateRoot, created.team_id)).tasks.find(item => item.assignee === name)
+        if (!task.attemptId) {
+          adapter.release(adapter.requests.indexOf(first))
+          task = await eventually(async () => (await readTeam(stateRoot, created.team_id)).tasks.find(item => item.assignee === name && item.attemptId), 'approved clone task was not dispatched')
+          checkTools(await eventually(() => adapter.requests.filter(item => item.sessionId === member.id)[1], 'approved clone task never executed'))
+        }
+        const executingChild = ctx.agents.get(SessionId(member.id))
+        for (const [tool, args] of [
+          ['agent_teams_claim_task', { task_id: task.id, attempt_id: task.attemptId }],
+          ['agent_teams_update_task', { task_id: task.id, attempt_id: task.attemptId, status: 'in_progress' }],
+          ['agent_teams_update_task', { task_id: task.id, attempt_id: task.attemptId, status: 'completed', output: 'Offline clone permission checks passed.' }],
+        ]) {
+          const result = await execute(tool, args, executingChild)
+          assert.equal(result.isError, false, text(result))
+        }
+        assert.equal((await readTeam(stateRoot, created.team_id)).tasks.find(item => item.id === task.id).status, 'completed')
+        const execution = adapter.requests.filter(item => item.sessionId === member.id).at(-1)
+        adapter.release(adapter.requests.indexOf(execution))
+      } else adapter.release(adapter.requests.indexOf(first))
       await eventually(() => !ctx.agents.get(SessionId(member.id)), 'role clone did not unload')
+      const previousRequests = adapter.requests.filter(item => item.sessionId === member.id).length
       await call('agent_teams_send_message', { to: name, content: 'Offline cold continuation' })
-      checkTools(await eventually(() => adapter.requests.filter(item => item.sessionId === member.id)[1], 'role clone did not cold resume'))
+      checkTools(await eventually(() => adapter.requests.filter(item => item.sessionId === member.id)[previousRequests], 'role clone did not cold resume'))
       assert.deepEqual((await readTeam(stateRoot, created.team_id)).members.find(item => item.name === name).toolFilter, original.toolFilter)
     })
   }
