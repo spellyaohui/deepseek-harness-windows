@@ -45,6 +45,16 @@ and stability-tdd.mjs, including bounded scheduler-warning diagnostics. The full
 offline gate passed before identity sync (wrapper209/209); further artifact/CI
 proof is recorded in [rc.25 notes](../win-desktop/release-notes/v0.2.0-rc.25.md).
 
+Clean-CI follow-up root cause: even the process's own Node read handle blocks
+Windows replacement. Reuse the existing queue per normalized exact state filename
+for every owned asynchronous Team/revision/inbox/retired-index read and the atomic
+replace. File-queue callbacks contain only IO, never acquire Team queues; temp
+flush and RMW ownership stay unchanged. `state-file-io.test.mjs` proves read-first
+and replace-first ordering with real handles, complete generations and no leaked
+queues, through `verify:state-io` in full verify. External lock retries and failure
+semantics remain unchanged. Owned-reader RED EPERM then runtime/read suite70/70
+and full offline gate209/209 passed. Prior failed CI/candidates are not released.
+
 ## Desktop 0.2.0-rc.24 frozen role tool inheritance — 2026-10-14
 
 Classification: REAPPLY, AgentTeams-owned. Numbered and exact role_template

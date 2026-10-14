@@ -324,6 +324,11 @@ evidence that the local capability is preserved.
   `team-subagent-compat.test.mjs` and `stability-tdd.mjs`. Foreground denial tests
   settle durable idle before capturing state; never remove zero-write/no-wake checks.
   Persistent storage failure may still need explicit recovery; do not claim otherwise.
+- Owned asynchronous reads and atomic replacement share the existing queue for
+  each normalized exact state filename (Team, inbox, retired index). Never hold a
+  file queue while acquiring a Team queue. Preserve the unchanged external-lock
+  retry budget, temp cleanup and committed bytes on failure. Keep both read-first
+  and replace-first regressions in `scripts/state-file-io.test.mjs` and full verify.
 
 ## AgentTeams `0.1.23-desktop.6` frozen tool-policy inheritance
 

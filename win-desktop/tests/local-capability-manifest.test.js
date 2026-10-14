@@ -66,6 +66,8 @@ test('desktop composition retains every independently owned local plugin', () =>
     '0.2.0-rc.2-desktop.4',
   )
   assert.equal(agentTeamsPackage.version, '0.1.23-desktop.7')
+  assert.equal(agentTeamsPackage.scripts['verify:state-io'], 'node --test scripts/state-file-io.test.mjs')
+  assert.ok(agentTeamsPackage.scripts.verify.endsWith(' && pnpm verify:state-io'))
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
     '0.1.23-desktop.7',
@@ -202,6 +204,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/release-notes/v0.1.23-desktop.7.md',
     'agent-teams-plugin/src/inactive-poll-guard.ts',
     'agent-teams-plugin/scripts/inactive-poll-guard.test.mjs',
+    'agent-teams-plugin/scripts/state-file-io.test.mjs',
     'agent-teams-plugin/src/artifacts.ts',
     'agent-teams-plugin/src/lineage.ts',
     'agent-teams-plugin/src/tool-policies.ts',

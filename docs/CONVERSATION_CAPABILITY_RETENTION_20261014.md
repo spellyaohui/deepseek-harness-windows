@@ -53,6 +53,7 @@
 ## 本轮证据与边界
 
 - rc.25 / AgentTeams desktop.7：真实 Windows 共享锁复现 idle 调度写入失败后 pending 丢失唤醒；顺序化状态观察、锁内过时/替换 Agent 拒绝，官方释放事件提供第二次机会。只允许确实发出过 idle 的精确 Agent；独立复核发现的创建失败循环经真实冷恢复 RED→GREEN 修复。保留 team-subagent-compat/stability 全部回归；不直接覆写、不无限重试、不轮询重跑已执行 attempt。持久文件锁仍需显式恢复，代码/CI/安装/付费模型/隔夜验收分开。
+- rc.25 CI 补充根因：进程自己的 Node 异步读句柄也会阻止 Windows 原子替换。state.ts 的 Team/revision/inbox/retired 异步读取与 replace 复用同一规范化文件队列；文件队列内不得反向获取 Team 锁。保留 state-file-io.test.mjs 的读先/替换先双向完整 generation、零队列泄漏及原外部持久锁失败回归，verify:state-io 进入完整链。不得通过删除断言、放宽预算或直接覆写解决刷新冲突。
 
 - 累计只读复核发现并阻断：角色副本漏冻结工具限制。4 个实证失败后最小修复，5 个权限回归通过；完整门禁与新包校验另记 rc.24。
 - 轻微遗留：临时成员设置的旧帮助文字未完全表达当前真人授权边界；运行时严格拒绝仍有效，本轮不扩大范围修 UI 文案。

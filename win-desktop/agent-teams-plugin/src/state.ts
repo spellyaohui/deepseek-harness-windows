@@ -16,7 +16,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { mkdir, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { AGENT_TEAMS_STATE_SCHEMA_VERSION, TERMINAL_TASK_STATUSES, FINDING_SEVERITIES, REVIEW_VERDICTS, TASK_KINDS, type ReviewFinding, type TaskStatus, type TeamMember, type TeamMessage, type TeamProfileSnapshot, type TeamState, type TeamTask } from './types.ts'
 import { hasValidQualityTaskFields, isReviewPolicy, isValidFindingLine, normalizeBlankOptionalTaskFields } from './quality-gates.ts'
@@ -82,6 +82,16 @@ export async function withTeamLock<T>(key: string, fn: () => Promise<T>): Promis
 /** Keys with an in-process lock queue, for diagnostics and leak checks. */
 export function teamLockQueueKeys(): readonly string[] {
   return [...locks.keys()]
+}
+
+function stateFileLockKey(file: string): string {
+  const path = resolve(file)
+  return `state-file:${process.platform === 'win32' ? path.toLowerCase() : path}`
+}
+
+// Windows cannot replace a target while our own asynchronous reader holds it.
+function readStateText(file: string): Promise<string> {
+  return withTeamLock(stateFileLockKey(file), () => readFile(file, 'utf8'))
 }
 
 /** Longest key emitted before truncating and appending a digest. */
@@ -272,7 +282,7 @@ async function readRevisionSnapshot(
   teamId: string,
 ): Promise<RevisionSnapshot | undefined> {
   try {
-    const raw = await readFile(join(stateRoot, teamId, 'team.json'), 'utf8')
+    const raw = await readStateText(join(stateRoot, teamId, 'team.json'))
     const parsed: unknown = JSON.parse(stripLeadingBom(raw))
     if (!isRecord(parsed) || parsed['schemaVersion'] !== AGENT_TEAMS_STATE_SCHEMA_VERSION) {
       throw new Error(`旧版 AgentTeams 状态不受支持，请创建新 Team`)
@@ -394,7 +404,7 @@ export async function createTeamDir(stateRoot: string, state: TeamState): Promis
  */
 export async function readTeam(stateRoot: string, teamId: string): Promise<TeamState | undefined> {
   try {
-    const raw = await readFile(join(stateRoot, teamId, 'team.json'), 'utf8')
+    const raw = await readStateText(join(stateRoot, teamId, 'team.json'))
     const value: unknown = JSON.parse(stripLeadingBom(raw))
     if (!isRecord(value) || value.schemaVersion !== AGENT_TEAMS_STATE_SCHEMA_VERSION) {
       throw new Error('旧版 AgentTeams 状态不受支持，请创建新 Team')
@@ -455,7 +465,7 @@ export async function writeTeam(stateRoot: string, state: TeamState): Promise<Te
 export async function readRetiredMemberIds(stateRoot: string): Promise<Set<string>> {
   try {
     const parsed: unknown = JSON.parse(stripLeadingBom(
-      await readFile(join(stateRoot, RETIRED_MEMBERS_FILE), 'utf8'),
+      await readStateText(join(stateRoot, RETIRED_MEMBERS_FILE)),
     ))
     if (!Array.isArray(parsed) || parsed.some(value => typeof value !== 'string' || value === '')) {
       throw new Error('invalid AgentTeams retired member index')
@@ -584,7 +594,7 @@ export async function appendMailbox(
   await mkdir(join(stateRoot, teamId, 'inbox'), { recursive: true })
   let existing = ''
   try {
-    existing = await readFile(file, 'utf8')
+    existing = await readStateText(file)
   } catch (error: unknown) {
     if (!(error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT')) {
       throw error
@@ -611,7 +621,7 @@ export async function readMailbox(
 ): Promise<TeamMessage[]> {
   const file = join(stateRoot, teamId, 'inbox', `${sanitizeKey(agentKey)}.jsonl`)
   try {
-    const raw = await readFile(file, 'utf8')
+    const raw = await readStateText(file)
     const messages: TeamMessage[] = []
     for (const [index, rawLine] of raw.split('\n').entries()) {
       const line = stripLeadingBom(rawLine)
@@ -669,7 +679,7 @@ async function mutateMailbox(
   const file = join(stateRoot, teamId, 'inbox', `${sanitizeKey(agentKey)}.jsonl`)
   let raw: string
   try {
-    raw = await readFile(file, 'utf8')
+    raw = await readStateText(file)
   } catch (error: unknown) {
     if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') return
     throw error
@@ -848,11 +858,11 @@ async function atomicWriteText(file: string, content: string): Promise<void> {
     await rm(temporary, { force: true }).catch(() => undefined)
     throw error
   }
-  await replaceFileAtomicOrDirect(temporary, file, content, {
+  await withTeamLock(stateFileLockKey(file), () => replaceFileAtomicOrDirect(temporary, file, content, {
     rename: (from, to) => rename(from, to),
     writeFile: (target, payload) => writeFile(target, payload, 'utf8'),
     remove: (path) => rm(path, { force: true }),
-  })
+  }))
 }
 
 /** Whether a parsed JSON value is a plain record. */

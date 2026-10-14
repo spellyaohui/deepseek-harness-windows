@@ -650,7 +650,7 @@ test('settled child retries pending dispatch after idle scheduling hits a Window
     await eventually(() => output.includes('HELD'), 'native Windows lock did not arm')
     adapter.release(0)
     await eventually(() => warnings.some(message => message.includes('member status scheduling failed') && message.includes('EPERM')), 'idle status did not encounter the real sharing violation', 5_000, diagnose)
-    assert.equal((await readTeam(stateRoot, team.id)).tasks[0].status, 'pending', 'failed atomic replace cannot commit an attempt')
+    assert.equal(JSON.parse(await readFile(path, 'utf8')).tasks[0].status, 'pending', 'failed atomic replace cannot commit an attempt')
     holder.stdin.end('\n')
     await closed
     const task = await assignedTask(stateRoot, team.id, member.name, diagnose)

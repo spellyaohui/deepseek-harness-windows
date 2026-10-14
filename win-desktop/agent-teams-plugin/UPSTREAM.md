@@ -28,6 +28,14 @@ checks after normal durable settlement. Persistent storage faults are not claime
 healed. Final CI/artifact proof belongs to [desktop.7 notes](release-notes/v0.1.23-desktop.7.md)
 and wrapper rc.25; recommended Harness0.2.0-rc.2 and upstream source remain fixed.
 
+REAPPLY at the same state owner: all owned asynchronous Team/revision/inbox/retired
+reads and atomic replacement use the existing queue per normalized exact filename.
+Native Node reader RED proved self-induced Windows renameEPERM; queued read-first
+and replace-first regressions prove full generations and released queues. Keep
+scripts/state-file-io.test.mjs / verify:state-io in full verify. No Team lock is
+acquired inside a file queue, and external-lock retry/fail-safe semantics do not
+change. Runtime/read suite70/70 and full offline gate209/209 passed after this fix.
+
 ## 2026-10-14 desktop.6 frozen role tool inheritance
 
 REAPPLY: numbered and exact role_template members copy the current Team's
