@@ -2099,8 +2099,10 @@ try {
       && (await task(t2.task_id))?.attemptId === betaClaim.attempt_id)
   publishStatus(beta, 'idle')
   publishStatus(gamma, 'idle')
-  await new Promise(resolve => setTimeout(resolve, 20))
-  const gate = await task(t3.task_id)
+  const gate = await waitFor('downstream task dispatch after dependency completion', async () => {
+    const candidate = await task(t3.task_id)
+    return candidate?.status === 'claimed' ? candidate : undefined
+  })
   check('completing dependencies dispatches the downstream task', gate?.status === 'claimed' && gate.assignee === 'gamma')
   const gateClaim = await call('agent_teams_claim_task', { task_id: t3.task_id }, gamma)
   await call('agent_teams_update_task', {
