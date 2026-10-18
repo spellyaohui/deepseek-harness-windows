@@ -907,6 +907,11 @@ function isMemberToolFilter(value: unknown): value is MemberToolFilter {
   return isToolNameList(deny)
 }
 
+/** Validate plugin-owned setup in either Team JSON or a host Session record. */
+export function isMemberRuntimeSetup(value: unknown): value is NonNullable<TeamMember['runtimeSetup']> {
+  return isRecord(value) && typeof value['persona'] === 'string' && isMemberToolFilter(value['toolFilter'])
+}
+
 /** Whether a value is a finite timestamp/counter number. */
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
@@ -937,9 +942,7 @@ function isTeamMember(value: unknown): value is TeamMember {
     // A member without a policy keeps the legacy shape: both fields stay absent.
     && isOptionalNonBlankString(value['toolPolicy'])
     && (value['toolFilter'] === undefined || isMemberToolFilter(value['toolFilter']))
-    && (value['runtimeSetup'] === undefined || (isRecord(value['runtimeSetup'])
-      && typeof value['runtimeSetup']['persona'] === 'string'
-      && isMemberToolFilter(value['runtimeSetup']['toolFilter'])))
+    && (value['runtimeSetup'] === undefined || isMemberRuntimeSetup(value['runtimeSetup']))
     && isFiniteNumber(value['joinedAt'])
     && (value['status'] === 'idle' || value['status'] === 'working' || value['status'] === 'removed')
 }

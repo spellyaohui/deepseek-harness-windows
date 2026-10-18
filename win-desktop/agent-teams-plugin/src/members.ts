@@ -17,12 +17,14 @@ import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent'
 // Declaration merge only: makes ctx.subagents visible.
 import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent'
 import { createUserMessage, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import * as sessionRuntime from '@deepseek-ai/dsh-session'
 import type { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { agentTeamsSource, guardSubagentCreation, usesManagedActivations, guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, memberToolFilter, restrictableToolNames, sessionOwnEvents, startMemberWithLenientFilter } from './harness-compat.ts'
 import { join } from 'node:path'
 import { nearestLiveLead } from './lineage.ts'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
+  isMemberRuntimeSetup,
   markMailboxDelivered,
   appendMailbox,
   CAPTAIN_KEY,
@@ -45,6 +47,25 @@ import {
 } from './routing-policy.ts'
 import { agentTeamsSubagentGateway } from './subagent-gateway.ts'
 import { durableSessionId } from './agent-identity.ts'
+
+const MEMBER_RUNTIME_RECORD = 'plugin:agent-teams/member-runtime'
+
+declare module '@deepseek-ai/dsh-session/types' {
+  interface PluginRecordMap {
+    'plugin:agent-teams/member-runtime': NonNullable<TeamMember['runtimeSetup']>
+  }
+}
+
+/** The first child-owned Host record is authoritative; never re-sign workspace state. */
+export function savedMemberRuntimeSetup(session: Session): NonNullable<TeamMember['runtimeSetup']> {
+  if (typeof sessionRuntime.pluginRecordOf !== 'function') throw new Error('agent-teams: Host does not support member plugin records; refusing managed recovery')
+  const record = sessionOwnEvents(session).map(sessionRuntime.pluginRecordOf).find(item => item?.type === MEMBER_RUNTIME_RECORD)
+  if (record === undefined) {
+    throw new Error('agent-teams: saved member runtime setup has no trusted Session record; recreate the member to resume')
+  }
+  if (!isMemberRuntimeSetup(record.data)) throw new Error('agent-teams: invalid saved member runtime setup in Session')
+  return record.data
+}
 
 function sameToolNames(left: string[] | undefined, right: string[] | undefined): boolean {
   if (left === undefined || right === undefined) return left === right
@@ -629,7 +650,8 @@ export function installMemberSelectionRuntime(
     const installed = activeMembers.get(child)
     if (installed !== undefined) return installed
     const childId = durableSessionId(child)
-    const descriptor = foldSubagentDescriptor(sessionOwnEvents(child.session))
+    const ownEvents = sessionOwnEvents(child.session)
+    const descriptor = foldSubagentDescriptor(ownEvents)
     if (descriptor?.mode !== 'continuable' || !descriptor.label.startsWith(MEMBER_LABEL_PREFIX)) {
       return
     }
@@ -670,8 +692,10 @@ export function installMemberSelectionRuntime(
       const failure = new Error(`agent-teams: member initialization failed: ${String(error)}`, { cause: error })
       ctx.logger.warn(failure.message)
       const disposeRequest = child.ctx.on('agent/request', () => { throw failure }, { prepend: true })
+      const disposeTools = child.ctx.tools.guard(execution => execution.agent === child ? failure.message : undefined)
       return track(child, () => {
         disposeRequest()
+        disposeTools()
         disposeSetup()
         disposeAdmission()
         disposePolicy()
@@ -732,30 +756,37 @@ export function installMemberSelectionRuntime(
         const durable = pending.has(key) ? undefined : readTeamSync(stateRoot, teamId)
         const savedMember = durable?.captainSessionId === parentSessionId
           ? durable.members.find(member => member.id === childId && member.name === memberName) : undefined
-        const setup = pendingSetup.get(key) ?? savedMember?.runtimeSetup
-        if (savedMember !== undefined && setup === undefined && descriptor.toolFilter === undefined) {
-          throw new Error('agent-teams: saved member runtime setup is missing; refusing an unrestricted resume')
+        let setup = pendingSetup.get(key)
+        if (setup !== undefined) {
+          // Only a new activation may establish this child-owned Host record.
+          if (typeof sessionRuntime.appendPluginRecord !== 'function') throw new Error('agent-teams: Host does not support member plugin records; refusing managed activation')
+          sessionRuntime.appendPluginRecord(child.session, MEMBER_RUNTIME_RECORD, setup)
+        } else if (descriptor.toolFilter === undefined) {
+          setup = savedMemberRuntimeSetup(child.session)
         }
         if (setup !== undefined) {
+          const stopFilter = child.ctx.tools.restrict(setup.toolFilter)
+          disposeSetup = stopFilter
           if (savedMember !== undefined && durable !== undefined) {
+            const offered = savedMember.runtimeSetup
             const frozen = savedMember.toolFilter
             const requiredDeny = CAPTAIN_TOOL_NAMES.filter(name => child.ctx.tools.get(name) !== undefined)
-            if (!matchesMemberPersona(durable, savedMember, stateDir, setup.persona)
+            if (offered === undefined || offered.persona !== setup.persona
+              || !sameToolNames(offered.toolFilter.allow, setup.toolFilter.allow)
+              || !sameToolNames(offered.toolFilter.deny, setup.toolFilter.deny)
+              || !matchesMemberPersona(durable, savedMember, stateDir, setup.persona)
               || requiredDeny.some(name => !setup.toolFilter.deny.includes(name))
               || (frozen !== undefined && (!sameToolNames(frozen.allow, setup.toolFilter.allow)
                 || !sameToolNames(frozen.deny, setup.toolFilter.deny)))) {
               throw new Error('agent-teams: saved member runtime setup conflicts with its frozen role; refusing resume')
             }
           }
-          const stopFilter = child.ctx.tools.restrict(savedMember?.toolFilter ?? setup.toolFilter)
-          try {
-            const stopPersona = child.ctx.systemPrompt.section({
-              name: 'deployment:persona-prefix',
-              order: child.ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
-              text: setup.persona,
-            })
-            disposeSetup = () => { stopPersona(); stopFilter() }
-          } catch (error) { stopFilter(); throw error }
+          const stopPersona = child.ctx.systemPrompt.section({
+            name: 'deployment:persona-prefix',
+            order: child.ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
+            text: setup.persona,
+          })
+          disposeSetup = () => { stopPersona(); stopFilter() }
         }
       }
       let lastFailedTurn: number | undefined

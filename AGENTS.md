@@ -300,7 +300,7 @@ evidence that the local capability is preserved.
   current-Team member name; unknown/blank bindings fail before writes/spawns.
   Never guess a renamed member's role or read a later live Profile for inheritance.
   Keep the focused selection and lifecycle regressions through every upstream refresh.
-- Managed cold recovery and HMR must validate runtimeSetup against frozen role tool-filter sets, registered captain-only denies and the regenerated frozen persona before installing it. New managed members freeze any effective global execution-prompt fallback. Keep the real drift/recovery cases in `scripts/custom-member-routing.test.mjs`; snapshot consistency is not an OS sandbox and must not trigger user-file migration.
+- Existing managed children restore only from their first child-owned Host Session plugin record, established during new activation; never authorize or re-sign setup from mutable workspace copies. Validate those copies against the trusted original, registered captain denies and the frozen persona. Missing/malformed records refuse recovery with member-recreation guidance; legacy descriptor filters remain Host-restored. The pinned plugin-record API is experimental and best-effort through format migrations, so record loss fails closed. Failed HMR initialization blocks actual tool execution until teardown. Keep the drift/write-tool/first-record/fork regressions in `scripts/custom-member-routing.test.mjs`; no automatic user-file/session migration or whole-Team/OS sandbox claim.
 - Every continuable child operation (start, send, interrupt, retirement and
   drain) must enter the single durable-session subagent gateway. The gateway
   resolves the exact live Agent, rejects stale or same-ID pseudo-handles, and
