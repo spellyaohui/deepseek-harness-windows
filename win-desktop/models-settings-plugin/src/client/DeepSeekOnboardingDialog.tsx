@@ -98,6 +98,7 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
   const namespace = state.namespaces.get('llm-deepseek')
   /* v8 ignore next 2 -- credential-missing is derived only from this exact joined row. */
   if (row === undefined || namespace === undefined) return null
+  const credential = row.credential ?? row.derivedCredential
 
   const finishCredential = (changed: boolean): void => {
     if (!changed) {
@@ -118,6 +119,8 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           schema={schema}
           settingsPath={row.entry.settingsPath}
           operations={operations}
+          {...credential === undefined ? {} : { credential }}
+          {...row.credentialChecks === undefined ? {} : { credentialChecks: row.credentialChecks }}
           t={t}
           readOnly={false}
           hideTitle

@@ -123,6 +123,7 @@ interface ProviderEditorRenderProps extends Pick<
 
 /** Render an editor for either the setup posture or an expanded provider row. */
 function renderProviderEditor({ target, row, ...props }: ProviderEditorRenderProps): ReactNode {
+  const credential = row.credential ?? row.derivedCredential
   return (
     <ProviderEditor
       provider={target.provider}
@@ -132,7 +133,7 @@ function renderProviderEditor({ target, row, ...props }: ProviderEditorRenderPro
       {...target.defaultBaseURL === undefined ? {} : { defaultBaseURL: target.defaultBaseURL }}
       {...target.baseURLEnv === undefined ? {} : { baseURLEnv: target.baseURLEnv }}
       {...target.nativeAuth === undefined ? {} : { nativeAuth: target.nativeAuth }}
-      {...row.credential === undefined ? {} : { credential: row.credential }}
+      {...credential === undefined ? {} : { credential }}
       {...row.credentialChecks === undefined ? {} : { credentialChecks: row.credentialChecks }}
       {...props}
     />
@@ -409,6 +410,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   const addRow = draft === undefined
     ? undefined
     : state.rows.find(row => row.entry.provider === draft.target.provider)
+  const addCredential = addRow?.credential ?? addRow?.derivedCredential
 
   return (
     <div className={styles['section']}>
@@ -647,6 +649,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                       {...draft.target.defaultBaseURL === undefined ? {} : { defaultBaseURL: draft.target.defaultBaseURL }}
                       {...draft.target.baseURLEnv === undefined ? {} : { baseURLEnv: draft.target.baseURLEnv }}
                       {...draft.target.nativeAuth === undefined ? {} : { nativeAuth: draft.target.nativeAuth }}
+                      {...addCredential === undefined ? {} : { credential: addCredential }}
                       {...addRow?.credentialChecks === undefined ? {} : { credentialChecks: addRow.credentialChecks }}
                       t={t}
                       readOnly={!state.writable}

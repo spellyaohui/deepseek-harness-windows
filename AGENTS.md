@@ -447,6 +447,7 @@ evidence that the local capability is preserved.
   An explicit switch-off writes `false`; merely opening or saving an untouched
   absent declaration must not materialize a reasoning override. Keep this local
   correction until upstream implements the same behavior.
+- CredentialInfo.writable=false disables replacement of the actual named or derived credential reference and credential-only Apply. It must not disable unrelated Provider/model settings saves with an empty key draft. Keep the real React `provider-credentials.test.js` regression.
 - List operations, bulk input actions, expandable model settings and footer Save/Cancel have separate layout groups and remain usable at narrow widths.
 - Models stays provider-neutral. No CPA-specific normalization seam or model-name rules may be restored. Manual declarations override catalogs and defaults, and saved changes require restart.
 - Before generated lib writes, detach each existing output entry with identical bytes to prevent Windows os error 1224. Keep detachment and manual declaration regressions through future refreshes.
