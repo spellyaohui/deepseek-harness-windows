@@ -7,7 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { LlmAdapter, createUserMessage } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import * as OutputLimitFinish from '../output-limit-finish-plugin/lib/index.js'
@@ -42,7 +42,7 @@ async function runTurn(t, adapter, { mountPlugin = true, maxTokens } = {}) {
     await ctx.fiber.dispose()
     await rm(workspace, { recursive: true, force: true, maxRetries: 8, retryDelay: 25 })
   })
-  await mountAgentLoopTestDependencies(ctx)
+  await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
   await ctx.plugin(JsonlSessionPersistence, { root: join(workspace, 'sessions') })
   await ctx.plugin(SessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })

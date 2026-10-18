@@ -22,7 +22,7 @@ class OfflineAdapter extends LlmAdapter {
 export async function createSuperpowersHarness({ cwd, policy = 'native-v1', role = 'captain' }) {
   const ctx = new Context()
   try {
-    await mountAgentLoopTestDependencies(ctx)
+    await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
     await ctx.plugin(SkillRegistry)
     const provider = await ctx.plugin(Superpowers)
     await ctx.plugin(SkillTool)

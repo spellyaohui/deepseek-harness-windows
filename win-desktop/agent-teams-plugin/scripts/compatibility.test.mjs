@@ -41,9 +41,9 @@ test('doctor runs through an installed bin symlink and reports success or failur
 })
 
 test('policy rejects floating targets, duplicates, and alpha recommendation', () => {
-  assert.equal(policy.recommendedHost, '0.2.0-rc.2')
+  assert.equal(policy.recommendedHost, '0.2.1-rc.2')
   assert.deepEqual(policy.supportedHosts.map(host => host.version), [
-    '0.2.0-rc.2', '0.1.7-rc.2', '0.1.5-rc.3', '0.1.5-rc.2',
+    '0.2.1-rc.2', '0.2.1-rc.1', '0.2.0-rc.2', '0.1.7-rc.2', '0.1.5-rc.3', '0.1.5-rc.2',
     '0.1.5-rc.1', '0.1.2-rc.1', '0.1.2-alpha.5', '0.1.2-alpha.2',
   ])
   assert.deepEqual(validatePolicy(policy), policy.supportedHosts.map(host => host.version))
@@ -171,13 +171,13 @@ test('doctor detects peer-only drift and a mismatched installed plugin', t => {
 
 test('offline RC.2 file tarball pins count as the exact development host', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-  assert.match(pkg.devDependencies['@deepseek-ai/dsh'], /file:.*deepseek-ai-dsh-0\.2\.0-rc\.2\.tgz$/)
-  assert.match(pkg.devDependencies['@deepseek-ai/dsh-session-projection'], /file:.*deepseek-ai-dsh-session-projection-0\.2\.0-rc\.2\.tgz$/)
+  assert.match(pkg.devDependencies['@deepseek-ai/dsh'], /file:.*deepseek-ai-dsh-0\.2\.1-rc\.2\.tgz$/)
+  assert.match(pkg.devDependencies['@deepseek-ai/dsh-session-projection'], /file:.*deepseek-ai-dsh-session-projection-0\.2\.1-rc\.2\.tgz$/)
   assert.equal(resolveDevelopmentHost(pkg.devDependencies['@deepseek-ai/dsh']), policy.recommendedHost)
   assert.doesNotThrow(() => validatePackageCompatibility(pkg))
   const mixed = structuredClone(pkg)
   mixed.devDependencies['@deepseek-ai/dsh-agent'] = mixed.devDependencies['@deepseek-ai/dsh-agent']
-    .replace('deepseek-ai-dsh-agent-0.2.0-rc.2.tgz', 'deepseek-ai-dsh-agent-0.1.2-alpha.2.tgz')
+    .replace('deepseek-ai-dsh-agent-0.2.1-rc.2.tgz', 'deepseek-ai-dsh-agent-0.1.2-alpha.2.tgz')
   assert.throws(() => validatePackageCompatibility(mixed), /exact development host/)
 })
 
@@ -204,4 +204,8 @@ test('desktop extras keep enumerated host peers and settings inject', () => {
   }
   assert.equal(pkg.bin['dsh-agent-teams-doctor'], 'scripts/doctor.mjs')
   assert.equal(pkg.publishConfig.tag, 'next')
+})
+
+test('official package names with numeric segments retain exact archive host resolution', () => {
+  assert.equal(resolveDevelopmentHost('file:../../upstream/dsh-v0.2.1-rc.2/tarballs/dsh/deepseek-ai-dsh-client-ui-deepseek-model-label-1017-0.2.1-rc.2.tgz'), '0.2.1-rc.2')
 })

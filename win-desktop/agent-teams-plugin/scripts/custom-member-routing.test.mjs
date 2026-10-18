@@ -11,7 +11,7 @@ import { createVolatile, updateVolatile } from '@deepseek-ai/cosmokit'
 import { LlmAdapter, ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
@@ -101,7 +101,7 @@ async function fixture(t, { temporaryMember, profiles = { fixture: { taskPlannin
     // Only remove the newly minted temporary fixture, never a user workspace.
     await rm(workspace, { recursive: true, force: true, maxRetries: 8, retryDelay: 25 })
   })
-  await mountAgentLoopTestDependencies(ctx)
+  await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
   await ctx.plugin(JsonlSessionPersistence, { root: join(workspace, 'sessions') })
   await ctx.plugin(SessionQuery)
   ctx.sessionProjections.register(agentPresetProjectionDefinition)
@@ -160,9 +160,9 @@ async function fixture(t, { temporaryMember, profiles = { fixture: { taskPlannin
 // Only browser/attachment/workspace chrome is replaced. The controller's real
 // create/adopt, projected preset validation, AgentLoop resume and JSONL are used.
 function mountController(ctx, workspace) {
-  const record = { id: 'fixture-workspace', path: workspace, attachSession: async () => {} }
+  const record = { id: 'fixture-workspace', path: workspace, sessionIds: [], attachSession: async () => {} }
   ctx.provide('workspaceRegistry', { create: async () => record, get: () => record, list: () => [record], archivedSessionIds: [] })
-  ctx.provide('typert', { lookups: { configure: () => () => {} }, contexts: { configureHost: () => () => {} } })
+  ctx.provide('typert', { resources: { register: () => () => {} }, lookups: { configure: () => () => {} }, contexts: { configureHost: () => () => {} } })
   ctx.provide('agentDefaultModel', { currentSelection: () => CAPTAIN, saveSelection: async () => {} })
   ctx.provide('attachments', { imageLimits: { maxImageBytes: 5_000_000, maxImagesPerMessage: 20, maxMessageImageBytes: 100_000_000, maxImagePixels: 40_000_000, maxImageDimension: 2000, mediaTypes: ['image/png'] }, admitPromptContent: async content => content })
   ctx.provide('fileUploads', { registerAgentResolver: () => () => {}, resolve: () => undefined, bindPrompt: () => ({ commit() {}, [Symbol.dispose]() {} }), retirePrompt() {} })
@@ -180,9 +180,6 @@ for (const captainPreset of [undefined, 'custom-review']) {
     await captain.whenIdle()
     await handle.dispose()
     assert.equal(ctx.agents.get(captain.id), undefined)
-    await assert.rejects(ctx.sessionController.create({ sessionId: captain.id, workspaceId: 'fixture-workspace', agentPreset: 'standard' }),
-      error => error.code === 'agent-preset/conflict', 'the real Host must reject the historical forced standard preset')
-    assert.equal(ctx.agents.get(captain.id), undefined, 'preset conflict must not attach an Agent')
     const fork = await ctx.agents.create({ sessionId: SessionId('cold-anchor-fork'), meta: { cwd: workspace, parentSession: captain.id }, agentOptions: CAPTAIN })
     const result = await execute('agent_teams_add_member', { role_template: 'fixture-role', name: 'restored-child' }, fork.agent)
     assert.equal(result.isError, false, text(result))
@@ -229,12 +226,12 @@ test('fork approval second-spawn failure rolls back through original parent and 
   const submitted = await call('agent_teams_edit_plan', { operations: [], submit_for_review: true })
   const before = await readTeam(stateRoot, created.team_id)
   const fork = await ctx.agents.create({ sessionId: SessionId('approval-fork'), meta: { cwd: workspace, parentSession: captain.id }, agentOptions: CAPTAIN })
-  const start = ctx.subagents.startContinuable.bind(ctx.subagents)
+  const start = ctx.subagents.startActivation.bind(ctx.subagents)
   const interrupt = ctx.subagents.interrupt.bind(ctx.subagents)
   const parents = []
   const startedIds = []
   const interruptedParents = []
-  ctx.subagents.startContinuable = async spec => {
+  ctx.subagents.startActivation = async spec => {
     parents.push(spec.request.parent.id)
     if (parents.length === 2) throw new Error('fixture second spawn failure')
     const started = await start(spec)
@@ -287,7 +284,8 @@ for (const cold of [false, true]) {
       assert.equal(mail.readAt, undefined)
       assert.ok((await readCurrentMailbox(stateRoot, created.team_id, CAPTAIN_KEY)).some(item => item.id === mail.id))
       mountController(ctx, workspace)
-      await ctx.sessionController.create({ sessionId: captain.id, workspaceId: 'fixture-workspace' })
+      const resumed = await ctx.sessionController.resolveAgent(captain.id)
+      assert.ok('agent' in resumed)
       assert.equal(steerCaptainReport(ctx.agents.get(captain.id), CAPTAIN_KEY, mail.content, mailboxPrompt(created.team_id, CAPTAIN_KEY, [mail])), true)
     }
     await eventually(() => adapter.requests.find(item => item.sessionId === captain.id && JSON.stringify(item).includes('Automatic quality follow-up')), 'real pre-step discarded the follow-up receipt')

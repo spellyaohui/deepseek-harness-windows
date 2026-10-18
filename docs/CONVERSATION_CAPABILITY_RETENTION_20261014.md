@@ -1,5 +1,11 @@
 # 累计改进保留索引 — 2026-10-14
 
+Current refresh: 2026-10-18 Harness 0.2.1 / AgentTeams 0.1.24. CPA independent
+plugin, six-effort synthesis and Off removal are explicitly SUPERSEDED_BY_DESIGN.
+Use the current classification in [UPSTREAM_MAINTENANCE](UPSTREAM_MAINTENANCE.md);
+historical owner rows never restore those retired implementations.
+
+
 本记录把当前对话形成的产品要求固定在仓库里，不上传聊天原文、附件、会话、用户配置或凭据。它是后续上游适配的入口，不是第二套运行时配置；逐项所有权与历史证据以 [维护登记](UPSTREAM_MAINTENANCE.md) 和根 `AGENTS.md` 为准。
 
 ## 当前固定来源

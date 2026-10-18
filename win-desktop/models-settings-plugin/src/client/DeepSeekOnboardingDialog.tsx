@@ -5,7 +5,7 @@
  * official DeepSeek route. The step reuses that page's credential editor in
  * the onboarding plugin's shared modal, so the key is entered once.
  */
-
+import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -17,12 +17,13 @@ import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type {} from './slot-contract.ts'
 import type { en } from './locales.ts'
-import type { ProviderProfileNormalizer } from './provider-profile.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './DeepSeekOnboardingDialog.module.css'
 
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
 export interface DeepSeekOnboardingInjected {
+  /** Desktop-only event collection. */
+  track?: TrackProductEvent
   /** Whether first-run setup should show automatically. Explicit requests remain available. */
   automatic: boolean
   hooks: {
@@ -33,7 +34,6 @@ export interface DeepSeekOnboardingInjected {
   controller: ModelsSettingsStore
   /** The Host operations the reused Models credential editor writes through. */
   operations: ModelsOperations
-  normalizeProviderProfile: ProviderProfileNormalizer
   /** Settings schema and immutable path callbacks. */
   schema: SettingsSchemaOperations
   /** Feature copy. */
@@ -56,7 +56,7 @@ function assertNever(_value: never): never {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, operations, normalizeProviderProfile, schema, t, renderSlot, automatic, explicit = false } = props
+  const { complete, controller, useModels, operations, schema, t, renderSlot, automatic, explicit = false } = props
   const [apiKey, setApiKey] = useState(explicit)
   const state = useModels(snapshot => snapshot)
   const readiness = onboardingReadiness(state)
@@ -118,11 +118,11 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
           schema={schema}
           settingsPath={row.entry.settingsPath}
           operations={operations}
-          normalizeProviderProfile={normalizeProviderProfile}
           t={t}
           readOnly={false}
           hideTitle
           credentialOnly
+          onSubmitCredential={() => { props.track?.('api_key_save_click', {}) }}
           credentialRequired
           autoFocusCredential
           cancelLabelKey="onboardingLater"

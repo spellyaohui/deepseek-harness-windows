@@ -30,3 +30,9 @@ export function applyImageInputChoiceToAll(
 ): Record<string, unknown>[] {
   return models.map(model => applyImageInputChoice(model, choice))
 }
+
+/** Only input defaults belong to this fork; reasoning declarations remain upstream-owned. */
+export function materializeModelInput<T extends Record<string, unknown>>(model: T): T {
+  return (model['input'] === undefined || Array.isArray(model['input']) && model['input'].length === 0)
+    && readImageInputChoice(model) !== 'invalid' ? { ...model, input: ['text'] } : model
+}

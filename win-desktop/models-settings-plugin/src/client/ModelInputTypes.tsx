@@ -1,19 +1,17 @@
 /** Input-type declarations shared by the DeepSeek and pi-ai catalog editors. */
 
-import { useId } from 'react'
 import type { ReactNode } from 'react'
-import { Checkbox } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Checkbox, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import type { ModelsKey } from './locales.ts'
 import { applyImageInputChoice, readImageInputChoice } from './model-input.ts'
-import type { ImageInputChoice } from './model-input.ts'
 import styles from './ModelsSection.module.css'
 
 /** Props of {@link ModelInputTypes}. */
 interface ModelInputTypesProps {
   /** Effective model row, including fields outside the curated editor. */
   model: DeepSeekModelDraft
-  /** Adapter-owned field; pi-ai inherits capabilities when absent or empty. */
+  /** Adapter-owned field; absent or empty pi-ai input defaults to text. */
   field: 'inputModalities' | 'input'
   /** One-based row position for the accessible group label. */
   position: number
@@ -28,12 +26,11 @@ interface ModelInputTypesProps {
 }
 
 /**
- * Edit a nonempty set of input types, displaying inherited types before an override exists.
+ * Edit input types with the native controls and adapter-specific defaults.
  * @param props - model declaration and row replacement action.
- * @returns the labeled text and image checkboxes.
+ * @returns the labeled input controls.
  */
 export function ModelInputTypes({ model, field, position, disabled, fallback, t, onChange }: ModelInputTypesProps): ReactNode {
-  const inputGroup = useId()
   if (field === 'input') {
     const choice = readImageInputChoice(model)
     const hintKey = choice === 'image'
@@ -43,23 +40,14 @@ export function ModelInputTypes({ model, field, position, disabled, fallback, t,
           : 'modelInputInvalid'
     return (
       <fieldset className={styles['modelInputTypes']} aria-label={`${t('modelInputTypes')} ${String(position)}`}>
-        <legend className={styles['modelFieldLabel']}>{t('modelImageInput')}</legend>
-        <div className={styles['modelInputChoices']}>
-          {([
-            ['text-only', 'modelImageTextOnly'], ['image', 'modelImageInput'],
-          ] as const).map(([value, label]) => (
-            <label key={value}>
-              <input
-                type="radio"
-                name={`model-input-${inputGroup}`}
-                value={value}
-                checked={choice === value}
-                disabled={disabled}
-                onChange={() => { onChange(applyImageInputChoice(model, value as ImageInputChoice)) }}
-              />
-              {t(label)}
-            </label>
-          ))}
+        <div className={styles['modelReasoningHead']}>
+          <span className={styles['modelFieldLabel']}>{t('modelImageInput')}</span>
+          <Switch
+            label={t('modelImageInput')}
+            checked={choice === 'image'}
+            disabled={disabled}
+            onChange={(enabled) => { onChange(applyImageInputChoice(model, enabled ? 'image' : 'text-only')) }}
+          />
         </div>
         <p className={styles['modelFieldHint']}>{t(hintKey)}</p>
         {choice === 'invalid' ? <p className={styles['error']}>{t('modelInputInvalid')}</p> : null}

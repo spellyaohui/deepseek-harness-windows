@@ -13,7 +13,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { LlmAdapter, ToolCallId } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
@@ -67,7 +67,7 @@ async function fixture(t, mode) {
     // Only this fixture's newly minted temporary directory is removed.
     await rm(workspace, { recursive: true, force: true, maxRetries: 8, retryDelay: 25 })
   })
-  await mountAgentLoopTestDependencies(ctx)
+  await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
   await ctx.plugin(JsonlSessionPersistence, { root: join(workspace, 'sessions') })
   await ctx.plugin(SessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -138,7 +138,7 @@ test('Team member first request advertises only usable reporting and no native r
 test('Native continuable child keeps official return guidance and adjacent-Agent authorization', { timeout: 15_000 }, async t => {
   const { ctx, adapter, captain, execute } = await fixture(t, 'native')
   const started = await execute(captain, 'subagent', {
-    description: '原生返回指引验证', prompt: '检查原生模式消息通道。', run_in_background: true,
+    description: '原生返回指引验证', prompt: '检查原生模式消息通道。',
   })
   assert.equal(started.isError, false, resultText(started))
   const request = await eventually(() => adapter.requests.find(item => item.sessionId !== captain.id), 'the native child did not execute')
@@ -157,7 +157,7 @@ test('Team policies hide later scoped native registrations and preserve captain 
   captain.session.append('turn/start', { turn: 1 })
   captain.session.append('user/message', { source: { kind: 'user' }, content: [{ type: 'text', text: '/agent-teams --temporary check scoped controls' }] }, { surfaceOp: 'append' })
   const delegated = await execute(captain, 'subagent', {
-    description: '队长临时委派兼容边界', prompt: '离线检查团队控制工具。', run_in_background: true,
+    description: '队长临时委派兼容边界', prompt: '离线检查团队控制工具。',
   })
   assert.equal(delegated.isError, false, resultText(delegated))
   const request = await eventually(() => adapter.requests.find(item => item.sessionId !== captain.id), 'captain compatibility did not create a real Team child')
@@ -178,7 +178,7 @@ test('Team policies hide later scoped native registrations and preserve captain 
   assert.equal(denied.isError, true)
   assert.equal(executed, false, 'hidden native tools must not execute through a direct call')
   const nested = await execute(child, 'subagent', {
-    description: '成员不可再委派', prompt: '禁止该嵌套调用。', run_in_background: true,
+    description: '成员不可再委派', prompt: '禁止该嵌套调用。',
   })
   assert.equal(nested.isError, true, 'captain compatibility must never transfer to members')
 })

@@ -392,6 +392,7 @@ const ctx = {
     return () => listeners.set(name, current.filter(candidate => candidate !== listener))
   },
   agents: {
+    list: () => [...liveAgents.values()],
     get(id) {
       return liveAgents.get(id)
     },

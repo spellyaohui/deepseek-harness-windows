@@ -1,7 +1,7 @@
 /** Executable registry for the fixed Harness build; no network or mutable state. */
-export const HARNESS_REVISION = '639ed015397290b3745d163aafe02ffee4aa3f84'
+export const HARNESS_REVISION = '687f282e8625c6b8d11ff58211a90524be2e4317'
 const rule = (id, packageName, file, count, pattern, classification, regression, retainedBecause) => Object.freeze({
-  id, packageName, version: '0.2.0-rc.2', revision: HARNESS_REVISION, file, count, pattern,
+  id, packageName, version: '0.2.1-rc.2', revision: HARNESS_REVISION, file, count, pattern,
   classification, regression, retainedBecause, failure: 'throw before evaluating a drifted target module',
 })
 export const compatibilityAnchors = Object.freeze([

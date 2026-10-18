@@ -1,8 +1,12 @@
 # DeepSeek Harness Windows
 
-把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、CPA 多模型接入和 AgentTeams 子智能体配置等桌面生产力能力。
+把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、原生 OpenAI 兼容服务接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前源码版本：`v0.2.0-rc.25` · [rc.25 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.25)
+> 当前源码版本：`v0.2.0-rc.27` · [rc.25 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.25)
+
+## 当前源码候选 `v0.2.0-rc.27`
+
+升级 Harness `0.2.1-rc.2` 与 AgentTeams `0.1.24-rc.1`。思考档位及发送值采用上游原生编辑器，保留 Off、false 和自定义子集；移除 CPA 独立插件，已有 cpa Provider、凭据引用和角色绑定继续使用原生 pi-ai。保留尚无上游替代的 Windows、角色与质量门禁补丁。见 [维护登记](docs/UPSTREAM_MAINTENANCE.md)。本地新增控件对齐上游原生组件与字体、尺寸、主题；UI 修正版单独打包，原测试包保留。用户已确认本地测试可用；尚未发布。
 
 ## Windows 调度收尾：`v0.2.0-rc.25`
 
@@ -449,15 +453,11 @@ Windows 安装包请从 [GitHub Releases](https://github.com/spellyaohui/deepsee
 - 既有 AgentTeams 路由继承/明确指定规则、OpenCode 流恢复和 Windows 文件工具提权兼容修复继续受 `npm run verify:upstream` 回归门禁保护。
 - 上游 Harness 或 AgentTeams 更新后，必须先按 [上游维护注册表](docs/UPSTREAM_MAINTENANCE.md) 分类本地能力，再跑完整回归，不能通过删除本地插件或测试来解决冲突。
 
-## CPA / CLIProxyAPI
+## 原生 OpenAI 兼容 Provider
 
-打开“设置 → 模型”，找到 `CPA / CLIProxyAPI` 提供方行并点击“编辑”展开配置。填写 API 地址和 Token，展开模型目录后获取模型、选择需要启用的模型并应用。地址会规范到 `/v1`，模型固定通过 `openai-responses` 调用；Token 写入 Harness 凭据存储，不进入普通设置文件。
+在“设置 → 模型”编辑已有提供方，或添加自定义提供方。按服务要求选择协议、API 地址、凭据引用，再获取模型或手动填写模型 ID。原生编辑器管理容量、输入类型、逐模型思考档位及发送值；发现结果先进入草稿，保存后生效。
 
-保存后，主会话可以选择 Provider `cpa`；“设置 → AgentTeams 团队”中的 Profile 角色也会从同一个 Harness 模型目录读取 CPA 模型，不维护第二份模型清单。
-
-CPA 新模型默认仅文本，可逐模型启用图像输入 输入模态，以便 CLIProxyAPI 的 Responses 网关接收图片；如果某个网关中的具体模型确实是纯文本，可在原生提供方编辑器中保留该模型的显式 `input: ['text']` 覆盖。
-
-CPA R 协议线级别为 `none / minimal / low / medium / high / xhigh / max`。Harness 中的 `off` 会发送为 `none`；GPT-5.6 模型不提供 `minimal`，因此可选项为 `off / low / medium / high / xhigh / max`。
+已有 `cpa` 配置继续作为普通原生 Provider 使用，地址、协议、凭据和角色绑定不会自动修改。新配置不会自动规范地址、固定协议或按模型名称筛选思考档位。Off 是否发送值由该模型的原生映射决定；未声明和 `false` 保留各自的上游含义。
 
 ## 开发
 
@@ -471,9 +471,9 @@ npm run verify:upstream
 npm run dist:win
 ```
 
-AgentTeams、Models 和 CPA 的 `lib/` 是可重建输出，不进入 Git；`verify:upstream` 会先编译插件并同步已安装依赖，再执行完整测试。不要在首次编译前直接启动应用。
+AgentTeams 和 Models 的 `lib/` 是可重建输出，不进入 Git；`verify:upstream` 会先编译插件并同步已安装依赖，再执行完整测试。不要在首次编译前直接启动应用。
 
-完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.22`（固定提交 `9cba4fe4171f27c019991cafd2a107f87ef3517b`），本地版本为 `0.1.22-desktop.8`，推荐宿主固定为 Harness `0.2.0-rc.2`。上游负责团队工作区、成员导航、任务生命周期和证据治理；仅重应用上游未覆盖的严格 V2、角色模型/思考策略、统一 durable gateway、质量扩展、Revision/CAS 和认证边界。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
+完整的 AgentTeams 本地 fork 位于 `win-desktop/agent-teams-plugin/`，安装时以 `file:agent-teams-plugin` 进入包装器；其上游基线为 `@nanmicoder/dsh-agent-teams@0.1.24-rc.1`（固定提交 `33f29cd0ebebcd23b26877b224cd1c3406671034`），本地版本为 `0.1.24-desktop.1`，推荐宿主固定为 Harness `0.2.1-rc.2`。上游负责团队工作区、成员导航、任务生命周期和证据治理；仅重应用上游未覆盖的严格 V2、角色模型/思考策略、统一 durable gateway、质量扩展、Revision/CAS 和认证边界。升级来源和差异记录见 [win-desktop/agent-teams-plugin/UPSTREAM.md](win-desktop/agent-teams-plugin/UPSTREAM.md)。
 
 同步上游前必须按 [上游维护与本地能力注册表](docs/UPSTREAM_MAINTENANCE.md) 逐项分类并通过 `verify:upstream`；不能为了消除冲突删除本地插件、设置或回归测试。
 

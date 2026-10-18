@@ -15,7 +15,7 @@ registerHooks({
     }
     if (specifier === '@deepseek-ai/dsh-client-ui-primitives') {
       return {
-        url: 'data:text/javascript,export const Checkbox = () => null; export const IconChevronDownOutlineRegular = () => null; export const IconChevronRightOutlineRegular = () => null; export const IconPlusOutlineRegular = () => null; export const IconTrashOutlineRegular = () => null',
+        url: 'data:text/javascript,export const Switch = () => null; export const Tooltip = () => null; export const Checkbox = () => null; export const IconChevronDownOutlineRegular = () => null; export const IconChevronRightOutlineRegular = () => null; export const IconPlusOutlineRegular = () => null; export const IconTrashOutlineRegular = () => null',
         shortCircuit: true,
       }
     }
@@ -54,5 +54,5 @@ test('pi-ai model rows expose provider-neutral image controls and bulk actions',
   assert.doesNotMatch(editor, /woyaopro|opencode|cpa/i)
   assert.doesNotMatch(inputTypes, /modelImageAuto|automaticInputHint/)
   assert.match(locales, /modelImageInvalid:/)
-  assert.match(locales, /modelReasoningLevels/)
+  assert.match(locales, /modelReasoningValue/)
 })

@@ -11,7 +11,7 @@ pinned to `4b646fcbb694f25c32d5840657cc20becb1b0e9791a9de5d4081898cf09116c7`
 by both asset tests and the production closure verifier. Updating asset bytes and
 self-reported hashes together does not bypass this original-source check.
 
-Harness `0.2.0-rc.2` owns parsing, discovery, scope precedence, metadata catalogs,
+Harness `0.2.1-rc.2` owns parsing, discovery, scope precedence, metadata catalogs,
 the model `skill` tool and explicit `/skill-name` injection (`UPSTREAM_EQUIVALENT`).
 This plugin only registers one native bundled provider and appends `dsh-tools.md`
 after its selected skill body (`REAPPLY`). User/project overrides are not decorated.
@@ -35,3 +35,8 @@ AgentTeams and its existing gateway retain Team permissions and lifecycle; Nativ
 delegation remains separate. Existing managed captain subagent compatibility stays.
 Automatic selection still depends on the model; successful offline loading is not
 proof of real-model selection. Explicit `/` is the supported fallback.
+
+## 0.1.2 host refresh
+
+The peer matrix admits the fixed 0.2.1-rc.2 SDK and cordis4.0.5. All 75 original
+assets and 15 skills retain their pinned hashes; no skill-body update is included.

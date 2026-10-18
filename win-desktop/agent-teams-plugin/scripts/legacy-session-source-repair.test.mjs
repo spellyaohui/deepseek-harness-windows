@@ -21,7 +21,7 @@ import { constants as zlibConstants, zstdCompressSync, zstdDecompressSync } from
 import { decodeStoredFrames } from './legacy-session-source-repair.mjs'
 import test from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
 const script = fileURLToPath(new URL('./legacy-session-source-repair.mjs', import.meta.url))

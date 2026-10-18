@@ -10,21 +10,46 @@ next-refresh checklist, start with [the retention index](CONVERSATION_CAPABILITY
 Historical owner rows below do not restore retired OpenCode, AUTO, Markdown
 export, capability probing or the superseded Profile writer/native-card hiding.
 
-## Current local identities
+## 2026-10-18 upstream-first refresh (current)
 
-- Official Harness source closure: `dsh-v0.2.0-rc.2` at `639ed015397290b3745d163aafe02ffee4aa3f84`
-- Windows desktop wrapper: `0.2.0-rc.25` (gate/package/publication evidence in the rc.25 release record)
-- Desktop Electron runtime: exactly `44.0.0`, matching the official host's desktop lockfile
-- Tool-call guidance plugin: `0.1.1`
-- Output-limit finish plugin: `dsh-output-limit-finish@0.1.1`
-- OpenCode compatibility: manual validation retired at desktop `0.2.0-rc.4`; all remaining OpenCode rewrites and `model-fetcher` retired at `0.2.0-rc.16` by user request
-- AgentTeams fork: `0.1.23-desktop.7`, based on upstream `v0.1.23` at fixed commit
-  `1094b84add6f2fb19edf659367fe2fd5f7f14154`
-- CPA provider plugin: `0.1.11`
-- Models settings fork: `0.2.0-rc.2-desktop.4`
-- Desktop Settings plugin: `0.1.5`
-- Superpowers bundled skills: `@deepseek-ai/dsh-superpowers@0.1.1`, official v7.0.0
-  at `bb92a77741419a4ab5f06e711a283343f1ada0c3`
+Fixed Harness `0.2.1-rc.2` / `687f282e8625c6b8d11ff58211a90524be2e4317`,
+AgentTeams `0.1.24-rc.1` / `33f29cd0ebebcd23b26877b224cd1c3406671034`.
+Wrapper `0.2.0-rc.27`, AgentTeams `0.1.24-desktop.1`, Models `0.2.1-rc.2-desktop.1`,
+Electron `44.7.0` (official lockfile), Superpowers `0.1.2` (unchanged v7 assets).
+The older dated sections below are history, not instructions to restore retired code.
+
+Local UI follow-up (2026-10-18): reuse official Button/Input/Switch controls and the
+native Models select/textarea metrics and theme tokens. Models CSS remains the fixed
+upstream stylesheet plus scoped input-action/hint additions; legacy duplicate layout
+and reasoning styles are removed. AgentTeams Profile fields and Desktop Settings
+follow the same native controls. Keep `win-desktop/tests/local-ui-styles.test.js`
+and real Electron light/dark and narrow-layout checks when changing these surfaces.
+
+| Registered capability group | Classification | Current owner and regression |
+| --- | --- | --- |
+| Per-model reasoning UI, Schema levels, wire mappings, native discovery/protocol/credentials/capacity editing, draft Save/Cancel/CAS | UPSTREAM_EQUIVALENT | Official Models and pi-ai; retained model-reasoning, model-list-upstream-runtime, provider-profile and native-provider-retention tests |
+| Automatic six effort defaults, deleting Off, CPA-specific normalizer/startup migration/package/editor hooks | SUPERSEDED_BY_DESIGN | Explicit user retirement; saved cpa routes and role bindings are ordinary native data. No migration or replacement normalizer. Historical CPA capacity/credential/model coverage moves to native-provider-retention and model integration tests |
+| Managed child creation, cancellation cleanup, runtimeSetup restoration and resident HMR hydration | UPSTREAM_EQUIVALENT | Upstream AgentTeams adapter inside the durable gateway; managed-activation, team-subagent-compat and custom-member-routing tests |
+| Cold captain restoration and immediate native activation result | SUPERSEDED_BY_DESIGN | Official resolveAgent and activation protocol; keep exact parent admission, return guidance and cold recovery regressions |
+| Explicit/route-aware/target-default reasoning, frozen role model/prompt/tool inheritance, trusted Profile and temporary authority, strict V2, DAG/quality/audit/integration gates, compact status/mail receipts, polling guard, lifecycle admission and unique gateway | REAPPLY | Existing AgentTeams owners and all registered suites retained; no global model override, user migration or direct child bypass |
+| Windows ordered lifecycle edges, state file read/replace queue, console/preload, escalation normalization, grep alias, bounded-period quota, authenticated token handoff, loopback/cookie recovery | REAPPLY | Existing wrapper/AgentTeams boundaries, real native/lock and loader anchor regressions |
+| Native subprocess spawn/taskkill windowsHide | UPSTREAM_EQUIVALENT | Official subprocess implementation; existing native console tests retained |
+| Manual text/image input validation/defaults, bulk actions, generated-output detachment | REAPPLY | Provider-neutral Models fork; model-input, model-input-ui, output-link-safety and model integration tests |
+| Desktop Settings/backup/web opt-out, output-limit finish, compact tool guidance, fixed Superpowers assets, separate Native and AgentTeams cards, default Profile layer under Home/CLI | REAPPLY | Existing independent owners and full wrapper regressions retained |
+| OpenCode, AUTO, capability probe, old Profile writer, native-card hiding and retired experimental auto-mounts | SUPERSEDED_BY_DESIGN | Remain absent; cumulative retention registry and capability manifest |
+
+All other active rows in this registry retain their documented owners and regression
+requirements as REAPPLY unless explicitly marked upstream-equivalent above. Registry
+archives: [352 immutable inputs](UPSTREAM_021_SOURCE_MANIFEST.md). The installed
+closure is the dependency graph reachable from the desktop roots, not every source
+archive. New CLI dependencies include experimental profile bundles; install their
+exact dependencies without inserting those profiles into desktop startup. Dependency
+preparation stays outside the offline, no-install, no-package regression gate.
+
+Upgrade evidence is recorded in `win-desktop/release-notes/v0.2.0-rc.26.md`;
+UI follow-up and the new local package are recorded in `win-desktop/release-notes/v0.2.0-rc.27.md`.
+No installer, live gateway inference, real user configuration migration or publication
+is implied by local fixture evidence.
 
 ## Desktop 0.2.0-rc.25 Windows lifecycle scheduling — 2026-10-14
 
@@ -1029,7 +1054,7 @@ authoritative for current versions, source identities and ownership decisions.
 | Harness-native `AgentTeams 团队` section, shared Provider/model catalog including CPA and OpenCode, role-level `provider`/`model`/`reasoning_mode` policy, compact lifecycle-first captain prompt, blank optional Profile normalization, strict unknown Profile rejection, Team/Native routing markers, native-tool suppression, member claim compatibility, captain/shared-pool task ownership, clean inactive status probes, quality-preserving read-only status summaries, explicit mailbox acknowledgement, captain-only recovery wake-up, requirements-dependent implementation queueing, staged complete-contract editing, actionable deliverable scope validation, explicit no-change evidence, V2-safe task-input normalization, durable task/member/attempt lifecycle, the durable-session subagent gateway, and the RC.1 release contract | `win-desktop/agent-teams-plugin` | `UPSTREAM_EQUIVALENT + REAPPLY`: v0.1.21 owns atomic roster/task planning, dormant lazy-start members, mailbox de-duplication and receipts, stale-attempt filtering, descendant/queued-input cleanup, retired cold-restore rejection, missing-attempt recovery, delivery guards, explicit depth defaults, host adapter/`harness-compat`, workspace/sidebar activity, addressed member and historical-card navigation, stale report/evidence rejection and deduplication, pre-start setup, member-start recovery, repair-scope inference, captain-only task amendment, and the publish/compatibility/doctor contract; the Windows fork reapplies role-policy, prompt budget, Profile input, catalog, quality extensions, strict V2, compact status, Team/Native, authenticated Web CAS, the durable-session gateway admission seam, extra settings injects, and offline `0.1.7-rc.2` `file:` tarball host pins | `src/index.ts`, `src/web-routes.ts`, `src/harness-compat.ts`, `src/mailbox.ts`, `src/settings.ts`, `src/selection-policy.ts`, `src/routing-policy.ts`, `src/host-model-catalog.ts`, `src/quality-gates.ts`, `src/tools.ts`, `src/status-render.ts`, `src/members.ts`, `src/scheduler.ts`, `src/subagent-gateway.ts`, `src/agent-identity.ts`, `src/client/AgentTeamsSettingsSection.tsx`, `src/client/WorkspaceActivity.tsx`, `src/client/workspace-state.ts`, `src/client/session-navigation.ts`, `src/tool-names.ts`, `compatibility.json`, `scripts/compatibility.mjs`, `scripts/doctor.mjs`, `scripts/release-metadata.mjs`, `UPSTREAM.md` | `pnpm test`; plugin `scripts/verify.mjs`, `scripts/stability-tdd.mjs`, `scripts/subagent-gateway-tdd.mjs`, `scripts/harness-compat-tdd.mjs`, `scripts/workspace-activity.test.mjs`, `scripts/issue-159.test.mjs`, `scripts/lifecycle-verify.mjs`, `scripts/quality-gates-tdd.mjs`, `scripts/web-routes-verify.mjs`, `scripts/compatibility.mjs`, `scripts/compatibility.test.mjs`, `scripts/release-metadata.test.mjs`, and `scripts/doctor.mjs`; wrapper `tests/agent-teams-integration.test.js`, `tests/heal-desktop-plugins.test.js`, `tests/win-hide-console.test.js` |
 | Persisted named Profiles, built-in `software-delivery` role cards, strict Profile/Team `schemaVersion: 2`, old-data rejection without migration, profile editor and restart-required startup injection | `win-desktop` host bridge plus `win-desktop/agent-teams-plugin` | `REAPPLY`: upstream owns profile execution semantics; the Windows fork owns local V2 persistence, editor UX, validation boundary, restart-required injection, and the shared Harness catalog boundary | `src/agent-teams-profile-store.js`, `src/desktop-settings.js`, `src/settings-window.js`, `src/preload.cjs`, `src/dsh-service.js`, `config/agent-teams.patch.yml`, `src/client/TeamProfilesEditor.tsx`, `src/client/profile-editor.ts`, `src/client/desktop-bridge.ts` | `tests/agent-teams-profile-store.test.js`, `tests/agent-teams-integration.test.js`, `tests/desktop-settings-plugin.test.js`; plugin `scripts/profile-editor-verify.mjs` and `scripts/settings-client-verify.mjs` |
 
-## CPA owner
+## Retired CPA owner (historical, superseded 2026-10-18)
 
 | Capability | Owner | Upstream relationship | Critical files | Required regression |
 | --- | --- | --- | --- | --- |
@@ -1174,7 +1199,7 @@ From `win-desktop`:
 npm run verify:upstream
 ```
 
-The command runs the Models, CPA, AgentTeams, and desktop
+The command runs the Models, AgentTeams, Superpowers, and desktop
 test suites sequentially, then synchronizes each local plugin `lib` directory
 and package manifest into its existing `file:` dependency before wrapper tests
 verify the packed runtime surface. It must not install dependencies, publish

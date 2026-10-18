@@ -1,6 +1,10 @@
 # DeepSeek Harness Windows 桌面版
 
-本目录把官方 `dsh-v0.2.0-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.25`；[rc.25 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.25)。
+本目录把官方 `dsh-v0.2.1-rc.2` 固定提交构建出的完整 release family 封装成可双击运行的 Windows 程序。桌面包装器源码版本为 `0.2.0-rc.27`；[rc.25 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.25)。
+
+## 当前源码候选 `v0.2.0-rc.27`
+
+升级 Harness `0.2.1-rc.2` 与 AgentTeams `0.1.24-rc.1`。思考档位及发送值采用上游原生编辑器，保留 Off、false 和自定义子集；移除 CPA 独立插件，已有 cpa Provider、凭据引用和角色绑定继续使用原生 pi-ai。保留尚无上游替代的 Windows、角色与质量门禁补丁。见 [维护登记](../docs/UPSTREAM_MAINTENANCE.md)。本地新增控件对齐上游原生组件与字体、尺寸、主题；UI 修正版单独打包，原测试包保留。用户已确认本地测试可用；尚未发布。
 
 ## Windows 调度收尾：`v0.2.0-rc.25`
 
@@ -327,7 +331,7 @@ npx @deepseek-ai/dsh web
 4. 等到 `dsh web:` 输出完整的认证 token URL 后在本地内存中交给窗口，加载官方 Web UI
 5. 预装本地工具调用约束插件，减少空白可选参数和无变化重试
 6. 预装本地维护的 [`@nanmicoder/dsh-agent-teams`](agent-teams-plugin/)，可用自然语言拉起多 Agent 团队，并从所属会话的页头或回复卡打开官方工作区协作页
-7. 预装本地 `CPA / CLIProxyAPI` Provider 插件，在 Harness 的“模型”设置中配置，并由主会话和 AgentTeams 共用
+7. 使用官方原生 Provider 编辑器配置第三方 OpenAI 兼容服务，并由主会话和 AgentTeams 共用模型目录
 
 ## 子智能体设置与委派路由
 
@@ -335,27 +339,21 @@ Harness 的 `桌面` section 管理窗口行为；`AgentTeams 团队` section �
 
 - **Team**：新会话写入 `AgentTeams delegation policy: teams-v1`，仅保留 `agent_teams_*` 的真实委派路径，并隐藏官方原生/间接委派工具。
 - **Native**：新会话写入 `AgentTeams delegation policy: native-v1`，保留官方原生委派工具；AgentTeams 可作为显式团队能力使用。
-- Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后必须重启，才会注入并用于新团队。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
+- Team/Native 委派策略继续由会话标记决定；Profile 角色策略保存后用于新团队，已有团队保留冻结配置。只有严格 V2 的 Profile 与 Team 状态会被加载，旧数据不会被迁移。
 
-本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.22`、固定提交 `9cba4fe4171f27c019991cafd2a107f87ef3517b`，桌面 fork 版本是 `0.1.22-desktop.1`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
+本地 fork 位于 `win-desktop/agent-teams-plugin/`，通过 `file:agent-teams-plugin` 安装；它基于上游 `@nanmicoder/dsh-agent-teams@0.1.24-rc.1`、固定提交 `33f29cd0ebebcd23b26877b224cd1c3406671034`，桌面 fork 版本是 `0.1.24-desktop.1`。完整升级来源和重新验证规则见 [agent-teams-plugin/UPSTREAM.md](agent-teams-plugin/UPSTREAM.md)。实现只使用插件设置域和已持久化会话标记：不读取或暴露隐藏推理，也不更改 Harness 核心预设。
 
 不重新实现聊天界面，模型和插件能力全部来自官方 Harness。
 
-## CPA / CLIProxyAPI 模型
+## 原生 OpenAI 兼容 Provider
 
-1. 打开“设置 → 模型”。
-2. 找到 `CPA / CLIProxyAPI` 提供方行并点击“编辑”。
-3. 在展开的原生编辑区域输入 API 地址和 Token，打开模型目录并获取模型。
-4. 选择需要启用的模型并点击“应用”。
-5. 主会话直接选择 Provider `cpa`；团队角色则在“设置 → AgentTeams 团队”的 Profile 中选择同一个 Provider 和模型。
+在“设置 → 模型”编辑已有提供方，或添加自定义提供方。按服务要求选择协议、API 地址、凭据引用，再获取模型或手动填写模型 ID。原生编辑器管理容量、输入类型、逐模型思考档位及发送值；发现结果先进入草稿，保存后生效。
 
-API 地址会自动规范到 `/v1`，调用协议固定为 `openai-responses`。Token 只写入 Harness 凭据存储 `CPA_API_KEY`，不会写入普通设置、桌面 patch 或仓库文件；编辑已有配置时留空 Token 会保留已配置的凭据。
-
-CPA 完整 R 协议线级别为 `none / minimal / low / medium / high / xhigh / max`。Harness 的选择项 `off` 在线上会映射为 `none`，其余英文档位保持同名。GPT-5.6 不提供 `minimal`，因此显示 `off / low / medium / high / xhigh / max`；其他模型默认显示完整七档。
+已有 `cpa` 配置继续作为普通原生 Provider 使用，地址、协议、凭据和角色绑定不会自动修改。新配置不会自动规范地址、固定协议或按模型名称筛选思考档位。Off 是否发送值由该模型的原生映射决定；未声明和 `false` 保留各自的上游含义。
 
 ## 生成安装包
 
-固定构建工具链为 Node.js 26.7.0 / pnpm 11.7.0，桌面宿主使用固定 Electron 44.0.0。首次克隆必须先按 [干净机器构建指南](../docs/CLEAN_WINDOWS_BUILD.md) 准备固定输入和本地插件依赖；依赖安装、下载均在离线门禁之外完成。
+固定构建工具链为 Node.js 26.7.0 / pnpm 11.7.0，桌面宿主使用固定 Electron 44.7.0。首次克隆必须先按 [干净机器构建指南](../docs/CLEAN_WINDOWS_BUILD.md) 准备固定输入和本地插件依赖；依赖安装、下载均在离线门禁之外完成。
 
 ```powershell
 cd win-desktop
@@ -372,7 +370,7 @@ npm audit
 npm run dist:win
 ```
 
-AgentTeams、Models 和 CPA 的 `lib/` 为可重建输出，不进入 Git；完整门禁会先编译并同步这些插件，再运行回归。`npm audit` 是门禁外的联网检查。
+AgentTeams 和 Models 的 `lib/` 为可重建输出，不进入 Git；完整门禁会先编译并同步这些插件，再运行回归。`npm audit` 是门禁外的联网检查。
 
 上游同步的能力清单、所有权边界与强制回归流程见 [上游维护文档](../docs/UPSTREAM_MAINTENANCE.md)。
 

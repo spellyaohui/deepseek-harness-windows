@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url'
 const wrapperRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const gates = [
   ['models-settings-plugin', 'pnpm', ['test']],
-  ['cpa-provider-plugin', 'pnpm', ['test']],
   ['agent-teams-plugin', 'pnpm', ['test']],
   ['superpowers-plugin', 'npm', ['test']],
   ['.', 'npm', ['run', 'sync:local-plugin-artifacts']],

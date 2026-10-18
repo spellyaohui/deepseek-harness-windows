@@ -1296,7 +1296,7 @@ export function ActivityPanel({ sessionsList, modelDirectories, openMember, t, c
                     />
                   ))}
                   {visibleArchived.map((team) => (
-                    <div key={`${team.captainSessionId}:${team.teamId}`} data-team-id={team.teamId} data-historic className={css.archivedWrap}>
+                    <div key={`${team.captainSessionId}:${team.teamId}`} data-team-id={team.teamId} data-historic>
                       <span className={css.archiveLabel}>{t(team.phase === 'staged' ? 'archive.discardedLabel' : 'archive.label')}</span>
                       <TeamSection team={team} onNavigate={navigateToSession} t={t} historic />
                     </div>

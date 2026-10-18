@@ -24,6 +24,41 @@ export function readInputManifest(repository = root) {
   return entries
 }
 
+/** Published 0.2.1 inputs are fetched by fixed hash, separately from the offline gate. */
+export function readRegistryInputs(repository = root) {
+  const source = readFileSync(join(repository, 'docs/UPSTREAM_021_SOURCE_MANIFEST.md'), 'utf8')
+  if (!source.includes('687f282e8625c6b8d11ff58211a90524be2e4317')) throw new Error('Registry source revision mismatch')
+  const entries = [...source.matchAll(/^\| (vendor|dsh) \| (@deepseek-ai\/[^| ]+) \| ([^| ]+) \| ([a-f0-9]{64}) \| ([^| ]+) \|$/gm)].map(match => {
+    const [, family, name, version, hash, path] = match
+    if (!/^@deepseek-ai\/[a-z0-9-]+$/.test(name) || !/^[a-z0-9.-]+$/.test(version)
+      || family === 'dsh' && version !== '0.2.1-rc.2'
+      || path !== `upstream/dsh-v0.2.1-rc.2/tarballs/${family}/${name.slice(1).replace('/', '-')}-${version}.tgz`) {
+      throw new Error(`Unsafe registry archive path: ${path}`)
+    }
+    return { name, version, path, sha256: hash }
+  })
+  if (entries.length !== 352 || new Set(entries.map(row => row.name)).size !== 352) throw new Error('Expected 352 unique registry archives')
+  return entries
+}
+
+export async function prepareRegistryInputs() {
+  for (const row of readRegistryInputs()) {
+    const path = join(root, row.path)
+    if (existsSync(path)) {
+      if (sha256(path) !== row.sha256) throw new Error(`Existing user file differs; refusing to overwrite: ${row.path}`)
+      continue
+    }
+    safeParent(path)
+    const response = await fetch(`https://registry.npmjs.org/${row.name}/-/${row.name.split('/')[1]}-${row.version}.tgz`, { signal: AbortSignal.timeout(120000) })
+    if (!response.ok) throw new Error(`Registry archive download failed: ${row.name} HTTP ${response.status}`)
+    const bytes = Buffer.from(await response.arrayBuffer())
+    if (createHash('sha256').update(bytes).digest('hex') !== row.sha256) throw new Error(`Registry archive SHA-256 mismatch: ${row.name}`)
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, bytes, { flag: 'wx' })
+  }
+  console.log('[build-inputs] verified 352 immutable official 0.2.1 registry archives')
+}
+
 function safeParent(path) {
   for (let parent = path; parent.startsWith(root + sep); parent = dirname(parent)) {
     if (existsSync(parent) && lstatSync(parent).isSymbolicLink()) throw new Error(`Build inputs must use real directories: ${parent}`)
@@ -75,4 +110,7 @@ export async function prepareBuildInputs(archivePath) {
   console.log(`[build-inputs] verified ${entries.length} pinned archives; existing matching files retained`)
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await prepareBuildInputs(process.argv[2])
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await prepareBuildInputs(process.argv[2])
+  await prepareRegistryInputs()
+}

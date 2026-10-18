@@ -22,6 +22,7 @@ function scope(extra = {}) {
   const listeners = new Map()
   const effects = []
   const ctx = {
+    agents: { list: () => [] },
     ...extra, listeners,
     logger: { warn() {} },
     on(name, fn) {
@@ -73,6 +74,7 @@ async function requestSelection(agent) {
 
 await test('native SubagentRuntime keeps its receiver through FIFO delivery and retirement guard', async t => {
   const host = new Context()
+  host.provide('workingDirectory', { ensure: async () => process.cwd() })
   const fiber = host.plugin(SubagentRuntime)
   t.after(() => fiber.dispose())
   await fiber.await()
@@ -109,7 +111,7 @@ await test('native SubagentRuntime keeps its receiver through FIFO delivery and 
     },
     async queuePrompt(parent, id, body, provenance) {
       assert.equal(this, manager)
-      accepted.push({ path: 'queue', parent, id, body, source: provenance })
+      accepted.push({ path: 'queue', parent, id, body, source: provenance.source ?? provenance })
       return 'accepted'
     },
     async sendMessage(parent, id, body) {
@@ -120,7 +122,8 @@ await test('native SubagentRuntime keeps its receiver through FIFO delivery and 
   }
   // Only the downstream continuation manager is replaced. The real Cordis
   // service method still executes this.requireContinuations(), unlike old fakes.
-  runtime.continuations = manager
+  if ('manager' in runtime) runtime.manager = manager
+  else runtime.continuations = manager
   const captain = { id: 'captain', session: { header: {} } }
   const ctx = scope({ subagents: runtime })
   const methodKey = typeof runtime.followup === 'function' ? 'followup' : typeof runtime[deliverKey] === 'function' ? deliverKey : queueKey

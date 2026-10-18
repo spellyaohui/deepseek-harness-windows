@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { durableSessionId } from './agent-identity.ts'
 import { agentTeamsSubagentGateway } from './subagent-gateway.ts'
+import { usesManagedActivations } from './harness-compat.ts'
 import { resolveMemberLlmSelection, validateMemberLlmSelections } from './members.ts'
 import { findTeamByParticipant, readTeam, withTeamLock, writeTeam } from './state.ts'
 import { TERMINAL_TASK_STATUSES, type TeamState } from './types.ts'
@@ -89,7 +90,9 @@ export function createSubagentCompatibility(ctx: Context, config: {
       if (args[key] !== undefined && args[key]!.trim() === '') throw new Error(`subagent ${key} must not be blank`)
     }
     const backgroundParameter = properties?.['run_in_background'] as { description?: string } | undefined
-    const continuableDefault = backgroundParameter?.description?.startsWith('Defaults to true.') === true
+    if (Object.hasOwn(args, 'run_in_background') && backgroundParameter === undefined) throw new Error('run_in_background is unavailable; omit it and use the official activation result')
+    const continuableDefault = usesManagedActivations(ctx.subagents)
+      || backgroundParameter?.description?.startsWith('Defaults to true.') === true
     if (args.run_in_background === true && backgroundParameter === undefined) throw new Error('run_in_background is disabled for this subagent tool')
     if (args.run_in_background === true && !continuableDefault) throw new Error('Team compatibility requires the official continuable subagent preset; use agent_teams_* for Team background work')
     if (args.description.trim() === '' || args.prompt.trim() === '') throw new Error('subagent description and prompt must not be blank')
@@ -172,6 +175,7 @@ export function createSubagentCompatibility(ctx: Context, config: {
       if (task === undefined || task.assignee !== member.name || task.status === 'failed' || task.status === 'cancelled') throw new Error('Team task admission failed; inspect agent_teams_status before retrying')
       return { teamId: team.id, taskId: task.id, memberId: member.id }
     })
+    if (usesManagedActivations(ctx.subagents)) return { kind: 'activation', subagentId: admission.memberId }
     if (args.run_in_background === true || (args.run_in_background === undefined && continuableDefault)) return { kind: 'continuable', subagentId: admission.memberId }
     return waitForTask(ctx, captain, root, admission.teamId, admission.taskId, admission.memberId, exec.signal)
   }

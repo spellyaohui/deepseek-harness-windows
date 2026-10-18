@@ -12,7 +12,6 @@ const required = {
   schema: {},
   t: key => key,
   renderSlot: () => null,
-  normalizeProviderProfile: () => ({ ok: true, value: {} }),
 }
 
 test('Models section remains renderable with native editing services only', () => {

@@ -7,7 +7,7 @@ export const workspacePolicy = JSON.parse(readFileSync(new URL('../pnpm-workspac
 
 // Windows 桌面 fork 用本地 RC.1 tarball 的 file: 规格钉死开发宿主，避免离线门禁走网络安装。
 // 把 tarball 文件名中的版本视为精确宿主版本。
-const LOCAL_HOST_TARBALL = /(?:^|[\\/])deepseek-ai-(dsh(?:-[a-z][a-z0-9]*)*)-(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)\.tgz$/i
+const LOCAL_HOST_TARBALL = /(?:^|[\\/])deepseek-ai-(dsh(?:-[a-z0-9]+)*)-(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)\.tgz$/i
 
 export function resolveDevelopmentHost(version) {
   if (typeof version !== 'string') return version

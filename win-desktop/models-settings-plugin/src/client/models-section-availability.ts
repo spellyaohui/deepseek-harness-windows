@@ -5,7 +5,6 @@ const REQUIRED_DEPENDENCIES = [
   'schema',
   't',
   'renderSlot',
-  'normalizeProviderProfile',
 ] as const
 
 type RequiredDependency = typeof REQUIRED_DEPENDENCIES[number]

@@ -592,8 +592,8 @@ async function waitForMemberIdle(ctx: Context, member: TeamMember, signal: Abort
  *
  * - while the recorded captain is resident, its Agent is used directly;
  * - while it is cold, this resolves it through the public session controller
- *   (`workspaceRegistry.create` + `sessionController.create` with the existing
- *   session id — attach/resume only: no prompt, no model request, and the
+ *   (`sessionController.resolveAgent`, or the older create-with-id API
+ *   on hosts without that method — attach/resume only: no prompt, no model request, and the
  *   durable `captainSessionId` is never rewritten);
  * - when the composition exposes neither service, or the resume fails, the
  *   operation fails with an explicit bounded error instead of migrating team
@@ -642,7 +642,7 @@ function resumeUnavailableReason(ctx: Context, team: TeamState): string {
 
 /** Public optional services used only to attach the recorded captain session. */
 function optionalTeamServices(ctx: Context): {
-  controller?: { create?: (request: { sessionId: string; workspaceId: string; agentPreset?: string }) => Promise<unknown> }
+  controller?: { resolveAgent?: (id: SessionId) => Promise<{ agent: Agent } | { error: unknown }>; create?: (request: { sessionId: string; workspaceId: string; agentPreset?: string }) => Promise<unknown> }
   registry?: { create?: (path: string, title?: string) => Promise<{ id: string }> }
 } {
   const get = (ctx as unknown as { get?: (name: string) => unknown }).get
@@ -651,25 +651,31 @@ function optionalTeamServices(ctx: Context): {
     try { return get.call(ctx, name) } catch { return undefined }
   }
   return {
-    controller: read('sessionController') as { create?: (request: { sessionId: string; workspaceId: string; agentPreset?: string }) => Promise<unknown> } | undefined,
+    controller: read('sessionController') as { resolveAgent?: (id: SessionId) => Promise<{ agent: Agent } | { error: unknown }>; create?: (request: { sessionId: string; workspaceId: string; agentPreset?: string }) => Promise<unknown> } | undefined,
     registry: read('workspaceRegistry') as { create?: (path: string, title?: string) => Promise<{ id: string }> } | undefined,
   }
 }
 
 /**
  * Attach the team's recorded captain session in this process without sending a
- * prompt: the Harness controller's create-with-existing-id path resumes the
+ * prompt: the Harness controller's public resume path restores the
  * session and leaves every durable field (including `captainSessionId`)
  * untouched.
  * @returns the resumed Agent, or undefined when this composition cannot resume it.
  */
 async function resumeLeadAnchor(ctx: Context, team: TeamState, caller: Agent): Promise<Agent | undefined> {
   const { controller, registry } = optionalTeamServices(ctx)
-  if (controller?.create === undefined || registry?.create === undefined) return undefined
+  if (controller === undefined) return undefined
   const cwd = caller.session.header.cwd ?? process.cwd()
   try {
-    const workspace = await registry.create(cwd, cwd)
-    await controller.create({ sessionId: team.captainSessionId, workspaceId: workspace.id })
+    if (controller.resolveAgent !== undefined) {
+      const resolved = await controller.resolveAgent(team.captainSessionId as SessionId)
+      if ('error' in resolved) throw resolved.error
+    } else {
+      if (controller.create === undefined || registry?.create === undefined) return undefined
+      const workspace = await registry.create(cwd, cwd)
+      await controller.create({ sessionId: team.captainSessionId, workspaceId: workspace.id })
+    }
     return ctx.agents.get(team.captainSessionId as SessionId)
   } catch (error: unknown) {
     ctx.logger.warn(`agent-teams: could not resume the recorded captain session ${team.captainSessionId}: ${String(error)}`)

@@ -11,8 +11,6 @@ export { Config } from './onboarding-config.ts'
  * @param ctx - Host context collecting the page's initialization data.
  * @param config - plugin options with schema defaults applied by the Loader.
  */
-export const inject = ['credentials']
-
 export function apply(ctx: Context, config: Config): void {
   ctx.on('webserver/index-inject', (table) => {
     table.push({

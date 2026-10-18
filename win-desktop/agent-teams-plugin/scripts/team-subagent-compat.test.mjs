@@ -16,7 +16,7 @@ import { createVolatile, updateVolatile } from '@deepseek-ai/cosmokit'
 import { LlmAdapter, ToolCallId } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
@@ -117,7 +117,7 @@ async function fixture(t, mode, { modelSelection = false, profiles = {}, default
     // This path is minted by mkdtemp above, never an existing user workspace.
     await rm(workspace, { recursive: true, force: true, maxRetries: 8, retryDelay: 25 })
   })
-  await mountAgentLoopTestDependencies(ctx)
+  await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
   await ctx.plugin(JsonlSessionPersistence, { root: join(workspace, 'sessions') })
   await ctx.plugin(SessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -589,7 +589,7 @@ test('Live official Profile changes route new Teams while numbered roles retain 
 })
 
 test('Team captain native subagent creates an actual Team member, assigned task and durable child session', { timeout: 15_000 }, async t => {
-  const { ctx, stateRoot, adapter, captain, execute } = await fixture(t, 'teams', { temporaryAuthorization: true })
+  const { ctx, stateRoot, adapter, captain, execute, diagnose } = await fixture(t, 'teams', { temporaryAuthorization: true })
   const schema = ctx.tools.schemas(captain).find(item => item.name === 'subagent')
   assert.ok(schema, 'the official scope-local native schema remains visible to the captain')
   const result = await execute(captain, 'subagent', {
@@ -597,7 +597,7 @@ test('Team captain native subagent creates an actual Team member, assigned task 
     prompt: DELEGATED_PROMPT,
   })
   assert.equal(result.isError, false, `Team captain native delegation must succeed: ${text(result)}`)
-  assert.equal(result.value.kind, 'continuable')
+  assert.equal(result.value.kind, 'activation')
   assert.ok(result.value.subagentId, 'success returns the actual durable child Session id')
 
   const team = await eventually(() => findTeamByCaptain(stateRoot, captain.id), 'native delegation did not persist an AgentTeams Team')
@@ -742,38 +742,28 @@ test('expired temporary authorization cannot assign new work to its existing mem
   assert.equal((await readTeam(stateRoot, before.id)).tasks.length, before.tasks.length)
 })
 
-test('Team explicit foreground waits for its actual assigned task to complete and returns official output', { timeout: 15_000 }, async t => {
+test('managed activation admission remains distinct from task completion and temporary permission expires', { timeout: 15_000 }, async t => {
   const { ctx, stateRoot, adapter, captain, execute, diagnose } = await fixture(t, 'teams', { temporaryAuthorization: true })
-  let settled = false
-  let observedResult
-  const pending = execute(captain, 'subagent', {
-    description: '前台团队委派', prompt: DELEGATED_PROMPT, run_in_background: false,
-  }).then(result => { settled = true; observedResult = result; return result })
+  const result = await execute(captain, 'subagent', { description: 'managed Team task', prompt: DELEGATED_PROMPT })
+  assert.equal(result.isError, false, text(result))
+  assert.equal(result.value.kind, 'activation')
   const team = await eventually(async () => {
-    if (observedResult?.isError) assert.fail(`foreground delegation was rejected: ${text(observedResult)}`)
     return findTeamByCaptain(stateRoot, captain.id)
   }, 'foreground delegation did not create a Team')
   const member = await eventually(async () => {
-    if (observedResult?.isError) assert.fail(`foreground delegation was rejected: ${text(observedResult)}`)
     return (await readTeam(stateRoot, team.id))?.members.find(item => item.id !== '')
   }, 'foreground delegation never published a member', 5_000, diagnose)
   await eventually(() => adapter.requests.length > 0, 'foreground member greeting never executed')
-  assert.equal(settled, false, `foreground cannot complete while the member is still greeting; ${observedResult === undefined ? '' : text(observedResult)}`)
   adapter.release(0)
   const task = await assignedTask(stateRoot, team.id, member.name, diagnose)
   const child = await eventually(() => ctx.agents.get(SessionId(member.id)), 'foreground child never became live')
   await eventually(() => adapter.requests.length > 1, 'foreground child never executed its assigned task')
-  assert.equal(settled, false, `the result cannot pretend success before the actual Team task is terminal; ${observedResult === undefined ? '' : text(observedResult)}`)
   await completeTaskThroughMemberTools(execute, child, task)
   adapter.release(1)
-  const result = await pending
-  assert.equal(result.isError, false, text(result))
-  assert.deepEqual(result.value, {
-    kind: 'foreground', runId: member.id, output: [{ type: 'text', text: CHILD_OUTPUT }],
-  })
-  assert.equal(text(result), CHILD_OUTPUT)
+  assert.deepEqual(result.value, { kind: 'activation', subagentId: member.id })
   const persisted = await readTeam(stateRoot, team.id)
   assert.equal(persisted.tasks.find(item => item.id === task.id)?.status, 'completed')
+  assert.equal(persisted.tasks.find(item => item.id === task.id)?.output, CHILD_OUTPUT)
   await eventually(() => ctx.agents.get(SessionId(member.id)) === undefined, 'completed temporary member must unload')
   await eventually(async () => (await readTeam(stateRoot, team.id)).members.find(item => item.id === member.id)?.status === 'idle', 'completed member durable status must settle before checking unauthorized writes', 5_000, diagnose)
   captain.session.append('turn/start', { turn: 2 })
@@ -971,15 +961,13 @@ test('Team malformed native arguments fail validation before persistent writes o
   }
 })
 
-test('Cancelling a foreground compatibility wait returns an error and preserves the actual delegated Team task', { timeout: 15_000 }, async t => {
+test('cancelling collection after activation admission preserves the actual delegated Team task', { timeout: 15_000 }, async t => {
   const { ctx, stateRoot, adapter, captain, execute, diagnose } = await fixture(t, 'teams', { temporaryAuthorization: true })
   const controller = new AbortController()
-  let observedResult
-  const pending = execute(captain, 'subagent', {
-    description: '可取消前台委派', prompt: DELEGATED_PROMPT, run_in_background: false,
-  }, controller.signal).then(result => { observedResult = result; return result })
+  const admitted = await execute(captain, 'subagent', { description: 'cancellable collection', prompt: DELEGATED_PROMPT }, controller.signal)
+  assert.equal(admitted.isError, false, text(admitted))
+  assert.equal(admitted.value.kind, 'activation')
   const team = await eventually(async () => {
-    if (observedResult?.isError) assert.fail(text(observedResult))
     return findTeamByCaptain(stateRoot, captain.id)
   }, 'cancel fixture did not create the actual Team')
   const member = await eventually(async () => (await readTeam(stateRoot, team.id))?.members.find(item => item.id), 'cancel fixture did not create a member')
@@ -988,8 +976,6 @@ test('Cancelling a foreground compatibility wait returns an error and preserves 
   const task = await assignedTask(stateRoot, team.id, member.name, diagnose)
   await eventually(() => adapter.requests.length > 1, 'cancel fixture task never ran')
   controller.abort(new Error('caller cancelled the foreground wait'))
-  const result = await pending
-  assert.equal(result.isError, true, 'cancelled waiting cannot be reported as successful foreground output')
   const persisted = await readTeam(stateRoot, team.id)
   const retained = persisted.tasks.find(item => item.id === task.id)
   assert.ok(retained)
@@ -1010,7 +996,7 @@ test('Native captain retains the official continuable subagent path and creates 
     prompt: DELEGATED_PROMPT,
   })
   assert.equal(result.isError, false, text(result))
-  assert.equal(result.value.kind, 'continuable')
+  assert.equal(result.value.kind, 'activation')
   assert.equal(await findTeamByCaptain(stateRoot, captain.id), undefined)
   const childId = result.value.subagentId
   await eventually(() => adapter.requests.length > 0, 'native child did not reach its production loop')
@@ -1032,7 +1018,7 @@ test('Disposing AgentTeams restores the captain official native execution withou
   await teamFiber.dispose()
   const native = await execute(captain, 'subagent', { description: '卸载后官方原生', prompt: DELEGATED_PROMPT })
   assert.equal(native.isError, false, text(native))
-  assert.equal(native.value.kind, 'continuable')
+  assert.equal(native.value.kind, 'activation')
   assert.notEqual(native.value.subagentId, delegated.value.subagentId)
   assert.deepEqual(await readTeam(stateRoot, before.id), before, 'removed compatibility hooks must not add Team members or tasks')
   await eventually(() => adapter.requests.length > 1, 'restored native tool never executed a new child')
