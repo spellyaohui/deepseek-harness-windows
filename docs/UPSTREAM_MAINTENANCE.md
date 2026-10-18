@@ -48,6 +48,11 @@ preparation stays outside the offline, no-install, no-package regression gate.
 
 Upgrade evidence is recorded in `win-desktop/release-notes/v0.2.0-rc.26.md`;
 UI follow-up and the new local package are recorded in `win-desktop/release-notes/v0.2.0-rc.27.md`.
+
+The rc.27 pre-merge tray repair dispatches a desktop event to the live official
+`sidebar.settings` shared store `actions.open()`, without DOM selectors or
+shortcut bindings. Keep `tests/tray-settings.test.js` and its real Electron fixture
+through future host/launcher changes; plugin disposal removes the event listener.
 No installer, live gateway inference, real user configuration migration or publication
 is implied by local fixture evidence.
 

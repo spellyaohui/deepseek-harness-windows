@@ -154,6 +154,12 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
+      ctx.effect(() => {
+        // The official sidebar.settings factory returns its existing shared shell.
+        const open = () => ctx.slots.entries('sidebar.settings')[0]?.store?.create().actions.open()
+        window.addEventListener('dsh-desktop:open-settings', open)
+        return () => window.removeEventListener('dsh-desktop:open-settings', open)
+      })
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'desktop',
