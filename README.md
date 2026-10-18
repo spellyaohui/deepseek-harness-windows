@@ -2,9 +2,9 @@
 
 把官方 DeepSeek Harness 带到 Windows 桌面：保留上游 Harness 的插件生态和核心能力，再补上双击启动、Windows 进程兼容、原生 OpenAI 兼容服务接入和 AgentTeams 子智能体配置等桌面生产力能力。
 
-> 当前预发布版本：`v0.2.0-rc.27` · [rc.27 安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/tag/v0.2.0-rc.27)
+> 当前发布版本：`v0.2.0-rc.27`（Latest）· [最新版安装包与校验](https://github.com/spellyaohui/deepseek-harness-windows/releases/latest)
 
-## 当前预发布 `v0.2.0-rc.27`
+## 当前发布 `v0.2.0-rc.27`
 
 升级 Harness `0.2.1-rc.2` 与 AgentTeams `0.1.24-rc.1`。思考档位及发送值采用上游原生编辑器，保留 Off、false 和自定义子集；移除 CPA 独立插件，已有 cpa Provider、凭据引用和角色绑定继续使用原生 pi-ai。保留尚无上游替代的 Windows、角色与质量门禁补丁。见 [维护登记](docs/UPSTREAM_MAINTENANCE.md)。本地新增控件对齐上游原生组件与字体、尺寸、主题。rc.27 包含 PR #2 的代码和安全复审修复；完整离线回归、Windows 干净构建与实际安装首启验证通过，发布资产及 SHA-256 已同步。
 
