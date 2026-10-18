@@ -5,6 +5,7 @@ import {
   applyImageInputChoice,
   applyImageInputChoiceToAll,
   readImageInputChoice,
+  materializeModelInput,
 } from '../lib/client/model-input.js'
 
 test('missing and empty input default to text', () => {
@@ -46,4 +47,19 @@ test('bulk operations affect every supplied row and preserve other fields', () =
     { id: 'a', marker: 1, input: ['text'] },
     { id: 'b', marker: 2, input: ['text'] },
   ])
+})
+
+test('adopted and saved image declarations include text in canonical order without repairing invalid input', () => {
+  for (const input of [['image'], ['image', 'text'], ['text', 'image'], ['image', 'text', 'image']]) {
+    const model = { id: 'discovered', input, reasoningEfforts: { off: null, high: 'custom' }, marker: 'preserved' }
+    const original = structuredClone(model)
+    assert.deepEqual(materializeModelInput(model), { ...model, input: ['text', 'image'] })
+    assert.deepEqual(model, original)
+  }
+  for (const input of [undefined, [], ['text'], ['text', 'text']]) {
+    assert.deepEqual(materializeModelInput({ id: 'text', input }).input, ['text'])
+  }
+  for (const input of [null, 'image', ['image', 'audio'], ['image', 1]]) {
+    assert.equal(materializeModelInput({ id: 'invalid', input }).input, input)
+  }
 })

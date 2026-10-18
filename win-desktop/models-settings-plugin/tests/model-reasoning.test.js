@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { registerHooks } from 'node:module'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { materializeModelInput } from '../lib/client/model-input.js'
 
 registerHooks({ resolve(specifier, context, next) {
   if (specifier.endsWith('.css')) return { url: 'data:text/javascript,export default {}', shortCircuit: true }
-  if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return { url: 'data:text/javascript,export const Switch = () => null; export const Tooltip = () => null; export const Checkbox = () => null; export const IconPlusOutlineRegular = () => null; export const IconTrashOutlineRegular = () => null; export const IconChevronDownOutlineRegular = () => null; export const IconChevronRightOutlineRegular = () => null', shortCircuit: true }
+  if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return { url: 'data:text/javascript,export let switchProps; export const Switch = props => { switchProps = props; return null }; export const Tooltip = () => null; export const Checkbox = () => null; export const IconPlusOutlineRegular = () => null; export const IconTrashOutlineRegular = () => null; export const IconChevronDownOutlineRegular = () => null; export const IconChevronRightOutlineRegular = () => null', shortCircuit: true }
   return next(specifier, context)
 } })
-const { validateReasoningEfforts } = await import('../lib/client/ModelReasoningEfforts.js')
+const { validateReasoningEfforts, ModelReasoningEfforts } = await import('../lib/client/ModelReasoningEfforts.js')
+const primitives = await import('@deepseek-ai/dsh-client-ui-primitives')
 
 test('new models retain upstream reasoning defaults while input defaults to text', () => {
   assert.deepEqual(materializeModelInput({ id: 'new' }), { id: 'new', input: ['text'] })
@@ -39,4 +42,24 @@ test('missing and empty input become text while invalid input remains available 
   for (const input of [undefined, []]) assert.deepEqual(materializeModelInput({ id: 'a', input }).input, ['text'])
   const input = ['audio']
   assert.equal(materializeModelInput({ id: 'a', input }).input, input)
+})
+
+test('the upstream reasoning switch stores false only after explicit disable and preserves untouched absence', () => {
+  let changed
+  const original = { id: 'inherited', marker: 'preserved' }
+  const render = model => renderToStaticMarkup(createElement(ModelReasoningEfforts, {
+    model, levels: ['off', 'low', 'high'], position: 1, disabled: false,
+    t: key => key, onChange: next => { changed = next },
+  }))
+  render(original)
+  assert.equal(changed, undefined, 'displaying inherited absence must not create a declaration')
+  assert.equal(primitives.switchProps.checked, false)
+  primitives.switchProps.onChange(true)
+  assert.equal(typeof changed.reasoningEfforts, 'object')
+  render(changed)
+  assert.equal(primitives.switchProps.checked, true)
+  primitives.switchProps.onChange(false)
+  assert.deepEqual(changed, { ...original, reasoningEfforts: false })
+  assert.deepEqual(original, { id: 'inherited', marker: 'preserved' })
+  assert.equal(validateReasoningEfforts([changed]), undefined)
 })

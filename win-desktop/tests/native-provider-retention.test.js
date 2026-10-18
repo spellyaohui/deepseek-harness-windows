@@ -174,3 +174,22 @@ test('native Provider SettingsForms saves preserve cpa declarations across CAS, 
     else profile.overlays.length = 0
   }
 })
+
+test('native catalog reasoning inherits only on absence and stays disabled with false', async () => {
+  for (const reasoningEfforts of [undefined, false]) {
+    const model = { id: 'gpt-5', ...(reasoningEfforts === undefined ? {} : { reasoningEfforts }) }
+    const original = structuredClone(model)
+    let adapter
+    mountPiAi({
+      fiber: { entry: { options: { id: 'llm-pi-ai' } } }, inject() {}, on() {}, get() {},
+      logger: { warn() {}, error() {} },
+      llm: {
+        registerConfigurableProviders: () => ({ replace() {} }), registerModelDiscovery() {},
+        registerAdapter: (_routes, value) => { adapter = value; return { replace() {} } },
+      },
+    }, { providers: { get: () => ({ openai: { api: 'openai-completions', baseURL: 'https://example.invalid/v1', apiKeyEnv: 'FIXTURE_KEY', models: [model] } }) } })
+    const resolved = await adapter.resolveModel('openai', model.id)
+    assert.equal(resolved.reasoning !== undefined, reasoningEfforts === undefined)
+    assert.deepEqual(model, original, 'catalog resolution must not rewrite absence or false')
+  }
+})

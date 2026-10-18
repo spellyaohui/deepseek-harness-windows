@@ -26,6 +26,7 @@ and real Electron light/dark and narrow-layout checks when changing these surfac
 | Registered capability group | Classification | Current owner and regression |
 | --- | --- | --- |
 | Per-model reasoning UI, Schema levels, wire mappings, native discovery/protocol/credentials/capacity editing, draft Save/Cancel/CAS | UPSTREAM_EQUIVALENT | Official Models and pi-ai; retained model-reasoning, model-list-upstream-runtime, provider-profile and native-provider-retention tests |
+| Explicit reasoning switch-off and canonical text/image declarations | REAPPLY | Provider-neutral Models save helpers; explicit switch-off writes false, untouched absence inherits, valid image input always includes text, malformed input is retained for rejection; model-reasoning/model-input/native-provider-retention regressions |
 | Automatic six effort defaults, deleting Off, CPA-specific normalizer/startup migration/package/editor hooks | SUPERSEDED_BY_DESIGN | Explicit user retirement; saved cpa routes and role bindings are ordinary native data. No migration or replacement normalizer. Historical CPA capacity/credential/model coverage moves to native-provider-retention and model integration tests |
 | Managed child creation, cancellation cleanup, runtimeSetup restoration and resident HMR hydration | UPSTREAM_EQUIVALENT | Upstream AgentTeams adapter inside the durable gateway; managed-activation, team-subagent-compat and custom-member-routing tests |
 | Cold captain restoration and immediate native activation result | SUPERSEDED_BY_DESIGN | Official resolveAgent and activation protocol; keep exact parent admission, return guidance and cold recovery regressions |
@@ -49,6 +50,8 @@ UI follow-up and the new local package are recorded in `win-desktop/release-note
 No installer, live gateway inference, real user configuration migration or publication
 is implied by local fixture evidence.
 
+
+Codex PR follow-up (2026-10-18): image-capable discovery and explicit Save use the same canonical text/image helper; malformed lists remain invalid. The official reasoning editor is unchanged except that an explicit switch-off writes `false`, while untouched absence remains inherited. Upstream master still deletes the field (latest file commit `7d654c9d8af9f1ac8d0d5874afcb6016ea94ee3a`, checked on this date), so keep this small local correction until an equivalent fix is proven. React handler and native pi-ai catalog tests distinguish both states; do not restore automatic six-level defaults or drop Off.
 
 ## Historical provenance
 

@@ -46,14 +46,14 @@ function readEfforts(model: DeepSeekModelDraft): Entries | undefined {
 /**
  * Replace a row's declared levels, preserving every other field.
  * @param model - model row as drafted.
- * @param entries - the levels to write in row order, or `undefined` to remove the field.
+ * @param entries - the levels to write in row order, or `undefined` to explicitly disable reasoning.
  * @returns the replacement row.
  */
 function withEfforts(model: DeepSeekModelDraft, entries: Entries | undefined): DeepSeekModelDraft {
   const next = { ...model }
   if (entries === undefined) {
-    // Absent is how a hand-declared model says it does not reason.
-    Reflect.deleteProperty(next, 'reasoningEfforts')
+    // Absence inherits the catalog; an explicit switch-off must disable it.
+    next['reasoningEfforts'] = false
     return next
   }
   next['reasoningEfforts'] = Object.fromEntries(entries)

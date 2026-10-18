@@ -444,6 +444,9 @@ evidence that the local capability is preserved.
   synthesize six levels or remove `off`. Preserve absent declarations, `false`,
   manual subsets and custom wire mappings through Save and startup. Absent follows
   the upstream catalog/inheritance rules; `false` explicitly disables reasoning.
+  An explicit switch-off writes `false`; merely opening or saving an untouched
+  absent declaration must not materialize a reasoning override. Keep this local
+  correction until upstream implements the same behavior.
 - List operations, bulk input actions, expandable model settings and footer Save/Cancel have separate layout groups and remain usable at narrow widths.
 - Models stays provider-neutral. No CPA-specific normalization seam or model-name rules may be restored. Manual declarations override catalogs and defaults, and saved changes require restart.
 - Before generated lib writes, detach each existing output entry with identical bytes to prevent Windows os error 1224. Keep detachment and manual declaration regressions through future refreshes.

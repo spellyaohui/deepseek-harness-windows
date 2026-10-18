@@ -33,6 +33,7 @@ export function applyImageInputChoiceToAll(
 
 /** Only input defaults belong to this fork; reasoning declarations remain upstream-owned. */
 export function materializeModelInput<T extends Record<string, unknown>>(model: T): T {
-  return (model['input'] === undefined || Array.isArray(model['input']) && model['input'].length === 0)
-    && readImageInputChoice(model) !== 'invalid' ? { ...model, input: ['text'] } : model
+  const choice = readImageInputChoice(model)
+  if (choice === 'invalid') return model
+  return choice === 'image' ? { ...model, input: ['text', 'image'] } : { ...model, input: ['text'] }
 }
