@@ -300,6 +300,7 @@ evidence that the local capability is preserved.
   current-Team member name; unknown/blank bindings fail before writes/spawns.
   Never guess a renamed member's role or read a later live Profile for inheritance.
   Keep the focused selection and lifecycle regressions through every upstream refresh.
+- Managed cold recovery and HMR must validate runtimeSetup against frozen role tool-filter sets, registered captain-only denies and the regenerated frozen persona before installing it. New managed members freeze any effective global execution-prompt fallback. Keep the real drift/recovery cases in `scripts/custom-member-routing.test.mjs`; snapshot consistency is not an OS sandbox and must not trigger user-file migration.
 - Every continuable child operation (start, send, interrupt, retirement and
   drain) must enter the single durable-session subagent gateway. The gateway
   resolves the exact live Agent, rejects stale or same-ID pseudo-handles, and

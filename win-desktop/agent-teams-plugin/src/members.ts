@@ -36,6 +36,7 @@ import {
 } from './state.ts'
 import { mailboxPrompt } from './mailbox.ts'
 import type { MemberToolFilter } from './tool-policies.ts'
+import { CAPTAIN_TOOL_NAMES } from './tool-names.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
 import { selectMemberCandidate, validateMemberRolePolicy, type RoleReasoningMode } from './selection-policy.ts'
 import {
@@ -44,6 +45,26 @@ import {
 } from './routing-policy.ts'
 import { agentTeamsSubagentGateway } from './subagent-gateway.ts'
 import { durableSessionId } from './agent-identity.ts'
+
+function sameToolNames(left: string[] | undefined, right: string[] | undefined): boolean {
+  if (left === undefined || right === undefined) return left === right
+  const expected = new Set(left)
+  return expected.size === new Set(right).size && right.every(name => expected.has(name))
+}
+
+function matchesMemberPersona(team: TeamState, member: TeamMember, stateDir: string, persona: string): boolean {
+  const expected = memberPersona(team, member, stateDir)
+  if (persona === expected) return true
+  if (member.executionPrompt?.trim()) return false
+  // Older managed V2 froze global guidance only inside the persona; preserve that opaque slot.
+  let marker = '\0'
+  while (expected.includes(marker)) marker += '\0'
+  const template = memberPersona(team, member, stateDir, marker)
+  const offset = template.indexOf(marker)
+  return persona.length > template.length - marker.length
+    && persona.startsWith(template.slice(0, offset))
+    && persona.endsWith(template.slice(offset + marker.length))
+}
 
 /** Persona snapshot of a profile protocol; the full text lives on team.json. */
 export const PERSONA_PROTOCOL_MAX_CHARS = 400
@@ -716,7 +737,17 @@ export function installMemberSelectionRuntime(
           throw new Error('agent-teams: saved member runtime setup is missing; refusing an unrestricted resume')
         }
         if (setup !== undefined) {
-          const stopFilter = child.ctx.tools.restrict(setup.toolFilter)
+          if (savedMember !== undefined && durable !== undefined) {
+            const frozen = savedMember.toolFilter
+            const requiredDeny = CAPTAIN_TOOL_NAMES.filter(name => child.ctx.tools.get(name) !== undefined)
+            if (!matchesMemberPersona(durable, savedMember, stateDir, setup.persona)
+              || requiredDeny.some(name => !setup.toolFilter.deny.includes(name))
+              || (frozen !== undefined && (!sameToolNames(frozen.allow, setup.toolFilter.allow)
+                || !sameToolNames(frozen.deny, setup.toolFilter.deny)))) {
+              throw new Error('agent-teams: saved member runtime setup conflicts with its frozen role; refusing resume')
+            }
+          }
+          const stopFilter = child.ctx.tools.restrict(savedMember?.toolFilter ?? setup.toolFilter)
           try {
             const stopPersona = child.ctx.systemPrompt.section({
               name: 'deployment:persona-prefix',
@@ -1001,6 +1032,11 @@ export async function spawnMember(
   if (!usesManagedActivations(ctx.subagents) && !(provider.capabilities as { toolFilter?: boolean }).toolFilter) {
     throw new Error(`agent-teams: provider "${config.provider}" cannot restrict captain-only tools for members`)
   }
+  // Managed recovery rebuilds the persona from frozen fields, never later live defaults.
+  if (usesManagedActivations(ctx.subagents) && !member.executionPrompt?.trim() && config.executionPrompt !== undefined) {
+    member.executionPrompt = config.executionPrompt
+  }
+  const persona = memberPersona(team, member, stateDir, config.executionPrompt)
   const label = `${MEMBER_LABEL_PREFIX}${team.id}:${member.name}`
   const gateway = agentTeamsSubagentGateway(ctx)
   // The legacy filter of a member without a configured tool policy: the
@@ -1012,14 +1048,14 @@ export async function spawnMember(
   const start = await startMemberWithLenientFilter(
     toolFilter => {
       acceptedFilter = toolFilter
-      const setup = { persona: memberPersona(team, member, stateDir, config.executionPrompt), toolFilter }
+      const setup = { persona, toolFilter }
       return selections.withPending(durableSessionId(captain), label, llmSelection, () => gateway.startContinuable({
         provider: config.provider,
         label,
         request: {
           prompt: [{ type: 'text', text: initialPrompt ?? memberWelcome(team, member.name) }],
           parent: captain,
-          persona: memberPersona(team, member, stateDir, config.executionPrompt),
+          persona,
           // Depth deny entries name host tools; resolve them against the
           // running host's registry so a renamed delegation tool cannot abort
           // the spawn (see memberToolFilter). Depth is still enforced by the
@@ -1045,11 +1081,11 @@ export async function spawnMember(
   )
   member.id = start.childId
   if (usesManagedActivations(ctx.subagents)) {
-    member.runtimeSetup = { persona: memberPersona(team, member, stateDir, config.executionPrompt), toolFilter: acceptedFilter }
+    member.runtimeSetup = { persona, toolFilter: acceptedFilter }
   }
   // Only a policy member carries a persisted filter snapshot; a member without
-  // a policy keeps the previous record shape and behavior. The descriptor, not
-  // this snapshot, is what reapplies the filter on a cold resume.
+  // a policy keeps the previous record shape. Managed recovery validates and
+  // reinstalls runtimeSetup; older hosts restore their descriptor filter.
   if (member.toolFilter !== undefined) member.toolFilter = { ...acceptedFilter }
 }
 

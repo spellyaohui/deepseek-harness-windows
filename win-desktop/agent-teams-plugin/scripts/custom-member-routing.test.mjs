@@ -34,6 +34,7 @@ const INLINE_PLAN_CAPTAIN = { provider: 'captain-gateway', model: 'captain-large
 const INLINE_PLAN_TEMPORARY = { provider: 'alt-gateway', model: 'worker-small', reasoningMode: 'explicit', reasoningEffort: 'high' }
 const CUSTOM_NAMES = ['code-reviewer', 'stability-auditor', 'feature-auditor', 'ui-reviewer', 'verifier']
 const text = result => result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+const systemText = request => request.messages.filter(message => message.role === 'system').flatMap(message => message.content).filter(block => block.type === 'text').map(block => block.text).join('')
 
 async function eventually(read, message) {
   const deadline = Date.now() + 5_000
@@ -91,7 +92,7 @@ class OfflineAdapter extends LlmAdapter {
   }
 }
 
-async function fixture(t, { temporaryMember, profiles = { fixture: { taskPlanning: 'captain', members: [{ name: 'fixture-role', reasoning_mode: 'target-default' }] } }, temporaryAuthorization = false, captainPolicy = CAPTAIN, toolPolicies = {}, captainPreset } = {}) {
+async function fixture(t, { temporaryMember, profiles = { fixture: { taskPlanning: 'captain', members: [{ name: 'fixture-role', reasoning_mode: 'target-default' }] } }, temporaryAuthorization = false, captainPolicy = CAPTAIN, toolPolicies = {}, captainPreset, executionPrompt } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-custom-member-routing-'))
   const ctx = new Context()
   const adapter = new OfflineAdapter()
@@ -112,6 +113,7 @@ async function fixture(t, { temporaryMember, profiles = { fixture: { taskPlannin
     delegationMode: 'teams', stateDir: '.agent-teams', memberProvider: 'spawn',
     memberMaxDepth: 0, maxMembers: 16, profiles, toolPolicies, slashCommand: false,
     defaultProfile: Object.keys(profiles)[0],
+    ...(executionPrompt === undefined ? {} : { executionPrompt }),
     ...(temporaryMember === undefined ? {} : { temporaryMember }),
   })
   await teamFiber
@@ -318,6 +320,69 @@ test('owner policy survives direct spawn and cold continuation without global to
   await call('agent_teams_send_message', { to: member.name, content: 'resume policy' })
   checkTools(await eventually(() => adapter.requests.filter(item => item.sessionId === member.id)[1], 'child did not cold resume'))
 })
+
+for (const legacyFallback of [false, true]) {
+  test(`managed cold recovery preserves ${legacyFallback ? 'existing V2' : 'new frozen'} global guidance and accepts reordered tool sets`, { timeout: 20_000 }, async t => {
+    const guidance = '  Original global execution guidance.  '
+    const { ctx, stateRoot, adapter, teamFiber, call, authorizeTemporary } = await fixture(t, {
+      executionPrompt: guidance,
+      temporaryAuthorization: true,
+      toolPolicies: { restricted: { allow: ['agent_teams_status'] } },
+    })
+    const created = await call('agent_teams_create', { description: 'freeze effective guidance' })
+    const added = await call('agent_teams_add_member', { name: 'auditor', tool_policy: 'restricted' })
+    const first = await eventually(() => adapter.requests.find(row => row.sessionId === added.member_id), 'child did not start')
+    assert.match(systemText(first), /Original global execution guidance/)
+    adapter.release(adapter.requests.indexOf(first))
+    await eventually(() => !ctx.agents.get(SessionId(added.member_id)), 'child did not unload')
+    const team = await readTeam(stateRoot, created.team_id)
+    const member = team.members.find(row => row.id === added.member_id)
+    assert.equal(member.executionPrompt, guidance, 'freeze the effective global fallback without trimming stored text')
+    if (legacyFallback) delete member.executionPrompt // Shape produced by the earlier managed adapter.
+    for (const key of ['allow', 'deny']) {
+      const names = member.runtimeSetup.toolFilter[key]
+      member.runtimeSetup.toolFilter[key] = [...names].reverse().concat(names[0])
+    }
+    await writeFile(join(stateRoot, team.id, 'team.json'), JSON.stringify(team))
+    teamFiber.config.executionPrompt = 'Later global guidance must not replace the frozen role.'
+    authorizeTemporary()
+    await call('agent_teams_send_message', { to: member.name, content: 'resume frozen guidance' })
+    const resumed = await eventually(() => adapter.requests.filter(row => row.sessionId === member.id)[1], 'child did not cold resume')
+    assert.match(systemText(resumed), /Original global execution guidance/)
+    assert.doesNotMatch(systemText(resumed), /Later global guidance/)
+    assert.deepEqual(resumed.tools.map(tool => tool.name).sort(), [...MEMBER_TOOL_NAMES].sort())
+    const restored = (await readTeam(stateRoot, team.id)).members.find(row => row.id === member.id)
+    assert.equal(restored.executionPrompt, legacyFallback ? undefined : guidance, 'recovery must not migrate the saved record')
+  })
+}
+
+for (const drift of ['frozen-filter', 'captain-deny', 'persona']) {
+  test(`managed cold recovery rejects runtime setup ${drift} drift before a model request`, { timeout: 20_000 }, async t => {
+    const { ctx, stateRoot, adapter, call, execute } = await fixture(t, {
+      toolPolicies: { restricted: { allow: ['agent_teams_status'] } },
+    })
+    const created = await call('agent_teams_create', { description: 'runtime setup consistency' })
+    const added = await call('agent_teams_add_member', {
+      role_template: 'fixture-role', name: 'auditor',
+      ...(drift === 'frozen-filter' ? { tool_policy: 'restricted' } : {}),
+    })
+    const first = await eventually(() => adapter.requests.find(row => row.sessionId === added.member_id), 'child did not start')
+    adapter.release(adapter.requests.indexOf(first))
+    await eventually(() => !ctx.agents.get(SessionId(added.member_id)), 'child did not unload')
+    const team = await readTeam(stateRoot, created.team_id)
+    const member = team.members.find(row => row.id === added.member_id)
+    assert.ok(member.runtimeSetup)
+    if (drift === 'frozen-filter') delete member.runtimeSetup.toolFilter.allow
+    if (drift === 'captain-deny') member.runtimeSetup.toolFilter.deny = member.runtimeSetup.toolFilter.deny.filter(name => name !== 'agent_teams_create')
+    if (drift === 'persona') member.runtimeSetup.persona = 'altered system instructions'
+    await writeFile(join(stateRoot, team.id, 'team.json'), JSON.stringify(team))
+    assert.ok(await readTeam(stateRoot, team.id), 'the altered snapshot remains structurally valid V2')
+    const result = await execute('agent_teams_send_message', { to: member.name, content: 'resume altered setup' })
+    assert.equal(adapter.requests.filter(row => row.sessionId === member.id).length, 1, 'altered setup must not reach the model')
+    assert.equal(result.value?.delivered, 'mailbox', 'failed restoration must retain the message for explicit recovery')
+    assert.equal(ctx.agents.get(SessionId(member.id)), undefined, 'failed restoration must not publish a live child')
+  })
+}
 
 for (const staged of [false, true]) {
   for (const binding of ['numbered', 'role_template']) {
