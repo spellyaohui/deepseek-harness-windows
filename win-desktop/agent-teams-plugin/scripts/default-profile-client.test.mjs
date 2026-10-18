@@ -17,7 +17,7 @@ async function clientModule(file) {
     plugins: [{ name: 'official-ui-transport', setup(builder) {
       builder.onResolve({ filter: /^react(?:\/.*)?$/ }, args => ({ path: pathToFileURL(require.resolve(args.path)).href, external: true }))
       builder.onResolve({ filter: /^@deepseek-ai\/dsh-client-ui-primitives$/ }, () => ({ path: 'primitives', namespace: 'test' }))
-      builder.onLoad({ filter: /.*/, namespace: 'test' }, () => ({ contents: `import { createElement } from 'react'; export function Button({variant,size,...props}) { return createElement('button',props) }` }))
+      builder.onLoad({ filter: /.*/, namespace: 'test' }, () => ({ contents: `import { createElement } from 'react'; export function Button({variant,size,...props}) { return createElement('button',props) }; export function Input(props) { return createElement('input',props) }` }))
     } }],
   })
   return import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`)

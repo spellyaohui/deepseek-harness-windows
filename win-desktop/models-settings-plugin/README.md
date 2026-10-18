@@ -1,6 +1,6 @@
 # @deepseek-ai/dsh-client-ui-settings-models
 
-The desktop fork uses manual per-model declarations. New models are text-only and offer Default, Minimal, Low, Medium, High, Xhigh and Max. Default uses the server default; the six explicit levels can be enabled individually. Image input has only image and text-only choices. Missing/empty legacy input is materialized as text on Save; malformed declarations block Save. Existing wire mappings and unedited model fields survive edits. Choices remain in the draft until Save and require restart. Model discovery remains available; capability probing and its Remote/Host service are removed.
+Based on Harness 0.2.1-rc.2, the desktop fork uses the official per-model reasoning editor, Schema levels and wire-value mappings. It preserves absent declarations, false, Off and manual subsets without adding six default levels or a provider normalizer. New models follow upstream reasoning defaults and local text-only input defaults. Missing/empty input becomes text only on explicit Save; malformed input blocks Save. Image/text choices, raw capacities, credential references and unrelated fields remain intact. Discovery, Save/Cancel/CAS and onboarding stay upstream-owned; the local fork retains input validation and Windows generated-output detachment. Capability probing and its Remote/Host service remain retired.
 
 The list toolbar groups Add model and Fetch models; bulk input actions sit separately. Each labeled model row expands into capacities, reasoning levels and input type. Provider Save and Cancel remain in the footer.
 

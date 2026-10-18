@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const wrapperRoot = resolve(dirname(scriptPath), '..')
-const EXPECTED_DSH_HOST_VERSION = '0.2.0-rc.2'
+const EXPECTED_DSH_HOST_VERSION = '0.2.1-rc.2'
 
 export const REQUIRED_RUNTIME_PACKAGES = Object.freeze([
   '@deepseek-ai/dsh-app-boot',

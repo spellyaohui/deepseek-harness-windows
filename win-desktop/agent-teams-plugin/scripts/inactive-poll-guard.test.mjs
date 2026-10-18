@@ -9,7 +9,7 @@ import { createVolatile, updateVolatile } from '@deepseek-ai/cosmokit'
 import { LlmAdapter, ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
@@ -72,7 +72,7 @@ async function fixture(t, { mode = 'teams', bound = false, profile = PROFILE } =
     // This fixture's own minted directory, never an existing user workspace.
     await rm(workspace, { recursive: true, force: true, maxRetries: 8, retryDelay: 25 })
   })
-  await mountAgentLoopTestDependencies(ctx)
+  await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
   await ctx.plugin(JsonlSessionPersistence, { root: join(workspace, 'sessions') })
   await ctx.plugin(SessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })

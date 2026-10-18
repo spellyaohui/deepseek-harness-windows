@@ -14,7 +14,7 @@
  * rows the user can still fill in by hand.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LlmDiscoveredModel } from '@deepseek-ai/dsh-api-remotes/client'
 import { Button, IconPlusOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -23,8 +23,7 @@ import type { ModelsOperations } from './operations.ts'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import type { en } from './locales.ts'
 import { ModelRow } from './ModelRow.tsx'
-import { materializeModelChoices } from './model-reasoning.ts'
-import { applyImageInputChoiceToAll } from './model-input.ts'
+import { materializeModelInput, applyImageInputChoiceToAll } from './model-input.ts'
 import styles from './ModelsSection.module.css'
 
 /**
@@ -38,6 +37,7 @@ function textOf(model: ModelDraft, key: string): string {
   const value = model[key]
   return typeof value === 'string' ? value : ''
 }
+
 /** A row's numeric field, or `undefined` when unset or not a number. */
 function numberOf(model: ModelDraft, key: string): number | undefined {
   const value = model[key]
@@ -45,7 +45,7 @@ function numberOf(model: ModelDraft, key: string): number | undefined {
 }
 
 /** What an interrogation needs, taken from the live form. */
-export interface DiscoveryTarget {
+export interface ProbeTarget {
   /** Settings namespace whose adapter family answers. */
   settingsNs: string
   /**
@@ -66,6 +66,16 @@ export interface DiscoveryTarget {
 export interface ModelListEditorProps {
   /** The rows as currently drafted. */
   models: readonly ModelDraft[]
+  /** Installed provider whose catalog supplies defaults without endpoint I/O. */
+  catalogProvider?: string | undefined
+  /**
+   * Reasoning levels a hand-declared route's rows may declare in
+   * `reasoningEfforts`, in escalation order; absent or empty shows no
+   * reasoning control, leaving a catalog model's levels to the catalog.
+   */
+  reasoningLevels?: readonly string[] | undefined
+  /** Route input types for models absent from the installed catalog. */
+  defaultInput?: readonly string[] | undefined
   /** Whether the user layer currently owns the whole array; absent on a create. */
   overridden?: boolean
   /** Replace the drafted rows. */
@@ -73,14 +83,14 @@ export interface ModelListEditorProps {
   /** Remove the user-owned array and return to inheritance; absent on a create. */
   onReset?: () => void
   /** Endpoint facts for the fetch action. */
-  discovery: DiscoveryTarget
+  probe: ProbeTarget
   /**
    * Copy key naming why the fetch action is unavailable, or `undefined` when
    * it is. The card owns this because the key it would send is judged there:
    * asking with a key the form has already refused spends a round trip to be
    * told what the field already says.
    */
-  discoveryBlocked?: keyof typeof en | undefined
+  probeBlocked?: keyof typeof en | undefined
   /** The Host operations whose interrogation answers the fetch action. */
   operations: ModelsOperations
   /** Section copy. */
@@ -93,7 +103,7 @@ export interface ModelListEditorProps {
    * around the card — a mode switch, say — can refuse to move while the
    * answer, and the picker it opens, is still bound for this list.
    */
-  onBusyChange?: (busy: boolean) => void
+  onBusyChange: (busy: boolean) => void
 }
 
 /** The two token counts edited as K/M-suffixed text behind a row's disclosure. */
@@ -126,38 +136,49 @@ function capacitySpelling(value: number | undefined): string {
   return value === undefined ? '' : formatCapacity(value)
 }
 
-/** Adopt a candidate's capacities, requiring an explicit later image choice. */
+/** Adopt a candidate, preserving disclosed capacities and input types. */
 function adopt(candidate: LlmDiscoveredModel): ModelDraft {
-  return materializeModelChoices({
+  return materializeModelInput({
     id: candidate.id,
     ...candidate.name === undefined ? {} : { name: candidate.name },
     ...candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow },
     ...candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens },
-    input: ['text'],
+    ...candidate.inputModalities === undefined ? {} : { input: [...candidate.inputModalities] },
   })
-}
-
-/** Keep candidate filtering deterministic and independent of the picker presentation. */
-export function filterModelCandidates(
-  candidates: readonly LlmDiscoveredModel[],
-  query: string,
-): readonly LlmDiscoveredModel[] {
-  const normalized = query.trim().toLowerCase()
-  if (normalized.length === 0) return candidates
-  return candidates.filter(candidate => candidate.id.toLowerCase().includes(normalized)
-    || candidate.name?.toLowerCase().includes(normalized) === true)
 }
 
 /**
  * Render the model list with its fetch action.
- * @param props - the drafted rows, discovery target, wire face, and copy.
+ * @param props - the drafted rows, probe target, wire face, and copy.
  * @returns the model-list editor.
  */
+export function filterModelCandidates(rows: readonly LlmDiscoveredModel[], query: string): readonly LlmDiscoveredModel[] {
+  const value = query.trim().toLowerCase()
+  return value === '' ? rows : rows.filter(row => row.id.toLowerCase().includes(value) || row.name?.toLowerCase().includes(value) === true)
+}
+
 export function ModelListEditor(props: ModelListEditorProps): ReactNode {
-  const { models, onChange, discovery, operations, t, disabled, onBusyChange } = props
+  const { models, onChange, probe, operations, t, disabled, onBusyChange } = props
+  const { catalogProvider } = props
   const [busy, setBusy] = useState(false)
-  useEffect(() => { onBusyChange?.(busy) }, [busy, onBusyChange])
+  useEffect(() => { onBusyChange(busy) }, [busy, onBusyChange])
   const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [inheritedCatalog, setInheritedCatalog] = useState<{
+    provider: string
+    models: readonly LlmDiscoveredModel[]
+  } | undefined>(undefined)
+  useEffect(() => {
+    if (catalogProvider === undefined) return
+    let current = true
+    void operations.discoverModels(probe.settingsNs, { provider: catalogProvider }).then((answer) => {
+      if (!current) return
+      setInheritedCatalog({ provider: catalogProvider, models: answer.kind === 'found' ? answer.models : [] })
+      setFailure(answer.kind === 'refused' ? answer.message : undefined)
+    })
+    return () => { current = false }
+  }, [catalogProvider, operations, probe.settingsNs])
+  const catalog = inheritedCatalog?.provider === catalogProvider ? inheritedCatalog?.models : undefined
+  const inputDefaults = useMemo(() => new Map(catalog?.map(model => [model.id, model.inputModalities])), [catalog])
   const [candidates, setCandidates] = useState<readonly LlmDiscoveredModel[] | undefined>(undefined)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const [candidateQuery, setCandidateQuery] = useState('')
@@ -226,17 +247,18 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     setBusy(true)
     setFailure(undefined)
     try {
-      const answer = await operations.discoverModels(discovery.settingsNs, {
-        ...discovery.provider === undefined ? {} : { provider: discovery.provider },
-        ...discovery.baseURL === undefined || discovery.baseURL.length === 0 ? {} : { baseURL: discovery.baseURL },
-        ...discovery.api === undefined ? {} : { api: discovery.api },
-        ...discovery.apiKey === undefined ? {} : { apiKey: discovery.apiKey },
+      const answer = await operations.discoverModels(probe.settingsNs, {
+        ...probe.provider === undefined ? {} : { provider: probe.provider },
+        ...probe.baseURL === undefined || probe.baseURL.length === 0 ? {} : { baseURL: probe.baseURL },
+        ...probe.api === undefined ? {} : { api: probe.api },
+        ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
       })
       if (answer.kind === 'refused') {
         setFailure(answer.message)
         return
       }
       const found = answer.models
+      if (catalogProvider !== undefined) setInheritedCatalog({ provider: catalogProvider, models: found })
       if (found.length === 0) {
         setFailure(t('fetchEmpty'))
         return
@@ -300,7 +322,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
 
   // A route the adapter already describes answers without an endpoint; only a
   // draft with neither has nothing to ask about.
-  const askable = discovery.provider !== undefined || (discovery.baseURL !== undefined && discovery.baseURL.length > 0)
+  const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
   return (
     <section className={styles['modelCatalog']} aria-label={t('models')}>
       <div className={styles['modelListHead']}>
@@ -314,18 +336,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               </span>
             )}
         </div>
-        <div className={styles['modelListActions']}>
-      <button
-        type="button"
-        className={styles['secondaryButton']}
-        disabled={disabled}
-        onClick={() => { setExpanded(current => new Set(current).add(models.length)); onChange([...models, materializeModelChoices({ id: '' })]) }}
-      >
-        <IconPlusOutlineRegular size={14} />
-        {t('addModel')}
-      </button>
-
-          {props.overridden === true && props.onReset !== undefined
+        {props.overridden === true && props.onReset !== undefined
           ? (
             <button
               type="button"
@@ -337,37 +348,22 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             </button>
           )
           : null}
-          <button
-            type="button"
-            className={styles['linkButton']}
-            disabled={disabled || busy || !askable || props.discoveryBlocked !== undefined}
-            title={props.discoveryBlocked !== undefined
-              ? t(props.discoveryBlocked)
-              : askable ? undefined : t('fetchNeedsBaseUrl')}
-            onClick={() => { void fetchModels() }}
-          >
-            {busy ? t('fetching') : t('fetchModels')}
-          </button>
-        </div>
+        <button
+          type="button"
+          className={styles['linkButton']}
+          disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
+          title={props.probeBlocked !== undefined
+            ? t(props.probeBlocked)
+            : askable ? undefined : t('fetchNeedsBaseUrl')}
+          onClick={() => { void fetchModels() }}
+        >
+          {busy ? t('fetching') : t('fetchModels')}
+        </button>
       </div>
-      {models.length > 0 ? <div className={styles['modelBulkActions']}><span>{t('modelBulkInput')}</span>
-          <button
-            type="button"
-            className={styles['linkButton']}
-            disabled={disabled || models.length === 0}
-            onClick={() => { onChange(applyImageInputChoiceToAll(models, 'image')) }}
-          >
-            {t('setAllModelsToImage')}
-          </button>
-          <button
-            type="button"
-            className={styles['linkButton']}
-            disabled={disabled || models.length === 0}
-            onClick={() => { onChange(applyImageInputChoiceToAll(models, 'text-only')) }}
-          >
-            {t('setAllModelsToText')}
-          </button>
-      </div> : null}
+      <div className={styles['modelInputActions']}>
+        <Button variant="outline" size="sm" disabled={disabled} onClick={() => { onChange(applyImageInputChoiceToAll(models, 'image')) }}>{t('setAllModelsToImage')}</Button>
+        <Button variant="outline" size="sm" disabled={disabled} onClick={() => { onChange(applyImageInputChoiceToAll(models, 'text-only')) }}>{t('setAllModelsToText')}</Button>
+      </div>
       {models.length === 0 ? <p className={styles['modelEmpty']}>{t('modelsEmpty')}</p> : null}
       <div className={styles['modelList']}>
         {models.map((model, index) => (
@@ -376,6 +372,9 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             model={model}
             position={index + 1}
             inputField="input"
+            inputFallback={inputDefaults.get(textOf(model, 'id')) ?? props.defaultInput}
+            inputLoading={catalogProvider !== undefined && catalog === undefined}
+            reasoningLevels={props.reasoningLevels}
             expanded={expanded.has(index)}
             disabled={disabled}
             t={t}
@@ -390,10 +389,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
               onChange: (text) => { editCapacity(index, 'maxTokens', text) },
             }}
             onFieldChange={(field, value) => { patch(index, { [field]: value }) }}
-            onChange={(next) => {
-              const updated = models.map((row, at) => at === index ? next : row)
-              onChange(updated)
-            }}
+            onChange={(next) => { onChange(models.map((row, at) => at === index ? next : row)) }}
             onToggle={() => { toggleExpanded(index) }}
             onRemove={() => {
               onChange(models.filter((_model, at) => at !== index))
@@ -410,6 +406,15 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           />
         ))}
       </div>
+      <button
+        type="button"
+        className={styles['addModelButton']}
+        disabled={disabled}
+        onClick={() => { onChange([...models, materializeModelInput({ id: '' })]) }}
+      >
+        <IconPlusOutlineRegular size={14} />
+        {t('addModel')}
+      </button>
       {failure !== undefined ? <p className={styles['error']}>{failure}</p> : null}
       <Modal
         open={candidates !== undefined}

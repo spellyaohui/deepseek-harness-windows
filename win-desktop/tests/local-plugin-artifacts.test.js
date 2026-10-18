@@ -14,7 +14,7 @@ test('Superpowers file dependency and every runtime asset match the local owner'
   const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url)))
   assert.equal(pkg.dependencies['@deepseek-ai/dsh-superpowers'], 'file:superpowers-plugin')
   const entry = lock.packages['node_modules/@deepseek-ai/dsh-superpowers']
-  assert.equal(entry.version, '0.1.1')
+  assert.equal(entry.version, '0.1.2')
   assert.notEqual(entry.link, true)
   function compare(source, installed) {
     assert.deepEqual(readdirSync(source).sort(), readdirSync(installed).sort())
@@ -39,7 +39,7 @@ test('AgentTeams release identity remains tied to the synchronized local artifac
     ['agent-teams-plugin', '@nanmicoder/dsh-agent-teams'],
   )
   const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
-  assert.equal(packageJson.version, '0.1.23-desktop.7')
+  assert.equal(packageJson.version, '0.1.24-desktop.1')
 })
 
 test('AgentTeams declared repair utility and v0.1.23 notes match the local owner', () => {
@@ -63,12 +63,12 @@ test('AgentTeams declares the Connection dependency used by its authenticated We
   const packageJson = JSON.parse(readFileSync(new URL('../agent-teams-plugin/package.json', import.meta.url), 'utf8'))
   assert.equal(
     packageJson.peerDependencies?.['@deepseek-ai/dsh-client-connection'],
-    '0.2.0-rc.2 || 0.1.7-rc.2 || 0.1.5-rc.3 || 0.1.5-rc.2 || 0.1.5-rc.1 || 0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2',
+    '0.2.1-rc.2 || 0.2.1-rc.1 || 0.2.0-rc.2 || 0.1.7-rc.2 || 0.1.5-rc.3 || 0.1.5-rc.2 || 0.1.5-rc.1 || 0.1.2-rc.1 || 0.1.2-alpha.5 || 0.1.2-alpha.2',
   )
   assert.ok(packageJson.dsh?.client?.inject?.includes('@deepseek-ai/dsh-client-connection'))
   assert.equal(
     packageJson.devDependencies?.['@deepseek-ai/dsh-client-connection'],
-    'file:../../upstream/dsh-v0.2.0-rc.2/tarballs/dsh/deepseek-ai-dsh-client-connection-0.2.0-rc.2.tgz',
+    'file:../../upstream/dsh-v0.2.1-rc.2/tarballs/dsh/deepseek-ai-dsh-client-connection-0.2.1-rc.2.tgz',
   )
 })
 
@@ -110,7 +110,7 @@ test('Models release identity and image editor artifact stay synchronized', () =
 
   for (const relativePath of [
     'lib/client.js',
-    'lib/client/model-reasoning.js',
+    'lib/client/ModelReasoningEfforts.js',
     'lib/client/model-input.js',
   ]) {
     assert.equal(

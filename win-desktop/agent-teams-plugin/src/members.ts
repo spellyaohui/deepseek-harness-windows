@@ -17,12 +17,14 @@ import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent'
 // Declaration merge only: makes ctx.subagents visible.
 import { foldSubagentDescriptor, SubagentError } from '@deepseek-ai/dsh-subagent'
 import { createUserMessage, LlmError, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import * as sessionRuntime from '@deepseek-ai/dsh-session'
 import type { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { agentTeamsSource, guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, memberToolFilter, restrictableToolNames, sessionOwnEvents, startMemberWithLenientFilter } from './harness-compat.ts'
+import { agentTeamsSource, guardSubagentCreation, usesManagedActivations, guardSubagentDelivery, hasContinuableMemberSetup, installContinuableMemberSetup, memberToolFilter, restrictableToolNames, sessionOwnEvents, startMemberWithLenientFilter } from './harness-compat.ts'
 import { join } from 'node:path'
 import { nearestLiveLead } from './lineage.ts'
 import { appendTeamEvent, captainSessionOf } from './events.ts'
 import {
+  isMemberRuntimeSetup,
   markMailboxDelivered,
   appendMailbox,
   CAPTAIN_KEY,
@@ -36,6 +38,7 @@ import {
 } from './state.ts'
 import { mailboxPrompt } from './mailbox.ts'
 import type { MemberToolFilter } from './tool-policies.ts'
+import { CAPTAIN_TOOL_NAMES } from './tool-names.ts'
 import { TERMINAL_TASK_STATUSES, type TeamMember, type TeamState, type TeamTask } from './types.ts'
 import { selectMemberCandidate, validateMemberRolePolicy, type RoleReasoningMode } from './selection-policy.ts'
 import {
@@ -44,6 +47,45 @@ import {
 } from './routing-policy.ts'
 import { agentTeamsSubagentGateway } from './subagent-gateway.ts'
 import { durableSessionId } from './agent-identity.ts'
+
+const MEMBER_RUNTIME_RECORD = 'plugin:agent-teams/member-runtime'
+
+declare module '@deepseek-ai/dsh-session/types' {
+  interface PluginRecordMap {
+    'plugin:agent-teams/member-runtime': NonNullable<TeamMember['runtimeSetup']>
+  }
+}
+
+/** The first child-owned Host record is authoritative; never re-sign workspace state. */
+export function savedMemberRuntimeSetup(session: Session): NonNullable<TeamMember['runtimeSetup']> {
+  if (typeof sessionRuntime.pluginRecordOf !== 'function') throw new Error('agent-teams: Host does not support member plugin records; refusing managed recovery')
+  const record = sessionOwnEvents(session).map(sessionRuntime.pluginRecordOf).find(item => item?.type === MEMBER_RUNTIME_RECORD)
+  if (record === undefined) {
+    throw new Error('agent-teams: saved member runtime setup has no trusted Session record; recreate the member to resume')
+  }
+  if (!isMemberRuntimeSetup(record.data)) throw new Error('agent-teams: invalid saved member runtime setup in Session')
+  return record.data
+}
+
+function sameToolNames(left: string[] | undefined, right: string[] | undefined): boolean {
+  if (left === undefined || right === undefined) return left === right
+  const expected = new Set(left)
+  return expected.size === new Set(right).size && right.every(name => expected.has(name))
+}
+
+function matchesMemberPersona(team: TeamState, member: TeamMember, stateDir: string, persona: string): boolean {
+  const expected = memberPersona(team, member, stateDir)
+  if (persona === expected) return true
+  if (member.executionPrompt?.trim()) return false
+  // Older managed V2 froze global guidance only inside the persona; preserve that opaque slot.
+  let marker = '\0'
+  while (expected.includes(marker)) marker += '\0'
+  const template = memberPersona(team, member, stateDir, marker)
+  const offset = template.indexOf(marker)
+  return persona.length > template.length - marker.length
+    && persona.startsWith(template.slice(0, offset))
+    && persona.endsWith(template.slice(offset + marker.length))
+}
 
 /** Persona snapshot of a profile protocol; the full text lives on team.json. */
 export const PERSONA_PROTOCOL_MAX_CHARS = 400
@@ -107,6 +149,7 @@ export interface MemberSelectionRuntime {
     label: string,
     selection: MemberLlmSelection,
     operation: () => Promise<T>,
+    setup?: TeamMember['runtimeSetup'],
   ): Promise<T>
 }
 
@@ -583,6 +626,7 @@ export function installMemberSelectionRuntime(
   onFailureSettled?: (workspace: string, teamId: string, memberName: string) => Promise<void>,
 ): MemberSelectionRuntime {
   const pending = new Map<string, MemberLlmSelection>()
+  const pendingSetup = new Map<string, NonNullable<TeamMember['runtimeSetup']>>()
   const activeMembers = new Map<Agent, () => void>()
   const agentRegistry = (ctx as unknown as { agents?: { get(id: string): Agent | undefined; list?: () => Iterable<Agent> } }).agents
   const track = (child: Agent, teardown: () => void): (() => void) => {
@@ -606,7 +650,8 @@ export function installMemberSelectionRuntime(
     const installed = activeMembers.get(child)
     if (installed !== undefined) return installed
     const childId = durableSessionId(child)
-    const descriptor = foldSubagentDescriptor(sessionOwnEvents(child.session))
+    const ownEvents = sessionOwnEvents(child.session)
+    const descriptor = foldSubagentDescriptor(ownEvents)
     if (descriptor?.mode !== 'continuable' || !descriptor.label.startsWith(MEMBER_LABEL_PREFIX)) {
       return
     }
@@ -642,12 +687,16 @@ export function installMemberSelectionRuntime(
       if (!admitted) return { kind: 'reject' }
       return next()
     })
+    let disposeSetup = (): void => undefined
     const failClosed = (error: unknown): (() => void) => {
       const failure = new Error(`agent-teams: member initialization failed: ${String(error)}`, { cause: error })
       ctx.logger.warn(failure.message)
       const disposeRequest = child.ctx.on('agent/request', () => { throw failure }, { prepend: true })
+      const disposeTools = child.ctx.tools.guard(execution => execution.agent === child ? failure.message : undefined)
       return track(child, () => {
         disposeRequest()
+        disposeTools()
+        disposeSetup()
         disposeAdmission()
         disposePolicy()
       })
@@ -660,12 +709,14 @@ export function installMemberSelectionRuntime(
         team = readTeamSync(join(workspace, stateDir), teamId)
       } catch (error: unknown) {
         if (!vetoable) return failClosed(error)
+        disposeSetup()
         disposeAdmission()
         disposePolicy()
         throw error
       }
       if (team?.captainSessionId !== parentSessionId) {
         return track(child, () => {
+          disposeSetup()
           disposeAdmission()
           disposePolicy()
         })
@@ -675,6 +726,7 @@ export function installMemberSelectionRuntime(
         selection = selectionFromMember(durableMember)
       } catch (error: unknown) {
         if (!vetoable) return failClosed(error)
+        disposeSetup()
         disposeAdmission()
         disposePolicy()
         throw error
@@ -682,6 +734,7 @@ export function installMemberSelectionRuntime(
       if (selection === undefined) {
         const error = new Error(`agent-teams: saved member "${memberName}" is missing a complete role model policy`)
         if (!vetoable) return failClosed(error)
+        disposeSetup()
         disposeAdmission()
         disposePolicy()
         throw error
@@ -691,6 +744,7 @@ export function installMemberSelectionRuntime(
           `agent-teams: saved model route for member "${memberName}" does not match its subagent descriptor`,
         )
         if (!vetoable) return failClosed(error)
+        disposeSetup()
         disposeAdmission()
         disposePolicy()
         throw error
@@ -698,6 +752,43 @@ export function installMemberSelectionRuntime(
     }
 
     try {
+      if (usesManagedActivations(ctx.subagents)) {
+        const durable = pending.has(key) ? undefined : readTeamSync(stateRoot, teamId)
+        const savedMember = durable?.captainSessionId === parentSessionId
+          ? durable.members.find(member => member.id === childId && member.name === memberName) : undefined
+        let setup = pendingSetup.get(key)
+        if (setup !== undefined) {
+          // Only a new activation may establish this child-owned Host record.
+          if (typeof sessionRuntime.appendPluginRecord !== 'function') throw new Error('agent-teams: Host does not support member plugin records; refusing managed activation')
+          sessionRuntime.appendPluginRecord(child.session, MEMBER_RUNTIME_RECORD, setup)
+        } else if (descriptor.toolFilter === undefined) {
+          setup = savedMemberRuntimeSetup(child.session)
+        }
+        if (setup !== undefined) {
+          const stopFilter = child.ctx.tools.restrict(setup.toolFilter)
+          disposeSetup = stopFilter
+          if (savedMember !== undefined && durable !== undefined) {
+            const offered = savedMember.runtimeSetup
+            const frozen = savedMember.toolFilter
+            const requiredDeny = CAPTAIN_TOOL_NAMES.filter(name => child.ctx.tools.get(name) !== undefined)
+            if (offered === undefined || offered.persona !== setup.persona
+              || !sameToolNames(offered.toolFilter.allow, setup.toolFilter.allow)
+              || !sameToolNames(offered.toolFilter.deny, setup.toolFilter.deny)
+              || !matchesMemberPersona(durable, savedMember, stateDir, setup.persona)
+              || requiredDeny.some(name => !setup.toolFilter.deny.includes(name))
+              || (frozen !== undefined && (!sameToolNames(frozen.allow, setup.toolFilter.allow)
+                || !sameToolNames(frozen.deny, setup.toolFilter.deny)))) {
+              throw new Error('agent-teams: saved member runtime setup conflicts with its frozen role; refusing resume')
+            }
+          }
+          const stopPersona = child.ctx.systemPrompt.section({
+            name: 'deployment:persona-prefix',
+            order: child.ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
+            text: setup.persona,
+          })
+          disposeSetup = () => { stopPersona(); stopFilter() }
+        }
+      }
       let lastFailedTurn: number | undefined
       const disposeFailure = child.ctx.on('agent/error', async (payload) => {
         if (durableSessionId(payload.agent) !== childId || payload.turn === lastFailedTurn) return
@@ -771,10 +862,13 @@ export function installMemberSelectionRuntime(
         disposeFallback()
         disposeSelection()
         disposeFailure()
+        disposeSetup()
         disposeAdmission()
         disposePolicy()
       })
     } catch (error) {
+      if (!vetoable) return failClosed(error)
+      disposeSetup()
       disposeAdmission()
       disposePolicy()
       throw error
@@ -821,16 +915,19 @@ export function installMemberSelectionRuntime(
       label: string,
       selection: MemberLlmSelection,
       operation: () => Promise<T>,
+    setup?: TeamMember['runtimeSetup'],
     ): Promise<T> {
       const key = pendingSelectionKey(parentSessionId, label)
       if (pending.has(key)) {
         throw new Error(`member model selection is already pending for "${label}"`)
       }
       pending.set(key, selection)
+      if (setup !== undefined) pendingSetup.set(key, setup)
       try {
         return await operation()
       } finally {
         pending.delete(key)
+        pendingSetup.delete(key)
       }
     },
   }
@@ -960,12 +1057,17 @@ export async function spawnMember(
   if (provider.prepareContinuable === undefined) {
     throw new Error(`agent-teams: provider "${config.provider}" does not support continuable members`)
   }
-  if (!provider.capabilities.persona) {
+  if (!usesManagedActivations(ctx.subagents) && !(provider.capabilities as { persona?: boolean }).persona) {
     throw new Error(`agent-teams: provider "${config.provider}" cannot apply a member persona`)
   }
-  if (!provider.capabilities.toolFilter) {
+  if (!usesManagedActivations(ctx.subagents) && !(provider.capabilities as { toolFilter?: boolean }).toolFilter) {
     throw new Error(`agent-teams: provider "${config.provider}" cannot restrict captain-only tools for members`)
   }
+  // Managed recovery rebuilds the persona from frozen fields, never later live defaults.
+  if (usesManagedActivations(ctx.subagents) && !member.executionPrompt?.trim() && config.executionPrompt !== undefined) {
+    member.executionPrompt = config.executionPrompt
+  }
+  const persona = memberPersona(team, member, stateDir, config.executionPrompt)
   const label = `${MEMBER_LABEL_PREFIX}${team.id}:${member.name}`
   const gateway = agentTeamsSubagentGateway(ctx)
   // The legacy filter of a member without a configured tool policy: the
@@ -974,45 +1076,47 @@ export async function spawnMember(
   // The lenient retry may drop names this host reports unknown; keep the exact
   // filter the host accepted so team.json and the child descriptor agree.
   let acceptedFilter = requestedFilter
-  const start = await selections.withPending(durableSessionId(captain), label, llmSelection, () => (
-    startMemberWithLenientFilter(
-      toolFilter => {
-        acceptedFilter = toolFilter
-        return gateway.startContinuable({
-          provider: config.provider,
-          label,
-          request: {
-            prompt: [{ type: 'text', text: initialPrompt ?? memberWelcome(team, member.name) }],
-            parent: captain,
-            persona: memberPersona(team, member, stateDir, config.executionPrompt),
-            // Depth deny entries name host tools; resolve them against the
-            // running host's registry so a renamed delegation tool cannot abort
-            // the spawn (see memberToolFilter). Depth is still enforced by the
-            // parent-chain guard installed at plugin mount. A filter the host
-            // still rejects is retried without the names it reported.
-            toolFilter,
-            agentOptions: {
-              provider: llmSelection.provider,
-              model: llmSelection.model,
-              ...llmSelection.reasoningEffort === undefined
-                ? {}
-                : { reasoningEffort: ReasoningEffortId(llmSelection.reasoningEffort) },
-            },
-            // Harness request.maxDepth caps the absolute depth of THIS creation;
-            // it is not inherited by later delegations. The guard below enforces
-            // the configured member-relative descendant budget instead.
+  const start = await startMemberWithLenientFilter(
+    toolFilter => {
+      acceptedFilter = toolFilter
+      const setup = { persona, toolFilter }
+      return selections.withPending(durableSessionId(captain), label, llmSelection, () => gateway.startContinuable({
+        provider: config.provider,
+        label,
+        request: {
+          prompt: [{ type: 'text', text: initialPrompt ?? memberWelcome(team, member.name) }],
+          parent: captain,
+          persona,
+          // Depth deny entries name host tools; resolve them against the
+          // running host's registry so a renamed delegation tool cannot abort
+          // the spawn (see memberToolFilter). Depth is still enforced by the
+          // parent-chain guard installed at plugin mount. A filter the host
+          // still rejects is retried without the names it reported.
+          toolFilter,
+          agentOptions: {
+            provider: llmSelection.provider,
+            model: llmSelection.model,
+            ...llmSelection.reasoningEffort === undefined
+              ? {}
+              : { reasoningEffort: ReasoningEffortId(llmSelection.reasoningEffort) },
           },
-          signal,
-        })
-      },
-      requestedFilter,
-      relaxableDeny,
-    )
-  ))
+          // Harness request.maxDepth caps the absolute depth of THIS creation;
+          // it is not inherited by later delegations. The guard below enforces
+          // the configured member-relative descendant budget instead.
+        },
+        signal,
+      }), setup)
+    },
+    requestedFilter,
+    relaxableDeny,
+  )
   member.id = start.childId
+  if (usesManagedActivations(ctx.subagents)) {
+    member.runtimeSetup = { persona, toolFilter: acceptedFilter }
+  }
   // Only a policy member carries a persisted filter snapshot; a member without
-  // a policy keeps the previous record shape and behavior. The descriptor, not
-  // this snapshot, is what reapplies the filter on a cold resume.
+  // a policy keeps the previous record shape. Managed recovery validates and
+  // reinstalls runtimeSetup; older hosts restore their descriptor filter.
   if (member.toolFilter !== undefined) member.toolFilter = { ...acceptedFilter }
 }
 
@@ -1110,7 +1214,6 @@ export function installRetiredMemberGuard(ctx: Context, stateDir: string): void 
 
 /** Bound all descendant creation, including renamed tools and code-runtime calls. */
 export function installMemberDelegationGuard(ctx: Context, stateDir: string, maxDepth: number): void {
-  const runtime = ctx.subagents
   let active = true
   const check = (parent: Agent): void => {
     if (!active) return
@@ -1140,24 +1243,8 @@ export function installMemberDelegationGuard(ctx: Context, stateDir: string, max
       depth++
     }
   }
-  ctx.effect(() => {
-    const start = runtime.start
-    const continuable = runtime.startContinuable
-    const startDescriptor = Object.getOwnPropertyDescriptor(runtime, 'start')
-    const continuableDescriptor = Object.getOwnPropertyDescriptor(runtime, 'startContinuable')
-    const guardedStart: typeof start = async (name, request) => { check(request.parent); return start.call(runtime, name, request) }
-    const guardedContinuable: typeof continuable = async spec => { check(spec.request.parent); return continuable.call(runtime, spec) }
-    runtime.start = guardedStart
-    runtime.startContinuable = guardedContinuable
-    return () => {
-      active = false
-      for (const [key, fn, descriptor] of [['start', guardedStart, startDescriptor], ['startContinuable', guardedContinuable, continuableDescriptor]] as const) {
-        if (Object.getOwnPropertyDescriptor(runtime, key)?.value !== fn) continue
-        if (descriptor === undefined) Reflect.deleteProperty(runtime, key)
-        else Object.defineProperty(runtime, key, descriptor)
-      }
-    }
-  }, 'agent-teams: member delegation budget')
+  guardSubagentCreation(ctx, check)
+  ctx.effect(() => () => { active = false }, 'agent-teams: delegation guard lifetime')
 }
 
 /**

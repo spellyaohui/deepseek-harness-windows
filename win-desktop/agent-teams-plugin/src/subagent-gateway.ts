@@ -11,16 +11,17 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import {
   SubagentError,
-  type ContinuableStart,
-  type ContinuableStartSpec,
   type SubagentSendMessageOptions,
 } from '@deepseek-ai/dsh-subagent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { durableSessionId } from './agent-identity.ts'
-import { hasHostPromptQueue, queueMemberPrompt, steerMemberPrompt } from './harness-compat.ts'
+import { hasHostPromptQueue, queueMemberPrompt, steerMemberPrompt, startMember, drainMemberChildren, type MemberStartSpec } from './harness-compat.ts'
+
+type ContinuableStartSpec = MemberStartSpec
+type ContinuableStart = { childId: SessionId }
 
 type SubagentRuntimeLike = {
-  startContinuable(spec: ContinuableStartSpec): Promise<ContinuableStart>
+  startContinuable?: (spec: ContinuableStartSpec) => Promise<ContinuableStart>
   sendMessage?: (
     sender: Agent,
     targetId: SessionId,
@@ -36,6 +37,7 @@ type SubagentRuntimeLike = {
   ) => Promise<unknown>
   interrupt(targetId: SessionId, authority: { kind: 'ancestor'; agent: Agent }): void
   drainContinuableChildren?: (parent: Agent, childIds: readonly SessionId[]) => Promise<void>
+  drainChildren?: (parent: Agent, childIds: readonly SessionId[]) => Promise<void>
 }
 
 type AgentRegistryLike = {
@@ -171,7 +173,7 @@ export function createAgentTeamsSubagentGateway(ctx: Context): AgentTeamsSubagen
       const parentId = durableSessionId(spec.request.parent) as SessionId
       return withParentStartLock(parentId, async () => {
         const parent = resolveParent(ctx, spec.request.parent)
-        return runtime.startContinuable({
+        return startMember(ctx.subagents, {
           ...spec,
           request: { ...spec.request, parent },
         })
@@ -226,16 +228,16 @@ export function createAgentTeamsSubagentGateway(ctx: Context): AgentTeamsSubagen
             ctx.logger.warn(`agent-teams: interrupt of member ${childId} failed: ${String(error)}`)
           }
         }
-        if (typeof runtime.drainContinuableChildren === 'function') {
-          await runtime.drainContinuableChildren(canonicalParent, ids)
+        if (typeof runtime.drainChildren === 'function' || typeof runtime.drainContinuableChildren === 'function') {
+          await drainMemberChildren(ctx.subagents, canonicalParent, ids)
           return
         }
         await fallback?.()
       })
     },
-    drainContinuableChildren: typeof runtime.drainContinuableChildren === 'function'
+    drainContinuableChildren: typeof runtime.drainChildren === 'function' || typeof runtime.drainContinuableChildren === 'function'
       ? (parent, childIds) => withChildLocks(childIds, async () => (
-        runtime.drainContinuableChildren!(resolveParent(ctx, parent), childIds)
+        drainMemberChildren(ctx.subagents, resolveParent(ctx, parent), childIds)
       ))
       : undefined,
     withChildLock,

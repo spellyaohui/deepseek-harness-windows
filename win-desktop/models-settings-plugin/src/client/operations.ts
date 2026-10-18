@@ -5,56 +5,33 @@
  * failure codes and Remote namespaces stay in the apply world.
  */
 
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
-  CredentialInfo, LlmConfigurableProvider, LlmDiscoveredModel, LlmModelDiscoveryRequest, LlmProviderInfo,
+  LlmDiscoveredModel, LlmModelDiscoveryRequest,
   SettingsNamespaceView, SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 
-export type ModelsRemoteResult<Value> =
-  | { readonly ok: true; readonly value: Value }
-  | { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
-
-/** Structural Alpha.2 Remote face, avoiding duplicate pnpm declaration identities. */
-export interface ModelsRemoteContext {
-  readonly remote: {
-    readonly credentials: {
-      describe(refs: string[]): Promise<ModelsRemoteResult<Record<string, CredentialInfo>>>
-      set(ref: string, value: string): Promise<ModelsRemoteResult<void>>
-      unset(ref: string): Promise<ModelsRemoteResult<void>>
-    }
-    readonly settings: {
-      mutate(ns: string, ops: SettingsPathOpView[], expectedRevision: number | undefined): Promise<ModelsRemoteResult<SettingsNamespaceView>>
-    }
-    readonly llm: {
-      discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<ModelsRemoteResult<LlmDiscoveredModel[]>>
-      listProviders(): Promise<ModelsRemoteResult<LlmProviderInfo[]>>
-      listConfigurableProviders(): Promise<ModelsRemoteResult<LlmConfigurableProvider[]>>
-    }
-    readonly session: {
-      modelCatalog(): Promise<ModelsRemoteResult<{ groups: readonly { id: string; models: readonly unknown[] }[] }>>
-    }
-  }
-}
-
 /** What one namespace write answered. */
 export type SettingsWriteOutcome =
-  { readonly kind: 'written'; readonly view: SettingsNamespaceView }
+  /** Committed; the view carries the stored user subtree and the new revision. */
+  | { readonly kind: 'written'; readonly view: SettingsNamespaceView }
+  /**
+   * The stored revision moved after the card read it, so the draft is stale.
+   * The message stays for callers that report the Host diagnostic as it is.
+   */
   | { readonly kind: 'conflict'; readonly message: string }
+  /** Any other refusal, with the Host's own diagnostic. */
   | { readonly kind: 'refused'; readonly message: string }
 
 /** What one endpoint interrogation answered. */
 export type ModelDiscoveryOutcome =
-  { readonly kind: 'found'; readonly models: readonly LlmDiscoveredModel[] }
+  /** The candidates the provider disclosed, in its own order. */
+  | { readonly kind: 'found'; readonly models: readonly LlmDiscoveredModel[] }
+  /** The interrogation was refused, with the Host's own diagnostic. */
   | { readonly kind: 'refused'; readonly message: string }
 
 /** The Host operations the Models page and its cards invoke. */
 export interface ModelsOperations {
-  /**
-   * Read one credential reference's state.
-   * @param ref - credential reference name.
-   * @returns the state, or undefined when the reference is unknown or the read was refused.
-   */
-  describeCredential(ref: string): Promise<CredentialInfo | undefined>
   /**
    * Store one credential literal under its reference.
    * @param ref - credential reference name.
@@ -96,12 +73,8 @@ export interface ModelsOperations {
  * `remote.llm`, and `remote.settings` in its own `inject`.
  * @returns the callbacks the section and its cards are injected with.
  */
-export function createModelsOperations(ctx: ModelsRemoteContext): ModelsOperations {
+export function createModelsOperations(ctx: ClientContext): ModelsOperations {
   return {
-    describeCredential: async (ref) => {
-      const response = await ctx.remote.credentials.describe([ref])
-      return response.ok ? response.value[ref] : undefined
-    },
     storeCredential: async (ref, value) => {
       const response = await ctx.remote.credentials.set(ref, value)
       return response.ok ? undefined : response.error.message

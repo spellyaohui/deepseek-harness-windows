@@ -109,9 +109,9 @@ test('runtime closure rejects a missing non-optional transitive dependency', () 
 
 test('runtime closure rejects a mixed official DSH cohort', () => {
   const appRoot = temporaryRoot()
-  writeApp(appRoot, { '@deepseek-ai/dsh-agent': '0.2.0-rc.2' }, '0.2.0-rc.2')
+  writeApp(appRoot, { '@deepseek-ai/dsh-agent': '0.2.1-rc.2' }, '0.2.1-rc.2')
   writePackage(appRoot, '@deepseek-ai/dsh-agent', { version: '0.1.7-rc.2' })
-  assert.throws(() => verifyRuntimeClosure({ appRoot, requiredPackages: [] }), /dsh-agent.*0\.1\.7-rc\.2.*0\.2\.0-rc\.2/u)
+  assert.throws(() => verifyRuntimeClosure({ appRoot, requiredPackages: [] }), /dsh-agent.*0\.1\.7-rc\.2.*0\.2\.1-rc\.2/u)
 })
 
 test('runtime closure accepts only an explicitly declared npm alias identity', () => {

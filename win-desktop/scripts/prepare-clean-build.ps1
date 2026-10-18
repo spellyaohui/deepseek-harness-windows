@@ -11,7 +11,7 @@ try {
   if ($InputArchive) { node scripts/prepare-build-inputs.mjs $InputArchive }
   else { node scripts/prepare-build-inputs.mjs }
   Assert-CommandResult 'Pinned input preparation'
-  foreach ($plugin in @('models-settings-plugin', 'cpa-provider-plugin', 'agent-teams-plugin')) {
+  foreach ($plugin in @('models-settings-plugin', 'agent-teams-plugin')) {
     Push-Location $plugin
     try {
       pnpm install --frozen-lockfile --ignore-scripts

@@ -9,9 +9,9 @@ export interface Config {
 }
 
 /** Validate Host configuration and its public page-bootstrap payload. */
-export const Config = z.object({
+export const Config: z<Partial<Config>, Config> = z.object({
   credentialOnboarding: z.boolean().default(true),
-}) as z<Partial<Config>, Config>
+})
 
 /** Page-global key carrying only the public onboarding options. */
 export const ONBOARDING_CONFIG_GLOBAL = '__DSH_MODELS_ONBOARDING__'

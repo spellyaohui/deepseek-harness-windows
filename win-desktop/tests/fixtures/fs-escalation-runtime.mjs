@@ -12,7 +12,9 @@ function createRuntime(currentMode, requestApproval = async () => 'allowed-once'
   const mutations = []
   let approvalCalls = 0
   const ctx = {
+    workingDirectory: { ensure: async () => process.cwd() },
     fs: {
+      processPath: target => target.displayPath,
       sandboxMode: currentMode,
       resolve: async (path) => ({ displayPath: path }),
       writeText: async (_target, content, _intent, _signal, policy) => {
@@ -45,6 +47,7 @@ function createRuntime(currentMode, requestApproval = async () => 'allowed-once'
     },
   }
   apply(ctx, {
+    read: true, write: true, edit: true,
     readLimit: 2_000,
     readMaxLineLength: 2_000,
     readMaxBytes: 50 * 1_024,

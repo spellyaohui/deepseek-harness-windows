@@ -17,7 +17,6 @@ const modelsPackage = require('../models-settings-plugin/package.json')
 
 const localDependencies = {
   '@deepseek-ai/dsh-client-ui-settings-models': 'models-settings-plugin',
-  '@deepseek-ai/dsh-cpa-provider': 'cpa-provider-plugin',
   '@deepseek-ai/dsh-desktop-settings': 'desktop-settings-plugin',
   '@deepseek-ai/dsh-tool-call-guidance': 'tool-call-guidance-plugin',
   'dsh-output-limit-finish': 'output-limit-finish-plugin',
@@ -26,18 +25,16 @@ const localDependencies = {
 }
 
 const localVersions = {
-  '@deepseek-ai/dsh-client-ui-settings-models': '0.2.0-rc.2-desktop.4',
-  '@deepseek-ai/dsh-cpa-provider': '0.1.11',
+  '@deepseek-ai/dsh-client-ui-settings-models': '0.2.1-rc.2-desktop.1',
   '@deepseek-ai/dsh-desktop-settings': '0.1.5',
   '@deepseek-ai/dsh-tool-call-guidance': '0.1.1',
   'dsh-output-limit-finish': '0.1.1',
-  '@deepseek-ai/dsh-superpowers': '0.1.1',
-  '@nanmicoder/dsh-agent-teams': '0.1.23-desktop.7',
+  '@deepseek-ai/dsh-superpowers': '0.1.2',
+  '@nanmicoder/dsh-agent-teams': '0.1.24-desktop.1',
 }
 
 const sourcePluginDirectories = [
   'models-settings-plugin',
-  'cpa-provider-plugin',
   'agent-teams-plugin',
   'superpowers-plugin',
 ]
@@ -55,22 +52,22 @@ function assertContains(relativePath, marker) {
 }
 
 test('desktop composition retains every independently owned local plugin', () => {
-  assert.equal(packageJson.version, '0.2.0-rc.25')
-  assert.equal(packageLock.version, '0.2.0-rc.25')
-  assert.equal(packageLock.packages[''].version, '0.2.0-rc.25')
+  assert.equal(packageJson.version, '0.2.0-rc.27')
+  assert.equal(packageLock.version, '0.2.0-rc.27')
+  assert.equal(packageLock.packages[''].version, '0.2.0-rc.27')
   assert.ok(packageJson.build.files.includes('src/**/*'))
   assert.ok(packageJson.build.files.includes('!**/* (SFConflict *)*'))
-  assert.equal(modelsPackage.version, '0.2.0-rc.2-desktop.4')
+  assert.equal(modelsPackage.version, '0.2.1-rc.2-desktop.1')
   assert.equal(
     packageLock.packages['node_modules/@deepseek-ai/dsh-client-ui-settings-models']?.version,
-    '0.2.0-rc.2-desktop.4',
+    '0.2.1-rc.2-desktop.1',
   )
-  assert.equal(agentTeamsPackage.version, '0.1.23-desktop.7')
+  assert.equal(agentTeamsPackage.version, '0.1.24-desktop.1')
   assert.equal(agentTeamsPackage.scripts['verify:state-io'], 'node --test scripts/state-file-io.test.mjs')
   assert.ok(agentTeamsPackage.scripts.verify.endsWith(' && pnpm verify:state-io'))
   assert.equal(
     packageLock.packages['node_modules/@nanmicoder/dsh-agent-teams']?.version,
-    '0.1.23-desktop.7',
+    '0.1.24-desktop.1',
   )
 
   for (const [dependency, directory] of Object.entries(localDependencies)) {
@@ -163,19 +160,18 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'models-settings-plugin/src/client/model-input.ts',
     'models-settings-plugin/tests/model-input.test.js',
     'models-settings-plugin/tests/model-reasoning.test.js',
+    'tests/native-provider-retention.test.js',
+    'tests/upstream-021-inputs.test.js',
+    '../docs/UPSTREAM_021_SOURCE_MANIFEST.md',
+    'agent-teams-plugin/scripts/managed-activation.test.mjs',
     'models-settings-plugin/tests/model-input-ui.test.js',
     'models-settings-plugin/tests/models-card-slot.test.js',
-    'models-settings-plugin/src/client/ModelReasoningLevels.tsx',
+    'models-settings-plugin/src/client/ModelReasoningEfforts.tsx',
     'models-settings-plugin/tests/models-section-availability.test.js',
     'models-settings-plugin/tests/output-link-safety.test.js',
     'models-settings-plugin/tests/upstream-v017-models.test.js',
     'models-settings-plugin/tests/model-list-upstream-runtime.test.js',
     'models-settings-plugin/scripts/detach-output-links.mjs',
-    'cpa-provider-plugin/tests/capacity.test.js',
-    'cpa-provider-plugin/tests/client-registration.test.js',
-    'cpa-provider-plugin/tests/migration.test.js',
-    'cpa-provider-plugin/tests/profile.test.js',
-    'cpa-provider-plugin/tests/reasoning.test.js',
     'agent-teams-plugin/UPSTREAM.md',
     'agent-teams-plugin/release-notes/v0.1.15-desktop.7.md',
     'agent-teams-plugin/release-notes/v0.1.16-rc.3.md',
@@ -238,7 +234,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'release-notes/v0.2.0-rc.22.md',
     'release-notes/v0.2.0-rc.23.md',
     'release-notes/v0.2.0-rc.24.md',
-    'release-notes/v0.2.0-rc.25.md',
+    'release-notes/v0.2.0-rc.27.md',
     'agent-teams-plugin/src/workspace-audit.ts',
     'agent-teams-plugin/scripts/coverage-contract-consistency.test.mjs',
     'agent-teams-plugin/scripts/team-return-guidance.test.mjs',
@@ -284,7 +280,7 @@ test('behavioral regressions and ownership records cannot be silently deleted', 
     'agent-teams-plugin/src/quality-gates.ts',
     'scripts/sync-local-plugin-artifacts.mjs',
     'tests/agent-teams-integration.test.js',
-    'tests/cpa-provider-integration.test.js',
+    'tests/native-provider-retention.test.js',
     'tests/desktop-settings.test.js',
     'tests/dsh-web-auth-url.test.js',
     'tests/loopback-auth-cookies.test.js',
@@ -356,7 +352,7 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('../AGENTS.md', /AgentTeams `0\.1\.23-desktop\.3` Profile delegation boundary/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /saved `defaultProfile`/)
   assertContains('../AGENTS.md', /AgentTeams `v0\.1\.16-rc\.1` interaction invariants/)
-  assertContains('../AGENTS.md', /Models settings fork `0\.2\.0-rc\.2-desktop\.4` interaction invariants/)
+  assertContains('../AGENTS.md', /Models settings fork `0\.2\.1-rc\.2-desktop\.1` interaction invariants/)
   assertContains('../AGENTS.md', /Calling it for a running\s+Team returns structured `already_running` guidance with zero plan writes/)
   assertContains('../AGENTS.md', /Completion with `changedPaths: \[\]` requires a non-empty `noChangesReason`/)
   assertContains('../docs/UPSTREAM_MAINTENANCE.md', /AgentTeams incidents that must not recur/)
@@ -381,17 +377,10 @@ test('critical integration markers retain local capability ownership', () => {
   assertContains('models-settings-plugin/src/client/model-input.ts', /ImageInputChoice = 'image' \| 'text-only'/)
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'image'\)/)
   assertContains('models-settings-plugin/src/client/ModelListEditor.tsx', /applyImageInputChoiceToAll\(models, 'text-only'\)/)
-  assertContains('models-settings-plugin/src/client/ModelReasoningLevels.tsx', /toggleReasoningLevel/)
-  assertContains('models-settings-plugin/src/client/model-reasoning.ts', /DEFAULT_REASONING_EFFORTS/)
+  assertContains('models-settings-plugin/src/client/ModelReasoningEfforts.tsx', /validateReasoningEfforts/)
   assertContains('models-settings-plugin/scripts/detach-output-links.mjs', /ERROR_USER_MAPPED_FILE|os error 1224/)
 
-  assertContains('cpa-provider-plugin/src/client/index.tsx', /normalize-provider-profile/)
-  assertContains('cpa-provider-plugin/src/client/index.tsx', /provider !== 'cpa'/)
-  assertContains('cpa-provider-plugin/src/client/capacity.ts', /contextWindow/)
-  assertContains('cpa-provider-plugin/src/client/capacity.ts', /maxTokens/)
-  assertContains('cpa-provider-plugin/src/migration.ts', /normalizeCpaProviderProfile/)
-  assertContains('cpa-provider-plugin/tests/migration.test.js', /without changing an explicit reasoning subset/)
-  assertContains('tests/cpa-provider-integration.test.js', /round-trip automatic and invalid model input states/)
+  assertContains('tests/native-provider-retention.test.js', /raw capacities, Off and custom wire mappings/)
 
   assertContains('agent-teams-plugin/src/host-model-catalog.ts', /buildHostModelCatalog/)
   assertContains('agent-teams-plugin/src/selection-policy.ts', /input\.reasoningMode === 'explicit'/)
@@ -437,7 +426,6 @@ test('critical integration markers retain local capability ownership', () => {
   for (const dependency of [
     '@deepseek-ai/dsh-subagent',
     '@deepseek-ai/dsh-subagent-fork-in-process',
-    '@deepseek-ai/dsh-subagent-in-process-driver',
     '@deepseek-ai/dsh-subagent-spawn-in-process',
     '@deepseek-ai/dsh-client-ui-settings-subagent',
   ]) {
@@ -476,7 +464,6 @@ test('the complete upstream regression gate remains registered', () => {
   const runner = read('scripts/verify-upstream-regressions.mjs')
   for (const directory of [
     'models-settings-plugin',
-    'cpa-provider-plugin',
     'agent-teams-plugin',
     'superpowers-plugin',
   ]) {
@@ -497,8 +484,8 @@ test('the complete upstream regression gate remains registered', () => {
 test('Superpowers retains fixed native SDK ownership and Team/Native mapping regressions', () => {
   const manifest = JSON.parse(read('superpowers-plugin/package.json'))
   assert.deepEqual(manifest.peerDependencies, {
-    '@deepseek-ai/cordis': '4.0.4', '@deepseek-ai/dsh-skill': '0.2.0-rc.2',
-    '@deepseek-ai/dsh-skill-filesystem': '0.2.0-rc.2',
+    '@deepseek-ai/cordis': '4.0.5 || 4.0.4', '@deepseek-ai/dsh-skill': '0.2.1-rc.2 || 0.2.0-rc.2',
+    '@deepseek-ai/dsh-skill-filesystem': '0.2.1-rc.2 || 0.2.0-rc.2',
   })
   assertContains('superpowers-plugin/lib/upstream-manifest.json', /bb92a77741419a4ab5f06e711a283343f1ada0c3/u)
   assertContains('superpowers-plugin/lib/index.js', /FileSystemSkillProvider/u)

@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import SessionProjections from '@deepseek-ai/dsh-session-projection'
-import AgentPresets, { livePresetMounts } from '@deepseek-ai/dsh-agent-preset-registry'
+import AgentPresets from '@deepseek-ai/dsh-agent-preset-registry'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import Tools from '@deepseek-ai/dsh-tools'
 import Web from '@deepseek-ai/dsh-web'
@@ -50,6 +50,7 @@ test('web opt-out keeps Loader-mounted presets usable when a user separately dis
     const ctx = new Context()
     try {
       await ctx.plugin(Loader)
+      ctx.loader.builtins.fixtureWeb = startupToolWeb
       await ctx.plugin(SessionProjections)
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(Tools, { mode: 'native' })
@@ -67,15 +68,12 @@ test('web opt-out keeps Loader-mounted presets usable when a user separately dis
               id,
               // Isolate the shared row causing the three native presets to
               // fail. Minimal has no web-tool row and remains a control.
-              plugins: id === 'minimal' ? [] : [{ id: 'tool-web', name: '@deepseek-ai/dsh-tool-web', config: { fetch: true, searchTimeoutMs: 60000 } }]
+              plugins: id === 'minimal' ? [] : [{ id: 'tool-web', name: 'cordis:fixtureWeb', config: { fetch: true, searchTimeoutMs: 60000 } }]
             }))
           }
           // Mirror the Host's settlement before the native roster read. The
           // preset trees are separate from the Host Loader tree, so await both.
           await runtime.loader.await()
-          const mounts = livePresetMounts(ctx.root.fiber)
-          assert.equal(mounts.length, 4, 'every registered preset must retain its Loader tree')
-          await Promise.all(mounts.map(mount => mount.tree.await()))
           const roster = await runtime.agentPresets.list()
           assert.equal(roster.length, 4)
           for (const preset of roster) {
@@ -86,14 +84,20 @@ test('web opt-out keeps Loader-mounted presets usable when a user separately dis
               assert.equal(preset.broken, undefined, diagnostic)
             }
           }
-          for (const mount of mounts) {
-            const visible = runtime.tools.schemas(mount.key).map(tool => tool.name).sort()
-            const expected = enabled && webService && mount.presetId !== 'minimal' ? ['web_fetch', 'web_search'] : []
-            assert.deepEqual(visible, expected, mount.presetId)
-            if (!enabled) {
-              const prompt = await runtime.systemPrompt.assemble({ scope: mount.key })
-              assert.equal(prompt.sections.some(section => /web_search|web_fetch/.test(section.text)), false)
+          for (const preset of roster) {
+            if (enabled && !webService && preset.id !== 'minimal') {
+              await assert.rejects(runtime.agentPresets.acquireScope(preset.id), /waiting for web/)
+              continue
             }
+            const lease = await runtime.agentPresets.acquireScope(preset.id)
+            try {
+              const visible = runtime.tools.schemas(lease.key).map(tool => tool.name).sort()
+              assert.deepEqual(visible, enabled && webService && preset.id !== 'minimal' ? ['web_fetch', 'web_search'] : [], preset.id)
+              if (!enabled) {
+                const prompt = await runtime.systemPrompt.assemble({ scope: lease.key })
+                assert.equal(prompt.sections.some(section => /web_search|web_fetch/.test(section.text)), false)
+              }
+            } finally { await lease[Symbol.asyncDispose]() }
           }
           assert.equal(ctx.get('web') !== undefined, webService, 'the separate web service preference is preserved')
         } finally { for (const dispose of unregister.reverse()) await dispose() }

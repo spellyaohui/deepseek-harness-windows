@@ -30,6 +30,7 @@ function createRuntime(currentMode, requestApproval = async () => 'allowed-once'
   let approvalCalls = 0
   let runnerCalls = 0
   const ctx = {
+    workingDirectory: { ensure: async () => process.cwd() },
     shell: {
       sandboxMode: currentMode,
       resolve: (request) => request,

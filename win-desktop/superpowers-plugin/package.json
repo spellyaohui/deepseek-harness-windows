@@ -1,20 +1,26 @@
 {
   "name": "@deepseek-ai/dsh-superpowers",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local bundled Superpowers skills with Harness tool guidance",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
-  "exports": { ".": "./lib/index.js", "./package.json": "./package.json" },
-  "files": ["lib", "UPSTREAM.md"],
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "UPSTREAM.md"
+  ],
   "license": "MIT",
   "scripts": {
     "build": "node --check lib/index.js",
     "test": "npm run build && node --test tests/*.test.mjs"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.4",
-    "@deepseek-ai/dsh-skill": "0.2.0-rc.2",
-    "@deepseek-ai/dsh-skill-filesystem": "0.2.0-rc.2"
+    "@deepseek-ai/cordis": "4.0.5 || 4.0.4",
+    "@deepseek-ai/dsh-skill": "0.2.1-rc.2 || 0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill-filesystem": "0.2.1-rc.2 || 0.2.0-rc.2"
   }
 }

@@ -51,9 +51,9 @@
 
 .section {
   gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
+  padding: 14px 16px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-module-platform);
 }
 
@@ -76,7 +76,7 @@
   gap: 10px;
   align-items: flex-start;
   padding: 10px 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   cursor: pointer;
 }
@@ -86,14 +86,16 @@
 }
 
 .choice:focus-within {
-  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);
   outline-offset: 2px;
 }
 
 .choice input {
   flex: none;
-  margin: 4px 0 0;
-  accent-color: var(--dsw-alias-brand-primary);
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--dsw-alias-state-business-primary);
 }
 
 .choice span,
@@ -113,9 +115,9 @@
 }
 
 .field > span {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 18px;
 }
 
 .choice small {
@@ -145,27 +147,6 @@
   gap: 6px;
   min-width: 0;
   color: var(--dsw-alias-label-secondary);
-}
-
-.field select {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 34px;
-  padding: 6px 12px;
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-3);
-  color: var(--dsw-alias-label-primary);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.field select:focus-visible {
-  border-color: var(--dsw-alias-brand-primary);
-  outline: 2px solid var(--dsw-alias-brand-primary);
-  outline-offset: 1px;
 }
 
 .catalogError,
@@ -219,12 +200,13 @@
 .profileBadge {
   flex: none;
   padding: 2px 7px;
-  border: 1px solid var(--dsw-alias-brand-primary);
+  border: 1px solid var(--dsw-alias-state-business-primary);
   border-radius: 999px;
-  color: var(--dsw-alias-brand-primary);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  corner-shape: round;
+  color: var(--dsw-alias-state-business-primary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
   line-height: 16px;
 }
 
@@ -260,7 +242,7 @@
   max-height: 220px;
   overflow: auto;
   padding: 4px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-1);
 }
@@ -270,15 +252,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 34px;
-  padding: 6px 9px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border: 0.5px solid transparent;
   background: transparent;
   color: var(--dsw-alias-label-primary);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.5;
   text-align: left;
   cursor: pointer;
 }
@@ -288,12 +264,12 @@
 }
 
 .profileListItem:focus-visible {
-  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);
   outline-offset: 1px;
 }
 
 .profileListItemSelected {
-  border-color: var(--dsw-alias-brand-primary);
+  border-color: var(--dsw-alias-state-business-primary);
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
@@ -331,23 +307,39 @@
   justify-content: flex-end;
 }
 
-.profileInput,
+.profileInput {
+  min-width: 0;
+}
+
+/* Match the native Models editor for controls without a shared primitive. */
 .profileSelect,
 .profileTextarea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 34px;
-  padding: 6px 12px;
+  min-width: 0;
+  padding: 0 10px;
   border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-3);
+  background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
   font: inherit;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.profileSelect {
+  height: 32px;
+  appearance: none;
+  padding-right: 32px;
+  /* Match the native Models picker; data-URI SVGs cannot resolve theme tokens. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2381858C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 12px;
 }
 
 .profileTextarea {
+  padding: 6px 10px;
   min-height: 72px;
   resize: vertical;
 }
@@ -356,15 +348,12 @@
   min-height: 144px;
 }
 
-.profileInput:focus-visible,
 .profileSelect:focus-visible,
 .profileTextarea:focus-visible {
-  border-color: var(--dsw-alias-brand-primary);
-  outline: 2px solid var(--dsw-alias-brand-primary);
-  outline-offset: 1px;
+  border-color: var(--dsw-alias-state-business-primary);
+  outline: none;
 }
 
-.profileInput:disabled,
 .profileSelect:disabled,
 .profileTextarea:disabled {
   cursor: default;
@@ -410,7 +399,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-1);
 }
@@ -457,7 +446,7 @@
 }
 
 .profileDetails summary:focus-visible {
-  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);
   outline-offset: 2px;
 }
 

@@ -163,12 +163,7 @@ function openMainSettings() {
   showMainWindow()
   if (mainWindow === undefined || mainWindow.isDestroyed()) return
   void mainWindow.webContents.executeJavaScript(`
-    (() => {
-      const trigger = document.querySelector('button[aria-haspopup="dialog"]');
-      if (!trigger) return false;
-      trigger.click();
-      return true;
-    })()
+    window.dispatchEvent(new Event('dsh-desktop:open-settings'))
   `)
 }
 

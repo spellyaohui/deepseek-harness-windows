@@ -9,9 +9,8 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { en } from './locales.ts'
-import { readReasoningLevels } from './model-reasoning.ts'
-import { readImageInputChoice } from './model-input.ts'
 import { ModelRow } from './ModelRow.tsx'
+import { readImageInputChoice } from './model-input.ts'
 import styles from './ModelsSection.module.css'
 
 /** One catalog entry kept structurally open so hidden or future fields survive an edit. */
@@ -76,7 +75,7 @@ export interface DeepSeekModelsValidationFailure {
   /** Message key owned by the Models settings section. */
   key: 'modelIdRequired' | 'modelIdDuplicate' | 'modelNameInvalid' | 'modelContextInvalid'
   | 'modelMaxTokensInvalid'
-  | 'modelInputInvalid' | 'modelReasoningInvalid'
+  | 'modelInputInvalid'
 }
 
 /** Convert a schema-validated catalog value into records without dropping hidden fields. */
@@ -98,6 +97,7 @@ export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidation
   const models = modelDrafts(value)
   const seen = new Set<string>()
   for (const [index, model] of models.entries()) {
+    if (model['input'] !== undefined && readImageInputChoice(model) === 'invalid') return { index, key: 'modelInputInvalid' }
     // Compared trimmed: surrounding whitespace is a paste artifact the adapter
     // would never match, and an untrimmed compare lets `model ` slip past the
     // duplicate check against its own twin.
@@ -120,8 +120,6 @@ export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidation
       && (typeof maxTokens !== 'number' || !Number.isInteger(maxTokens) || maxTokens <= 0)) {
       return { index, key: 'modelMaxTokensInvalid' }
     }
-    if (readReasoningLevels(model) === 'invalid') return { index, key: 'modelReasoningInvalid' }
-    if (readImageInputChoice(model) === 'invalid') return { index, key: 'modelInputInvalid' }
   }
   return undefined
 }

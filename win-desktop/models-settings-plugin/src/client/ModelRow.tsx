@@ -6,8 +6,8 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import type { ModelsKey } from './locales.ts'
-import { ModelReasoningLevels } from './ModelReasoningLevels.tsx'
 import { ModelInputTypes } from './ModelInputTypes.tsx'
+import { ModelReasoningEfforts } from './ModelReasoningEfforts.tsx'
 import styles from './ModelsSection.module.css'
 
 /** A capacity's editable text and adapter-specific inherited hint. */
@@ -22,13 +22,11 @@ interface CapacityInput {
 interface ModelRowProps {
   model: DeepSeekModelDraft
   position: number
-  /** Optional draft-only affordance rendered before the shared row fields. */
-  leadingControl?: ReactNode
-  /** Optional draft-only result rendered below the shared row fields. */
-  footer?: ReactNode
   inputField: 'inputModalities' | 'input'
   inputFallback?: readonly string[] | undefined
   inputLoading?: boolean
+  /** Levels the row's `reasoningEfforts` may declare; absent or empty shows no reasoning control. */
+  reasoningLevels?: readonly string[] | undefined
   expanded: boolean
   disabled: boolean
   t: (key: ModelsKey) => string
@@ -51,11 +49,9 @@ export function ModelRow(props: ModelRowProps): ReactNode {
   return (
     <div className={styles['modelEntry']}>
       <div className={styles['modelRow']}>
-        {props.leadingControl}
         {(['id', 'name'] as const).map(field => (
-          <label key={field} className={styles['modelField']}>
-            <span className={styles['modelFieldLabel']}>{t(field === 'id' ? 'modelId' : 'modelName')}</span>
           <input
+            key={field}
             className={styles['input']}
             type="text"
             value={typeof model[field] === 'string' ? model[field] : ''}
@@ -68,18 +64,16 @@ export function ModelRow(props: ModelRowProps): ReactNode {
             }}
             onBlur={field === 'id' ? event => props.onIdBlur?.(event.target.value) : undefined}
           />
-          </label>
         ))}
         <button
           type="button"
-          className={styles['modelSettingsButton']}
+          className={styles['iconButton']}
           aria-label={`${t('modelAdvanced')} ${String(position)}`}
           aria-expanded={props.expanded}
           title={t('modelAdvanced')}
           onClick={props.onToggle}
         >
-          {t('modelAdvanced')}
-          {props.expanded ? <IconChevronDownOutlineRegular size={14} /> : <IconChevronRightOutlineRegular size={14} />}
+          {props.expanded ? <IconChevronDownOutlineRegular /> : <IconChevronRightOutlineRegular />}
         </button>
         <button
           type="button"
@@ -111,15 +105,20 @@ export function ModelRow(props: ModelRowProps): ReactNode {
                 />
               </label>
             ))}
-            {props.inputField === 'input' ? <ModelReasoningLevels model={model} position={position} disabled={disabled} t={t} onChange={props.onChange} /> : null}
             <ModelInputTypes
               model={model} field={props.inputField} position={position}
               fallback={props.inputFallback} disabled={disabled || props.inputLoading === true} t={t} onChange={props.onChange}
             />
+            {props.reasoningLevels !== undefined && props.reasoningLevels.length > 0
+              ? (
+                <ModelReasoningEfforts
+                  model={model} levels={props.reasoningLevels} position={position} disabled={disabled} t={t} onChange={props.onChange}
+                />
+              )
+              : null}
           </div>
         )
         : null}
-      {props.footer}
     </div>
   )
 }

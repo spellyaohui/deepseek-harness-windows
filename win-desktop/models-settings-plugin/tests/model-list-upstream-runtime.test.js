@@ -11,7 +11,7 @@ registerHooks({
     }
     if (specifier === '@deepseek-ai/dsh-client-ui-primitives') {
       return {
-        url: 'data:text/javascript,export const Button = () => null; export const Checkbox = () => null; export const IconChevronDownOutlineRegular = () => null; export const IconChevronRightOutlineRegular = () => null; export const IconPlusOutlineRegular = () => null; export const IconTrashOutlineRegular = () => null; export const Modal = () => null',
+        url: 'data:text/javascript,export const Switch = () => null; export const Tooltip = () => null; export const Button = () => null; export const Checkbox = () => null; export const IconChevronDownOutlineRegular = () => null; export const IconChevronRightOutlineRegular = () => null; export const IconPlusOutlineRegular = () => null; export const IconTrashOutlineRegular = () => null; export const Modal = () => null',
         shortCircuit: true,
       }
     }

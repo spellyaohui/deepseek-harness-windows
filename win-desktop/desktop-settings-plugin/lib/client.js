@@ -10,11 +10,11 @@ window.__ModuleLoader__.load({
     const styles = `
       .dsh-desktop-settings { display:flex; flex-direction:column; gap:12px; padding:4px 0 24px; font-family:inherit; font-size:14px; line-height:22px; }
       .dsh-desktop-settings-card { padding:12px 0 16px; border-bottom:0.5px solid var(--dsw-alias-border-l2); }
-      .dsh-desktop-settings-title { margin:0 0 4px; color:var(--dsw-alias-label-primary); font-size:14px; font-weight:400; line-height:22px; }
+      .dsh-desktop-settings-title { margin:0 0 4px; color:var(--dsw-alias-label-primary); font-size:14px; font-weight:500; line-height:22px; }
       .dsh-desktop-settings-help { margin:0 0 16px; color:var(--dsw-alias-label-secondary); font-size:12px; line-height:18px; }
-      .dsh-desktop-settings-label { display:block; margin:12px 0 6px; color:var(--dsw-alias-label-primary); font-size:13px; font-weight:500; line-height:1.5; }
-      .dsh-desktop-settings-select { box-sizing:border-box; width:100%; min-height:34px; padding:6px 12px; border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md); background:var(--dsw-alias-bg-layer-3); color:var(--dsw-alias-label-primary); font:inherit; font-size:13px; line-height:1.5; }
-      .dsh-desktop-settings-select:focus { outline:2px solid var(--dsw-alias-interactive-border-focus,#5b8cff); outline-offset:1px; }
+      .dsh-desktop-settings-label { display:block; margin:12px 0 6px; color:var(--dsw-alias-label-primary); font-size:12px; font-weight:500; line-height:18px; }
+      .dsh-desktop-settings-select { box-sizing:border-box; width:100%; height:32px; appearance:none; padding:0 32px 0 10px; border:0.5px solid var(--dsw-alias-border-l4); border-radius:var(--dsw-radius-md); background:var(--dsw-alias-bg-layer-1); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2381858C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; background-size:12px 12px; color:var(--dsw-alias-label-primary); font:inherit; font-size:14px; line-height:22px; }
+      .dsh-desktop-settings-select:focus { outline:none; border-color:var(--dsw-alias-state-business-primary); }
       .dsh-desktop-settings > p { margin:0; font-size:12px; line-height:18px; overflow-wrap:anywhere; }
       .dsh-desktop-settings-row { display:flex; align-items:center; justify-content:space-between; gap:20px; }
       .dsh-desktop-settings-row > div { min-width:0; }
@@ -154,6 +154,12 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
+      ctx.effect(() => {
+        // The official sidebar.settings factory returns its existing shared shell.
+        const open = () => ctx.slots.entries('sidebar.settings')[0]?.store?.create().actions.open()
+        window.addEventListener('dsh-desktop:open-settings', open)
+        return () => window.removeEventListener('dsh-desktop:open-settings', open)
+      })
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'desktop',

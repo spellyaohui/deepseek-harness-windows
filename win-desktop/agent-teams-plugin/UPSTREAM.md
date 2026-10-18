@@ -1,15 +1,64 @@
 # Upstream provenance
 
 - Repository: `https://github.com/NanmiCoder/dsh-agent-teams.git`
-- Package: `@nanmicoder/dsh-agent-teams@0.1.23`
-- Tag: `v0.1.23`
-- Source commit: `1094b84add6f2fb19edf659367fe2fd5f7f14154`
-- Imported: `2026-10-13`
+- Package: `@nanmicoder/dsh-agent-teams@0.1.24-rc.1`
+- Tag: `v0.1.24-rc.1`
+- Source commit: `33f29cd0ebebcd23b26877b224cd1c3406671034`
+- Imported: `2026-10-18`
+
+
+## 2026-10-18 upstream-first refresh (current)
+
+Fixed Harness `0.2.1-rc.2` / `687f282e8625c6b8d11ff58211a90524be2e4317`,
+AgentTeams `0.1.24-rc.1` / `33f29cd0ebebcd23b26877b224cd1c3406671034`.
+Wrapper `0.2.0-rc.27`, AgentTeams `0.1.24-desktop.1`, Models `0.2.1-rc.2-desktop.1`,
+Electron `44.7.0` (official lockfile), Superpowers `0.1.2` (unchanged v7 assets).
+The older dated sections below are history, not instructions to restore retired code.
+
+Local UI follow-up (2026-10-18): reuse official Button/Input/Switch controls and the
+native Models select/textarea metrics and theme tokens. Models CSS remains the fixed
+upstream stylesheet plus scoped input-action/hint additions; legacy duplicate layout
+and reasoning styles are removed. AgentTeams Profile fields and Desktop Settings
+follow the same native controls. Keep `win-desktop/tests/local-ui-styles.test.js`
+and real Electron light/dark and narrow-layout checks when changing these surfaces.
+
+Managed recovery security follow-up: the pinned Harness Session API `appendPluginRecord`/`pluginRecordOf` stores the first child-owned runtime setup at new activation, outside the workspace Team files. Cold recovery/HMR reads that original record before applying or validating workspace copies; it never establishes a missing record from those copies. The API is experimental and format migrations retain records best-effort: loss/malformed data fails closed with member-recreation guidance. Prior descriptor-based children retain the official Host recovery path. Earlier managed test-candidate children with neither record nor descriptor filter cannot cold-resume automatically; no user file or session migration is performed. Rejected HMR initialization retains the original filter and an execution guard until teardown. This anchors an existing child's original policy; it does not authenticate all mutable Team state or new role derivation and is not an OS sandbox.
+
+| Registered capability group | Classification | Current owner and regression |
+| --- | --- | --- |
+| Per-model reasoning UI, Schema levels, wire mappings, native discovery/protocol/credentials/capacity editing, draft Save/Cancel/CAS | UPSTREAM_EQUIVALENT | Official Models and pi-ai; retained model-reasoning, model-list-upstream-runtime, provider-profile and native-provider-retention tests |
+| Automatic six effort defaults, deleting Off, CPA-specific normalizer/startup migration/package/editor hooks | SUPERSEDED_BY_DESIGN | Explicit user retirement; saved cpa routes and role bindings are ordinary native data. No migration or replacement normalizer. Historical CPA capacity/credential/model coverage moves to native-provider-retention and model integration tests |
+| Managed child creation, cancellation cleanup, runtimeSetup restoration and resident HMR hydration | UPSTREAM_EQUIVALENT | Upstream AgentTeams adapter inside the durable gateway; managed-activation, team-subagent-compat and custom-member-routing tests |
+| Trusted setup for existing managed child cold recovery/HMR | REAPPLY | First child-owned Host plugin record fixes the original persona/filter; workspace copies cannot widen it, missing/invalid records refuse recovery, old descriptor restoration remains Host-owned. Keep actual write-tool cold/HMR and first/missing/malformed/fork record regressions |
+| Cold captain restoration and immediate native activation result | SUPERSEDED_BY_DESIGN | Official resolveAgent and activation protocol; keep exact parent admission, return guidance and cold recovery regressions |
+| Explicit/route-aware/target-default reasoning, frozen role model/prompt/tool inheritance, trusted Profile and temporary authority, strict V2, DAG/quality/audit/integration gates, compact status/mail receipts, polling guard, lifecycle admission and unique gateway | REAPPLY | Existing AgentTeams owners and all registered suites retained; no global model override, user migration or direct child bypass |
+| Windows ordered lifecycle edges, state file read/replace queue, console/preload, escalation normalization, grep alias, bounded-period quota, authenticated token handoff, loopback/cookie recovery | REAPPLY | Existing wrapper/AgentTeams boundaries, real native/lock and loader anchor regressions |
+| Native subprocess spawn/taskkill windowsHide | UPSTREAM_EQUIVALENT | Official subprocess implementation; existing native console tests retained |
+| Manual text/image input validation/defaults, bulk actions, generated-output detachment | REAPPLY | Provider-neutral Models fork; model-input, model-input-ui, output-link-safety and model integration tests |
+| Desktop Settings/backup/web opt-out, output-limit finish, compact tool guidance, fixed Superpowers assets, separate Native and AgentTeams cards, default Profile layer under Home/CLI | REAPPLY | Existing independent owners and full wrapper regressions retained |
+| OpenCode, AUTO, capability probe, old Profile writer, native-card hiding and retired experimental auto-mounts | SUPERSEDED_BY_DESIGN | Remain absent; cumulative retention registry and capability manifest |
+
+All other active rows in this registry retain their documented owners and regression
+requirements as REAPPLY unless explicitly marked upstream-equivalent above. Registry
+archives: [352 immutable inputs](../../docs/UPSTREAM_021_SOURCE_MANIFEST.md). The installed
+closure is the dependency graph reachable from the desktop roots, not every source
+archive. New CLI dependencies include experimental profile bundles; install their
+exact dependencies without inserting those profiles into desktop startup. Dependency
+preparation stays outside the offline, no-install, no-package regression gate.
+
+Upgrade evidence is recorded in `win-desktop/release-notes/v0.2.0-rc.26.md`;
+UI follow-up and the new local package are recorded in `win-desktop/release-notes/v0.2.0-rc.27.md`.
+No installer, live gateway inference, real user configuration migration or publication
+is implied by local fixture evidence.
+
+
+## Historical provenance
+
 
 ## Local package identity
 
 - Package name remains `@nanmicoder/dsh-agent-teams`.
-- Desktop fork version is `0.1.23-desktop.7`.
+- Desktop fork version is `0.1.24-desktop.1`.
 - The Windows wrapper installs this directory through `file:agent-teams-plugin`.
 
 ## 2026-10-14 desktop.7 Windows lifecycle scheduling

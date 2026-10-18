@@ -5,7 +5,6 @@ import yaml from 'js-yaml'
 
 const DESKTOP_ENTRIES = new Map([
   ['desktop-settings', '@deepseek-ai/dsh-desktop-settings'],
-  ['cpa-provider', '@deepseek-ai/dsh-cpa-provider'],
   ['tool-call-guidance', '@deepseek-ai/dsh-tool-call-guidance'],
   ['output-limit-finish', 'dsh-output-limit-finish'],
   ['superpowers', '@deepseek-ai/dsh-superpowers'],

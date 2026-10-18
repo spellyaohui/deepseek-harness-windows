@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { AgentTeamsTranslate } from './locales.ts'
 import type { ModelCatalogEntry, ModelCatalogState } from './model-catalog.ts'
@@ -245,7 +245,7 @@ function MemberEditor({
       <div className={css.fields}>
         <label className={css.field}>
           <span>{t('settings.profiles.memberName')}</span>
-          <input
+          <Input
             className={css.profileInput}
             value={member.name}
             disabled={disabled}
@@ -254,7 +254,7 @@ function MemberEditor({
         </label>
         <label className={css.field}>
           <span>{t('settings.profiles.memberRole')}</span>
-          <input
+          <Input
             className={css.profileInput}
             value={member.role ?? ''}
             disabled={disabled}
@@ -387,7 +387,7 @@ function TaskEditor({
       <div className={css.fields}>
         <label className={css.field}>
           <span>{t('settings.profiles.taskId')}</span>
-          <input
+          <Input
             className={css.profileInput}
             value={task.id}
             disabled={disabled}
@@ -409,7 +409,7 @@ function TaskEditor({
       </div>
       <label className={css.field}>
         <span>{t('settings.profiles.taskSubject')}</span>
-        <input
+        <Input
           className={css.profileInput}
           value={task.subject}
           disabled={disabled}
@@ -428,7 +428,7 @@ function TaskEditor({
       </label>
       <label className={css.field}>
         <span>{t('settings.profiles.taskDependencies')}</span>
-        <input
+        <Input
           className={css.profileInput}
           value={formatDependencies(task)}
           disabled={disabled}
@@ -498,7 +498,7 @@ function ProfileForm({
       <div className={css.fields}>
         <label className={`${css.field} ${css.profileWideField}`}>
           <span>{t('settings.profiles.description')}</span>
-          <input
+          <Input
             className={css.profileInput}
             value={profile.description ?? ''}
             disabled={disabled}
@@ -622,7 +622,7 @@ function ProfileForm({
           ] as const).map(([field, label]) => (
             <label className={css.field} key={field}>
               <span>{t(label)}</span>
-              <input
+              <Input
                 className={css.profileInput}
                 type="number"
                 min={1}
@@ -634,7 +634,7 @@ function ProfileForm({
           ))}
           <label className={`${css.field} ${css.profileWideField}`}>
             <span>{t('settings.profiles.requiredReviewers')}</span>
-            <input
+            <Input
               className={css.profileInput}
               value={requiredReviewers}
               disabled={disabled}
@@ -950,8 +950,8 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, settings, writer, 
       <div className={css.profileToolbar}>
         <div className={css.profileList} role="listbox" aria-label={t('settings.profiles.listAria')}>
           {Object.keys(profiles).map((name) => (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               role="option"
               aria-selected={name === selectedName}
               disabled={controlsDisabled || (nameDraft !== selectedName && name !== selectedName)}
@@ -961,7 +961,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, settings, writer, 
             >
               <span>{name}</span>
               <small>{builtInNames.includes(name) ? t('settings.profiles.builtIn') : t('settings.profiles.custom')}</small>
-            </button>
+            </Button>
           ))}
         </div>
         <div className={css.profileActions}>
@@ -987,7 +987,7 @@ export function TeamProfilesEditor({ catalog, onRetryCatalog, settings, writer, 
           <div className={css.profileIdentity}>
             <label className={css.field}>
               <span>{t('settings.profiles.name')}</span>
-              <input
+              <Input
                 className={css.profileInput}
                 value={nameDraft}
                 disabled={controlsDisabled || selectedIsBuiltIn}

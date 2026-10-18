@@ -1,7 +1,7 @@
 # 从干净 Windows 机器构建
 
-当前桌面源码版本为 `0.2.0-rc.24`，Harness 固定为 `0.2.0-rc.2`，Electron 固定为
-`44.0.0`。不需要开发机目录、全局 DSH、用户配置或已有 `node_modules`。
+当前桌面源码版本为 `0.2.0-rc.27`，Harness 固定为 `0.2.1-rc.2`，Electron 固定为
+`44.7.0`。不需要开发机目录、全局 DSH、用户配置或已有 `node_modules`。
 运行安装包不需要安装 Node.js 或 pnpm；下面的工具链只用于编译源码。
 
 ## 本机统一工作目录
@@ -34,15 +34,16 @@ node scripts/verify-alpha2-zip-closure.mjs --zip "dist/DeepSeek-Harness-$version
 
 准备脚本联网下载 rc.10 Release 中固定的 `Build-Inputs-0.2.0-rc.10.tar.gz`，验证完整
 SHA-256、路径白名单和维护清单里的全部 **650 个**包哈希，恢复 `upstream/`
-目录下锁文件引用的固定包。650 个包包括当前运行时的 327 个包，以及保留来源
-回归所需的 323 个历史包；历史包不会混入安装包。准备脚本不会覆盖不同字节的
-已有文件。也可先手动下载构建输入，传入 `-InputArchive <绝对路径>`。
+目录下历史来源回归需要的固定包。这 650 个历史包保持不变；另从官方 npm
+固定地址下载当前 Harness 0.2.1 的 **352 个**归档，并逐一校验
+`UPSTREAM_021_SOURCE_MANIFEST.md` 中的 SHA-256。运行时只包含桌面依赖图实际
+需要的官方包，历史包和当前清单中的未引用包不会因此自动挂载。
+准备脚本拒绝覆盖字节不同的现有文件。旧构建输入可预先下载并传入
+`-InputArchive <绝对路径>`；当前官方归档仍在准备阶段单独校验和补齐。
 
-这些输入是固定官方提交已经构建并逐包登记的 release family，不是开发机
-node_modules 的副本，也不包含上游 checkout、凭据或用户状态。官方源码、
-固定提交与逐包哈希见 `UPSTREAM_020_SOURCE_MANIFEST.md` 和
-`UPSTREAM_017_SOURCE_MANIFEST.md`。重建上游源码可能生成不同打包字节；本指南
-使用与锁文件一致的官方构建输入，重建的是 Windows 包装器及所有本地插件。
+这些输入不包含凭据、用户状态或 node_modules 副本。固定源码提交与归档哈希
+见 `UPSTREAM_021_SOURCE_MANIFEST.md`，历史清单保留。当前版本使用官方 npm
+发布归档，依赖准备与离线门禁分开；旧版固定归档只用于历史来源回归。
 
 准备阶段分别执行本地插件 frozen pnpm install、包装器 npm ci，并下载固定
 Electron。忽略无关安装钩子，Electron 下载作为显式步骤执行。`verify:upstream`

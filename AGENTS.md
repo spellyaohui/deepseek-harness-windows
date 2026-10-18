@@ -46,14 +46,21 @@ evidence that the local capability is preserved.
 
 ## Capability ownership boundaries
 
+- Project-added UI must follow the official Harness components and styling guide.
+  Reuse native Button/Input/Switch/Checkbox; controls without a shared primitive
+  follow the native Models editor's dimensions, typography, theme tokens and
+  focus/disabled states. Keep additions scoped; do not override upstream layouts
+  or leak global control selectors. Retain `tests/local-ui-styles.test.js` and
+  check real light/dark and narrow-window rendering when changing local controls.
+
 - AgentTeams owns subagent member defaults, isolated temporary-call defaults, explicit/route-aware reasoning,
   shared model-catalog consumption, Team/Native routing, and task lifecycle.
-- CPA owns CLIProxyAPI address/credential handling, model discovery, reasoning
-  vocabulary, per-model context/output capacities, and the native-provider
-  profile normalization seam. CPA must not register a second visible Models
-  card; the single native `CPA / CLIProxyAPI` row owns its editor chrome.
-- The Models settings fork owns the provider-neutral native editor and its
-  additive slot/normalization seam; it must not contain CPA-specific rules.
+- Native pi-ai Provider settings own protocol, endpoint, credential references,
+  discovery, capacities and per-model reasoning declarations. The independent CPA
+  plugin and its normalization seam are retired by the 2026-10-18 user request.
+  A saved `cpa` route is ordinary native configuration; never migrate or rewrite it.
+- The Models fork retains only provider-neutral input declarations/validation,
+  additive display slots and Windows output detachment over the official editor.
 - Desktop Settings owns the Harness-native `扩展设置` section (stable slot id
   `desktop`), window behavior and built-in web-tools preference bridge. The
   wrapper owns the exact official `dsh-tool-web` activation rewrite: opt-out
@@ -83,11 +90,9 @@ evidence that the local capability is preserved.
 
 ## Release `v0.1.1-rc.17` interaction invariants
 
-- CPA appears once in “设置 → 模型”, through the native configured-provider
-  row. The expandable native editor must retain API address, Token, model
-  discovery, model selection, text/image input modalities, raw context/output
-  capacities, and model-specific R reasoning levels.
-- CPA's path-scoped, revision-guarded startup normalization preserves credentials, raw capacities, explicit image/text choices, malformed declarations and manual reasoning subsets. Missing/empty legacy model input becomes text; new models default to text and all six explicit reasoning levels. Never overwrite a user reasoning subset on Save or startup.
+- Historical CPA editor/defaults below are superseded by Harness 0.2.1.
+  Native Provider editing preserves saved protocols, credentials, raw capacities,
+  model ids and AgentTeams role bindings without a startup normalizer.
 - The `桌面` section has no save button. Changing close behavior immediately
   persists through the existing IPC bridge, disables the selector while the
   write is pending, announces success, and restores the prior committed value
@@ -117,7 +122,7 @@ evidence that the local capability is preserved.
 
 ## Alpha.2 Web authentication startup invariant
 
-- Desktop-owned plugin insertions are a default layer beneath profile, Home and CLI settings. Do not launch the AgentTeams/CPA/Desktop Settings/guidance insertions as a final `--patch` overlay: that makes user saves target an entry before it exists. Keep the scoped, drift-guarded app-boot seam and the real SettingsForms/ConfigEditor save/restart regression, including Home/CLI refusal and stale-revision protection. Never weaken the official ConfigEditor checks or rewrite a user's patch/manifest to make a save succeed.
+- Desktop-owned plugin insertions are a default layer beneath profile, Home and CLI settings. Do not launch the AgentTeams/Desktop Settings/guidance insertions as a final `--patch` overlay: that makes user saves target an entry before it exists. Keep the scoped, drift-guarded app-boot seam and the real SettingsForms/ConfigEditor save/restart regression, including Home/CLI refusal and stale-revision protection. Never weaken the official ConfigEditor checks or rewrite a user's patch/manifest to make a save succeed.
 
 - Alpha.2 prints a canonical loopback URL containing a fresh process token.
   The Windows wrapper must pass the complete `http://127.0.0.1:<port>/?token=...`
@@ -295,6 +300,7 @@ evidence that the local capability is preserved.
   current-Team member name; unknown/blank bindings fail before writes/spawns.
   Never guess a renamed member's role or read a later live Profile for inheritance.
   Keep the focused selection and lifecycle regressions through every upstream refresh.
+- Existing managed children restore only from their first child-owned Host Session plugin record, established during new activation; never authorize or re-sign setup from mutable workspace copies. Validate those copies against the trusted original, registered captain denies and the frozen persona. Missing/malformed records refuse recovery with member-recreation guidance; legacy descriptor filters remain Host-restored. The pinned plugin-record API is experimental and best-effort through format migrations, so record loss fails closed. Failed HMR initialization blocks actual tool execution until teardown. Keep the drift/write-tool/first-record/fork regressions in `scripts/custom-member-routing.test.mjs`; no automatic user-file/session migration or whole-Team/OS sandbox claim.
 - Every continuable child operation (start, send, interrupt, retirement and
   drain) must enter the single durable-session subagent gateway. The gateway
   resolves the exact live Agent, rejects stale or same-ID pseudo-handles, and
@@ -430,13 +436,21 @@ evidence that the local capability is preserved.
   `tdd.integration.*`, `tdd.complete.*` count/paraphrase checks) and
   `quality-gates-amend.test.mjs` regressions through every refresh.
 
-## Models settings fork `0.2.0-rc.2-desktop.4` interaction invariants
+## Models settings fork `0.2.1-rc.2-desktop.1` interaction invariants
 
 - User-requested replacement: capability probing and its Remote/Host service are removed. Keep model discovery, native provider editors, onboarding, credential boundaries, Save/CAS and draft cancellation.
 - Every pi-ai model uses image or text-only; persist ['text', 'image'] or ['text']. Missing/empty input displays and saves as text. New providers/models default to text. Malformed input remains invalid and blocks Save.
-- Offer Default, Minimal, Low, Medium, High, Xhigh and Max. Default always uses the server default; each model can select the six explicit levels. Save selected levels as reasoningEfforts without off (Default is supplied by Harness), or false when none are selected. Preserve existing selected wire mappings and every unrelated model field; malformed efforts block Save.
+- Use the official reasoning editor, Schema levels and wire values. Do not
+  synthesize six levels or remove `off`. Preserve absent declarations, `false`,
+  manual subsets and custom wire mappings through Save and startup. Absent follows
+  the upstream catalog/inheritance rules; `false` explicitly disables reasoning.
+  An explicit switch-off writes `false`; merely opening or saving an untouched
+  absent declaration must not materialize a reasoning override. Keep this local
+  correction until upstream implements the same behavior.
+- Preserve upstream native readiness: nativeAuth.env describes environment lookups, not all authentication sources. A stored official API-key/ambient login record can authenticate while every reference describe is false. Do not infer unusability from reference checks alone; retain `tests/native-provider-auth-record.test.js` until an authoritative upstream readiness API replaces this rule.
+- CredentialInfo.writable=false disables replacement of the actual named or derived credential reference and credential-only Apply. It must not disable unrelated Provider/model settings saves with an empty key draft. Keep the real React `provider-credentials.test.js` regression.
 - List operations, bulk input actions, expandable model settings and footer Save/Cancel have separate layout groups and remain usable at narrow widths.
-- Models stays provider-neutral. CPA and model-name rules stay with their owners. Manual declarations override catalogs and defaults, and saved changes require restart.
+- Models stays provider-neutral. No CPA-specific normalization seam or model-name rules may be restored. Manual declarations override catalogs and defaults, and saved changes require restart.
 - Before generated lib writes, detach each existing output entry with identical bytes to prevent Windows os error 1224. Keep detachment and manual declaration regressions through future refreshes.
 
 Do not collapse these owners into one plugin during conflict resolution. Do not
@@ -522,3 +536,16 @@ regression and point it at the new implementation.
 
 打包入口为 `win-desktop/npm run dist:win`；只有完整回归和运行时闭包验证均通过后，
 才能报告本地安装包构建完成。
+
+## Harness 0.2.1 / AgentTeams 0.1.24 refresh
+
+- Fixed Harness 0.2.1-rc.2 at 687f282e8625c6b8d11ff58211a90524be2e4317;
+  AgentTeams 0.1.24-rc.1 at 33f29cd0ebebcd23b26877b224cd1c3406671034.
+- Upstream startActivation/cancellation/setup restoration run through the single
+  durable-session gateway. New native subagent returns activation immediately;
+  no retired run_in_background field. Cold captain resume uses resolveAgent;
+  create now mints a new conversation instead of restoring used sessions.
+- Keep frozen routing/tool restrictions, strict V2, quality gates, ordered status
+  edges and Windows file queues. See docs/UPSTREAM_MAINTENANCE.md for classification.
+- Official experimental profile packages required by the CLI may be installed in
+  the pinned closure, but must never be auto-mounted by the desktop Web profile.
